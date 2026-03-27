@@ -299,6 +299,11 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // ─── Health check for deployment monitoring ──────────────────────
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
 
   // ─── Client Registry Endpoints ─────────────────────────────────
   
