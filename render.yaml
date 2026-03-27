@@ -6,11 +6,7 @@ services:
     region: ohio
     dockerContext: .
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/health # Check if this path exists in routes.ts
-    disk:
-      name: adpilot-data
-      mountPath: /app/ads_agent/data
-      sizeGB: 1
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 10000
