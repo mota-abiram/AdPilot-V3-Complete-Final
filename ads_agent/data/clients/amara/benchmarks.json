@@ -1,0 +1,21 @@
+{
+  "budget": 200000,
+  "leads": 278,
+  "cpl": 720,
+  "ctr_min": 0.7,
+  "cpm_max": 300,
+  "cpsv_low": 18000,
+  "cpsv_high": 20000,
+  "svs_low": 10,
+  "svs_high": 12,
+  "tsr_min": 5.0,
+  "vhr_min": 25.0,
+  "frequency_max": 2.5,
+  "cpc_max": 50,
+  "auto_pause_cpl_threshold_pct": 30,
+  "auto_pause_zero_leads_impressions": 8000,
+  "target_locations": ["Hyderabad", "Secunderabad"],
+  "svs_mtd": 3,
+  "closures_mtd": 1,
+  "updated_at": "2026-03-18T12:15:00.000Z"
+}

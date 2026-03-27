@@ -1,0 +1,49 @@
+{
+  "runs": [
+    {
+      "date": "2026-03-27",
+      "cadence": "multi_cadence",
+      "total_leads": 86,
+      "avg_cpl": 645.5425581395349,
+      "overall_ctr": 0.6391405422392604
+    }
+  ],
+  "patterns": [
+    {
+      "date": "2026-03-27",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 6.9% vs bottom: 5.0%. Top video VHR: 21.4% vs bottom: 20.2%. Strong hooks = lower CPL.",
+        "High-CTR ads (>0.7%) have 19% lower CPL (\u20b91119 vs \u20b91382). Investing in CTR improvement directly reduces CPL."
+      ]
+    }
+  ],
+  "fatigue_timelines": {},
+  "audience_saturation": {},
+  "campaign_cpl_history": {
+    "120231984866140466": [
+      {
+        "date": "2026-03-27",
+        "cpl": 562.363670886076,
+        "leads": 79,
+        "spend": 44426.73
+      }
+    ],
+    "120242148702000466": [
+      {
+        "date": "2026-03-27",
+        "cpl": 1371.4233333333334,
+        "leads": 6,
+        "spend": 8228.54
+      }
+    ],
+    "120240639389720466": [
+      {
+        "date": "2026-03-27",
+        "cpl": 2861.3900000000003,
+        "leads": 1,
+        "spend": 2861.3900000000003
+      }
+    ]
+  }
+}
