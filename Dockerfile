@@ -5,7 +5,9 @@ FROM node:20-slim
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-dev \
     python3-venv \
+    build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -17,7 +19,8 @@ COPY . .
 
 # Install necessary Python libraries (for Meta and Google Ads)
 # Note: google-ads library can be large, consider using a lighter alternative or narrowing dependencies.
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install --no-cache-dir \
     facebook-business \
     google-ads \
     requests \
