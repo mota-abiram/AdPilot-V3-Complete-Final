@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: adpilot-v3
+    env: docker
+    plan: free # Change to 'starter' or higher for production use
+    region: ohio
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health # Check if this path exists in routes.ts
+    disk:
+      name: adpilot-data
+      mountPath: /app/ads_agent/data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - fromGroup: adpilot-secrets
+
+envVarGroups:
+  - name: adpilot-secrets
+    envVars:
+      - key: META_ACCESS_TOKEN
+        sync: false
+      - key: META_AD_ACCOUNT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_DEVELOPER_TOKEN
+        sync: false
+      - key: GOOGLE_MCC_ID
+        sync: false
+      - key: GOOGLE_CUSTOMER_ID
+        sync: false
