@@ -24,7 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronRight,
-  DollarSign,
+  IndianRupee,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -312,7 +312,7 @@ export default function GoogleBiddingPage() {
       <div className="p-6 space-y-4 max-w-[1800px]">
         <div>
           <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+            <IndianRupee className="w-5 h-5" />
             Bidding Analysis
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
@@ -364,7 +364,7 @@ export default function GoogleBiddingPage() {
       {/* Header */}
       <div>
         <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <DollarSign className="w-5 h-5" />
+          <IndianRupee className="w-5 h-5" />
           Bidding Analysis
         </h1>
         <p className="text-xs text-muted-foreground mt-1">

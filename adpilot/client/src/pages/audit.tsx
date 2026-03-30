@@ -26,7 +26,7 @@ import {
   Zap,
   BarChart3,
   Users,
-  DollarSign,
+  IndianRupee,
   Palette,
   Radio,
   Search,
@@ -205,7 +205,7 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
       {
         id: "daily-spend-vs-plan",
         sopText: "Spend vs plan (±20%) → adjust budgets",
-        icon: DollarSign,
+        icon: IndianRupee,
         getData: (data) => {
           const { actual, plan, pct } = getSpendVsPlan(data);
           const status: CheckStatus = Math.abs(pct) > 20 ? "fail" : Math.abs(pct) > 10 ? "warning" : "pass";
@@ -654,7 +654,7 @@ const GOOGLE_DAILY_CHECKLIST: ChecklistSection[] = [
       {
         id: "g-daily-spend-vs-plan",
         sopText: "Spend vs plan (±20%) → adjust budgets if off-track",
-        icon: DollarSign,
+        icon: IndianRupee,
         getData: (data) => {
           const { actual, plan, pct } = getGoogleSpendVsPlan(data);
           const status: CheckStatus = Math.abs(pct) > 20 ? "fail" : Math.abs(pct) > 10 ? "warning" : "pass";
@@ -778,12 +778,12 @@ const GOOGLE_DAILY_CHECKLIST: ChecklistSection[] = [
 const GOOGLE_WEEKLY_CHECKLIST: ChecklistSection[] = [
   {
     title: "Bid Review",
-    icon: DollarSign,
+    icon: IndianRupee,
     items: [
       {
         id: "g-weekly-bid-review",
         sopText: "Max CPC cap = Target CPA × Observed CVR per ad group. Flag ad groups exceeding cap",
-        icon: DollarSign,
+        icon: IndianRupee,
         getData: (data) => {
           const campaigns = data?.campaigns || [];
           const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 850;
@@ -1006,12 +1006,12 @@ const GOOGLE_MONTHLY_CHECKLIST: ChecklistSection[] = [
   },
   {
     title: "Bidding Mode Review",
-    icon: DollarSign,
+    icon: IndianRupee,
     items: [
       {
         id: "g-monthly-bidding",
         sopText: "If CPL stable and volume ≥30-50 conversions/30d → test tCPA. Seed at current CPA minus 20%",
-        icon: DollarSign,
+        icon: IndianRupee,
         getData: (data) => {
           const ap = data?.account_pulse || {};
           const totalConv = ap.total_leads_30d ?? ap.total_leads ?? 0;

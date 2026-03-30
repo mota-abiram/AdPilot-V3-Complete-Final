@@ -26,7 +26,7 @@ import {
   Info,
   ChevronDown,
   ChevronRight,
-  DollarSign,
+  IndianRupee,
   MousePointerClick,
   Eye,
   MapPin,

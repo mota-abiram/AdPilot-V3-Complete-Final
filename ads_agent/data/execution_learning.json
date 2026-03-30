@@ -1,0 +1,21 @@
+[
+  {
+    "executionId": "mncv4e5t4fcxe4",
+    "entityId": "120231984866140466",
+    "entityName": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+    "entityType": "campaign",
+    "action": "UNPAUSE_CAMPAIGN",
+    "executedAt": "2026-03-30T07:24:31.025Z",
+    "reason": "Manual activation from Campaigns page",
+    "strategicCall": "was paused for test case",
+    "beforeMetrics": {
+      "spend": 44426.73,
+      "leads": 79,
+      "cpl": 562.363670886076,
+      "ctr": 0.692222,
+      "impressions": 395506
+    },
+    "outcome": "PENDING",
+    "daysElapsed": 0
+  }
+]

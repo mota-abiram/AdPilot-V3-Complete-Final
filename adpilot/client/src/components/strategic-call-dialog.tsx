@@ -18,7 +18,7 @@ import {
   Pause,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  IndianRupee,
   Play,
   Zap,
   Target,
@@ -65,7 +65,7 @@ function getActionDisplay(actionType: string): {
   if (actionType.includes("SCALE_BUDGET_DOWN"))
     return { label: actionType.replace(/_/g, " "), icon: TrendingDown, color: "text-amber-400", bgColor: "bg-amber-500/10" };
   if (actionType.includes("SET_BUDGET") || actionType.includes("SET_CAMPAIGN_BUDGET"))
-    return { label: "SET BUDGET", icon: DollarSign, color: "text-purple-400", bgColor: "bg-purple-500/10" };
+    return { label: "SET BUDGET", icon: IndianRupee, color: "text-purple-400", bgColor: "bg-purple-500/10" };
   return { label: actionType.replace(/_/g, " "), icon: Zap, color: "text-primary", bgColor: "bg-primary/10" };
 }
 

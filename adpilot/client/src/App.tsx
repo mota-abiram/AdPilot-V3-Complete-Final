@@ -10,6 +10,8 @@ import { ThemeProvider, useTheme } from "@/components/theme-provider";
 import { ClientProvider, useClient } from "@/lib/client-context";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { CommandTerminal, CommandTerminalToggle } from "@/components/command-terminal";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import CampaignsPage from "@/pages/campaigns";
@@ -79,6 +81,7 @@ function AppRouter() {
 function AppLayout() {
   useLiveUpdates();
   const { analysisData, activeClient, activePlatform, activePlatformInfo, activeCadence } = useClient();
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   const lastSynced = analysisData?.generated_at ? timeAgo(analysisData.generated_at) : undefined;
 
@@ -116,6 +119,7 @@ function AppLayout() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <CommandTerminalToggle onClick={() => setTerminalOpen((o) => !o)} isOpen={terminalOpen} />
               <ThemeToggle />
             </div>
           </header>
@@ -127,6 +131,7 @@ function AppLayout() {
           </main>
         </div>
       </div>
+      <CommandTerminal isOpen={terminalOpen} onClose={() => setTerminalOpen(false)} />
     </SidebarProvider>
   );
 }

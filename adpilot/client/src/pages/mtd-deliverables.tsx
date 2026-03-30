@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   TrendingUp,
   Users,
-  DollarSign,
+  IndianRupee,
   BarChart3,
   FileText,
   Clock,
@@ -554,7 +554,7 @@ export default function MtdDeliverablesPage() {
                 {/* Quality Lead Count */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+                    <IndianRupee className="w-3.5 h-3.5 text-amber-400" />
                     Quality Lead Count
                     <Badge variant="secondary" className="text-[9px]">Optional</Badge>
                   </label>

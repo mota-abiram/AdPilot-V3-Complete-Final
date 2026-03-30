@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import {
-  DollarSign,
+  IndianRupee,
   Users,
   Target,
   MousePointerClick,
@@ -653,7 +653,7 @@ export default function DashboardPage() {
           value={formatINR(ap.total_spend_30d, 0)}
           trend={ap.spend_trend}
           trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
-          icon={DollarSign}
+          icon={IndianRupee}
           subtitle="vs prior"
           status={verifyData ? (
             verifyData.verified
@@ -784,11 +784,11 @@ export default function DashboardPage() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-2xl font-bold tabular-nums" style={{ color: healthScoreColor }}>{accountHealthScore}</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
+                <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: healthScoreColor }}>{accountHealthScore}</p>
               </div>
             </div>
-            <p className="text-[9px] text-muted-foreground mt-1">Weighted composite score</p>
+            <p className="text-[10px] text-muted-foreground mt-2">Weighted composite score</p>
           </CardContent>
         </Card>
         <Card className="lg:col-span-2 h-full flex flex-col">
@@ -804,10 +804,12 @@ export default function DashboardPage() {
               ]).map((item) => (
                 <div key={item.label} className="text-center">
                   <p className="text-[9px] text-muted-foreground uppercase">{item.label} ({item.weight})</p>
-                  <div className="w-full h-1.5 rounded-full bg-muted/50 mt-1">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${item.score}%`, backgroundColor: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }} />
+                  <div className="w-full h-1.5 rounded-full bg-muted/50 mt-1.5">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(item.score, 100)}%`, backgroundColor: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }} />
                   </div>
-                  <p className="text-xs font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>{item.score}</p>
+                  <p className="text-xs font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>
+                    {Math.round(item.score)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -860,12 +862,12 @@ export default function DashboardPage() {
                   <Pie
                     data={funnelData}
                     cx="50%"
-                    cy="45%"
+                    cy="50%"
                     innerRadius={50}
                     outerRadius={75}
                     dataKey="value"
                     paddingAngle={2}
-                    label={({ name, value }: any) => `${name}: ${value}%`}
+                    label={false}
                   >
                     {funnelData.map((entry) => (
                       <Cell
@@ -1419,7 +1421,7 @@ export default function DashboardPage() {
             )}
             {budgetEfficiencyPct > 0 && (
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
-                <DollarSign className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <IndianRupee className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span className="text-[11px] text-foreground leading-relaxed">
                   Budget efficiency: <strong className={budgetEfficiencyPct > 40 ? "text-red-400" : "text-amber-400"}>{budgetEfficiencyPct}%</strong> of spend going to ads with CPL &gt; target (₹{Math.round(targetCpl)})
                 </span>

@@ -32,6 +32,7 @@ import {
   getSchedulerStatus,
   triggerManualRun,
 } from "./scheduler";
+import { handleAICommand } from "./ai-command";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
 // The registry is now persisted to disk so clients added via the UI survive restarts.
@@ -2157,6 +2158,60 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Command parsing failed" });
+    }
+  });
+
+  // ─── AI Command Terminal ──────────────────────────────────────────
+  // POST /api/ai/command
+  // Accepts a natural language command, runs it through Claude, executes actions
+  app.post("/api/ai/command", async (req, res) => {
+    try {
+      const { command, clientId, platform } = req.body as {
+        command: string;
+        clientId: string;
+        platform: "meta" | "google" | "all";
+      };
+
+      if (!command?.trim()) {
+        return res.status(400).json({ error: "command is required" });
+      }
+      if (!clientId) {
+        return res.status(400).json({ error: "clientId is required" });
+      }
+
+      // Load client config and analysis data
+      const registry = loadRegistry();
+      const client = registry.find((c) => c.id === clientId);
+      if (!client) {
+        return res.status(404).json({ error: `Client "${clientId}" not found` });
+      }
+
+      const activePlatform = platform === "all" ? "meta" : platform;
+      const platformConfig = client.platforms[activePlatform];
+      let analysisData: any = {};
+
+      if (platformConfig?.dataPath && fs.existsSync(platformConfig.dataPath)) {
+        try {
+          analysisData = JSON.parse(fs.readFileSync(platformConfig.dataPath, "utf-8"));
+        } catch {
+          // analysis data unavailable — Claude will work with empty context
+        }
+      }
+
+      const clientTargets = client.targets?.[activePlatform] || client.targets?.meta;
+
+      const result = await handleAICommand({
+        command: command.trim(),
+        clientId,
+        platform: platform || "meta",
+        analysisData,
+        clientTargets,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[AI Command Route] Error:", err);
+      res.status(500).json({ error: err.message || "AI command failed" });
     }
   });
 

@@ -22,7 +22,7 @@ import {
   BarChart3,
   Clock,
   AlertTriangle,
-  DollarSign,
+  IndianRupee,
   Trophy,
   ThumbsDown,
   MapPin,
@@ -539,7 +539,7 @@ function GoogleBreakdowns() {
         <Card className="bg-[#1a1a2e]/60 border-gray-800">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="w-3.5 h-3.5 text-[#F0BC00]" />
+              <IndianRupee className="w-3.5 h-3.5 text-[#F0BC00]" />
               <span className="text-[10px] text-gray-400 uppercase tracking-wider">Total Cost</span>
             </div>
             <p className="text-sm font-semibold text-white tabular-nums">{formatINR(totalCost, 0)}</p>
@@ -933,7 +933,7 @@ function MetaBreakdowns({ apiBase, analysisData, isLoadingAnalysis, activeCadenc
             <Card>
               <CardContent className="p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="w-3.5 h-3.5 text-primary" />
+                  <IndianRupee className="w-3.5 h-3.5 text-primary" />
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Spend</span>
                 </div>
                 <p className="text-sm font-semibold tabular-nums">{formatINR(totalSpend, 0)}</p>
