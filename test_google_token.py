@@ -3,9 +3,13 @@ import json
 import os
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
-client_id = "YOUR_GOOGLE_CLIENT_ID"
-client_secret = "YOUR_GOOGLE_CLIENT_SECRET"
-refresh_token = "YOUR_GOOGLE_REFRESH_TOKEN"
+client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+refresh_token = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
+
+if not all([client_id, client_secret, refresh_token]):
+    print("ERROR: Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN env vars first.")
+    exit(1)
 
 payload = {
     "client_id": client_id,

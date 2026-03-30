@@ -82,11 +82,22 @@ DEFAULT_FIELDS = {
 
 
 def _load_credentials():
-    """Load Google Ads API credentials from file."""
+    """Load Google Ads API credentials from env vars (preferred) or file fallback."""
+    # Prefer environment variables (for production / Render deployment)
+    if os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET"):
+        return {
+            "client_id": os.environ["GOOGLE_CLIENT_ID"],
+            "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
+            "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN", ""),
+            "developer_token": os.environ.get("GOOGLE_DEVELOPER_TOKEN", ""),
+            "login_customer_id": os.environ.get("GOOGLE_MCC_ID", ""),
+            "default_client_id": os.environ.get("GOOGLE_CUSTOMER_ID", ""),
+        }
+    # Fallback to credentials JSON file (for local development)
     if not os.path.exists(CREDS_FILE):
         raise FileNotFoundError(
-            f"Google Ads credentials not found at {CREDS_FILE}. "
-            "Run the OAuth setup flow first."
+            f"Google Ads credentials not found. Set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET "
+            f"env vars or create {CREDS_FILE}."
         )
     with open(CREDS_FILE) as f:
         return json.load(f)

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Credentials & secrets
+google_ads_credentials.json
+.google_ads_token_cache.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+server/public/
+
+# Logs
+*.log
+
+# Archives
+*.tar.gz
