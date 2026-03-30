@@ -52,8 +52,12 @@ async function buildAll() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
+    // import.meta.dirname is ESM-only; map it to __dirname for CJS output.
+    // import.meta.filename is ESM-only; map it to __filename for CJS output.
     define: {
       "process.env.NODE_ENV": '"production"',
+      "import.meta.dirname": "__dirname",
+      "import.meta.filename": "__filename",
     },
     minify: true,
     external: externals,
