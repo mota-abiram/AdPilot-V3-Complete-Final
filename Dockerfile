@@ -8,31 +8,34 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     python3-venv \
     build-essential \
+    libffi-dev \
+    libssl-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Set Workspace
-WORKDIR /app
+# 2. Create Python virtual environment (required for Debian Bookworm / PEP 668)
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# 3. Copy root files and setup Python
-COPY . .
-
-# Install necessary Python libraries (for Meta and Google Ads)
-# Note: google-ads library can be large, consider using a lighter alternative or narrowing dependencies.
-RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir \
+# 3. Install Python dependencies inside the venv
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --prefer-binary \
     facebook-business \
     google-ads \
     requests \
     python-dotenv \
     pandas
 
-# 4. Build the AdPilot Dashboard (Node.js)
+# 4. Set Workspace & copy project files
+WORKDIR /app
+COPY . .
+
+# 5. Build the AdPilot Dashboard (Node.js)
 WORKDIR /app/adpilot
 RUN npm install
 RUN npm run build
 
-# 5. Environment & Permissions
+# 6. Environment & Permissions
 # Create persistence layer for data JSONs
 RUN mkdir -p /app/ads_agent/data && chmod -R 777 /app/ads_agent/data
 
