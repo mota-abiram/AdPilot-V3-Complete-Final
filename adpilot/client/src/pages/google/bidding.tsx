@@ -558,6 +558,138 @@ export default function GoogleBiddingPage() {
         )}
       </div>
 
+      {/* GB-06: Auction Position Analysis — IS metrics per campaign */}
+      {(() => {
+        const campaigns = (data as any)?.campaigns || [];
+        const searchCampaigns = campaigns.filter((c: any) =>
+          c.channel_type === "SEARCH" || c.campaign_type === "search" || c.campaign_type === "branded" || c.campaign_type === "location"
+        );
+        if (searchCampaigns.length === 0) return null;
+        return (
+          <div data-testid="section-auction-insights">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold">Auction Position Analysis</h2>
+              <span className="text-[10px] text-muted-foreground">Impression Share & Position metrics per campaign</span>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {searchCampaigns.map((c: any, idx: number) => {
+                const isa = c.impression_share_analysis || {};
+                const is = c.search_impression_share ?? isa.search_impression_share;
+                const absTop = c.absolute_top_is ?? isa.absolute_top_is;
+                const topIs = c.top_is ?? isa.top_is;
+                const clickShare = c.click_share ?? isa.click_share;
+                const exactIs = c.exact_match_is ?? isa.exact_match_is;
+                const lostRank = c.search_rank_lost_is ?? isa.search_rank_lost_is;
+                const lostBudget = c.search_budget_lost_is ?? isa.search_budget_lost_is;
+                const actions: string[] = isa.actions || [];
+
+                const isTarget = isa.is_target ?? 70;
+                const isStatus = isa.is_status ?? (is >= isTarget ? "healthy" : is >= isTarget * 0.85 ? "warning" : "critical");
+                const statusColor = isStatus === "healthy" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                  : isStatus === "warning" ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                  : "text-red-400 bg-red-500/10 border-red-500/30";
+
+                return (
+                  <Card key={idx} data-testid={`card-auction-${idx}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">{truncate(c.name, 50)}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground capitalize">{c.bidding_strategy?.replace(/_/g, " ") || "Manual CPC"}</span>
+                            {c.campaign_type && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0">{c.campaign_type}</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5 shrink-0 border", statusColor)}>
+                          {isStatus === "healthy" ? "Healthy" : isStatus === "warning" ? "Monitor" : "Action Needed"}
+                        </Badge>
+                      </div>
+
+                      {/* IS Metrics Grid */}
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-3">
+                        {[
+                          { label: "Search IS", value: is, suffix: "%", target: isTarget, good: (v: number) => v >= isTarget },
+                          { label: "Abs Top IS", value: absTop, suffix: "%", target: 50, good: (v: number) => v >= 50 },
+                          { label: "Top IS", value: topIs, suffix: "%", target: 60, good: (v: number) => v >= 60 },
+                          { label: "Click Share", value: clickShare, suffix: "%", target: 60, good: (v: number) => v >= 60 },
+                          { label: "Exact IS", value: exactIs, suffix: "%", target: 75, good: (v: number) => v >= 75 },
+                          { label: "Lost (Rank)", value: lostRank, suffix: "%", target: 15, good: (v: number) => v <= 15, inverse: true },
+                        ].map((metric) => {
+                          if (metric.value == null) return null;
+                          const isGood = metric.good(metric.value);
+                          const color = metric.inverse
+                            ? (metric.value > 25 ? "text-red-400" : metric.value > 15 ? "text-amber-400" : "text-emerald-400")
+                            : (isGood ? "text-emerald-400" : metric.value >= metric.target * 0.85 ? "text-amber-400" : "text-red-400");
+                          return (
+                            <div key={metric.label}>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{metric.label}</p>
+                              <p className={cn("text-sm font-bold tabular-nums mt-0.5", color)}>
+                                {metric.value.toFixed(1)}{metric.suffix}
+                              </p>
+                              {/* Mini bar */}
+                              <div className="w-full h-1 bg-muted/40 rounded-full mt-1">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${Math.min(metric.inverse ? (100 - metric.value) : metric.value, 100)}%`,
+                                    backgroundColor: color.replace("text-", "").includes("emerald") ? "hsl(142, 70%, 45%)" : color.includes("amber") ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)"
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* IS bar visualisation */}
+                      {is != null && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Search Impression Share</span>
+                            <span className="tabular-nums">{is.toFixed(1)}% / {isTarget}% target</span>
+                          </div>
+                          <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
+                            <div className="h-full flex">
+                              <div className="h-full rounded-l-full" style={{ width: `${Math.min(is, 100)}%`, backgroundColor: is >= isTarget ? "hsl(142, 70%, 45%)" : "hsl(38, 92%, 50%)" }} />
+                              {lostRank != null && lostRank > 0 && (
+                                <div className="h-full" style={{ width: `${Math.min(lostRank, 100 - is)}%`, backgroundColor: "hsl(0, 72%, 55%)" }} title={`Lost (Rank): ${lostRank.toFixed(1)}%`} />
+                              )}
+                              {lostBudget != null && lostBudget > 0 && (
+                                <div className="h-full" style={{ width: `${Math.min(lostBudget, 100 - is - (lostRank || 0))}%`, backgroundColor: "hsl(38, 92%, 50%)" }} title={`Lost (Budget): ${lostBudget.toFixed(1)}%`} />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-emerald-500 inline-block" />Won</span>
+                            {lostRank != null && lostRank > 0 && <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-red-500 inline-block" />Lost Rank</span>}
+                            {lostBudget != null && lostBudget > 0 && <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-amber-500 inline-block" />Lost Budget</span>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommended actions */}
+                      {actions.length > 0 && (
+                        <div className="space-y-1">
+                          {actions.slice(0, 2).map((action: string, ai: number) => (
+                            <div key={ai} className="flex items-start gap-1.5 text-[11px] text-amber-400/80 bg-amber-500/5 rounded px-2 py-1.5 border border-amber-500/20">
+                              <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                              {action}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* CPA Formula Explainer */}
       <Card className="border-primary/20" data-testid="card-formula">
         <CardContent className="p-4">

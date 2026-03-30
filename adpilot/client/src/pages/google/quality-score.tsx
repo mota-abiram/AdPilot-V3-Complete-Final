@@ -21,9 +21,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowUpDown, ChevronDown, ChevronUp, Search, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Search, AlertTriangle, CheckCircle, XCircle, BarChart2 } from "lucide-react";
 import { formatINR, formatPct, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -332,6 +342,90 @@ export default function GoogleQualityScorePage() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* GQS-03: QS Distribution Chart — score 1–10 breakdown from keyword data */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs font-medium text-foreground flex items-center gap-1.5 mb-3">
+              <BarChart2 className="w-3.5 h-3.5 text-primary" />
+              QS Score Distribution
+            </p>
+            {(() => {
+              // Build distribution from keyword data (score 1–10)
+              const dist = Array.from({ length: 10 }, (_, i) => {
+                const score = i + 1;
+                const count = filteredKeywords.filter((k) => Math.round(k.quality_score) === score).length;
+                return { score: String(score), count };
+              });
+              return (
+                <div style={{ height: 160 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dist} barCategoryGap="20%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" vertical={false} />
+                      <XAxis dataKey="score" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} axisLine={false} tickLine={false} allowDecimals={false} width={24} />
+                      <RechartsTooltip
+                        contentStyle={{ background: "hsl(260, 12%, 10%)", border: "1px solid hsl(260, 12%, 18%)", borderRadius: 6, fontSize: 11 }}
+                        formatter={(v: any) => [`${v} keywords`, "Count"]}
+                      />
+                      <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                        {dist.map((entry) => {
+                          const s = Number(entry.score);
+                          const fill = s >= 8 ? "hsl(142, 70%, 45%)" : s >= 6 ? "hsl(47, 100%, 47%)" : s >= 4 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
+                          return <Cell key={entry.score} fill={fill} />;
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
+            <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />8–10 Excellent</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />6–7 Good</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />4–5 Average</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500 inline-block" />1–3 Poor</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Per-campaign QS breakdown */}
+        {qsData.per_campaign && qsData.per_campaign.length > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-foreground mb-3">QS by Campaign</p>
+              <div className="space-y-2.5">
+                {qsData.per_campaign.map((c: QsCampaignSummary, i: number) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11px] text-foreground truncate max-w-[180px]" title={c.campaign_name}>{truncate(c.campaign_name, 28)}</span>
+                      <span className={cn("text-xs font-bold tabular-nums ml-2 shrink-0",
+                        c.avg_qs >= 7 ? "text-emerald-400" : c.avg_qs >= 5 ? "text-amber-400" : "text-red-400"
+                      )}>
+                        {c.avg_qs.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-muted/40">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${(c.avg_qs / 10) * 100}%`,
+                          backgroundColor: c.avg_qs >= 7 ? "hsl(142, 70%, 45%)" : c.avg_qs >= 5 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)"
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                      <span>{c.keyword_count} kw</span>
+                      {c.below_4 > 0 && <span className="text-red-400">{c.below_4} critical</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Alerts */}

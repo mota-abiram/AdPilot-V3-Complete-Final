@@ -855,16 +855,17 @@ export default function DashboardPage() {
           <CardHeader className="pb-2 px-4 pt-4">
             <CardTitle className="text-sm font-medium">{isGoogle ? "Spend Split" : "Funnel Split"}</CardTitle>
           </CardHeader>
-          <CardContent className="px-2 pb-4">
-            <div className="h-56">
+          {/* GD-03: overflow fix — increased height so legend never gets clipped */}
+          <CardContent className="px-2 pb-2 flex-1">
+            <div className="w-full" style={{ height: 240 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
                     data={funnelData}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
+                    cy="45%"
+                    innerRadius={48}
+                    outerRadius={72}
                     dataKey="value"
                     paddingAngle={2}
                     label={false}
@@ -877,9 +878,11 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Legend
-                    wrapperStyle={{ fontSize: "11px" }}
+                    verticalAlign="bottom"
+                    height={36}
+                    wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                     formatter={(value: string) => (
-                      <span className="text-muted-foreground">{value}</span>
+                      <span style={{ color: "hsl(215, 15%, 55%)" }}>{value}</span>
                     )}
                   />
                   <RechartsTooltip content={<CustomTooltipContent />} />
