@@ -34,8 +34,8 @@ import {
 } from "./scheduler";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
-// Each client has an id, display name, platforms with their data paths,
-// and monthly targets per platform. Adding a new client = adding an entry here.
+// The registry is now persisted to disk so clients added via the UI survive restarts.
+// File: ads_agent/data/clients_registry.json
 
 interface PlatformConfig {
   enabled: boolean;
@@ -55,77 +55,109 @@ interface ClientConfig {
   id: string;
   name: string;
   shortName: string;
-  project: string; // project/property name
+  project: string;
   location: string;
   targetLocations?: string[];
   platforms: Record<string, PlatformConfig>;
-  targets?: Record<string, ClientTargets>; // keyed by platform
+  targets?: Record<string, ClientTargets>;
+  createdAt?: string;
+}
+
+// Per-client API credentials stored separately (never sent to the frontend)
+interface ClientCredentials {
+  clientId: string;
+  meta?: {
+    accessToken: string;
+    adAccountId: string;
+  };
+  google?: {
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+    developerToken: string;
+    mccId: string;
+    customerId: string;
+  };
+  updatedAt: string;
 }
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
+const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
+const CREDENTIALS_FILE = path.join(DATA_BASE, "clients_credentials.json");
 
-// Client registry — add new clients here
-const CLIENT_REGISTRY: ClientConfig[] = [
-  {
-    id: "amara",
-    name: "Deevyashakti Amara",
-    shortName: "Amara",
-    project: "Deevyashakti Amara",
-    location: "Hyderabad",
-    targetLocations: ["Hyderabad", "Secunderabad"],
-    platforms: {
-      meta: {
-        enabled: true,
-        dataPath: path.join(DATA_BASE, "clients/amara/meta/analysis.json"),
-        label: "Meta Ads",
-      },
-      google: {
-        enabled: true,
-        dataPath: path.join(DATA_BASE, "clients/amara/google/analysis.json"),
-        label: "Google Ads",
-      },
+// ─── Registry persistence helpers ─────────────────────────────────
+
+const DEFAULT_CLIENT: ClientConfig = {
+  id: "amara",
+  name: "Deevyashakti Amara",
+  shortName: "Amara",
+  project: "Deevyashakti Amara",
+  location: "Hyderabad",
+  targetLocations: ["Hyderabad", "Secunderabad"],
+  platforms: {
+    meta: {
+      enabled: true,
+      dataPath: path.join(DATA_BASE, "clients/amara/meta/analysis.json"),
+      label: "Meta Ads",
     },
-    targets: {
-      meta: {
-        budget: 200000,
-        leads: 278,
-        cpl: 720,
-        svs: { low: 10, high: 12 },
-        cpsv: { low: 18000, high: 20000 },
-      },
-      google: {
-        budget: 800000,
-        leads: 940,
-        cpl: 850,
-        svs: { low: 44, high: 44 },
-        cpsv: { low: 18000, high: 18000 },
-      },
+    google: {
+      enabled: true,
+      dataPath: path.join(DATA_BASE, "clients/amara/google/analysis.json"),
+      label: "Google Ads",
     },
   },
-  // Example: adding a new client later
-  // {
-  //   id: "sunrise-heights",
-  //   name: "Sunrise Heights",
-  //   shortName: "Sunrise",
-  //   project: "Sunrise Heights",
-  //   location: "Bangalore",
-  //   platforms: {
-  //     meta: {
-  //       enabled: true,
-  //       dataPath: path.join(DATA_BASE, "clients/sunrise-heights/meta/analysis.json"),
-  //       label: "Meta Ads",
-  //     },
-  //     google: {
-  //       enabled: false,
-  //       dataPath: path.join(DATA_BASE, "clients/sunrise-heights/google/analysis.json"),
-  //       label: "Google Ads",
-  //     },
-  //   },
-  // },
-];
+  targets: {
+    meta: { budget: 200000, leads: 278, cpl: 720, svs: { low: 10, high: 12 }, cpsv: { low: 18000, high: 20000 } },
+    google: { budget: 800000, leads: 940, cpl: 850, svs: { low: 44, high: 44 }, cpsv: { low: 18000, high: 18000 } },
+  },
+  createdAt: new Date().toISOString(),
+};
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_BASE)) fs.mkdirSync(DATA_BASE, { recursive: true });
+}
+
+function loadRegistry(): ClientConfig[] {
+  ensureDataDir();
+  if (!fs.existsSync(REGISTRY_FILE)) {
+    const initial = [DEFAULT_CLIENT];
+    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(initial, null, 2));
+    return initial;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(REGISTRY_FILE, "utf-8")) as ClientConfig[];
+  } catch {
+    return [DEFAULT_CLIENT];
+  }
+}
+
+function saveRegistry(registry: ClientConfig[]): void {
+  ensureDataDir();
+  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2));
+}
+
+function loadCredentials(): Record<string, ClientCredentials> {
+  ensureDataDir();
+  if (!fs.existsSync(CREDENTIALS_FILE)) return {};
+  try {
+    const arr = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8")) as ClientCredentials[];
+    return Object.fromEntries(arr.map((c) => [c.clientId, c]));
+  } catch {
+    return {};
+  }
+}
+
+function saveCredentials(store: Record<string, ClientCredentials>): void {
+  ensureDataDir();
+  fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(Object.values(store), null, 2));
+}
+
+// Live in-memory registry (loaded at startup, mutated by CRUD APIs)
+let CLIENT_REGISTRY: ClientConfig[] = loadRegistry();
 
 // Also support the legacy flat file path as a fallback for amara/meta
 const LEGACY_META_PATH = path.join(DATA_BASE, "meta_analysis_v2.json");
+
 
 // ─── Custom Instructions Storage ──────────────────────────────────
 const INSTRUCTIONS_FILE = path.join(DATA_BASE, "custom_instructions.json");
@@ -350,7 +382,165 @@ export async function registerRoutes(
     });
   });
 
+  // ─── Client CRUD (create / update / delete) ─────────────────────
+
+  // Generate a URL-safe ID from a name
+  function toClientId(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+
+  // POST /api/clients — create a new client
+  app.post("/api/clients", (req, res) => {
+    const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Client name is required" });
+    }
+    const id = toClientId(name.trim());
+    if (CLIENT_REGISTRY.find((c) => c.id === id)) {
+      return res.status(409).json({ error: `A client with id '${id}' already exists` });
+    }
+    const newClient: ClientConfig = {
+      id,
+      name: name.trim(),
+      shortName: (shortName || name).trim(),
+      project: (project || name).trim(),
+      location: (location || "").trim(),
+      targetLocations: Array.isArray(targetLocations)
+        ? targetLocations.filter(Boolean)
+        : (targetLocations || "").split(",").map((s: string) => s.trim()).filter(Boolean),
+      platforms: {
+        meta: {
+          enabled: enableMeta !== false,
+          dataPath: path.join(DATA_BASE, `clients/${id}/meta/analysis.json`),
+          label: "Meta Ads",
+        },
+        google: {
+          enabled: enableGoogle !== false,
+          dataPath: path.join(DATA_BASE, `clients/${id}/google/analysis.json`),
+          label: "Google Ads",
+        },
+      },
+      targets: {},
+      createdAt: new Date().toISOString(),
+    };
+    // Ensure data directories exist
+    fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/meta`), { recursive: true });
+    fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/google`), { recursive: true });
+
+    CLIENT_REGISTRY.push(newClient);
+    saveRegistry(CLIENT_REGISTRY);
+    res.status(201).json({ id, name: newClient.name, shortName: newClient.shortName });
+  });
+
+  // PUT /api/clients/:clientId — update name, location, targets, platform enable/disable
+  app.put("/api/clients/:clientId", (req, res) => {
+    const idx = CLIENT_REGISTRY.findIndex((c) => c.id === req.params.clientId);
+    if (idx === -1) return res.status(404).json({ error: "Client not found" });
+    const existing = CLIENT_REGISTRY[idx];
+    const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle, targets } = req.body;
+    CLIENT_REGISTRY[idx] = {
+      ...existing,
+      name: (name || existing.name).trim(),
+      shortName: (shortName || existing.shortName).trim(),
+      project: (project || existing.project).trim(),
+      location: (location !== undefined ? location : existing.location).trim(),
+      targetLocations: Array.isArray(targetLocations)
+        ? targetLocations.filter(Boolean)
+        : existing.targetLocations,
+      platforms: {
+        ...existing.platforms,
+        meta: { ...existing.platforms.meta, enabled: enableMeta !== undefined ? Boolean(enableMeta) : existing.platforms.meta?.enabled },
+        google: { ...existing.platforms.google, enabled: enableGoogle !== undefined ? Boolean(enableGoogle) : existing.platforms.google?.enabled },
+      },
+      targets: targets !== undefined ? targets : existing.targets,
+    };
+    saveRegistry(CLIENT_REGISTRY);
+    res.json({ success: true, id: req.params.clientId });
+  });
+
+  // DELETE /api/clients/:clientId — remove from registry (data files preserved)
+  app.delete("/api/clients/:clientId", (req, res) => {
+    const { clientId } = req.params;
+    if (clientId === "amara") {
+      return res.status(403).json({ error: "The default client cannot be deleted" });
+    }
+    const idx = CLIENT_REGISTRY.findIndex((c) => c.id === clientId);
+    if (idx === -1) return res.status(404).json({ error: "Client not found" });
+    CLIENT_REGISTRY.splice(idx, 1);
+    saveRegistry(CLIENT_REGISTRY);
+    // Also remove credentials
+    const creds = loadCredentials();
+    delete creds[clientId];
+    saveCredentials(creds);
+    res.json({ success: true });
+  });
+
+  // GET /api/clients/:clientId/credentials — return masked credentials (for display)
+  app.get("/api/clients/:clientId/credentials", (req, res) => {
+    const creds = loadCredentials();
+    const c = creds[req.params.clientId];
+    if (!c) return res.json({ hasMeta: false, hasGoogle: false });
+    // Mask secrets — only send whether they exist plus last 6 chars of token
+    const mask = (s?: string) => s ? `••••••${s.slice(-6)}` : "";
+    res.json({
+      hasMeta: !!c.meta?.accessToken,
+      hasGoogle: !!c.google?.clientId,
+      meta: c.meta ? {
+        accessToken: mask(c.meta.accessToken),
+        adAccountId: c.meta.adAccountId,
+      } : undefined,
+      google: c.google ? {
+        clientId: mask(c.google.clientId),
+        clientSecret: mask(c.google.clientSecret),
+        refreshToken: mask(c.google.refreshToken),
+        developerToken: mask(c.google.developerToken),
+        mccId: c.google.mccId,
+        customerId: c.google.customerId,
+      } : undefined,
+    });
+  });
+
+  // PUT /api/clients/:clientId/credentials — save/update credentials
+  app.put("/api/clients/:clientId/credentials", (req, res) => {
+    const { clientId } = req.params;
+    if (!CLIENT_REGISTRY.find((c) => c.id === clientId)) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    const { meta, google } = req.body;
+    const creds = loadCredentials();
+    const existing = creds[clientId] || { clientId, updatedAt: "" };
+
+    if (meta) {
+      const { accessToken, adAccountId } = meta;
+      if (!accessToken || !adAccountId) {
+        return res.status(400).json({ error: "Meta credentials require accessToken and adAccountId" });
+      }
+      existing.meta = { accessToken: accessToken.trim(), adAccountId: adAccountId.trim() };
+    }
+
+    if (google) {
+      const { clientId: gClientId, clientSecret, refreshToken, developerToken, mccId, customerId } = google;
+      if (!gClientId || !clientSecret || !refreshToken) {
+        return res.status(400).json({ error: "Google credentials require clientId, clientSecret, and refreshToken" });
+      }
+      existing.google = {
+        clientId: gClientId.trim(),
+        clientSecret: clientSecret.trim(),
+        refreshToken: refreshToken.trim(),
+        developerToken: (developerToken || "").trim(),
+        mccId: (mccId || "").trim(),
+        customerId: (customerId || "").trim(),
+      };
+    }
+
+    existing.updatedAt = new Date().toISOString();
+    creds[clientId] = existing;
+    saveCredentials(creds);
+    res.json({ success: true, updatedAt: existing.updatedAt });
+  });
+
   // ─── Analysis Data Endpoints (client + platform aware) ─────────
+
 
   // Full analysis data for a client/platform (optional ?cadence=twice_weekly|weekly|biweekly|monthly)
   app.get("/api/clients/:clientId/:platform/analysis", (req, res) => {

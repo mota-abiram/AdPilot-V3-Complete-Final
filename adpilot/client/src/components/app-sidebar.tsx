@@ -74,6 +74,7 @@ const trailingNavItems = [
   { title: "Recommendations", url: "/recommendations", icon: Lightbulb },
   { title: "Command Center", url: "/command-center", icon: Terminal },
   { title: "Exec Log", url: "/execution-log", icon: Clock },
+  { title: "Manage Clients", url: "/manage-clients", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
   { title: "Benchmarks", url: "/benchmarks", icon: SlidersHorizontal },
 ];

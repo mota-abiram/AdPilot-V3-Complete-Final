@@ -20,6 +20,7 @@ import SettingsPage from "@/pages/settings";
 import CommandCenterPage from "@/pages/command-center";
 import AdsetsPage from "@/pages/adsets";
 import ExecutionLogPage from "@/pages/execution-log";
+import ManageClientsPage from "@/pages/manage-clients";
 import BenchmarksPage from "@/pages/benchmarks";
 import BreakdownsPage from "@/pages/breakdowns";
 import GoogleQualityScorePage from "@/pages/google/quality-score";
@@ -60,6 +61,7 @@ function AppRouter() {
       <Route path="/command-center" component={CommandCenterPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/execution-log" component={ExecutionLogPage} />
+      <Route path="/manage-clients" component={ManageClientsPage} />
       <Route path="/benchmarks" component={BenchmarksPage} />
       <Route path="/breakdowns" component={BreakdownsPage} />
       <Route path="/google/quality-score" component={GoogleQualityScorePage} />
