@@ -159,6 +159,29 @@ let CLIENT_REGISTRY: ClientConfig[] = loadRegistry();
 // Also support the legacy flat file path as a fallback for amara/meta
 const LEGACY_META_PATH = path.join(DATA_BASE, "meta_analysis_v2.json");
 
+// Some deployments persist `clients_registry.json` with absolute, machine-specific
+// `dataPath` values (e.g. from a different laptop). Normalize those paths back
+// into this server's `DATA_BASE` so we can correctly compute `hasData`.
+function resolvePlatformDataPath(clientId: string, platform: string, platformConfig: PlatformConfig): string {
+  const configured = platformConfig.dataPath;
+
+  // If the configured path already exists on this machine, use it.
+  if (fs.existsSync(configured)) return configured;
+
+  // If the registry stores an absolute path containing "ads_agent/data/",
+  // map the suffix into our local DATA_BASE.
+  const normalized = configured.replace(/\\/g, "/");
+  const marker = "ads_agent/data/";
+  const markerIdx = normalized.indexOf(marker);
+  if (markerIdx !== -1) {
+    const relativeToAdsAgentData = normalized.slice(markerIdx + marker.length);
+    return path.join(DATA_BASE, relativeToAdsAgentData);
+  }
+
+  // Otherwise, fall back to the default expected location.
+  return path.join(DATA_BASE, `clients/${clientId}/${platform}/analysis.json`);
+}
+
 
 // ─── Custom Instructions Storage ──────────────────────────────────
 const INSTRUCTIONS_FILE = path.join(DATA_BASE, "custom_instructions.json");
@@ -250,7 +273,7 @@ function readAnalysisData(clientId: string, platform: string, cadence?: string):
     throw new Error(`Platform '${platform}' is not yet enabled for client '${clientId}'`);
   }
 
-  let dataPath = platformConfig.dataPath;
+  let dataPath = resolvePlatformDataPath(clientId, platform, platformConfig);
 
   // If cadence specified, try cadence-specific file first
   if (cadence) {
@@ -287,7 +310,7 @@ function listCadences(clientId: string, platform: string): string[] {
   if (!client) return [];
   const platformConfig = client.platforms[platform];
   if (!platformConfig) return [];
-  const dir = path.dirname(platformConfig.dataPath);
+  const dir = path.dirname(resolvePlatformDataPath(clientId, platform, platformConfig));
   if (!fs.existsSync(dir)) return [];
   const files = fs.readdirSync(dir);
   const cadences: string[] = [];
@@ -353,7 +376,9 @@ export async function registerRoutes(
         id: key,
         label: p.label,
         enabled: p.enabled,
-        hasData: fs.existsSync(p.dataPath) || (c.id === "amara" && key === "meta" && fs.existsSync(LEGACY_META_PATH)),
+        hasData:
+          fs.existsSync(resolvePlatformDataPath(c.id, key, p)) ||
+          (c.id === "amara" && key === "meta" && fs.existsSync(LEGACY_META_PATH)),
       })),
       targets: c.targets || {},
     }));
@@ -377,7 +402,9 @@ export async function registerRoutes(
         id: key,
         label: p.label,
         enabled: p.enabled,
-        hasData: fs.existsSync(p.dataPath) || (client.id === "amara" && key === "meta" && fs.existsSync(LEGACY_META_PATH)),
+        hasData:
+          fs.existsSync(resolvePlatformDataPath(client.id, key, p)) ||
+          (client.id === "amara" && key === "meta" && fs.existsSync(LEGACY_META_PATH)),
       })),
       targets: client.targets || {},
     });
@@ -2190,11 +2217,14 @@ export async function registerRoutes(
       const platformConfig = client.platforms[activePlatform];
       let analysisData: any = {};
 
-      if (platformConfig?.dataPath && fs.existsSync(platformConfig.dataPath)) {
-        try {
-          analysisData = JSON.parse(fs.readFileSync(platformConfig.dataPath, "utf-8"));
-        } catch {
-          // analysis data unavailable — Claude will work with empty context
+      if (platformConfig) {
+        const resolvedPath = resolvePlatformDataPath(clientId, activePlatform, platformConfig);
+        if (fs.existsSync(resolvedPath)) {
+          try {
+            analysisData = JSON.parse(fs.readFileSync(resolvedPath, "utf-8"));
+          } catch {
+            // analysis data unavailable — Claude will work with empty context
+          }
         }
       }
 

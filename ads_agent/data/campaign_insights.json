@@ -1,1193 +1,6 @@
 {
   "data": [
     {
-      "date_start": "2026-02-25",
-      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-      "campaign_id": "120231984866140466",
-      "impressions": "41970",
-      "clicks": "261",
-      "ctr": "0.621873",
-      "cpc": "31.930996",
-      "cpm": "198.570169",
-      "spend": "8333.99",
-      "actions": [
-        {
-          "action_type": "onsite_conversion.total_messaging_connection",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.lead",
-          "value": "1"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "15"
-        },
-        {
-          "action_type": "link_click",
-          "value": "172"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "2661"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "6"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "6"
-        },
-        {
-          "action_type": "comment",
-          "value": "1"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "231"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_first_reply",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_web_lead",
-          "value": "1"
-        },
-        {
-          "action_type": "post",
-          "value": "12"
-        },
-        {
-          "action_type": "onsite_conversion.post_save",
-          "value": "1"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "2661"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "22"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "15"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "195"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_save",
-          "value": "1"
-        },
-        {
-          "action_type": "lead",
-          "value": "15"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "15"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "15"
-        },
-        {
-          "action_type": "video_view",
-          "value": "2258"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "217"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "30"
-        },
-        {
-          "action_type": "offsite_conversion.custom.1139320057669992",
-          "value": "1"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "onsite_conversion.lead",
-          "value": "8333.99"
-        },
-        {
-          "action_type": "onsite_conversion.total_messaging_connection",
-          "value": "8333.99"
-        },
-        {
-          "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "277.799667"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "video_view",
-          "value": "3.690872"
-        },
-        {
-          "action_type": "link_click",
-          "value": "48.45343"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "36.077879"
-        },
-        {
-          "action_type": "onsite_web_lead",
-          "value": "8333.99"
-        },
-        {
-          "action_type": "lead",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "3.131902"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "1388.998333"
-        },
-        {
-          "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "555.599333"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "3.131902"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_first_reply",
-          "value": "8333.99"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "1388.998333"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "8333.99"
-        },
-        {
-          "action_type": "offsite_conversion.custom.1139320057669992",
-          "value": "8333.99"
-        }
-      ],
-      "frequency": "1.315921",
-      "reach": "31894",
-      "objective": "OUTCOME_LEADS",
-      "date_stop": "2026-02-25"
-    },
-    {
-      "date_start": "2026-02-25",
-      "campaign_name": "DM-18/02/2026-500-AL-MO-LED-(Lookalike)-CBO-DB-SL-LO-LC-HYD-SEC",
-      "campaign_id": "120240639389720466",
-      "impressions": "1922",
-      "clicks": "15",
-      "ctr": "0.780437",
-      "cpc": "179.338",
-      "cpm": "1399.620187",
-      "spend": "2690.07",
-      "actions": [
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "1"
-        },
-        {
-          "action_type": "link_click",
-          "value": "7"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "138"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "1"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "1"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "2"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "138"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "2"
-        },
-        {
-          "action_type": "lead",
-          "value": "1"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "1"
-        },
-        {
-          "action_type": "video_view",
-          "value": "129"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "2"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "3"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "896.69"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "video_view",
-          "value": "20.853256"
-        },
-        {
-          "action_type": "link_click",
-          "value": "384.295714"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "1345.035"
-        },
-        {
-          "action_type": "lead",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "19.493261"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "2690.07"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "19.493261"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "2690.07"
-        }
-      ],
-      "frequency": "1.512195",
-      "reach": "1271",
-      "objective": "OUTCOME_LEADS",
-      "date_stop": "2026-02-25"
-    },
-    {
-      "date_start": "2026-02-25",
-      "campaign_name": "DM_Awareness_When choosing a home, look beyond the broch",
-      "campaign_id": "120240877840920466",
-      "impressions": "9907",
-      "clicks": "49",
-      "ctr": "0.4946",
-      "cpc": "5.430612",
-      "cpm": "26.859796",
-      "spend": "266.1",
-      "actions": [
-        {
-          "action_type": "link_click",
-          "value": "38"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "4757"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "15"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "15"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "12"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "4757"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "11"
-        },
-        {
-          "action_type": "video_view",
-          "value": "4707"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "12"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "video_view",
-          "value": "0.056533"
-        },
-        {
-          "action_type": "link_click",
-          "value": "7.002632"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "22.175"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "0.055939"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "17.74"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "0.055939"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "17.74"
-        }
-      ],
-      "frequency": "1.094454",
-      "reach": "9052",
-      "objective": "OUTCOME_ENGAGEMENT",
-      "date_stop": "2026-02-25"
-    },
-    {
-      "date_start": "2026-02-26",
-      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-      "campaign_id": "120231984866140466",
-      "impressions": "50593",
-      "clicks": "275",
-      "ctr": "0.543553",
-      "cpc": "29.644582",
-      "cpm": "161.134149",
-      "spend": "8152.26",
-      "actions": [
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "10"
-        },
-        {
-          "action_type": "link_click",
-          "value": "174"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "3597"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "4"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "4"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "292"
-        },
-        {
-          "action_type": "post",
-          "value": "12"
-        },
-        {
-          "action_type": "onsite_conversion.post_save",
-          "value": "5"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "3597"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "25"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "10"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "250"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_save",
-          "value": "5"
-        },
-        {
-          "action_type": "lead",
-          "value": "10"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "10"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "10"
-        },
-        {
-          "action_type": "video_view",
-          "value": "3131"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "275"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "16"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "815.226"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "815.226"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "509.51625"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "815.226"
-        },
-        {
-          "action_type": "video_view",
-          "value": "2.603724"
-        },
-        {
-          "action_type": "link_click",
-          "value": "46.852069"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "815.226"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "27.918699"
-        },
-        {
-          "action_type": "lead",
-          "value": "815.226"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "2.266405"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "815.226"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "2038.065"
-        },
-        {
-          "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "815.226"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "2.266405"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "2038.065"
-        }
-      ],
-      "frequency": "1.433839",
-      "reach": "35285",
-      "objective": "OUTCOME_LEADS",
-      "date_stop": "2026-02-26"
-    },
-    {
-      "date_start": "2026-02-26",
-      "campaign_name": "DM-18/02/2026-500-AL-MO-LED-(Lookalike)-CBO-DB-SL-LO-LC-HYD-SEC",
-      "campaign_id": "120240639389720466",
-      "impressions": "2283",
-      "clicks": "30",
-      "ctr": "1.31406",
-      "cpc": "86.138",
-      "cpm": "1131.905388",
-      "spend": "2584.14",
-      "actions": [
-        {
-          "action_type": "onsite_conversion.total_messaging_connection",
-          "value": "1"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "3"
-        },
-        {
-          "action_type": "link_click",
-          "value": "18"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "235"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "1"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "1"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "4"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_first_reply",
-          "value": "1"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "235"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "1"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "3"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "3"
-        },
-        {
-          "action_type": "lead",
-          "value": "3"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "3"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "3"
-        },
-        {
-          "action_type": "video_view",
-          "value": "213"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "4"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "5"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "onsite_conversion.total_messaging_connection",
-          "value": "2584.14"
-        },
-        {
-          "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "861.38"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "861.38"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "516.828"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "861.38"
-        },
-        {
-          "action_type": "video_view",
-          "value": "12.132113"
-        },
-        {
-          "action_type": "link_click",
-          "value": "143.563333"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "861.38"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "646.035"
-        },
-        {
-          "action_type": "lead",
-          "value": "861.38"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "10.99634"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "861.38"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "2584.14"
-        },
-        {
-          "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "861.38"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "10.99634"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_first_reply",
-          "value": "2584.14"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "2584.14"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "2584.14"
-        }
-      ],
-      "frequency": "1.483431",
-      "reach": "1539",
-      "objective": "OUTCOME_LEADS",
-      "date_stop": "2026-02-26"
-    },
-    {
-      "date_start": "2026-02-26",
-      "campaign_name": "DM_Awareness_When choosing a home, look beyond the broch",
-      "campaign_id": "120240877840920466",
-      "impressions": "9342",
-      "clicks": "46",
-      "ctr": "0.4924",
-      "cpc": "5.932174",
-      "cpm": "29.210019",
-      "spend": "272.88",
-      "actions": [
-        {
-          "action_type": "link_click",
-          "value": "37"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "4431"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "10"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "10"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "9"
-        },
-        {
-          "action_type": "post",
-          "value": "1"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "4431"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "7"
-        },
-        {
-          "action_type": "video_view",
-          "value": "4385"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "8"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "video_view",
-          "value": "0.06223"
-        },
-        {
-          "action_type": "link_click",
-          "value": "7.375135"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "30.32"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "0.061584"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "27.288"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "0.061584"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "27.288"
-        }
-      ],
-      "frequency": "1.045668",
-      "reach": "8934",
-      "objective": "OUTCOME_ENGAGEMENT",
-      "date_stop": "2026-02-26"
-    },
-    {
-      "date_start": "2026-02-27",
-      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-      "campaign_id": "120231984866140466",
-      "impressions": "72853",
-      "clicks": "348",
-      "ctr": "0.477674",
-      "cpc": "22.195374",
-      "cpm": "106.021578",
-      "spend": "7723.99",
-      "actions": [
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "10"
-        },
-        {
-          "action_type": "link_click",
-          "value": "198"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "5325"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "3"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "3"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "562"
-        },
-        {
-          "action_type": "post",
-          "value": "22"
-        },
-        {
-          "action_type": "onsite_conversion.post_save",
-          "value": "1"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "5325"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "31"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "10"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "508"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_save",
-          "value": "1"
-        },
-        {
-          "action_type": "lead",
-          "value": "10"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "10"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "10"
-        },
-        {
-          "action_type": "video_view",
-          "value": "4565"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "539"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "27"
-        },
-        {
-          "action_type": "offsite_conversion.custom.1139320057669992",
-          "value": "3"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "772.399"
-        },
-        {
-          "action_type": "offsite_search_add_meta_leads",
-          "value": "772.399"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "286.073704"
-        },
-        {
-          "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "772.399"
-        },
-        {
-          "action_type": "video_view",
-          "value": "1.692002"
-        },
-        {
-          "action_type": "link_click",
-          "value": "39.010051"
-        },
-        {
-          "action_type": "onsite_conversion.lead_grouped",
-          "value": "772.399"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "13.743754"
-        },
-        {
-          "action_type": "lead",
-          "value": "772.399"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "1.450515"
-        },
-        {
-          "action_type": "offsite_content_view_add_meta_leads",
-          "value": "772.399"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "2574.663333"
-        },
-        {
-          "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "772.399"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "1.450515"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "2574.663333"
-        },
-        {
-          "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "7723.99"
-        },
-        {
-          "action_type": "offsite_conversion.custom.1139320057669992",
-          "value": "2574.663333"
-        }
-      ],
-      "frequency": "1.469225",
-      "reach": "49586",
-      "objective": "OUTCOME_LEADS",
-      "date_stop": "2026-02-27"
-    },
-    {
-      "date_start": "2026-02-27",
-      "campaign_name": "DM-18/02/2026-500-AL-MO-LED-(Lookalike)-CBO-DB-SL-LO-LC-HYD-SEC",
-      "campaign_id": "120240639389720466",
-      "impressions": "3293",
-      "clicks": "25",
-      "ctr": "0.759186",
-      "cpc": "107.1368",
-      "cpm": "813.36775",
-      "spend": "2678.42",
-      "actions": [
-        {
-          "action_type": "link_click",
-          "value": "14"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "293"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "10"
-        },
-        {
-          "action_type": "post",
-          "value": "4"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "293"
-        },
-        {
-          "action_type": "onsite_conversion.post_unlike",
-          "value": "1"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "5"
-        },
-        {
-          "action_type": "video_view",
-          "value": "269"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "6"
-        },
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "3"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "892.806667"
-        },
-        {
-          "action_type": "video_view",
-          "value": "9.956952"
-        },
-        {
-          "action_type": "link_click",
-          "value": "191.315714"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "267.842"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "9.141365"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "9.141365"
-        }
-      ],
-      "frequency": "1.384195",
-      "reach": "2379",
-      "objective": "OUTCOME_LEADS",
-      "date_stop": "2026-02-27"
-    },
-    {
-      "date_start": "2026-02-27",
-      "campaign_name": "DM_Awareness_When choosing a home, look beyond the broch",
-      "campaign_id": "120240877840920466",
-      "impressions": "3247",
-      "clicks": "10",
-      "ctr": "0.307977",
-      "cpc": "8.05",
-      "cpm": "24.792116",
-      "spend": "80.5",
-      "actions": [
-        {
-          "action_type": "link_click",
-          "value": "6"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "1380"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "1"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "1"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "5"
-        },
-        {
-          "action_type": "post",
-          "value": "1"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "1380"
-        },
-        {
-          "action_type": "onsite_conversion.post_net_like",
-          "value": "4"
-        },
-        {
-          "action_type": "video_view",
-          "value": "1369"
-        },
-        {
-          "action_type": "post_reaction",
-          "value": "4"
-        }
-      ],
-      "cost_per_action_type": [
-        {
-          "action_type": "video_view",
-          "value": "0.058802"
-        },
-        {
-          "action_type": "link_click",
-          "value": "13.416667"
-        },
-        {
-          "action_type": "post_interaction_gross",
-          "value": "16.1"
-        },
-        {
-          "action_type": "post_engagement",
-          "value": "0.058333"
-        },
-        {
-          "action_type": "landing_page_view",
-          "value": "80.5"
-        },
-        {
-          "action_type": "page_engagement",
-          "value": "0.058333"
-        },
-        {
-          "action_type": "omni_landing_page_view",
-          "value": "80.5"
-        }
-      ],
-      "frequency": "1.032104",
-      "reach": "3146",
-      "objective": "OUTCOME_ENGAGEMENT",
-      "date_stop": "2026-02-27"
-    },
-    {
       "date_start": "2026-02-28",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
@@ -4362,12 +3175,12 @@
       "date_start": "2026-03-09",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
-      "impressions": "33373",
+      "impressions": "33375",
       "clicks": "184",
-      "ctr": "0.551344",
-      "cpc": "20.582446",
-      "cpm": "113.480059",
-      "spend": "3787.17",
+      "ctr": "0.551311",
+      "cpc": "20.582554",
+      "cpm": "113.473858",
+      "spend": "3787.19",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -4453,66 +3266,66 @@
       "cost_per_action_type": [
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "315.5975"
+          "value": "315.599167"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "video_view",
-          "value": "1.562364"
+          "value": "1.562372"
         },
         {
           "action_type": "link_click",
-          "value": "33.814018"
+          "value": "33.814196"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "16.394675"
+          "value": "16.394762"
         },
         {
           "action_type": "lead",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "post_engagement",
-          "value": "1.368692"
+          "value": "1.368699"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "landing_page_view",
-          "value": "1893.585"
+          "value": "1893.595"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "946.7925"
+          "value": "946.7975"
         },
         {
           "action_type": "page_engagement",
-          "value": "1.368692"
+          "value": "1.368699"
         },
         {
           "action_type": "omni_landing_page_view",
-          "value": "1893.585"
+          "value": "1893.595"
         }
       ],
-      "frequency": "1.248569",
+      "frequency": "1.248644",
       "reach": "26729",
       "objective": "OUTCOME_LEADS",
       "date_stop": "2026-03-09"
@@ -10039,9 +8852,9 @@
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
       "impressions": "67930",
-      "clicks": "422",
-      "ctr": "0.621228",
-      "cpc": "13.841682",
+      "clicks": "423",
+      "ctr": "0.6227",
+      "cpc": "13.80896",
       "cpm": "85.98837",
       "spend": "5841.19",
       "actions": [
@@ -10384,12 +9197,12 @@
       "date_start": "2026-03-26",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
-      "impressions": "72262",
+      "impressions": "72278",
       "clicks": "407",
-      "ctr": "0.563228",
-      "cpc": "12.14656",
-      "cpm": "68.412859",
-      "spend": "4943.65",
+      "ctr": "0.563104",
+      "cpc": "12.150172",
+      "cpm": "68.418053",
+      "spend": "4945.12",
       "actions": [
         {
           "action_type": "onsite_conversion.total_messaging_connection",
@@ -10409,7 +9222,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "5639"
+          "value": "5641"
         },
         {
           "action_type": "landing_page_view",
@@ -10445,7 +9258,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "5639"
+          "value": "5641"
         },
         {
           "action_type": "onsite_conversion.post_unlike",
@@ -10481,7 +9294,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "4988"
+          "value": "4990"
         },
         {
           "action_type": "post_reaction",
@@ -10499,83 +9312,83 @@
       "cost_per_action_type": [
         {
           "action_type": "onsite_conversion.total_messaging_connection",
-          "value": "4943.65"
+          "value": "4945.12"
         },
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "549.294444"
+          "value": "549.457778"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "video_view",
-          "value": "0.991109"
+          "value": "0.991006"
         },
         {
           "action_type": "link_click",
-          "value": "17.407218"
+          "value": "17.412394"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "13.470436"
+          "value": "13.474441"
         },
         {
           "action_type": "lead",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "post_engagement",
-          "value": "0.876689"
+          "value": "0.876639"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "landing_page_view",
-          "value": "2471.825"
+          "value": "2472.56"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "617.95625"
+          "value": "618.14"
         },
         {
           "action_type": "page_engagement",
-          "value": "0.876689"
+          "value": "0.876639"
         },
         {
           "action_type": "onsite_conversion.messaging_first_reply",
-          "value": "4943.65"
+          "value": "4945.12"
         },
         {
           "action_type": "omni_landing_page_view",
-          "value": "2471.825"
+          "value": "2472.56"
         },
         {
           "action_type": "onsite_conversion.messaging_conversation_started_7d",
-          "value": "4943.65"
+          "value": "4945.12"
         },
         {
           "action_type": "offsite_conversion.custom.1139320057669992",
-          "value": "4943.65"
+          "value": "4945.12"
         }
       ],
-      "frequency": "1.443191",
-      "reach": "50071",
+      "frequency": "1.441552",
+      "reach": "50139",
       "objective": "OUTCOME_LEADS",
       "date_stop": "2026-03-26"
     },
@@ -10583,12 +9396,12 @@
       "date_start": "2026-03-26",
       "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
       "campaign_id": "120242148702000466",
-      "impressions": "18120",
+      "impressions": "18124",
       "clicks": "128",
-      "ctr": "0.706402",
-      "cpc": "8.696484",
-      "cpm": "61.432119",
-      "spend": "1113.15",
+      "ctr": "0.706246",
+      "cpc": "8.696797",
+      "cpm": "61.420768",
+      "spend": "1113.19",
       "actions": [
         {
           "action_type": "link_click",
@@ -10630,29 +9443,975 @@
       "cost_per_action_type": [
         {
           "action_type": "video_view",
-          "value": "20.613889"
+          "value": "20.61463"
         },
         {
           "action_type": "link_click",
-          "value": "9.764474"
+          "value": "9.764825"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "30.085135"
+          "value": "30.086216"
         },
         {
           "action_type": "post_engagement",
-          "value": "5.43"
+          "value": "5.430195"
         },
         {
           "action_type": "page_engagement",
-          "value": "5.43"
+          "value": "5.430195"
         }
       ],
-      "frequency": "1.563687",
+      "frequency": "1.564032",
       "reach": "11588",
       "objective": "OUTCOME_LEADS",
       "date_stop": "2026-03-26"
+    },
+    {
+      "date_start": "2026-03-27",
+      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+      "campaign_id": "120231984866140466",
+      "impressions": "58345",
+      "clicks": "370",
+      "ctr": "0.634159",
+      "cpc": "11.996297",
+      "cpm": "76.075585",
+      "spend": "4438.63",
+      "actions": [
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "6"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_block",
+          "value": "1"
+        },
+        {
+          "action_type": "link_click",
+          "value": "281"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "4509"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "comment",
+          "value": "1"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "259"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_user_depth_2_message_send",
+          "value": "1"
+        },
+        {
+          "action_type": "post",
+          "value": "20"
+        },
+        {
+          "action_type": "onsite_conversion.post_save",
+          "value": "2"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "4509"
+        },
+        {
+          "action_type": "onsite_conversion.post_unlike",
+          "value": "50"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "6"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_like",
+          "value": "186"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_save",
+          "value": "2"
+        },
+        {
+          "action_type": "lead",
+          "value": "6"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "6"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "6"
+        },
+        {
+          "action_type": "video_view",
+          "value": "3969"
+        },
+        {
+          "action_type": "post_reaction",
+          "value": "236"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "13"
+        }
+      ],
+      "cost_per_action_type": [
+        {
+          "action_type": "offsite_submit_application_add_meta_leads",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "341.433077"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "video_view",
+          "value": "1.118325"
+        },
+        {
+          "action_type": "link_click",
+          "value": "15.795836"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "17.137568"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_user_depth_2_message_send",
+          "value": "4438.63"
+        },
+        {
+          "action_type": "lead",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "0.984393"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2219.315"
+        },
+        {
+          "action_type": "offsite_contact_website_add_meta_leads",
+          "value": "739.771667"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "0.984393"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2219.315"
+        }
+      ],
+      "frequency": "1.394112",
+      "reach": "41851",
+      "objective": "OUTCOME_LEADS",
+      "date_stop": "2026-03-27"
+    },
+    {
+      "date_start": "2026-03-27",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "campaign_id": "120242148702000466",
+      "impressions": "15447",
+      "clicks": "109",
+      "ctr": "0.705639",
+      "cpc": "10.158624",
+      "cpm": "71.683175",
+      "spend": "1107.29",
+      "actions": [
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "1"
+        },
+        {
+          "action_type": "link_click",
+          "value": "89"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "141"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "35"
+        },
+        {
+          "action_type": "post",
+          "value": "2"
+        },
+        {
+          "action_type": "onsite_conversion.post_save",
+          "value": "1"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "141"
+        },
+        {
+          "action_type": "onsite_conversion.post_unlike",
+          "value": "2"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "1"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_like",
+          "value": "30"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_save",
+          "value": "1"
+        },
+        {
+          "action_type": "lead",
+          "value": "1"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "1"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "1"
+        },
+        {
+          "action_type": "video_view",
+          "value": "17"
+        },
+        {
+          "action_type": "post_reaction",
+          "value": "32"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "1"
+        }
+      ],
+      "cost_per_action_type": [
+        {
+          "action_type": "offsite_submit_application_add_meta_leads",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "video_view",
+          "value": "65.134706"
+        },
+        {
+          "action_type": "link_click",
+          "value": "12.441461"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "31.636857"
+        },
+        {
+          "action_type": "lead",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "7.853121"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "offsite_contact_website_add_meta_leads",
+          "value": "1107.29"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "7.853121"
+        }
+      ],
+      "frequency": "1.744635",
+      "reach": "8854",
+      "objective": "OUTCOME_LEADS",
+      "date_stop": "2026-03-27"
+    },
+    {
+      "date_start": "2026-03-28",
+      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+      "campaign_id": "120231984866140466",
+      "impressions": "45089",
+      "clicks": "343",
+      "ctr": "0.760718",
+      "cpc": "12.922128",
+      "cpm": "98.300916",
+      "spend": "4432.29",
+      "actions": [
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "7"
+        },
+        {
+          "action_type": "link_click",
+          "value": "269"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "2982"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "comment",
+          "value": "1"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "187"
+        },
+        {
+          "action_type": "post",
+          "value": "6"
+        },
+        {
+          "action_type": "onsite_conversion.post_unsave",
+          "value": "1"
+        },
+        {
+          "action_type": "onsite_conversion.post_save",
+          "value": "1"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "2982"
+        },
+        {
+          "action_type": "onsite_conversion.post_unlike",
+          "value": "29"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "7"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_like",
+          "value": "150"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_save",
+          "value": "0"
+        },
+        {
+          "action_type": "lead",
+          "value": "7"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "7"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "7"
+        },
+        {
+          "action_type": "video_view",
+          "value": "2526"
+        },
+        {
+          "action_type": "post_reaction",
+          "value": "179"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "8"
+        }
+      ],
+      "cost_per_action_type": [
+        {
+          "action_type": "offsite_submit_application_add_meta_leads",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "554.03625"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "video_view",
+          "value": "1.754667"
+        },
+        {
+          "action_type": "link_click",
+          "value": "16.476915"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "23.702086"
+        },
+        {
+          "action_type": "lead",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "1.486348"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2216.145"
+        },
+        {
+          "action_type": "offsite_contact_website_add_meta_leads",
+          "value": "633.184286"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "1.486348"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2216.145"
+        }
+      ],
+      "frequency": "1.329784",
+      "reach": "33907",
+      "objective": "OUTCOME_LEADS",
+      "date_stop": "2026-03-28"
+    },
+    {
+      "date_start": "2026-03-28",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "campaign_id": "120242148702000466",
+      "impressions": "17604",
+      "clicks": "139",
+      "ctr": "0.789593",
+      "cpc": "25.481079",
+      "cpm": "201.196887",
+      "spend": "3541.87",
+      "actions": [
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "3"
+        },
+        {
+          "action_type": "link_click",
+          "value": "98"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "212"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "1"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "1"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "25"
+        },
+        {
+          "action_type": "post",
+          "value": "4"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "212"
+        },
+        {
+          "action_type": "onsite_conversion.post_unlike",
+          "value": "1"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "3"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_like",
+          "value": "20"
+        },
+        {
+          "action_type": "lead",
+          "value": "3"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "3"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "3"
+        },
+        {
+          "action_type": "video_view",
+          "value": "89"
+        },
+        {
+          "action_type": "post_reaction",
+          "value": "21"
+        }
+      ],
+      "cost_per_action_type": [
+        {
+          "action_type": "offsite_submit_application_add_meta_leads",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "video_view",
+          "value": "39.796292"
+        },
+        {
+          "action_type": "link_click",
+          "value": "36.141531"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "141.6748"
+        },
+        {
+          "action_type": "lead",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "16.706934"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "3541.87"
+        },
+        {
+          "action_type": "offsite_contact_website_add_meta_leads",
+          "value": "1180.623333"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "16.706934"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "3541.87"
+        }
+      ],
+      "frequency": "1.47821",
+      "reach": "11909",
+      "objective": "OUTCOME_LEADS",
+      "date_stop": "2026-03-28"
+    },
+    {
+      "date_start": "2026-03-29",
+      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+      "campaign_id": "120231984866140466",
+      "impressions": "59078",
+      "clicks": "404",
+      "ctr": "0.683842",
+      "cpc": "13.927401",
+      "cpm": "95.241376",
+      "spend": "5626.67",
+      "actions": [
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "9"
+        },
+        {
+          "action_type": "link_click",
+          "value": "299"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "3991"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "like",
+          "value": "1"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "264"
+        },
+        {
+          "action_type": "post",
+          "value": "21"
+        },
+        {
+          "action_type": "onsite_conversion.post_save",
+          "value": "3"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "3990"
+        },
+        {
+          "action_type": "onsite_conversion.post_unlike",
+          "value": "24"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "9"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_like",
+          "value": "216"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_save",
+          "value": "3"
+        },
+        {
+          "action_type": "lead",
+          "value": "9"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "9"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "9"
+        },
+        {
+          "action_type": "video_view",
+          "value": "3427"
+        },
+        {
+          "action_type": "post_reaction",
+          "value": "240"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "11"
+        }
+      ],
+      "cost_per_action_type": [
+        {
+          "action_type": "offsite_submit_application_add_meta_leads",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "511.515455"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "video_view",
+          "value": "1.641865"
+        },
+        {
+          "action_type": "link_click",
+          "value": "18.818294"
+        },
+        {
+          "action_type": "like",
+          "value": "5626.67"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "21.313144"
+        },
+        {
+          "action_type": "lead",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "1.410193"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2813.335"
+        },
+        {
+          "action_type": "offsite_contact_website_add_meta_leads",
+          "value": "625.185556"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "1.40984"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2813.335"
+        }
+      ],
+      "frequency": "1.378138",
+      "reach": "42868",
+      "objective": "OUTCOME_LEADS",
+      "date_stop": "2026-03-29"
+    },
+    {
+      "date_start": "2026-03-29",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "campaign_id": "120242148702000466",
+      "impressions": "16835",
+      "clicks": "107",
+      "ctr": "0.635581",
+      "cpc": "33.540374",
+      "cpm": "213.176121",
+      "spend": "3588.82",
+      "actions": [
+        {
+          "action_type": "onsite_conversion.total_messaging_connection",
+          "value": "1"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "8"
+        },
+        {
+          "action_type": "link_click",
+          "value": "83"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "191"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "2"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "39"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_first_reply",
+          "value": "1"
+        },
+        {
+          "action_type": "post",
+          "value": "3"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "191"
+        },
+        {
+          "action_type": "onsite_conversion.post_unlike",
+          "value": "2"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "8"
+        },
+        {
+          "action_type": "onsite_conversion.post_net_like",
+          "value": "34"
+        },
+        {
+          "action_type": "lead",
+          "value": "8"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "8"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_conversation_started_7d",
+          "value": "1"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "8"
+        },
+        {
+          "action_type": "video_view",
+          "value": "69"
+        },
+        {
+          "action_type": "post_reaction",
+          "value": "36"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "7"
+        }
+      ],
+      "cost_per_action_type": [
+        {
+          "action_type": "onsite_conversion.total_messaging_connection",
+          "value": "3588.82"
+        },
+        {
+          "action_type": "offsite_submit_application_add_meta_leads",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "512.688571"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "video_view",
+          "value": "52.011884"
+        },
+        {
+          "action_type": "link_click",
+          "value": "43.238795"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "post_interaction_gross",
+          "value": "92.021026"
+        },
+        {
+          "action_type": "lead",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "post_engagement",
+          "value": "18.789634"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "1794.41"
+        },
+        {
+          "action_type": "offsite_contact_website_add_meta_leads",
+          "value": "448.6025"
+        },
+        {
+          "action_type": "page_engagement",
+          "value": "18.789634"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_first_reply",
+          "value": "3588.82"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "1794.41"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_conversation_started_7d",
+          "value": "3588.82"
+        }
+      ],
+      "frequency": "1.666832",
+      "reach": "10100",
+      "objective": "OUTCOME_LEADS",
+      "date_stop": "2026-03-29"
     }
   ]
 }

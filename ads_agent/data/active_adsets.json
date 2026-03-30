@@ -6,7 +6,7 @@
       "effective_status": "ACTIVE",
       "daily_budget": "150000",
       "lifetime_budget": "0",
-      "budget_remaining": "125313",
+      "budget_remaining": "80717",
       "targeting": {
         "age_max": 65,
         "age_min": 25,
@@ -573,7 +573,7 @@
       "effective_status": "ACTIVE",
       "daily_budget": "100000",
       "lifetime_budget": "0",
-      "budget_remaining": "79509",
+      "budget_remaining": "51966",
       "targeting": {
         "age_max": 65,
         "age_min": 25,
@@ -5051,7 +5051,7 @@
       "effective_status": "ACTIVE",
       "daily_budget": "120000",
       "lifetime_budget": "0",
-      "budget_remaining": "49673",
+      "budget_remaining": "61165",
       "targeting": {
         "age_max": 65,
         "age_min": 25,
@@ -7010,7 +7010,7 @@
       "effective_status": "ACTIVE",
       "daily_budget": "358400",
       "lifetime_budget": "0",
-      "budget_remaining": "137992",
+      "budget_remaining": "178266",
       "targeting": {
         "age_max": 65,
         "age_min": 25,

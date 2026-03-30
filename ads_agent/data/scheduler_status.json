@@ -1,11 +1,17 @@
 {
-  "lastRun": "2026-03-27T12:20:45.360Z",
-  "lastRunSuccess": true,
-  "lastRunDuration": 1,
-  "lastError": null,
+  "lastRun": "2026-03-30T08:54:41.547Z",
+  "lastRunSuccess": false,
+  "lastRunDuration": 58482,
+  "lastError": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\n/Users/apple/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3426, in <module>\n    result = run_analysis(args.cadence)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3063, in run_analysis\n    ds = collect_data(cadence_window=window)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 688, in collect_data\n    raw_campaigns = get_report(\"campaign\", since=since, until=until)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 420, in get_report\n    return _direct_get_report(resource, since=since, until=until, query=query,\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_api.py\", line 250, in get_report\n    return gaql_search(gaql, customer_id=customer_id)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_api.py\", line 157, in gaql_search\n    access_token = _get_access_token(creds)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_api.py\", line 127, in _get_access_token\n    raise RuntimeError(f\"Token refresh failed: {resp.status_code} - {resp.text[:300]}\")\nRuntimeError: Token refresh failed: 400 - {\n  \"error\": \"invalid_grant\",\n  \"error_description\": \"Bad Request\"\n}\n",
   "nextRun": "2026-03-31T03:30:00.000Z",
   "isRunning": false,
   "runHistory": [
+    {
+      "timestamp": "2026-03-30T08:54:41.547Z",
+      "success": false,
+      "duration": 58482,
+      "error": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\n/Users/apple/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3426, in <module>\n    result = run_analysis(args.cadence)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3063, in run_analysis\n    ds = collect_data(cadence_window=window)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 688, in collect_data\n    raw_campaigns = get_report(\"campaign\", since=since, until=until)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 420, in get_report\n    return _direct_get_report(resource, since=since, until=until, query=query,\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_api.py\", line 250, in get_report\n    return gaql_search(gaql, customer_id=customer_id)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_api.py\", line 157, in gaql_search\n    access_token = _get_access_token(creds)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_api.py\", line 127, in _get_access_token\n    raise RuntimeError(f\"Token refresh failed: {resp.status_code} - {resp.text[:300]}\")\nRuntimeError: Token refresh failed: 400 - {\n  \"error\": \"invalid_grant\",\n  \"error_description\": \"Bad Request\"\n}\n"
+    },
     {
       "timestamp": "2026-03-27T12:20:45.360Z",
       "success": true,
