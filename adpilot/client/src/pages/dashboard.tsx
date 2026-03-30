@@ -1891,7 +1891,7 @@ export default function DashboardPage() {
                             className="h-full rounded-sm flex items-center justify-end pr-2 transition-all"
                             style={{ width: `${widthPct}%`, backgroundColor: step.color + "cc" }}
                           >
-                            <span className="text-[9px] font-medium text-white tabular-nums">
+                            <span className="text-[9px] font-bold text-black tabular-nums">
                               {step.value > 0 ? formatNumber(step.value) : "—"}
                             </span>
                           </div>
