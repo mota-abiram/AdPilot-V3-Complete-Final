@@ -371,7 +371,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500/30 text-violet-400 bg-violet-500/10">
               AI
             </Badge>
-            <Button size="icon" variant="ghost" onClick={onClose} className="h-7 w-7">
+            <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close terminal" className="h-7 w-7">
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -424,6 +424,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
               size="icon"
               onClick={() => sendCommand(input)}
               disabled={!input.trim() || isLoading}
+              aria-label={isLoading ? "Sending command" : "Send command"}
               className="h-6 w-6 rounded-lg bg-violet-500 hover:bg-violet-600 text-white shrink-0 disabled:opacity-40"
             >
               {isLoading ? (
@@ -455,8 +456,9 @@ export function CommandTerminalToggle({ onClick, isOpen }: CommandTerminalToggle
       size="sm"
       variant={isOpen ? "default" : "outline"}
       onClick={onClick}
+      aria-label={isOpen ? "Close Mojo Terminal" : "Open Mojo Terminal"}
       className={cn(
-        "gap-1.5 h-8 px-3 text-xs font-medium transition-all",
+        "gap-1.5 h-8 px-3 text-xs font-medium",
         isOpen
           ? "bg-violet-500 hover:bg-violet-600 border-violet-500 text-white"
           : "border-border/60 hover:border-violet-500/50 hover:text-violet-400"

@@ -1114,12 +1114,12 @@ export default function GoogleDemandGenPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(freqAudit.length > 0 ? freqAudit : dgCampaigns.map((c) => ({
+                    {((freqAudit.length > 0 ? freqAudit : dgCampaigns.map((c): FrequencyAuditEntry => ({
                       campaign_name: c.campaign_name,
                       frequency_7d: c.frequency_7d,
                       frequency_14d: c.frequency_14d,
                       frequency_28d: c.frequency_28d,
-                    }))).map((entry, idx) => {
+                    }))) as FrequencyAuditEntry[]).map((entry, idx) => {
                       const f28 = entry.frequency_28d || 0;
                       const isOver = f28 >= 6;
                       const isWarn = f28 >= 4;

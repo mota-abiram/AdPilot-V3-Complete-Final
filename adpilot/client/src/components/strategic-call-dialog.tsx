@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatINR } from "@/lib/format";
 import {
@@ -21,11 +20,7 @@ import {
   IndianRupee,
   Play,
   Zap,
-  Target,
   BarChart3,
-  MousePointerClick,
-  Eye,
-  Users,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -117,52 +112,61 @@ export function StrategicCallDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[560px] !overflow-visible !max-h-none gap-3 p-5" data-testid="strategic-call-dialog">
+      <DialogContent className="sm:max-w-[620px] !overflow-visible !max-h-none gap-4 p-6" data-testid="strategic-call-dialog">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm">
-            <Brain className="w-4 h-4 text-amber-400" />
+          <DialogTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
             Strategic Call Required
           </DialogTitle>
-          <DialogDescription className="text-[11px] text-muted-foreground">
+          <DialogDescription className="type-sm">
             Document your rationale before executing. This builds your decision-learning database.
           </DialogDescription>
         </DialogHeader>
 
         {/* Action being taken */}
-        <div className="flex items-center gap-2.5 rounded-md p-2.5 border border-border/50 bg-muted/30">
-          <div className={`p-1.5 rounded-md ${actionDisplay.bgColor}`}>
+        <div className="flex items-center gap-3 rounded-[10px] p-4 border border-border/70 bg-card/82 shadow-xs">
+          <div className={`p-2 rounded-lg ${actionDisplay.bgColor}`}>
             <ActionIcon className={`w-3.5 h-3.5 ${actionDisplay.color}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 ${actionDisplay.color} ${actionDisplay.bgColor}`}>
+              <Badge
+                variant={
+                  actionType.startsWith("PAUSE")
+                    ? "destructive"
+                    : actionType.includes("SCALE_BUDGET_DOWN")
+                    ? "warning"
+                    : "success"
+                }
+                className="text-[10px]"
+              >
                 {actionDisplay.label}
               </Badge>
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+              <Badge variant="outline" className="text-[10px]">
                 {platform === "google" ? "Google" : "Meta"}
               </Badge>
             </div>
-            <p className="text-xs font-medium text-foreground mt-0.5 truncate" title={entityName}>
+            <p className="text-base font-semibold text-foreground mt-1 truncate" title={entityName}>
               {entityName}
             </p>
-            <p className="text-[9px] text-muted-foreground">{entityType}</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{entityType}</p>
           </div>
         </div>
 
         {/* Before Metrics - compact inline */}
         {hasMetrics && (
-          <div className="rounded-md border border-border/50 p-2.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="rounded-[10px] border border-border/70 bg-muted/25 p-3.5">
+            <div className="flex items-center gap-1.5 mb-2">
               <BarChart3 className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 Current Metrics
               </span>
             </div>
             <div className="grid grid-cols-4 gap-x-3 gap-y-1.5">
               {metrics.spend != null && (
                 <div>
-                  <p className="text-[9px] text-muted-foreground">Spend</p>
-                  <p className="text-xs font-semibold tabular-nums">{formatINR(metrics.spend, 0)}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">Spend</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatINR(metrics.spend, 0)}</p>
                 </div>
               )}
               {metrics.leads != null && (
@@ -208,8 +212,8 @@ export function StrategicCallDialog({
         )}
 
         {/* Strategic Rationale Input */}
-        <div className="space-y-1.5 rounded-md p-2.5 border border-amber-500/30 bg-amber-500/5">
-          <label className="text-[11px] font-medium text-amber-400 flex items-center gap-1.5">
+        <div className="space-y-2 rounded-[10px] p-4 border border-primary/30 bg-primary/10">
+          <label className="text-xs font-bold uppercase tracking-[0.08em] text-foreground flex items-center gap-1.5">
             <Brain className="w-3 h-3" />
             What's your strategic rationale?
           </label>
@@ -217,21 +221,21 @@ export function StrategicCallDialog({
             value={rationale}
             onChange={(e) => setRationale(e.target.value)}
             placeholder={getPlaceholderText(actionType)}
-            className="min-h-[80px] text-xs bg-background border-amber-500/20 focus-visible:ring-amber-500/40 placeholder:text-muted-foreground/50 resize-none"
+            className="min-h-[120px] text-sm bg-background border-primary/20 focus-visible:ring-primary/45 placeholder:text-muted-foreground/55 resize-none"
             data-testid="input-strategic-rationale"
           />
           <div className="flex items-center justify-between">
             <span
               className={`text-[9px] ${
                 rationale.trim().length >= MIN_RATIONALE_LENGTH
-                  ? "text-emerald-400"
+                  ? "text-emerald-500"
                   : "text-muted-foreground"
               }`}
             >
               {rationale.trim().length}/{MIN_RATIONALE_LENGTH} min chars
             </span>
             {rationale.trim().length > 0 && rationale.trim().length < MIN_RATIONALE_LENGTH && (
-              <span className="text-[9px] text-amber-400">
+              <span className="text-[10px] text-primary">
                 {MIN_RATIONALE_LENGTH - rationale.trim().length} more needed
               </span>
             )}
@@ -250,7 +254,7 @@ export function StrategicCallDialog({
           </Button>
           <Button
             size="sm"
-            className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+            className="gap-1.5"
             onClick={handleConfirm}
             disabled={!isValid || isExecuting}
             data-testid="button-strategic-execute"

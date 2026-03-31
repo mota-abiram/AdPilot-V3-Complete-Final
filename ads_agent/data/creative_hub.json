@@ -1,0 +1,93 @@
+{
+  "clients": {
+    "amara": {
+      "clientId": "amara",
+      "setup": {
+        "projectName": "Skyline Imperia",
+        "logos": [],
+        "renders": [],
+        "price": "₹1.25 Cr – ₹2.10 Cr",
+        "reraNumber": "PRM/KA/RERA/1251/309/PR/240125/006789",
+        "buildingNumber": "Tower A, B & C",
+        "configuration": "2, 3 & 4 BHK Residences",
+        "location": "Whitefield Main Road, Bangalore",
+        "sqftRange": "1,240 – 2,850 Sq.ft",
+        "tone": "premium",
+        "customInstructions": "Write sharp, high-conversion copy that feels premium and aspirational.\nAvoid overused real estate phrases like “dream home” or “perfect living.”\nFocus on exclusivity, elevation in lifestyle, and urgency without sounding pushy.\nMake the buyer feel like they’re upgrading their identity, not just buying a home.",
+        "winningCreatives": [],
+        "updatedAt": "2026-03-31T12:05:49.719Z"
+      },
+      "threads": [
+        {
+          "id": "mnekmtwh3ft4os",
+          "title": "Position Skyline Imperia as the upgrade choice for successful professionals moving from mid-segment homes to luxury living.",
+          "createdAt": "2026-03-31T12:06:27.809Z",
+          "updatedAt": "2026-03-31T12:06:27.809Z",
+          "statusTag": "testing",
+          "input": {
+            "campaignIdea": "Position Skyline Imperia as the upgrade choice for successful professionals moving from mid-segment homes to luxury living.",
+            "offer": "Limited inventory in premium towers with pre-price revision access",
+            "hook": "You’re not looking for a bigger home. You’re looking for a better circle.",
+            "platform": "meta",
+            "customInstruction": "Make it feel elite and slightly intimidating.\nAvoid mentioning exact price upfront.\nCreate curiosity + status-driven desire."
+          },
+          "activeVersionId": "mnekmtwhjrgdbn",
+          "versions": [
+            {
+              "id": "mnekmtwhjrgdbn",
+              "createdAt": "2026-03-31T12:06:27.809Z",
+              "sectionRegenerated": null,
+              "output": {
+                "headline": "You’re not looking for a bigger home. You’re looking for a better circle.",
+                "subtext": "2, 3 & 4 BHK Residences in Whitefield Main Road, Bangalore with 1,240 – 2,850 Sq.ft. Priced from ₹1.25 Cr – ₹2.10 Cr.",
+                "cta": "Book a Site Visit",
+                "offerSection": "Limited inventory in premium towers with pre-price revision access",
+                "visualDirection": "polished, aspirational, conversion-minded. Use a clean architectural or lifestyle-led hero shot with strong depth. Borrow the confidence and clarity from \"DM_Static_Your home has better amenities\".",
+                "primaryText": "Position Skyline Imperia as the upgrade choice for successful professionals moving from mid-segment homes to luxury living.. Write sharp, high-conversion copy that feels premium and aspirational.\nAvoid overused real estate phrases like “dream home” or “perfect living.”\nFocus on exclusivity, elevation in lifestyle, and urgency without sounding pushy.\nMake the buyer feel like they’re upgrading their identity, not just buying a home. Focus on Whitefield Main Road, Bangalore, 2, 3 & 4 BHK Residences, and an action-oriented finish.",
+                "platformNotes": "Meta-first execution. Keep the scroll-stop opening direct, visually anchored, and built for high-intent action.",
+                "copyVariations": {
+                  "headlines": [
+                    "You’re not looking for a bigger home. You’re looking for a better circle.",
+                    "2, 3 & 4 BHK Residences in Whitefield Main Road, Bangalore",
+                    "Priced from ₹1.25 Cr – ₹2.10 Cr at Skyline Imperia"
+                  ],
+                  "primaryTexts": [
+                    "Position Skyline Imperia as the upgrade choice for successful professionals moving from mid-segment homes to luxury living.. Priced from ₹1.25 Cr – ₹2.10 Cr. Located in Whitefield Main Road, Bangalore. Write sharp, high-conversion copy that feels premium and aspirational.\nAvoid overused real estate phrases like “dream home” or “perfect living.”\nFocus on exclusivity, elevation in lifestyle, and urgency without sounding pushy.\nMake the buyer feel like they’re upgrading their identity, not just buying a home.",
+                    "Skyline Imperia pairs 2, 3 & 4 BHK Residences with Whitefield Main Road, Bangalore for intent-ready prospects.",
+                    "Lead with aspiration, back it with specifics: 1,240 – 2,850 Sq.ft, Tower Tower A, B & C, and Priced from ₹1.25 Cr – ₹2.10 Cr."
+                  ],
+                  "ctaOptions": [
+                    "Enquire Now",
+                    "Book a Site Visit",
+                    "Download Brochure"
+                  ]
+                },
+                "staticAdStructure": {
+                  "topHook": "You’re not looking for a bigger home. You’re looking for a better circle.",
+                  "heroVisualSuggestion": "Use a clean architectural or lifestyle-led hero shot with strong depth.",
+                  "midMessaging": "2, 3 & 4 BHK Residences · 1,240 – 2,850 Sq.ft · Priced from ₹1.25 Cr – ₹2.10 Cr",
+                  "ctaBlock": "Lead form CTA + urgency line"
+                }
+              }
+            }
+          ],
+          "messages": [
+            {
+              "id": "mnekmtwhj9krn7",
+              "role": "user",
+              "content": "Campaign idea: Position Skyline Imperia as the upgrade choice for successful professionals moving from mid-segment homes to luxury living.\nOffer: Limited inventory in premium towers with pre-price revision access\nHook: You’re not looking for a bigger home. You’re looking for a better circle.\nPlatform: Meta\nCustom instruction: Make it feel elite and slightly intimidating.\nAvoid mentioning exact price upfront.\nCreate curiosity + status-driven desire.",
+              "createdAt": "2026-03-31T12:06:27.809Z"
+            },
+            {
+              "id": "mnekmtwhxr45n7",
+              "role": "assistant",
+              "content": "Generated a new performance creative with \"You’re not looking for a bigger home. You’re looking for a better circle.\" as the lead hook and \"Book a Site Visit\" as the CTA. Visual direction: polished, aspirational, conversion-minded. Use a clean architectural or lifestyle-led hero shot with strong depth. Borrow the confidence and clarity from \"DM_Static_Your home has better amenities\".",
+              "createdAt": "2026-03-31T12:06:27.809Z"
+            }
+          ]
+        }
+      ],
+      "updatedAt": "2026-03-31T12:06:27.809Z"
+    }
+  }
+}

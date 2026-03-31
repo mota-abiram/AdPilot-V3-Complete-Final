@@ -206,7 +206,16 @@ function loadClientsWithCredentials(): Array<{ id: string; googleCreds?: Record<
       .filter((c) => c.platforms?.google?.enabled)
       .map((c) => {
         const g = credsMap[c.id]?.google;
-        const mergedGoogleCreds = g ? {
+        const hasValidClientGoogleCreds = Boolean(
+          g?.clientId &&
+          g?.clientSecret &&
+          g?.refreshToken &&
+          !String(g.clientId).startsWith("YOUR_") &&
+          !String(g.clientSecret).startsWith("YOUR_") &&
+          !String(g.refreshToken).startsWith("YOUR_")
+        );
+
+        const mergedGoogleCreds = hasValidClientGoogleCreds ? {
           GOOGLE_CLIENT_ID: g.clientId || process.env.GOOGLE_CLIENT_ID || "",
           GOOGLE_CLIENT_SECRET: g.clientSecret || process.env.GOOGLE_CLIENT_SECRET || "",
           GOOGLE_REFRESH_TOKEN: g.refreshToken || process.env.GOOGLE_REFRESH_TOKEN || "",

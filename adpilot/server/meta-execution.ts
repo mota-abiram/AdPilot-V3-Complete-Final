@@ -21,9 +21,9 @@ const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const AUDIT_LOG_PATH = path.join(DATA_BASE, "execution_audit_log.json");
 
-// Meta credentials — read from environment variables (never hardcoded)
-const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || "";
-const META_AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID || "act_391022327028566";
+function getMetaAccessToken(): string {
+  return process.env.META_ACCESS_TOKEN || "";
+}
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ async function metaApiPost(
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const url = `${META_BASE_URL}/${entityId}`;
   const body = new URLSearchParams();
-  body.append("access_token", META_ACCESS_TOKEN);
+  body.append("access_token", getMetaAccessToken());
   for (const [key, value] of Object.entries(params)) {
     body.append(key, String(value));
   }
@@ -184,7 +184,7 @@ async function metaApiGet(
   entityId: string,
   fields: string[]
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  const url = `${META_BASE_URL}/${entityId}?fields=${fields.join(",")}&access_token=${META_ACCESS_TOKEN}`;
+  const url = `${META_BASE_URL}/${entityId}?fields=${fields.join(",")}&access_token=${getMetaAccessToken()}`;
   try {
     const response = await fetchWithRetry(url, { method: "GET" });
     const data = await response.json();

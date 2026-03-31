@@ -28,8 +28,13 @@ const API_VERSION = "v21";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-const CUSTOMER_ID = process.env.GOOGLE_CUSTOMER_ID || "3120813693";
-const LOGIN_CUSTOMER_ID = process.env.GOOGLE_MCC_ID || "7668970885";
+function getGoogleCustomerId(): string {
+  return process.env.GOOGLE_CUSTOMER_ID || "3120813693";
+}
+
+function getGoogleLoginCustomerId(): string {
+  return process.env.GOOGLE_MCC_ID || "7668970885";
+}
 
 // Rate-limit: minimum delay between batch calls (ms)
 const BATCH_DELAY_MS = 300;
@@ -200,7 +205,7 @@ async function buildHeaders(): Promise<Record<string, string>> {
   return {
     Authorization: `Bearer ${token}`,
     "developer-token": creds.developer_token,
-    "login-customer-id": LOGIN_CUSTOMER_ID,
+    "login-customer-id": getGoogleLoginCustomerId(),
     "Content-Type": "application/json",
   };
 }
@@ -235,10 +240,11 @@ async function mutateCampaignStatus(
   status: "ENABLED" | "PAUSED"
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const headers = await buildHeaders();
-  const resourceName = `customers/${CUSTOMER_ID}/campaigns/${campaignId}`;
+  const customerId = getGoogleCustomerId();
+  const resourceName = `customers/${customerId}/campaigns/${campaignId}`;
 
   const resp = await fetch(
-    `${BASE_URL}/customers/${CUSTOMER_ID}/campaigns:mutate`,
+    `${BASE_URL}/customers/${customerId}/campaigns:mutate`,
     {
       method: "POST",
       headers,
@@ -270,10 +276,11 @@ async function mutateAdGroupStatus(
   status: "ENABLED" | "PAUSED"
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const headers = await buildHeaders();
-  const resourceName = `customers/${CUSTOMER_ID}/adGroups/${adGroupId}`;
+  const customerId = getGoogleCustomerId();
+  const resourceName = `customers/${customerId}/adGroups/${adGroupId}`;
 
   const resp = await fetch(
-    `${BASE_URL}/customers/${CUSTOMER_ID}/adGroups:mutate`,
+    `${BASE_URL}/customers/${customerId}/adGroups:mutate`,
     {
       method: "POST",
       headers,
@@ -306,10 +313,11 @@ async function mutateAdStatus(
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const headers = await buildHeaders();
   // adGroupAdId is expected as "adGroupId~adId"
-  const resourceName = `customers/${CUSTOMER_ID}/adGroupAds/${adGroupAdId}`;
+  const customerId = getGoogleCustomerId();
+  const resourceName = `customers/${customerId}/adGroupAds/${adGroupAdId}`;
 
   const resp = await fetch(
-    `${BASE_URL}/customers/${CUSTOMER_ID}/adGroupAds:mutate`,
+    `${BASE_URL}/customers/${customerId}/adGroupAds:mutate`,
     {
       method: "POST",
       headers,
@@ -341,10 +349,11 @@ async function mutateAdGroupCpcBid(
   cpcBidMicros: number
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const headers = await buildHeaders();
-  const resourceName = `customers/${CUSTOMER_ID}/adGroups/${adGroupId}`;
+  const customerId = getGoogleCustomerId();
+  const resourceName = `customers/${customerId}/adGroups/${adGroupId}`;
 
   const resp = await fetch(
-    `${BASE_URL}/customers/${CUSTOMER_ID}/adGroups:mutate`,
+    `${BASE_URL}/customers/${customerId}/adGroups:mutate`,
     {
       method: "POST",
       headers,
@@ -376,9 +385,10 @@ async function mutateCampaignBudget(
   newAmountMicros: number
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const headers = await buildHeaders();
+  const customerId = getGoogleCustomerId();
 
   const resp = await fetch(
-    `${BASE_URL}/customers/${CUSTOMER_ID}/campaignBudgets:mutate`,
+    `${BASE_URL}/customers/${customerId}/campaignBudgets:mutate`,
     {
       method: "POST",
       headers,
@@ -407,6 +417,7 @@ async function mutateCampaignBudget(
 
 async function gaqlSearch(query: string): Promise<any[]> {
   const headers = await buildHeaders();
+  const customerId = getGoogleCustomerId();
   const allResults: any[] = [];
   let nextPageToken: string | undefined;
 
@@ -415,7 +426,7 @@ async function gaqlSearch(query: string): Promise<any[]> {
     if (nextPageToken) payload.pageToken = nextPageToken;
 
     const resp = await fetch(
-      `${BASE_URL}/customers/${CUSTOMER_ID}/googleAds:search`,
+      `${BASE_URL}/customers/${customerId}/googleAds:search`,
       {
         method: "POST",
         headers,

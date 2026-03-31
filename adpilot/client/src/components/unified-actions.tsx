@@ -171,25 +171,25 @@ export function UnifiedActions(props: UnifiedActionProps) {
       title: "Strategic Call — Auto-Execute",
       description: `Document your rationale before auto-executing "${actionType.replace(/_/g, " ")}" on ${entityName}.`,
       placeholder: "e.g., CPL consistently above target for 5+ days, auto-executing to reallocate budget to winners",
-      confirmLabel: "Execute",
-      confirmColor: "bg-emerald-600 hover:bg-emerald-700",
-      icon: <Zap className="w-4 h-4 text-emerald-400" />,
+      confirmLabel: "Execute Action",
+      confirmColor: "",
+      icon: <Zap className="w-4 h-4 text-primary" />,
     },
     "mark-complete": {
       title: "Mark Complete — What did you do?",
       description: `Log what action you took manually for "${entityName}". This helps the learning engine track outcomes.`,
       placeholder: "e.g., Changed the hook in first 3 seconds, added face overlay, uploaded new variant",
       confirmLabel: "Log Completion",
-      confirmColor: "bg-blue-600 hover:bg-blue-700",
-      icon: <Check className="w-4 h-4 text-blue-400" />,
+      confirmColor: "",
+      icon: <Check className="w-4 h-4 text-primary" />,
     },
     reject: {
       title: "Reject — Why are you rejecting?",
       description: `Explain why you're rejecting the recommendation for "${entityName}". This teaches the system your preferences.`,
       placeholder: "e.g., Creative is still performing well despite age, client preference to keep running",
       confirmLabel: "Log Rejection",
-      confirmColor: "bg-red-600 hover:bg-red-700",
-      icon: <X className="w-4 h-4 text-red-400" />,
+      confirmColor: "",
+      icon: <X className="w-4 h-4 text-red-500" />,
     },
   };
 
@@ -206,7 +206,7 @@ export function UnifiedActions(props: UnifiedActionProps) {
               <Button
                 variant="default"
                 size="sm"
-                className={`${btnSize} bg-emerald-600 hover:bg-emerald-700 text-white gap-1`}
+                className={`${btnSize} gap-1`}
                 onClick={(e) => { e.stopPropagation(); setDialogMode("auto-execute"); }}
                 disabled={isExecuting}
                 data-testid={`ua-auto-${entityId}`}
@@ -227,7 +227,7 @@ export function UnifiedActions(props: UnifiedActionProps) {
             <Button
               variant="outline"
               size="sm"
-              className={`${btnSize} border-blue-500/40 text-blue-400 hover:bg-blue-500/10 gap-1`}
+              className={`${btnSize} border-primary/35 text-foreground hover:bg-primary/12 gap-1`}
               onClick={(e) => { e.stopPropagation(); setDialogMode("mark-complete"); }}
               disabled={isExecuting}
               data-testid={`ua-complete-${entityId}`}
@@ -247,7 +247,7 @@ export function UnifiedActions(props: UnifiedActionProps) {
             <Button
               variant="outline"
               size="sm"
-              className={`${btnSize} border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1`}
+              className={`${btnSize} border-red-500/35 text-red-500 hover:bg-red-500/10 gap-1`}
               onClick={(e) => { e.stopPropagation(); setDialogMode("reject"); }}
               disabled={isExecuting}
               data-testid={`ua-reject-${entityId}`}
@@ -285,21 +285,21 @@ export function UnifiedActions(props: UnifiedActionProps) {
       {/* Strategic Call Dialog */}
       {dialogMode && (
         <Dialog open={!!dialogMode} onOpenChange={handleOpenChange}>
-          <DialogContent className="sm:max-w-[520px]" data-testid="unified-action-dialog">
+          <DialogContent className="sm:max-w-[560px]" data-testid="unified-action-dialog">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <Brain className="w-5 h-5 text-amber-400" />
+              <DialogTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
                 {dialogConfig[dialogMode].title}
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="type-sm">
                 {dialogConfig[dialogMode].description}
               </DialogDescription>
             </DialogHeader>
 
             {/* Context: recommendation + metrics */}
-            <div className="rounded-md p-3 border border-border/50 bg-muted/30 space-y-2">
+            <div className="rounded-[10px] p-4 border border-border/70 bg-card/82 shadow-xs space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-primary bg-primary/10">
+                <Badge variant="warning" className="text-[10px]">
                   {actionType.replace(/_/g, " ")}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
@@ -309,18 +309,18 @@ export function UnifiedActions(props: UnifiedActionProps) {
                   {platform === "google" ? "Google" : "Meta"}
                 </Badge>
               </div>
-              <p className="text-sm font-medium text-foreground truncate" title={entityName}>
+              <p className="text-base font-semibold text-foreground truncate" title={entityName}>
                 {entityName}
               </p>
               {recommendation && (
-                <p className="text-[11px] text-primary/80 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {recommendation}
                 </p>
               )}
               {currentMetrics && Object.keys(currentMetrics).length > 0 && (
                 <div className="flex flex-wrap gap-3 pt-1 border-t border-border/30">
                   {currentMetrics.spend != null && currentMetrics.spend > 0 && (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">
                       Spend: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.spend, 0)}</span>
                     </span>
                   )}
@@ -344,8 +344,8 @@ export function UnifiedActions(props: UnifiedActionProps) {
             </div>
 
             {/* Rationale Input */}
-            <div className="space-y-2 rounded-md p-3 border border-amber-500/30 bg-amber-500/5">
-              <label className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
+            <div className="space-y-2 rounded-[10px] p-4 border border-primary/30 bg-primary/10">
+              <label className="text-xs font-bold uppercase tracking-[0.08em] text-foreground flex items-center gap-1.5">
                 <Brain className="w-3.5 h-3.5" />
                 {dialogMode === "mark-complete"
                   ? "What action did you take?"
@@ -357,14 +357,14 @@ export function UnifiedActions(props: UnifiedActionProps) {
                 value={rationale}
                 onChange={(e) => setRationale(e.target.value)}
                 placeholder={dialogConfig[dialogMode].placeholder}
-                className="min-h-[80px] text-sm bg-background border-amber-500/20 focus-visible:ring-amber-500/40 placeholder:text-muted-foreground/50"
+                className="min-h-[120px] text-sm bg-background border-primary/20 focus-visible:ring-primary/45 placeholder:text-muted-foreground/50"
                 data-testid="ua-rationale-input"
               />
               <div className="flex items-center justify-between">
                 <span
                   className={`text-[10px] ${
                     rationale.trim().length >= MIN_RATIONALE_LENGTH
-                      ? "text-emerald-400"
+                      ? "text-emerald-500"
                       : "text-muted-foreground"
                   }`}
                 >
@@ -384,7 +384,7 @@ export function UnifiedActions(props: UnifiedActionProps) {
               </Button>
               <Button
                 size="sm"
-                className={`${dialogConfig[dialogMode].confirmColor} text-white gap-1.5`}
+                className={`gap-1.5 ${dialogMode === "reject" ? "bg-red-500 hover:bg-red-600 text-white" : ""} ${dialogConfig[dialogMode].confirmColor}`}
                 onClick={handleConfirm}
                 disabled={!isValid || isExecuting}
                 data-testid="ua-confirm-btn"

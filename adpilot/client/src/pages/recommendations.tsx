@@ -202,9 +202,6 @@ function normalizeRecommendationShape(rec: any): Recommendation {
     action: rec.action || rec.title || rec.action_type || "Recommendation",
     detail: rec.detail || rec.description || rec.campaign || rec.title || "",
     ice_score: typeof rec.ice_score === "number" ? rec.ice_score : 5,
-    impact: typeof rec.impact === "number" ? rec.impact : 5,
-    confidence: typeof rec.confidence === "number" ? rec.confidence : 5,
-    ease: typeof rec.ease === "number" ? rec.ease : 5,
     priority: rec.priority,
     root_causes: Array.isArray(rec.root_causes) ? rec.root_causes : [],
   };
@@ -398,7 +395,7 @@ export default function RecommendationsPage() {
   const enriched = useMemo(() => {
     if (!data) return [];
     const rawRecommendations = Array.isArray((data as any).recommendations) ? (data as any).recommendations : [];
-    return rawRecommendations.map((rawRec, idx) => {
+    return rawRecommendations.map((rawRec: any, idx: number) => {
       const rec = normalizeRecommendationShape(rawRec);
       const executionMapping = mapRecommendationToExecution(rec, data);
       return {
@@ -410,7 +407,14 @@ export default function RecommendationsPage() {
         executionMapping,
         isAutoExec: isAutoExecutable(rec, executionMapping),
       };
-    }).filter((rec) => {
+    }).filter((rec: Recommendation & {
+      idx: number;
+      recId: string;
+      priorityBand: PriorityBand;
+      currentAction: string | undefined;
+      executionMapping: ExecutionMapping | null;
+      isAutoExec: boolean;
+    }) => {
       if (rec.executionMapping && isEntityPaused(rec.executionMapping.entityId)) return false;
       return true;
     });
@@ -490,7 +494,7 @@ export default function RecommendationsPage() {
           const cfg = PRIORITY_CONFIG[band];
           const Icon = cfg.icon;
           const items = sections[band];
-          const autoExecCount = items.filter(r => r.isAutoExec).length;
+          const autoExecCount = items.filter((r) => r.isAutoExec).length;
           return (
             <div key={band} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-md border", cfg.borderColor, cfg.bg)}>
               <Icon className={cn("w-4 h-4 shrink-0", cfg.color)} />

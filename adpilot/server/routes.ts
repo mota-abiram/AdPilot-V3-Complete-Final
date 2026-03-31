@@ -36,6 +36,18 @@ import {
   triggerManualRun,
 } from "./scheduler";
 import { handleAICommand } from "./ai-command";
+import {
+  duplicateCreativeThread,
+  generateCreativeImageForThread,
+  generateCreativeThread,
+  getCreativeHubState,
+  regenerateCreativeSectionForThread,
+  saveCreativeSetup,
+  updateCreativeThreadTag,
+  type CreativePlatform,
+  type CreativeSectionKey,
+  type CreativeStatusTag,
+} from "./creative-hub";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
 // The registry is now persisted to disk so clients added via the UI survive restarts.
@@ -158,6 +170,35 @@ function saveCredentials(store: Record<string, ClientCredentials>): void {
   fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(Object.values(store), null, 2));
 }
 
+function isPlaceholderSecret(value?: string): boolean {
+  return !value || value.trim() === "" || value.trim().startsWith("YOUR_");
+}
+
+function getValidMetaCreds(creds?: ClientCredentials) {
+  if (!creds?.meta) return null;
+  if (isPlaceholderSecret(creds.meta.accessToken) || isPlaceholderSecret(creds.meta.adAccountId)) return null;
+  return creds.meta;
+}
+
+function getValidGoogleCreds(creds?: ClientCredentials) {
+  if (!creds?.google) return null;
+  if (
+    isPlaceholderSecret(creds.google.clientId) ||
+    isPlaceholderSecret(creds.google.clientSecret) ||
+    isPlaceholderSecret(creds.google.refreshToken)
+  ) {
+    return null;
+  }
+  return creds.google;
+}
+
+function getDefaultMetaCredsFromEnv() {
+  const accessToken = (process.env.META_ACCESS_TOKEN || "").trim();
+  const adAccountId = (process.env.META_AD_ACCOUNT_ID || "").trim();
+  if (!accessToken || !adAccountId) return null;
+  return { accessToken, adAccountId };
+}
+
 function getDefaultGoogleCredsFromEnv() {
   const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
   const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
@@ -190,43 +231,8 @@ function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): 
   fs.writeFileSync(LEGACY_GOOGLE_CREDS_FILE, JSON.stringify(payload, null, 2));
 }
 
-function bootstrapDefaultClientCredentials(): void {
-  const envGoogle = getDefaultGoogleCredsFromEnv();
-  const envMetaAccessToken = (process.env.META_ACCESS_TOKEN || "").trim();
-  const envMetaAdAccountId = (process.env.META_AD_ACCOUNT_ID || "").trim();
-
-  if (!envGoogle && (!envMetaAccessToken || !envMetaAdAccountId)) return;
-
-  const creds = loadCredentials();
-  const existing = creds["amara"] || { clientId: "amara", updatedAt: "" };
-
-  if (envGoogle) {
-    existing.google = {
-      clientId: envGoogle.clientId,
-      clientSecret: envGoogle.clientSecret,
-      refreshToken: envGoogle.refreshToken,
-      developerToken: envGoogle.developerToken,
-      mccId: envGoogle.mccId,
-      customerId: envGoogle.customerId,
-    };
-    syncLegacyGoogleCredentialsFile(existing.google);
-  }
-
-  if (envMetaAccessToken && envMetaAdAccountId) {
-    existing.meta = {
-      accessToken: envMetaAccessToken,
-      adAccountId: envMetaAdAccountId,
-    };
-  }
-
-  existing.updatedAt = new Date().toISOString();
-  creds["amara"] = existing;
-  saveCredentials(creds);
-}
-
 // Live in-memory registry (loaded at startup, mutated by CRUD APIs)
 let CLIENT_REGISTRY: ClientConfig[] = loadRegistry();
-bootstrapDefaultClientCredentials();
 
 // Also support the legacy flat file path as a fallback for amara/meta
 const LEGACY_META_PATH = path.join(DATA_BASE, "meta_analysis_v2.json");
@@ -579,23 +585,30 @@ export async function registerRoutes(
   app.get("/api/clients/:clientId/credentials", (req, res) => {
     const creds = loadCredentials();
     const c = creds[req.params.clientId];
-    if (!c) return res.json({ hasMeta: false, hasGoogle: false });
+    const envMeta = getDefaultMetaCredsFromEnv();
+    const envGoogle = getDefaultGoogleCredsFromEnv();
+    const clientMeta = getValidMetaCreds(c);
+    const clientGoogle = getValidGoogleCreds(c);
+    const effectiveMeta = clientMeta || envMeta;
+    const effectiveGoogle = clientGoogle || envGoogle;
     // Mask secrets — only send whether they exist plus last 6 chars of token
     const mask = (s?: string) => s ? `••••••${s.slice(-6)}` : "";
     res.json({
-      hasMeta: !!c.meta?.accessToken,
-      hasGoogle: !!c.google?.clientId,
-      meta: c.meta ? {
-        accessToken: mask(c.meta.accessToken),
-        adAccountId: c.meta.adAccountId,
+      hasMeta: !!effectiveMeta?.accessToken,
+      hasGoogle: !!effectiveGoogle?.clientId,
+      metaSource: clientMeta ? "client" : envMeta ? "default" : "missing",
+      googleSource: clientGoogle ? "client" : envGoogle ? "default" : "missing",
+      meta: effectiveMeta ? {
+        accessToken: mask(effectiveMeta.accessToken),
+        adAccountId: effectiveMeta.adAccountId,
       } : undefined,
-      google: c.google ? {
-        clientId: mask(c.google.clientId),
-        clientSecret: mask(c.google.clientSecret),
-        refreshToken: mask(c.google.refreshToken),
-        developerToken: mask(c.google.developerToken),
-        mccId: c.google.mccId,
-        customerId: c.google.customerId,
+      google: effectiveGoogle ? {
+        clientId: mask(effectiveGoogle.clientId),
+        clientSecret: mask(effectiveGoogle.clientSecret),
+        refreshToken: mask(effectiveGoogle.refreshToken),
+        developerToken: mask(effectiveGoogle.developerToken),
+        mccId: effectiveGoogle.mccId,
+        customerId: effectiveGoogle.customerId,
       } : undefined,
     });
   });
@@ -898,6 +911,156 @@ export async function registerRoutes(
     store.instructions.splice(idx, 1);
     writeInstructions(store);
     res.json({ success: true });
+  });
+
+  // ─── Creative Hub Endpoints ────────────────────────────────────
+  app.get("/api/clients/:clientId/creative-hub", (req, res) => {
+    res.json(getCreativeHubState(req.params.clientId));
+  });
+
+  app.post("/api/clients/:clientId/creative-hub/setup", (req, res) => {
+    const { clientId } = req.params;
+    const {
+      projectName = "",
+      logos = [],
+      renders = [],
+      price = "",
+      reraNumber = "",
+      buildingNumber = "",
+      configuration = "",
+      location = "",
+      sqftRange = "",
+      tone = "premium",
+      customInstructions = "",
+      winningCreatives = [],
+    } = req.body || {};
+
+    const next = saveCreativeSetup(clientId, {
+      projectName,
+      logos,
+      renders,
+      price,
+      reraNumber,
+      buildingNumber,
+      configuration,
+      location,
+      sqftRange,
+      tone,
+      customInstructions,
+      winningCreatives,
+    });
+
+    res.json(next);
+  });
+
+  app.post("/api/clients/:clientId/creative-hub/generate", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const hub = getCreativeHubState(clientId);
+      if (!hub.setup) {
+        return res.status(400).json({ error: "Creative SOP setup is required before generation." });
+      }
+
+      const input = {
+        campaignIdea: String(req.body?.campaignIdea || "").trim(),
+        offer: String(req.body?.offer || "").trim(),
+        hook: String(req.body?.hook || "").trim(),
+        platform: (req.body?.platform || "meta") as CreativePlatform,
+        customInstruction: String(req.body?.customInstruction || "").trim(),
+      };
+
+      if (!input.campaignIdea || !input.offer || !input.hook) {
+        return res.status(400).json({ error: "Campaign idea, offer, and hook are required." });
+      }
+
+      const analysis = readAnalysisData(clientId, input.platform === "google_display" ? "google" : "meta");
+      const references = ((analysis?.creative_health || []) as any[])
+        .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
+        .slice(0, 5)
+        .map((item) => ({
+          name: item.ad_name || item.name || "Creative",
+          score: item.creative_score,
+          ctr: item.ctr,
+          cpl: item.cpl,
+          classification: item.classification,
+        }));
+
+      const next = await generateCreativeThread({
+        clientId,
+        setup: hub.setup,
+        input,
+        references,
+      });
+      res.json(next);
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Failed to generate creative" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/creative-hub/:threadId/regenerate", async (req, res) => {
+    try {
+      const { clientId, threadId } = req.params;
+      const sectionKey = req.body?.sectionKey as CreativeSectionKey;
+      if (!sectionKey) {
+        return res.status(400).json({ error: "sectionKey is required." });
+      }
+
+      const hub = getCreativeHubState(clientId);
+      const platform = hub.threads.find((thread) => thread.id === threadId)?.input.platform || "meta";
+      const analysis = readAnalysisData(clientId, platform === "google_display" ? "google" : "meta");
+      const references = ((analysis?.creative_health || []) as any[])
+        .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
+        .slice(0, 5)
+        .map((item) => ({
+          name: item.ad_name || item.name || "Creative",
+          score: item.creative_score,
+          ctr: item.ctr,
+          cpl: item.cpl,
+          classification: item.classification,
+        }));
+
+      const next = await regenerateCreativeSectionForThread({
+        clientId,
+        threadId,
+        sectionKey,
+        references,
+      });
+      res.json(next);
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Failed to regenerate section" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/creative-hub/:threadId/generate-image", async (req, res) => {
+    try {
+      const { clientId, threadId } = req.params;
+      const requestedSize = String(req.body?.requestedSize || "1080x1080") as "1080x1080" | "1080x1920" | "1200x628" | "960x1200";
+      const versionId = req.body?.versionId ? String(req.body.versionId) : undefined;
+
+      const next = await generateCreativeImageForThread({
+        clientId,
+        threadId,
+        versionId,
+        requestedSize,
+      });
+      res.json(next);
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Failed to generate image" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/creative-hub/:threadId/tag", (req, res) => {
+    const { clientId, threadId } = req.params;
+    const statusTag = req.body?.statusTag as CreativeStatusTag;
+    if (!statusTag) {
+      return res.status(400).json({ error: "statusTag is required." });
+    }
+    res.json(updateCreativeThreadTag({ clientId, threadId, statusTag }));
+  });
+
+  app.post("/api/clients/:clientId/creative-hub/:threadId/duplicate", (req, res) => {
+    const { clientId, threadId } = req.params;
+    res.json(duplicateCreativeThread({ clientId, threadId }));
   });
 
   // ─── Legacy endpoints (backward compat — redirect to amara/meta) ───

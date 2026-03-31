@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
   Megaphone,
-  Palette,
   ClipboardCheck,
   Lightbulb,
   Settings,
@@ -21,6 +20,8 @@ import {
   GitBranch,
   CalendarClock,
   FileBarChart,
+  Sparkles,
+  Command,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,18 +51,18 @@ import { cn } from "@/lib/utils";
 
 const coreNavItems = [
   { title: "Dashboard", url: "/",          icon: LayoutDashboard },
+  { title: "Command Center", url: "/command-center", icon: Command },
+  { title: "Creatives", url: "/creatives", icon: Sparkles },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
 ];
 
 const metaNavItems = [
   { title: "Adsets",    url: "/adsets",    icon: Layers },
-  { title: "Creatives", url: "/creatives", icon: Palette },
 ];
 
 const googleNavItems = [
   { title: "Bidding",       url: "/google/bidding",       icon: IndianRupee },
   { title: "Ad Groups",     url: "/adsets",               icon: Layers },
-  { title: "Ad Copy",       url: "/creatives",            icon: Palette },
   { title: "Quality Score", url: "/google/quality-score", icon: Search },
   { title: "Search Terms",  url: "/google/search-terms",  icon: Target },
   { title: "Demand Gen",    url: "/google/demand-gen",    icon: Users },
@@ -111,8 +112,8 @@ function NavSection({
   location: string;
 }) {
   return (
-    <SidebarGroup className="py-1">
-      <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 mb-0.5">
+    <SidebarGroup className="py-1.5">
+      <SidebarGroupLabel className="px-3 mb-1">
         {label}
       </SidebarGroupLabel>
       <SidebarGroupContent>
@@ -162,16 +163,16 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
   return (
     <Sidebar>
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <SidebarHeader className="p-4 pb-3 space-y-3">
+      <SidebarHeader className="shrink-0 p-4 pb-4 space-y-4 border-b border-sidebar-border/70">
 
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary shadow-xs shrink-0">
-            <Zap className="w-4 h-4 text-primary-foreground" />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-[10px] bg-primary shadow-sm shrink-0">
+            <Zap className="w-4.5 h-4.5 text-primary-foreground" />
           </div>
-          <div>
-            <p className="text-sm font-bold tracking-tight leading-none">Mojo</p>
-            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Performance Agent</p>
+          <div className="grid gap-1 leading-none">
+            <p className="text-lg font-extrabold tracking-[-0.03em] leading-none">Mojo</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground leading-none">AdPilot V3</p>
           </div>
         </div>
 
@@ -181,15 +182,15 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
             <button
               className={cn(
                 "flex items-center justify-between w-full px-3 py-2.5 rounded-lg",
-                "bg-muted/50 border border-border/50",
-                "hover:bg-muted/80 transition-colors duration-150",
+                "bg-card/84 border border-border/70 shadow-xs",
+                "hover:bg-accent/70 hover:border-primary/30 transition-colors duration-150",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               )}
               data-testid="button-client-selector"
             >
               <div className="flex flex-col items-start gap-0.5 min-w-0">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Client</span>
-                <span className="text-[13px] font-semibold truncate max-w-[130px]">
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Client</span>
+                <span className="text-[15px] font-semibold truncate max-w-[150px]">
                   {activeClient?.shortName || activeClient?.name || "Select client"}
                 </span>
                 {activeClient?.location && (
@@ -233,7 +234,9 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
         </DropdownMenu>
 
         {/* Platform toggle */}
-        <div className="flex items-center gap-1.5">
+        <div className="grid gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Channels</p>
+          <div className="flex items-center gap-1.5">
           {activeClient?.platforms.map((platform) => {
             const isActive  = platform.id === activePlatform;
             const isEnabled = platform.enabled && platform.hasData;
@@ -242,13 +245,13 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "flex-1 px-3 py-1.5 text-[12px] font-semibold rounded-lg relative transition-colors duration-150",
+                      "flex-1 px-3 py-2 text-[12px] font-semibold rounded-lg relative border transition-colors duration-150",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       isActive && isEnabled
-                        ? "bg-primary/15 text-primary border border-primary/40"
+                        ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
                         : isEnabled
-                          ? "text-muted-foreground border border-border/50 hover:bg-muted/60 hover:text-foreground"
-                          : "text-muted-foreground/40 border border-border/30 cursor-not-allowed"
+                          ? "text-muted-foreground border-border/60 bg-card/70 hover:bg-accent/75 hover:text-foreground"
+                          : "text-muted-foreground/40 border-border/30 bg-muted/30 cursor-not-allowed"
                     )}
                     onClick={() => { if (isEnabled) setActivePlatform(platform.id); }}
                     disabled={!isEnabled}
@@ -270,23 +273,24 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
               </Tooltip>
             );
           })}
+          </div>
         </div>
 
         {/* Cadence selector */}
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Time window</p>
-          <div className="flex items-center gap-1">
+        <div className="grid gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Time Window</p>
+          <div className="grid grid-cols-5 gap-1.5">
             {cadenceOptions.map((opt) => {
               const isActive = opt.value === activeCadence;
               return (
                 <button
                   key={opt.value}
                   className={cn(
-                    "flex-1 py-1 text-[11px] font-medium rounded-md transition-colors duration-150",
+                    "py-1.5 text-[11px] font-semibold rounded-md border transition-colors duration-150",
                     "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     isActive
-                      ? "bg-primary/15 text-primary border border-primary/30 font-semibold"
-                      : "text-muted-foreground border border-border/30 hover:bg-muted/50 hover:text-foreground"
+                      ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
+                      : "text-muted-foreground border-border/40 bg-card/65 hover:bg-accent/70 hover:text-foreground"
                   )}
                   onClick={() => setActiveCadence(opt.value)}
                   data-testid={`button-cadence-${opt.value}`}
@@ -301,17 +305,22 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
       </SidebarHeader>
 
       {/* ── Navigation groups ───────────────────────────────────────── */}
-      <SidebarContent className="gap-0">
-        <NavSection label="Analytics"  items={[...coreNavItems, ...platformItems]} location={location} />
-        <NavSection label="Planning"   items={planningNavItems}  location={location} />
-        <NavSection label="Operations" items={opsNavItems}       location={location} />
-        <NavSection label="Admin"      items={adminNavItems}     location={location} />
-      </SidebarContent>
+      <nav
+        aria-label="Primary navigation"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <SidebarContent className="gap-0">
+          <NavSection label="Analytics"  items={[...coreNavItems, ...platformItems]} location={location} />
+          <NavSection label="Planning"   items={planningNavItems}  location={location} />
+          <NavSection label="Operations" items={opsNavItems}       location={location} />
+          <NavSection label="Admin"      items={adminNavItems}     location={location} />
+        </SidebarContent>
+      </nav>
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
-      <SidebarFooter className="px-4 py-3 border-t border-sidebar-border">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground">
+      <SidebarFooter className="shrink-0 px-4 py-3 border-t border-sidebar-border/70 bg-background/40">
+        <div className="flex items-center justify-between rounded-lg border border-border/60 bg-card/76 px-3 py-2 shadow-xs">
+          <span className="text-[11px] font-medium text-muted-foreground">
             {syncState?.sync_status === "failed"
               ? "Sync failed"
               : syncState?.sync_status === "loading"
@@ -321,7 +330,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                   : "Syncing..."}
           </span>
           <div className={cn(
-            "w-1.5 h-1.5 rounded-full shrink-0",
+            "w-2 h-2 rounded-full shrink-0",
             syncState?.sync_status === "failed"
               ? "bg-red-500"
               : syncState?.sync_status === "loading"

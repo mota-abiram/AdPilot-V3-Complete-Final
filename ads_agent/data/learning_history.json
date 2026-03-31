@@ -97,6 +97,34 @@
       "total_leads": 88,
       "avg_cpl": 618.6638636363637,
       "overall_ctr": 0.6378983495503265
+    },
+    {
+      "date": "2026-03-31",
+      "cadence": "multi_cadence",
+      "total_leads": 88,
+      "avg_cpl": 618.6865909090909,
+      "overall_ctr": 0.6378880335798636
+    },
+    {
+      "date": "2026-03-31",
+      "cadence": "multi_cadence",
+      "total_leads": 88,
+      "avg_cpl": 618.6904545454546,
+      "overall_ctr": 0.6378800102779539
+    },
+    {
+      "date": "2026-03-31",
+      "cadence": "multi_cadence",
+      "total_leads": 88,
+      "avg_cpl": 618.6914772727273,
+      "overall_ctr": 0.637878864108443
+    },
+    {
+      "date": "2026-03-31",
+      "cadence": "multi_cadence",
+      "total_leads": 88,
+      "avg_cpl": 618.6915909090909,
+      "overall_ctr": 0.6378765717817779
     }
   ],
   "patterns": [
@@ -211,6 +239,38 @@
         "Top video TSR: 8.6% vs bottom: 5.9%. Top video VHR: 41.1% vs bottom: 17.7%. Strong hooks = lower CPL.",
         "High-CTR ads (>0.7%) have 34% lower CPL (\u20b9589 vs \u20b9896). Investing in CTR improvement directly reduces CPL."
       ]
+    },
+    {
+      "date": "2026-03-31",
+      "top_patterns": [
+        "'Influencer' format appears more in top performers (2/2) than bottom (0/2).",
+        "Top video TSR: 8.6% vs bottom: 5.9%. Top video VHR: 41.1% vs bottom: 17.7%. Strong hooks = lower CPL.",
+        "High-CTR ads (>0.7%) have 34% lower CPL (\u20b9589 vs \u20b9896). Investing in CTR improvement directly reduces CPL."
+      ]
+    },
+    {
+      "date": "2026-03-31",
+      "top_patterns": [
+        "'Influencer' format appears more in top performers (2/2) than bottom (0/2).",
+        "Top video TSR: 8.6% vs bottom: 5.9%. Top video VHR: 41.1% vs bottom: 17.7%. Strong hooks = lower CPL.",
+        "High-CTR ads (>0.7%) have 34% lower CPL (\u20b9589 vs \u20b9896). Investing in CTR improvement directly reduces CPL."
+      ]
+    },
+    {
+      "date": "2026-03-31",
+      "top_patterns": [
+        "'Influencer' format appears more in top performers (2/2) than bottom (0/2).",
+        "Top video TSR: 8.6% vs bottom: 5.9%. Top video VHR: 41.1% vs bottom: 17.7%. Strong hooks = lower CPL.",
+        "High-CTR ads (>0.7%) have 34% lower CPL (\u20b9589 vs \u20b9896). Investing in CTR improvement directly reduces CPL."
+      ]
+    },
+    {
+      "date": "2026-03-31",
+      "top_patterns": [
+        "'Influencer' format appears more in top performers (2/2) than bottom (0/2).",
+        "Top video TSR: 8.6% vs bottom: 5.9%. Top video VHR: 41.1% vs bottom: 17.7%. Strong hooks = lower CPL.",
+        "High-CTR ads (>0.7%) have 34% lower CPL (\u20b9589 vs \u20b9896). Investing in CTR improvement directly reduces CPL."
+      ]
     }
   ],
   "fatigue_timelines": {},
@@ -219,30 +279,6 @@
     "120231984866140466": [
       {
         "date": "2026-03-31",
-        "cpl": 543.1365671641792,
-        "leads": 67,
-        "spend": 36390.15
-      },
-      {
-        "date": "2026-03-31",
-        "cpl": 543.1504477611941,
-        "leads": 67,
-        "spend": 36391.08
-      },
-      {
-        "date": "2026-03-31",
-        "cpl": 543.1504477611941,
-        "leads": 67,
-        "spend": 36391.08
-      },
-      {
-        "date": "2026-03-31",
-        "cpl": 543.1504477611941,
-        "leads": 67,
-        "spend": 36391.08
-      },
-      {
-        "date": "2026-03-31",
         "cpl": 543.1504477611941,
         "leads": 67,
         "spend": 36391.08
@@ -276,6 +312,30 @@
         "cpl": 543.1553731343284,
         "leads": 67,
         "spend": 36391.41
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 543.1588059701493,
+        "leads": 67,
+        "spend": 36391.64
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 543.1628358208956,
+        "leads": 67,
+        "spend": 36391.91
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 543.1641791044776,
+        "leads": 67,
+        "spend": 36392.0
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 543.164328358209,
+        "leads": 67,
+        "spend": 36392.01
       }
     ],
     "120242148702000466": [
@@ -299,30 +359,6 @@
       },
       {
         "date": "2026-03-31",
-        "cpl": 859.5714285714286,
-        "leads": 21,
-        "spend": 18051.0
-      },
-      {
-        "date": "2026-03-31",
-        "cpl": 859.5714285714286,
-        "leads": 21,
-        "spend": 18051.0
-      },
-      {
-        "date": "2026-03-31",
-        "cpl": 859.5714285714286,
-        "leads": 21,
-        "spend": 18051.0
-      },
-      {
-        "date": "2026-03-31",
-        "cpl": 859.5714285714286,
-        "leads": 21,
-        "spend": 18051.0
-      },
-      {
-        "date": "2026-03-31",
         "cpl": 859.5719047619049,
         "leads": 21,
         "spend": 18051.010000000002
@@ -338,6 +374,30 @@
         "cpl": 859.5719047619049,
         "leads": 21,
         "spend": 18051.010000000002
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 859.6561904761905,
+        "leads": 21,
+        "spend": 18052.780000000002
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 859.6595238095239,
+        "leads": 21,
+        "spend": 18052.850000000002
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 859.6595238095239,
+        "leads": 21,
+        "spend": 18052.850000000002
+      },
+      {
+        "date": "2026-03-31",
+        "cpl": 859.6595238095239,
+        "leads": 21,
+        "spend": 18052.850000000002
       }
     ],
     "120240639389720466": [

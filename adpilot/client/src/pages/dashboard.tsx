@@ -91,32 +91,39 @@ function KpiCard({
   trendValue?: string;
   icon: any;
   isInverse?: boolean;
-  status?: { label: string; color: string };
+  status?: {
+    label: string;
+    variant?: "success" | "warning" | "destructive" | "info" | "secondary";
+    className?: string;
+  };
 }) {
   const trendInfo = trend ? getTrendInfo(trend, isInverse) : null;
   return (
-    <Card className="relative overflow-visible">
+    <Card className="relative overflow-visible border-border/70 shadow-lg before:absolute before:inset-x-0 before:top-0 before:h-1 before:rounded-t-[10px] before:bg-primary/80">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <h3 className="type-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
             {title}
-          </span>
-          <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+          </h3>
+          <Icon className="w-4 h-4 text-primary/90 shrink-0" />
         </div>
-        <div className="tabular-nums text-lg font-semibold text-foreground" data-testid={`text-kpi-${title.toLowerCase().replace(/\s+/g, "-")}`}>
+        <div className="tabular-nums type-2xl font-extrabold tracking-[-0.03em] text-foreground" data-testid={`text-kpi-${title.toLowerCase().replace(/\s+/g, "-")}`}>
           {value}
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-2">
           {trendInfo && trendValue && (
             <span className={`text-xs font-medium tabular-nums ${trendInfo.color}`}>
               {trendInfo.arrow} {trendValue}
             </span>
           )}
           {subtitle && (
-            <span className="text-[11px] text-muted-foreground">{subtitle}</span>
+            <span className="type-xs text-muted-foreground">{subtitle}</span>
           )}
           {status && (
-            <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${status.color}`}>
+            <Badge
+              variant={status.variant ?? "secondary"}
+              className={`px-1.5 py-0 ${status.className ?? ""}`}
+            >
               {status.label}
             </Badge>
           )}
@@ -128,10 +135,10 @@ function KpiCard({
 
 const CHART_COLORS = {
   gold: "hsl(47, 100%, 50%)",
-  purple: "hsl(255, 80%, 65%)",
-  blue: "hsl(220, 70%, 60%)",
-  green: "hsl(142, 70%, 45%)",
-  red: "hsl(0, 72%, 55%)",
+  purple: "hsl(220, 68%, 45%)",
+  blue: "hsl(220, 68%, 45%)",
+  green: "hsl(146, 52%, 42%)",
+  red: "hsl(0, 73%, 55%)",
   amber: "hsl(38, 92%, 50%)",
 };
 
@@ -453,7 +460,6 @@ export default function DashboardPage() {
   const activeFunnelColors = isGoogle ? { ...FUNNEL_COLORS, ...GOOGLE_FUNNEL_COLORS } : FUNNEL_COLORS;
 
   const pacingSpendStatus = mp?.pacing?.spend_status || "N/A";
-  const pacingColor = pacingSpendStatus === "AHEAD" ? "text-amber-400" : pacingSpendStatus === "ON_TRACK" ? "text-emerald-400" : "text-red-400";
 
   // Critical alerts for banner
   const criticalAlerts: string[] = [];
@@ -589,74 +595,86 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-6 space-y-5 max-w-[1600px]">
+    <div className="page-shell max-w-[1600px] mx-auto">
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Dashboard</h1>
-          <p className="text-xs text-muted-foreground">
-            {activeClient?.name || ""} · {activePlatformInfo?.label || ""} · {cadenceLabel.replace(/_/g, " ")} analysis{agentVersion ? ` · ${agentVersion}` : ""}
-          </p>
-          <Badge variant="secondary" className="mt-1 text-[10px] px-2 py-0.5 text-sky-400 bg-sky-500/10 font-normal">
-            {displayDateRange
-              ? `Showing: ${cadenceDisplayMap[cadenceLabel] || "Last 7 Days"} | ${formatRangeDate(displayDateRange.since)} – ${formatRangeDate(displayDateRange.until)}`
-              : `Showing: ${cadenceDisplayMap[cadenceLabel] || "Last 7 Days"}`}
-          </Badge>
-          {lastSuccessfulFetchDate && (
-            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-muted-foreground">
-              Data as of: {lastSuccessfulFetchDate.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} ({formatHoursAgo(lastSuccessfulFetch, now)})
-            </Badge>
-          )}
+      <section className="page-zone" aria-labelledby="dashboard-title">
+        <div className="flex items-center justify-between gap-4 flex-wrap rounded-[10px] border border-border/70 bg-card/80 px-5 py-4 shadow-sm">
+          <div className="page-subsection">
+            <div>
+              <h1 id="dashboard-title" className="text-2xl font-extrabold text-foreground">Dashboard</h1>
+              <p className="type-base text-muted-foreground">
+                {activeClient?.name || ""} · {activePlatformInfo?.label || ""} · {cadenceLabel.replace(/_/g, " ")} analysis{agentVersion ? ` · ${agentVersion}` : ""}
+              </p>
+            </div>
+            <div className="page-subsection gap-2">
+              <Badge variant="warning" className="w-fit font-semibold">
+                {displayDateRange
+                  ? `Showing: ${cadenceDisplayMap[cadenceLabel] || "Last 7 Days"} | ${formatRangeDate(displayDateRange.since)} – ${formatRangeDate(displayDateRange.until)}`
+                  : `Showing: ${cadenceDisplayMap[cadenceLabel] || "Last 7 Days"}`}
+              </Badge>
+              {lastSuccessfulFetchDate && (
+                <Badge variant="secondary" className="w-fit text-muted-foreground">
+                  Data as of: {lastSuccessfulFetchDate.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} ({formatHoursAgo(lastSuccessfulFetch, now)})
+                </Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] rounded-lg border border-primary/30 bg-primary/12 text-foreground hover:bg-primary/18 hover:border-primary/45 transition-colors"
+                  onClick={() => {
+                    fetch("/api/scheduler/run-now", { method: "POST" }).then(() => {
+                      // Will auto-refresh via SSE when done
+                    });
+                  }}
+                  data-testid="button-run-audit"
+                >
+                  Auto-runs daily at 9 AM IST · Click to run now
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Click to trigger an immediate agent run. Normally runs daily at 9 AM IST.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="px-3 py-1.5 text-xs rounded-md border border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-                onClick={() => {
-                  fetch("/api/scheduler/run-now", { method: "POST" }).then(() => {
-                    // Will auto-refresh via SSE when done
-                  });
-                }}
-                data-testid="button-run-audit"
-              >
-                Auto-runs daily at 9 AM IST · Click to run now
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="text-xs">Click to trigger an immediate agent run. Normally runs daily at 9 AM IST.</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+      </section>
 
       {/* Critical Alerts Banner */}
       {criticalAlerts.length > 0 && (
-        <div className="space-y-1.5">
+        <section className="page-subsection" aria-labelledby="dashboard-critical-alerts">
+          <h2 id="dashboard-critical-alerts" className="sr-only">Critical alerts</h2>
           {criticalAlerts.map((alert, i) => (
             <div key={i} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
               <span className="text-xs text-red-300 font-medium">{alert}</span>
             </div>
           ))}
-        </div>
+        </section>
       )}
 
       {/* New Entity Detection Banner */}
       {newEntities?.hasNewEntities && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500/10 border border-blue-500/30">
-          <AlertCircle className="w-4 h-4 text-blue-400 shrink-0" />
-          <span className="text-xs text-blue-300 font-medium">
-            {newEntities.totalNew} new {newEntities.totalNew === 1 ? "entity" : "entities"} detected since last analysis
-            {newEntities.newCampaigns.length > 0 && ` (${newEntities.newCampaigns.length} campaign${newEntities.newCampaigns.length > 1 ? "s" : ""})`}
-            {newEntities.newAdsets.length > 0 && ` (${newEntities.newAdsets.length} ad set${newEntities.newAdsets.length > 1 ? "s" : ""})`}
-            . Run agent to include them.
-          </span>
-        </div>
+        <section aria-labelledby="dashboard-new-entities">
+          <h2 id="dashboard-new-entities" className="sr-only">New entities detected</h2>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500/10 border border-blue-500/30">
+            <AlertCircle className="w-4 h-4 text-blue-400 shrink-0" />
+            <span className="text-xs text-blue-300 font-medium">
+              {newEntities.totalNew} new {newEntities.totalNew === 1 ? "entity" : "entities"} detected since last analysis
+              {newEntities.newCampaigns.length > 0 && ` (${newEntities.newCampaigns.length} campaign${newEntities.newCampaigns.length > 1 ? "s" : ""})`}
+              {newEntities.newAdsets.length > 0 && ` (${newEntities.newAdsets.length} ad set${newEntities.newAdsets.length > 1 ? "s" : ""})`}
+              . Run agent to include them.
+            </span>
+          </div>
+        </section>
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <section className="page-zone" aria-labelledby="dashboard-kpis">
+      <h2 id="dashboard-kpis" className="sr-only">Key performance indicators</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <KpiCard
           title={`Spend (${periodLabel})`}
           value={formatINR(ap.total_spend_30d, 0)}
@@ -666,8 +684,8 @@ export default function DashboardPage() {
           subtitle="vs prior"
           status={verifyData ? (
             verifyData.verified
-              ? { label: "Verified ✓", color: "text-emerald-400 bg-emerald-500/10" }
-              : { label: `Mismatch: ${verifyData.discrepancyPct}%`, color: "text-amber-400 bg-amber-500/10" }
+              ? { label: "Verified ✓", variant: "success" }
+              : { label: `Mismatch: ${verifyData.discrepancyPct}%`, variant: "warning" }
           ) : undefined}
         />
         <KpiCard
@@ -688,10 +706,10 @@ export default function DashboardPage() {
           status={
             thresholds
               ? ap.overall_cpl <= thresholds.cpl_target
-                ? { label: "On Target", color: "text-emerald-400" }
+                ? { label: "On Target", variant: "success" }
                 : ap.overall_cpl <= thresholds.cpl_alert
-                ? { label: "Watch", color: "text-amber-400" }
-                : { label: "Alert", color: "text-red-400" }
+                ? { label: "Watch", variant: "warning" }
+                : { label: "Alert", variant: "destructive" }
               : undefined
           }
         />
@@ -709,7 +727,7 @@ export default function DashboardPage() {
           icon={Gauge}
           status={mp ? {
             label: pacingSpendStatus,
-            color: pacingColor,
+            variant: pacingSpendStatus === "ON_TRACK" ? "success" : pacingSpendStatus === "AHEAD" ? "warning" : "destructive",
           } : undefined}
           subtitle={mp ? `Leads: ${mp.pacing.leads_pct.toFixed(0)}%` : "No pacing data"}
         />
@@ -720,6 +738,7 @@ export default function DashboardPage() {
           subtitle={`${s.total_fatigue_alerts || 0} fatigue · ${s.immediate_actions || 0} actions`}
         />
       </div>
+      </section>
 
       {/* Data Verification Widget */}
       {verifyData && (

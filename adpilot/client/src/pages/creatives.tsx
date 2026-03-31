@@ -1,882 +1,1142 @@
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Sparkles,
+  Wand2,
+  Upload,
+  Copy,
+  Download,
+  Send,
+  History,
+  ImagePlus,
+  Layers3,
+  Crown,
+  FlaskConical,
+  TriangleAlert,
+  Loader2,
+  RefreshCcw,
+  Plus,
+  ChevronRight,
+} from "lucide-react";
 import { useClient } from "@/lib/client-context";
-import { DataTablePagination } from "@/components/data-table-pagination";
-import type { CreativeHealth } from "@shared/schema";
-import { Card, CardContent } from "@/components/ui/card";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ArrowUpDown, ChevronDown, ChevronUp, Video, Image, Pause, Play } from "lucide-react";
-import {
-  formatINR,
-  formatPct,
-  formatNumber,
-  getHealthBgColor,
-  getHealthBarBg,
-  getClassificationColor,
-  getCplColor,
-  getCtrColor,
-  getFrequencyColor,
-  getVideoMetricColor,
-  truncate,
-} from "@/lib/format";
-import { ExecutionButton } from "@/components/execution-button";
-import { UnifiedActions, UnifiedActionsInline } from "@/components/unified-actions";
-import { usePausedEntities } from "@/hooks/use-paused-entities";
+import { cn } from "@/lib/utils";
 
-type SortKey = keyof CreativeHealth;
-type SortDir = "asc" | "desc";
-type CreativeTab = "all" | "video" | "static";
-type GoogleTab = "all" | "search" | "dg";
+type CreativeTone = "luxury" | "premium" | "affordable";
+type CreativePlatform = "meta" | "google_display";
+type CreativeSectionKey = "headline" | "subtext" | "cta" | "offerSection" | "visualDirection";
+type CreativeStatusTag = "winner" | "testing" | "loser";
 
-// ─── Smart Recommendation Engine ─────────────────────────────────
-function getCreativeRecommendation(c: any, targetCpl: number): { text: string; actionType: string; severity: "high" | "medium" | "low" } | null {
-  // Priority 1: Spend > ₹2000 with 0 leads → Pause immediately
-  if ((c.spend || 0) > 2000 && (c.leads || 0) === 0) {
-    return {
-      text: "Pause immediately — ₹" + Math.round(c.spend) + " spent with 0 leads",
-      actionType: "PAUSE_AD",
-      severity: "high",
-    };
-  }
+interface CreativeAsset {
+  id: string;
+  name: string;
+  type: string;
+  size?: number;
+  dataUrl: string;
+  category: "logo" | "render" | "winner";
+}
 
-  // Priority 2: CPL > target × 1.3 → Consider pausing
-  if ((c.cpl || 0) > targetCpl * 1.3 && (c.leads || 0) > 0) {
-    return {
-      text: "Consider pausing — CPL ₹" + Math.round(c.cpl) + " above threshold (₹" + Math.round(targetCpl * 1.3) + ")",
-      actionType: "PAUSE_AD",
-      severity: "high",
-    };
-  }
+interface CreativeSetup {
+  projectName: string;
+  logos: CreativeAsset[];
+  renders: CreativeAsset[];
+  price: string;
+  reraNumber: string;
+  buildingNumber: string;
+  configuration: string;
+  location: string;
+  sqftRange: string;
+  tone: CreativeTone;
+  customInstructions: string;
+  winningCreatives: CreativeAsset[];
+  updatedAt: string;
+}
 
-  // Priority 3: Frequency > 2.5 → Creative fatigue
-  if ((c.frequency || 0) > 2.5) {
-    return {
-      text: "Creative fatigue — frequency " + (c.frequency?.toFixed(2) || "—") + ", refresh with new angle",
-      actionType: "CREATIVE_REFRESH",
-      severity: "medium",
-    };
-  }
+interface CreativePromptInput {
+  campaignIdea: string;
+  offer: string;
+  hook: string;
+  platform: CreativePlatform;
+  customInstruction?: string;
+}
 
-  // Priority 4: TSR < 25% (video) → Improve hook
-  if (c.is_video && (c.thumb_stop_pct || 0) > 0 && (c.thumb_stop_pct || 0) < 25) {
-    return {
-      text: "Improve hook — add motion/face in first 3s (TSR " + (c.thumb_stop_pct?.toFixed(1) || "0") + "%)",
-      actionType: "CREATIVE_REFRESH",
-      severity: "medium",
-    };
-  }
+interface CreativeOutput {
+  headline: string;
+  subtext: string;
+  cta: string;
+  offerSection: string;
+  visualDirection: string;
+  primaryText: string;
+  platformNotes: string;
+  copyVariations: {
+    headlines: string[];
+    primaryTexts: string[];
+    ctaOptions: string[];
+  };
+  staticAdStructure: {
+    topHook: string;
+    heroVisualSuggestion: string;
+    midMessaging: string;
+    ctaBlock: string;
+  };
+}
 
-  // Priority 5: CTR declining + CPM stable → Sharpen CTA
-  const hasCtrDecline = (c.health_signals || []).some((s: string) =>
-    s.toLowerCase().includes("ctr") && (s.toLowerCase().includes("declin") || s.toLowerCase().includes("drop"))
+interface CreativeGeneratedImage {
+  id: string;
+  prompt: string;
+  requestedSize: "1080x1080" | "1080x1920" | "1200x628" | "960x1200";
+  modelSize: "1024x1024" | "1024x1536" | "1536x1024";
+  mimeType: string;
+  dataUrl: string;
+  createdAt: string;
+}
+
+interface CreativeVersion {
+  id: string;
+  createdAt: string;
+  sectionRegenerated: CreativeSectionKey | null;
+  output: CreativeOutput;
+  generatedImages?: CreativeGeneratedImage[];
+}
+
+interface CreativeMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+interface CreativeThread {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  statusTag: CreativeStatusTag;
+  input: CreativePromptInput;
+  messages: CreativeMessage[];
+  versions: CreativeVersion[];
+  activeVersionId: string;
+}
+
+interface CreativeHubState {
+  clientId: string;
+  setup: CreativeSetup | null;
+  threads: CreativeThread[];
+  updatedAt: string;
+}
+
+interface SetupFormState {
+  projectName: string;
+  logos: CreativeAsset[];
+  renders: CreativeAsset[];
+  price: string;
+  reraNumber: string;
+  buildingNumber: string;
+  configuration: string;
+  location: string;
+  sqftRange: string;
+  tone: CreativeTone;
+  customInstructions: string;
+  winningCreatives: CreativeAsset[];
+}
+
+const defaultSetupForm: SetupFormState = {
+  projectName: "",
+  logos: [],
+  renders: [],
+  price: "",
+  reraNumber: "",
+  buildingNumber: "",
+  configuration: "",
+  location: "",
+  sqftRange: "",
+  tone: "premium",
+  customInstructions: "",
+  winningCreatives: [],
+};
+
+const defaultPromptInput: CreativePromptInput = {
+  campaignIdea: "",
+  offer: "",
+  hook: "",
+  platform: "meta",
+  customInstruction: "",
+};
+
+const imageSizeOptions: Array<CreativeGeneratedImage["requestedSize"]> = [
+  "1080x1080",
+  "1080x1920",
+  "1200x628",
+  "960x1200",
+];
+
+const sectionLabels: Record<CreativeSectionKey, string> = {
+  headline: "Headline",
+  subtext: "Subtext",
+  cta: "CTA",
+  offerSection: "Offer Section",
+  visualDirection: "Visual Direction",
+};
+
+function formatRelativeTime(value: string) {
+  const diff = Date.now() - new Date(value).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+async function filesToAssets(files: FileList | null, category: CreativeAsset["category"]) {
+  if (!files?.length) return [] as CreativeAsset[];
+  const items = Array.from(files);
+
+  return Promise.all(
+    items.map(
+      (file) =>
+        new Promise<CreativeAsset>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            resolve({
+              id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              dataUrl: String(reader.result || ""),
+              category,
+            });
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        }),
+    ),
   );
-  if (hasCtrDecline) {
-    return {
-      text: "Sharpen CTA/offer — CTR declining while CPM stable",
-      actionType: "CREATIVE_REFRESH",
-      severity: "medium",
-    };
+}
+
+function removeAsset(list: CreativeAsset[], assetId: string) {
+  return list.filter((asset) => asset.id !== assetId);
+}
+
+function composeCreativeBrief(thread: CreativeThread, version: CreativeVersion) {
+  const output = version.output;
+  return `Creative Brief
+Client Prompt: ${thread.input.campaignIdea}
+Offer: ${thread.input.offer}
+Hook: ${thread.input.hook}
+Platform: ${thread.input.platform === "google_display" ? "Google Display" : "Meta"}
+
+Headline
+${output.headline}
+
+Subtext
+${output.subtext}
+
+CTA
+${output.cta}
+
+Offer Section
+${output.offerSection}
+
+Visual Direction
+${output.visualDirection}
+
+Primary Text
+${output.primaryText}
+
+Static Ad Structure
+- Top Hook: ${output.staticAdStructure.topHook}
+- Hero Visual Suggestion: ${output.staticAdStructure.heroVisualSuggestion}
+- Mid Messaging: ${output.staticAdStructure.midMessaging}
+- CTA Block: ${output.staticAdStructure.ctaBlock}
+`;
+}
+
+async function parseJsonApiResponse<T>(res: Response): Promise<T> {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+      throw new Error("The API returned an HTML page instead of JSON. Restart the AdPilot server so the new creative image route is loaded.");
+    }
+    throw new Error("The API returned a non-JSON response.");
   }
 
-  // Priority 6: should_pause flag from analysis
-  if (c.should_pause) {
-    return {
-      text: (c.auto_pause_reasons || []).join("; ") || "Agent recommends pausing",
-      actionType: "PAUSE_AD",
-      severity: "high",
-    };
-  }
-
-  return null;
+  return res.json() as Promise<T>;
 }
 
 export default function CreativesPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, activeClient } = useClient();
-  const { isPaused: isEntityPaused } = usePausedEntities();
-  const isGoogle = activePlatform === "google";
+  const { activeClientId, activeClient, activePlatform, analysisData } = useClient();
+  const { toast } = useToast();
+  const [setupForm, setSetupForm] = useState<SetupFormState>(defaultSetupForm);
+  const [promptInput, setPromptInput] = useState<CreativePromptInput>({
+    ...defaultPromptInput,
+    platform: activePlatform === "google" ? "google_display" : "meta",
+  });
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [selectedSection, setSelectedSection] = useState<CreativeSectionKey | null>(null);
+  const [selectedImageSize, setSelectedImageSize] = useState<CreativeGeneratedImage["requestedSize"]>("1080x1080");
 
-  const [sortKey, setSortKey] = useState<SortKey>("spend");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [activeTab, setActiveTab] = useState<CreativeTab>("all");
-  const [googleTab, setGoogleTab] = useState<GoogleTab>("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const { data: hubData, isLoading } = useQuery<CreativeHubState>({
+    queryKey: ["/api/clients", activeClientId, "creative-hub"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/clients/${activeClientId}/creative-hub`);
+      return res.json();
+    },
+    enabled: !!activeClientId,
+  });
 
-  // Reset page when tab changes
-  useEffect(() => { setPage(1); }, [activeTab, googleTab]);
+  useEffect(() => {
+    if (!hubData?.setup) return;
+    setSetupForm({
+      projectName: hubData.setup.projectName || "",
+      logos: hubData.setup.logos || [],
+      renders: hubData.setup.renders || [],
+      price: hubData.setup.price || "",
+      reraNumber: hubData.setup.reraNumber || "",
+      buildingNumber: hubData.setup.buildingNumber || "",
+      configuration: hubData.setup.configuration || "",
+      location: hubData.setup.location || "",
+      sqftRange: hubData.setup.sqftRange || "",
+      tone: hubData.setup.tone || "premium",
+      customInstructions: hubData.setup.customInstructions || "",
+      winningCreatives: hubData.setup.winningCreatives || [],
+    });
+  }, [hubData?.setup?.updatedAt]);
 
-  const targetCpl = activeClient?.targets?.[activePlatform]?.cpl || (data as any)?.dynamic_thresholds?.cpl_target || 800;
+  useEffect(() => {
+    setPromptInput((current) => ({
+      ...current,
+      platform: activePlatform === "google" ? "google_display" : "meta",
+    }));
+  }, [activePlatform]);
 
-  const allCreatives = useMemo(() => {
-    if (!data) return [];
-
-    if (isGoogle) {
-      const googleAds = (data as any)?.campaigns?.flatMap((c: any) =>
-        c.ad_groups?.flatMap((ag: any) =>
-          ag.ads?.map((ad: any) => ({
-            ad_id: ad.id || ad.ad_id || `${c.id}-${ag.id}-${Math.random().toString(36).slice(2, 8)}`,
-            ad_name: ad.name || ad.headline || `Ad ${ad.id || ""}`,
-            campaign_name: c.name,
-            adset_name: ag.name,
-            spend: ad.cost || ad.spend || 0,
-            impressions: ad.impressions || 0,
-            clicks: ad.clicks || 0,
-            ctr: ad.ctr || 0,
-            cpc: ad.cpc || 0,
-            cpm: ad.cpm || 0,
-            frequency: 0,
-            leads: ad.conversions || ad.leads || 0,
-            cpl: ad.cost_per_conversion || ad.cpl || 0,
-            is_video: ad.ad_type === "VIDEO" || (ad.type?.includes?.("VIDEO") ?? false),
-            thumb_stop_pct: 0,
-            hold_rate_pct: 0,
-            first_frame_rate: 0,
-            avg_watch_sec: 0,
-            video_p25: ad.video_quartile_p25_rate ?? null,
-            video_p50: ad.video_quartile_p50_rate ?? null,
-            video_p75: ad.video_quartile_p75_rate ?? null,
-            video_p100: ad.video_quartile_p100_rate ?? null,
-            creative_age_days: ad.age_days ?? null,
-            health_signals: ad.health_signals || [],
-            creative_score: ad.score || ad.health_score || 0,
-            scoring_type: "google",
-            score_breakdown: ad.score_breakdown || {},
-            score_bands: ad.score_bands || {},
-            classification: ad.classification || "",
-            should_pause: ad.should_pause || false,
-            auto_pause_reasons: ad.auto_pause_reasons || [],
-            status: ad.status || "",
-            ad_strength: ad.ad_strength || null,
-            campaign_type: c.campaign_type || "",
-            headlines: ad.headlines || [],
-            descriptions: ad.descriptions || [],
-            ad_type_detail: ad.ad_type || ad.type || "RSA",
-          })) || []
-        ) || []
-      ) || [];
-      return googleAds;
+  useEffect(() => {
+    if (!hubData?.threads?.length) {
+      setSelectedThreadId(null);
+      setSelectedVersionId(null);
+      return;
     }
+    if (!selectedThreadId || !hubData.threads.some((thread) => thread.id === selectedThreadId)) {
+      const nextThread = hubData.threads[0];
+      setSelectedThreadId(nextThread.id);
+      setSelectedVersionId(nextThread.activeVersionId);
+      setSelectedSection(null);
+    }
+  }, [hubData?.threads, selectedThreadId]);
 
-    return [...data.creative_health];
-  }, [data, isGoogle]);
+  const selectedThread = useMemo(
+    () => hubData?.threads.find((thread) => thread.id === selectedThreadId) || null,
+    [hubData?.threads, selectedThreadId],
+  );
 
-  const isDGCampaign = (c: any) => {
-    const ct = (c.campaign_type || "").toLowerCase();
-    return ct.includes("demand_gen") || ct.includes("video") || ct.includes("display");
+  const selectedVersion = useMemo(() => {
+    if (!selectedThread) return null;
+    return (
+      selectedThread.versions.find((version) => version.id === (selectedVersionId || selectedThread.activeVersionId)) ||
+      selectedThread.versions[0] ||
+      null
+    );
+  }, [selectedThread, selectedVersionId]);
+
+  const creativeReferences = useMemo(() => {
+    const raw = ((analysisData as any)?.creative_health || []) as any[];
+    return raw
+      .slice()
+      .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.ad_id || item.id || item.ad_name,
+        name: item.ad_name || item.name || "Creative",
+        score: item.creative_score || 0,
+        ctr: item.ctr || 0,
+        cpl: item.cpl || 0,
+        classification: item.classification || "TESTING",
+      }));
+  }, [analysisData]);
+
+  const syncHubState = (next: CreativeHubState) => {
+    queryClient.setQueryData(["/api/clients", activeClientId, "creative-hub"], next);
   };
 
-  const searchCount = allCreatives.filter((c: any) => !isDGCampaign(c)).length;
-  const dgCount = allCreatives.filter((c: any) => isDGCampaign(c)).length;
+  const saveSetupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/setup`, setupForm);
+      return parseJsonApiResponse<CreativeHubState>(res);
+    },
+    onSuccess: (next) => {
+      syncHubState(next);
+      toast({ title: "Creative SOP saved", description: "This client setup will be reused across all creative generations." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Unable to save SOP", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
 
-  const filteredCreatives = useMemo(() => {
-    let list = allCreatives;
-    if (isGoogle) {
-      if (googleTab === "search") list = list.filter((c: any) => !isDGCampaign(c));
-      if (googleTab === "dg") list = list.filter((c: any) => isDGCampaign(c));
-    } else {
-      if (activeTab === "video") list = list.filter((c: any) => c.is_video);
-      if (activeTab === "static") list = list.filter((c: any) => !c.is_video);
-    }
-    list.sort((a: any, b: any) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+  const generateMutation = useMutation({
+    mutationFn: async (payload: CreativePromptInput) => {
+      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/generate`, payload);
+      return parseJsonApiResponse<CreativeHubState>(res);
+    },
+    onSuccess: (next) => {
+      syncHubState(next);
+      if (next.threads[0]) {
+        setSelectedThreadId(next.threads[0].id);
+        setSelectedVersionId(next.threads[0].activeVersionId);
+        setSelectedSection(null);
       }
-      return sortDir === "asc"
-        ? String(aVal ?? "").localeCompare(String(bVal ?? ""))
-        : String(bVal ?? "").localeCompare(String(aVal ?? ""));
-    });
-    return list;
-  }, [allCreatives, sortKey, sortDir, activeTab, googleTab, isGoogle]);
+      toast({ title: "Creative generated", description: "A new creative concept and variation set is ready." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Generation failed", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
 
-  const videoCount = allCreatives.filter((c: any) => c.is_video).length;
-  const staticCount = allCreatives.filter((c: any) => !c.is_video).length;
+  const regenerateMutation = useMutation({
+    mutationFn: async (sectionKey: CreativeSectionKey) => {
+      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/${selectedThreadId}/regenerate`, {
+        sectionKey,
+      });
+      return parseJsonApiResponse<CreativeHubState>(res);
+    },
+    onSuccess: (next) => {
+      syncHubState(next);
+      const thread = next.threads.find((item) => item.id === selectedThreadId);
+      if (thread) setSelectedVersionId(thread.activeVersionId);
+      toast({ title: "Section regenerated", description: "Only the selected block changed. The rest stayed intact." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Could not regenerate section", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("desc"); }
-  }
+  const tagMutation = useMutation({
+    mutationFn: async (statusTag: CreativeStatusTag) => {
+      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/${selectedThreadId}/tag`, { statusTag });
+      return parseJsonApiResponse<CreativeHubState>(res);
+    },
+    onSuccess: (next) => syncHubState(next),
+  });
 
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
-    return sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
-  }
+  const duplicateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/${selectedThreadId}/duplicate`);
+      return parseJsonApiResponse<CreativeHubState>(res);
+    },
+    onSuccess: (next) => {
+      syncHubState(next);
+      if (next.threads[0]) {
+        setSelectedThreadId(next.threads[0].id);
+        setSelectedVersionId(next.threads[0].activeVersionId);
+      }
+      toast({ title: "Creative duplicated", description: "You can now modify the copied version independently." });
+    },
+  });
 
-  if (isLoading || !data) {
+  const generateImageMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/${selectedThreadId}/generate-image`, {
+        versionId: selectedVersionId || selectedThread?.activeVersionId,
+        requestedSize: selectedImageSize,
+      });
+      return parseJsonApiResponse<CreativeHubState>(res);
+    },
+    onSuccess: (next) => {
+      syncHubState(next);
+      toast({ title: "Image generated", description: `A ${selectedImageSize} creative image is ready in the preview panel.` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Image generation failed", description: error?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const setupComplete = Boolean(
+    setupForm.projectName &&
+      setupForm.configuration &&
+      setupForm.location &&
+      setupForm.price &&
+      setupForm.customInstructions,
+  );
+
+  const handleUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    category: CreativeAsset["category"],
+    targetField: "logos" | "renders" | "winningCreatives",
+  ) => {
+    try {
+      const assets = await filesToAssets(event.target.files, category);
+      setSetupForm((current) => ({
+        ...current,
+        [targetField]: [...current[targetField], ...assets],
+      }));
+      event.target.value = "";
+    } catch {
+      toast({ title: "Upload failed", description: "One or more files could not be processed.", variant: "destructive" });
+    }
+  };
+
+  const handleCopyBrief = async () => {
+    if (!selectedThread || !selectedVersion) return;
+    await navigator.clipboard.writeText(composeCreativeBrief(selectedThread, selectedVersion));
+    toast({ title: "Copied to clipboard", description: "Creative brief is ready to paste anywhere." });
+  };
+
+  const handleExportBrief = () => {
+    if (!selectedThread || !selectedVersion) return;
+    const blob = new Blob([composeCreativeBrief(selectedThread, selectedVersion)], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${selectedThread.title.replace(/\s+/g, "-").toLowerCase()}-brief.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const latestGeneratedImage = selectedVersion?.generatedImages?.[0] || null;
+
+  const handleDownloadGeneratedImage = () => {
+    if (!latestGeneratedImage) return;
+    const anchor = document.createElement("a");
+    anchor.href = latestGeneratedImage.dataUrl;
+    anchor.download = `${(selectedThread?.title || "creative").replace(/\s+/g, "-").toLowerCase()}-${latestGeneratedImage.requestedSize}.png`;
+    anchor.click();
+  };
+
+  if (isLoading) {
     return (
-      <div className="p-6">
-        <Skeleton className="h-8 w-48 mb-4" />
-        <Skeleton className="h-[500px] rounded-md" />
+      <div className="page-shell max-w-[1700px] mx-auto">
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-[720px] rounded-xl" />
       </div>
     );
   }
 
-  const thresholds = data.dynamic_thresholds;
-  const showMetaVideoColumns = !isGoogle && activeTab !== "static";
-  const hasDGAds = isGoogle && allCreatives.some((c: any) => c.campaign_type?.toLowerCase()?.includes("demand_gen") || c.campaign_type?.toLowerCase()?.includes("video") || c.is_video);
-
-  const baseColumns: Array<{ key: SortKey; label: string; align: string }> = [
-    { key: "ad_name", label: isGoogle ? "Ad Copy" : "Creative", align: "left" },
-    ...(isGoogle ? [{ key: "campaign_type" as SortKey, label: "Type", align: "left" }] : []),
-    { key: "campaign_name", label: "Campaign", align: "left" },
-    { key: "classification", label: "Class", align: "left" },
-    { key: "creative_score", label: "Health", align: "left" },
-    { key: "spend", label: "Spend", align: "right" },
-    { key: "impressions", label: "Impr.", align: "right" },
-    { key: "clicks", label: "Clicks", align: "right" },
-    { key: "ctr", label: "CTR", align: "right" },
-    { key: "cpc", label: "CPC", align: "right" },
-    { key: "cpm", label: "CPM", align: "right" },
-    { key: "leads", label: "Leads", align: "right" },
-    { key: "cpl", label: "CPL", align: "right" },
-    ...(isGoogle
-      ? [
-          { key: "ad_strength" as SortKey, label: "Strength", align: "left" },
-          { key: "creative_age_days" as SortKey, label: "Age(d)", align: "right" },
-        ]
-      : [
-          { key: "frequency" as SortKey, label: "Freq", align: "right" },
-          { key: "creative_age_days" as SortKey, label: "Age(d)", align: "right" },
-        ]),
-  ];
-
-  const videoColumns: Array<{ key: SortKey; label: string; align: string }> = showMetaVideoColumns ? [
-    { key: "thumb_stop_pct", label: "TSR%", align: "right" },
-    { key: "hold_rate_pct", label: "VHR%", align: "right" },
-    { key: "first_frame_rate", label: "FFR%", align: "right" },
-    { key: "avg_watch_sec", label: "Avg Watch", align: "right" },
-  ] : [];
-
-  const googleVideoColumns: Array<{ key: SortKey; label: string; align: string }> = (isGoogle && hasDGAds) ? [
-    { key: "video_p25" as SortKey, label: "P25%", align: "right" },
-    { key: "video_p50" as SortKey, label: "P50%", align: "right" },
-    { key: "video_p75" as SortKey, label: "P75%", align: "right" },
-    { key: "video_p100" as SortKey, label: "P100%", align: "right" },
-  ] : [];
-
-  const columns = [...baseColumns, ...videoColumns, ...googleVideoColumns];
-  const totalColSpan = columns.length + 3; // +3 for format badge, signals, and recommended action
-
   return (
-    <div className="p-6 space-y-4 max-w-[1800px]">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">{isGoogle ? "Ad Copy & Creatives" : "Creatives"}</h1>
-          <p className="text-xs text-muted-foreground">
-            {allCreatives.length} creatives · {videoCount} video · {staticCount} static
-          </p>
+    <div className="page-shell max-w-[1700px] mx-auto">
+      <section className="page-zone" aria-labelledby="creative-hub-title">
+        <div className="flex items-start justify-between gap-4 flex-wrap rounded-[10px] border border-border/70 bg-card/82 px-5 py-5 shadow-sm">
+          <div className="page-subsection">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-primary/15 text-primary shadow-xs">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h1 id="creative-hub-title" className="text-2xl font-extrabold">Creatives</h1>
+                <p className="type-base text-muted-foreground">
+                  Creative Intelligence + Generation Hub for {activeClient?.name || "this client"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="warning">Primary creative workspace</Badge>
+              <Badge variant="secondary">{hubData?.threads.length || 0} prompt threads</Badge>
+              <Badge variant="secondary">{setupForm.winningCreatives.length} reference creatives</Badge>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => selectedThread && duplicateMutation.mutate()} disabled={!selectedThread || duplicateMutation.isPending}>
+              {duplicateMutation.isPending ? <Loader2 className="animate-spin" /> : <Copy />}
+              Duplicate & Modify
+            </Button>
+            <Button onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending}>
+              {generateMutation.isPending ? <Loader2 className="animate-spin" /> : <Wand2 />}
+              Generate Creative
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Tab navigation: All | Video | Static (Meta only) */}
-      {!isGoogle && (
-      <div className="flex items-center gap-1 border-b border-border/50 pb-0">
-        {([
-          { key: "all" as CreativeTab, label: "All", count: allCreatives.length },
-          { key: "video" as CreativeTab, label: "Video", count: videoCount },
-          { key: "static" as CreativeTab, label: "Static", count: staticCount },
-        ]).map((tab) => (
-          <button
-            key={tab.key}
-            className={`px-3 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setActiveTab(tab.key)}
-            data-testid={`tab-creatives-${tab.key}`}
-          >
-            {tab.label} ({tab.count})
-          </button>
-        ))}
-      </div>
+      {!setupComplete && (
+        <section aria-labelledby="creative-setup-warning">
+          <div className="flex items-start gap-3 rounded-[10px] border border-primary/30 bg-primary/8 px-4 py-3">
+            <TriangleAlert className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <h2 id="creative-setup-warning" className="text-base font-bold">Creative SOP setup is required before generation</h2>
+              <p className="type-sm text-muted-foreground">
+                Fill the onboarding layer once for this client, save it, and the AI will reuse it for every new variation.
+              </p>
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* Tab navigation: Search RSAs | DG Creatives | All (Google only) */}
-      {isGoogle && (
-      <div className="flex items-center gap-1 border-b border-border/50 pb-0">
-        {([
-          { key: "all" as GoogleTab, label: "All", count: allCreatives.length },
-          { key: "search" as GoogleTab, label: "Search RSAs", count: searchCount },
-          { key: "dg" as GoogleTab, label: "DG Creatives", count: dgCount },
-        ]).map((tab) => (
-          <button
-            key={tab.key}
-            className={`px-3 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
-              googleTab === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setGoogleTab(tab.key)}
-            data-testid={`tab-google-${tab.key}`}
-          >
-            {tab.label} ({tab.count})
-          </button>
-        ))}
-      </div>
-      )}
+      <section className="page-zone" aria-labelledby="creative-sop-title">
+        <Card>
+          <CardHeader>
+            <CardTitle id="creative-sop-title">Creative SOP Setup</CardTitle>
+            <CardDescription>
+              This client-level setup acts as persistent creative context for every generation and regeneration pass.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5 lg:grid-cols-2">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <label className="type-sm font-semibold text-foreground">Project Name</label>
+                <Input value={setupForm.projectName} onChange={(e) => setSetupForm((current) => ({ ...current, projectName: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Price</label>
+                  <Input value={setupForm.price} onChange={(e) => setSetupForm((current) => ({ ...current, price: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">RERA Number</label>
+                  <Input value={setupForm.reraNumber} onChange={(e) => setSetupForm((current) => ({ ...current, reraNumber: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Building Number</label>
+                  <Input value={setupForm.buildingNumber} onChange={(e) => setSetupForm((current) => ({ ...current, buildingNumber: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Configuration</label>
+                  <Input value={setupForm.configuration} onChange={(e) => setSetupForm((current) => ({ ...current, configuration: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Location</label>
+                  <Input value={setupForm.location} onChange={(e) => setSetupForm((current) => ({ ...current, location: e.target.value }))} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Sqft Range</label>
+                  <Input value={setupForm.sqftRange} onChange={(e) => setSetupForm((current) => ({ ...current, sqftRange: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <label className="type-sm font-semibold text-foreground">Tone Selector</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["luxury", "premium", "affordable"] as CreativeTone[]).map((tone) => (
+                    <button
+                      key={tone}
+                      type="button"
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-sm font-semibold capitalize transition-colors",
+                        setupForm.tone === tone
+                          ? "border-primary/40 bg-primary/14 text-foreground shadow-xs"
+                          : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/70 text-muted-foreground",
+                      )}
+                      onClick={() => setSetupForm((current) => ({ ...current, tone }))}
+                    >
+                      {tone}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <label className="type-sm font-semibold text-foreground">Custom Instructions</label>
+                <Textarea
+                  value={setupForm.customInstructions}
+                  onChange={(e) => setSetupForm((current) => ({ ...current, customInstructions: e.target.value }))}
+                  placeholder="Avoid cliché language. Focus on aspiration + scarcity. Keep the copy performance-driven."
+                />
+              </div>
+            </div>
 
-      {/* GCR-04: Ad Extensions summary card (Google only) */}
-      {isGoogle && (() => {
-        const extensions = (data as any)?.ad_extensions || (data as any)?.extensions;
-        if (!extensions) {
-          return (
-            <div className="text-xs text-muted-foreground px-1 py-2 italic">
-              Ad extensions data will be available after next agent run
-            </div>
-          );
-        }
-        const extTypes = [
-          { key: "sitelinks", label: "Sitelinks" },
-          { key: "callouts", label: "Callouts" },
-          { key: "structured_snippets", label: "Structured Snippets" },
-        ];
-        const hasAny = extTypes.some(({ key }) => extensions[key]);
-        if (!hasAny) {
-          return (
-            <div className="text-xs text-muted-foreground px-1 py-2 italic">
-              Ad extensions data will be available after next agent run
-            </div>
-          );
-        }
-        return (
-          <div className="flex flex-wrap gap-3">
-            {extTypes.map(({ key, label }) => {
-              const ext = extensions[key];
-              if (!ext) return null;
-              const count = ext.count ?? (Array.isArray(ext) ? ext.length : 0);
-              const active = ext.active ?? (Array.isArray(ext) ? ext.filter((e: any) => e.status === "ACTIVE" || e.enabled).length : null);
-              return (
-                <Card key={key} className="border border-border/50 min-w-[150px]">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">{count} total</p>
-                    {active != null && (
-                      <p className="text-[10px] text-emerald-400">{active} active</p>
-                    )}
+            <div className="grid gap-4">
+              {[
+                { title: "Logos", field: "logos" as const, category: "logo" as const, description: "Upload brand marks used in creative previews." },
+                { title: "Renders", field: "renders" as const, category: "render" as const, description: "Optional visual references or property renders." },
+                { title: "Past Winning Creatives", field: "winningCreatives" as const, category: "winner" as const, description: "Use strong historical ads as AI reference context." },
+              ].map((group) => (
+                <Card key={group.title} className="border-border/70 bg-muted/20">
+                  <CardHeader>
+                    <CardTitle className="text-base">{group.title}</CardTitle>
+                    <CardDescription>{group.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-primary/35 bg-primary/10 px-4 py-3 text-sm font-semibold text-foreground hover:bg-primary/15">
+                      <Upload className="w-4 h-4" />
+                      Upload {group.title}
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        accept="image/*,video/*"
+                        onChange={(event) => handleUpload(event, group.category, group.field)}
+                      />
+                    </label>
+                    <div className="grid gap-2">
+                      {setupForm[group.field].length === 0 ? (
+                        <p className="type-sm text-muted-foreground">No assets uploaded yet.</p>
+                      ) : (
+                        setupForm[group.field].map((asset) => (
+                          <div key={asset.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate">{asset.name}</p>
+                              <p className="type-sm text-muted-foreground">
+                                {asset.type || "asset"}{asset.size ? ` · ${Math.round(asset.size / 1024)} KB` : ""}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setSetupForm((current) => ({
+                                  ...current,
+                                  [group.field]: removeAsset(current[group.field], asset.id),
+                                }))
+                              }
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
-        );
-      })()}
+              ))}
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border/50">
-                  {columns.map((col) => (
-                    <th
-                      key={col.key}
-                      className={`p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap ${
-                        col.align === "right" ? "text-right" : "text-left"
-                      }`}
-                      onClick={() => toggleSort(col.key)}
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {col.label}
-                        <SortIcon col={col.key} />
-                      </span>
-                    </th>
-                  ))}
-                  <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left min-w-[180px]">Signals</th>
-                  <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left min-w-[240px]">Recommended Action</th>
-                  <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(pageSize >= filteredCreatives.length ? filteredCreatives : filteredCreatives.slice((page - 1) * pageSize, page * pageSize)).map((c: any) => {
-                  const classColor = getClassificationColor(c.classification);
-                  const isExpanded = expandedId === c.ad_id;
-                  const isPaused = isEntityPaused(c.ad_id);
-                  const recommendation = getCreativeRecommendation(c, targetCpl);
+              <div className="flex justify-end">
+                <Button onClick={() => saveSetupMutation.mutate()} disabled={saveSetupMutation.isPending}>
+                  {saveSetupMutation.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  Save SOP Setup
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
-                  return (
-                    <>
-                    <tr
-                      key={c.ad_id}
-                      className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
-                        c.should_pause ? "border-l-2 border-l-red-500" : ""
-                      } ${isPaused ? "opacity-50" : ""}`}
-                      onClick={() => setExpandedId(isExpanded ? null : c.ad_id)}
-                      data-testid={`row-creative-${c.ad_id}`}
-                    >
-                      {/* Creative name + Video/Static badge */}
-                      <td className="p-3 max-w-[180px]">
-                        <div className="flex items-center gap-1.5">
-                          {/* Format badge: Video or Static */}
-                          {c.is_video ? (
-                            <Badge variant="secondary" className="text-[9px] px-1 py-0 text-blue-400 bg-blue-500/10 shrink-0">
-                              <Video className="w-2.5 h-2.5 mr-0.5 inline" />Video
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-[9px] px-1 py-0 text-muted-foreground bg-muted/50 shrink-0">
-                              <Image className="w-2.5 h-2.5 mr-0.5 inline" />Static
-                            </Badge>
-                          )}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="truncate block cursor-default text-foreground">
-                                {truncate(c.ad_name, 24)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p className="text-xs max-w-xs">{c.ad_name}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          {isPaused && (
-                            <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400 shrink-0">PAUSED</Badge>
-                          )}
-                        </div>
-                        {c.should_pause && (
-                          <div className="mt-1">
-                            <Badge variant="destructive" className="text-[9px] px-1 py-0">
-                              Recommended: Pause
-                            </Badge>
-                          </div>
-                        )}
-                      </td>
-                      {/* Type (Google only) */}
-                      {isGoogle && (
-                        <td className="p-3">
-                          {(() => {
-                            const ct = (c as any).campaign_type?.toUpperCase?.() || "";
-                            const isDG = ct.includes("DEMAND_GEN") || ct.includes("VIDEO") || ct.includes("DISPLAY");
-                            const typeLabel = isDG ? "DEMAND_GEN" : "SEARCH";
-                            const typeColor = isDG
-                              ? "text-amber-400 bg-amber-500/10"
-                              : "text-blue-400 bg-blue-500/10";
-                            return (
-                              <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 ${typeColor}`}>
-                                {typeLabel}
-                              </Badge>
-                            );
-                          })()}
-                        </td>
-                      )}
-                      {/* Campaign */}
-                      <td className="p-3 max-w-[140px]">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="truncate block cursor-default text-muted-foreground">
-                              {truncate(c.campaign_name, 22)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p className="text-xs max-w-sm">{c.campaign_name}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      {/* Classification */}
-                      <td className="p-3">
-                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${classColor.bg} ${classColor.text}`}>
-                          {c.classification}
-                        </span>
-                      </td>
-                      {/* Health Score */}
-                      <td className="p-3">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2">
-                              <div className={`w-12 h-1.5 rounded-full ${getHealthBarBg(c.creative_score)}`}>
-                                <div
-                                  className={`h-full rounded-full ${getHealthBgColor(c.creative_score)}`}
-                                  style={{ width: `${c.creative_score}%` }}
-                                />
-                              </div>
-                              <span className="tabular-nums text-muted-foreground w-6">{c.creative_score}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs">
-                            <div className="text-xs space-y-1">
-                              <p className="font-medium">Score Breakdown</p>
-                              {c.score_breakdown && Object.entries(c.score_breakdown).map(([k, v]: [string, any]) => (
-                                <div key={k} className="flex items-center justify-between gap-3">
-                                  <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-                                  <span className="tabular-nums font-medium">{typeof v === "number" ? v.toFixed(1) : String(v)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      {/* Spend */}
-                      <td className="p-3 text-right tabular-nums">{formatINR(c.spend, 0)}</td>
-                      {/* Impressions */}
-                      <td className="p-3 text-right tabular-nums">{formatNumber(c.impressions)}</td>
-                      {/* Clicks */}
-                      <td className="p-3 text-right tabular-nums">{formatNumber(c.clicks)}</td>
-                      {/* CTR */}
-                      <td className={`p-3 text-right tabular-nums ${getCtrColor(c.ctr)}`}>
-                        {formatPct(c.ctr)}
-                      </td>
-                      {/* CPC */}
-                      <td className="p-3 text-right tabular-nums">{formatINR(c.cpc, 2)}</td>
-                      {/* CPM */}
-                      <td className="p-3 text-right tabular-nums">{formatINR(c.cpm, 0)}</td>
-                      {/* Leads */}
-                      <td className="p-3 text-right tabular-nums">{c.leads}</td>
-                      {/* CPL */}
-                      <td className={`p-3 text-right tabular-nums ${c.cpl > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
-                        {c.cpl > 0 ? formatINR(c.cpl, 0) : "—"}
-                      </td>
-                      {/* Frequency / Ad Strength (platform-conditional) */}
-                      {isGoogle ? (
-                        <>
-                          <td className="p-3">
-                            {(c as any).ad_strength ? (
-                              <Badge variant="secondary" className={`text-[10px] ${
-                                (c as any).ad_strength === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10" :
-                                (c as any).ad_strength === "GOOD" ? "text-blue-400 bg-blue-500/10" :
-                                (c as any).ad_strength === "AVERAGE" ? "text-amber-400 bg-amber-500/10" :
-                                "text-red-400 bg-red-500/10"
-                              }`}>
-                                {(c as any).ad_strength}
-                              </Badge>
-                            ) : <span className="text-muted-foreground">—</span>}
-                          </td>
-                          <td className={`p-3 text-right tabular-nums ${(c.creative_age_days ?? 0) > 45 ? "text-red-400" : (c.creative_age_days ?? 0) > 30 ? "text-amber-400" : "text-foreground"}`}>
-                            {c.creative_age_days != null ? c.creative_age_days : "—"}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className={`p-3 text-right tabular-nums ${getFrequencyColor(c.frequency)}`}>
-                            {c.frequency?.toFixed?.(2) ?? "—"}
-                          </td>
-                          <td className={`p-3 text-right tabular-nums ${(c.creative_age_days ?? 0) > 45 ? "text-red-400" : (c.creative_age_days ?? 0) > 30 ? "text-amber-400" : "text-foreground"}`}>
-                            {c.creative_age_days != null ? c.creative_age_days : "—"}
-                          </td>
-                        </>
-                      )}
-                      {/* Meta Video metrics */}
-                      {showMetaVideoColumns && (
-                        <>
-                          <td className={`p-3 text-right tabular-nums ${c.is_video ? getVideoMetricColor("tsr", c.thumb_stop_pct) : "text-muted-foreground"}`}>
-                            {c.is_video && c.thumb_stop_pct ? `${c.thumb_stop_pct.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className={`p-3 text-right tabular-nums ${c.is_video ? getVideoMetricColor("vhr", c.hold_rate_pct) : "text-muted-foreground"}`}>
-                            {c.is_video && c.hold_rate_pct ? `${c.hold_rate_pct.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className={`p-3 text-right tabular-nums ${c.is_video ? getVideoMetricColor("ffr", c.first_frame_rate) : "text-muted-foreground"}`}>
-                            {c.is_video && c.first_frame_rate ? `${c.first_frame_rate.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className="p-3 text-right tabular-nums text-muted-foreground">
-                            {c.is_video && c.avg_watch_sec ? `${c.avg_watch_sec.toFixed(1)}s` : "—"}
-                          </td>
-                        </>
-                      )}
-                      {/* Google DG video quartile columns */}
-                      {isGoogle && hasDGAds && (
-                        <>
-                          <td className="p-3 text-right tabular-nums text-muted-foreground">
-                            {(c as any).video_p25 != null ? `${((c as any).video_p25 * 100).toFixed(1)}%` : "—"}
-                          </td>
-                          <td className="p-3 text-right tabular-nums text-muted-foreground">
-                            {(c as any).video_p50 != null ? `${((c as any).video_p50 * 100).toFixed(1)}%` : "—"}
-                          </td>
-                          <td className="p-3 text-right tabular-nums text-muted-foreground">
-                            {(c as any).video_p75 != null ? `${((c as any).video_p75 * 100).toFixed(1)}%` : "—"}
-                          </td>
-                          <td className="p-3 text-right tabular-nums text-muted-foreground">
-                            {(c as any).video_p100 != null ? `${((c as any).video_p100 * 100).toFixed(1)}%` : "—"}
-                          </td>
-                        </>
-                      )}
-                      {/* Health signals — wider with tooltip for full text */}
-                      <td className="p-3 min-w-[180px] max-w-[220px]">
-                        {c.health_signals.length > 0 ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex flex-wrap gap-1 cursor-default">
-                                {c.health_signals.slice(0, 3).map((s: any, i: number) => (
-                                  <Badge key={i} variant="secondary" className="text-[9px] px-1 py-0 whitespace-nowrap">
-                                    {truncate(s, 25)}
-                                  </Badge>
-                                ))}
-                                {c.health_signals.length > 3 && (
-                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 cursor-default">
-                                    +{c.health_signals.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="max-w-sm">
-                              <ul className="text-xs space-y-1">
-                                {c.health_signals.map((s: any, i: number) => (
-                                  <li key={i} className="text-foreground">{s}</li>
-                                ))}
-                              </ul>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <span className="text-[10px] text-emerald-400">Healthy</span>
-                        )}
-                      </td>
-                      {/* Recommended Action */}
-                      <td className="p-3 min-w-[240px]" onClick={(e) => e.stopPropagation()}>
-                        {recommendation ? (
-                          <div className="space-y-1.5">
-                            <p className={`text-[10px] leading-relaxed ${
-                              recommendation.severity === "high" ? "text-red-400" :
-                              recommendation.severity === "medium" ? "text-amber-400" :
-                              "text-muted-foreground"
-                            }`}>
-                              {recommendation.text}
-                            </p>
-                            <UnifiedActionsInline
-                              entityId={c.ad_id}
-                              entityName={c.ad_name}
-                              entityType="ad"
-                              actionType={recommendation.actionType}
-                              isAutoExecutable={recommendation.actionType === "PAUSE_AD"}
-                              recommendation={recommendation.text}
-                              currentMetrics={{ spend: c.spend, leads: c.leads, cpl: c.cpl, ctr: c.ctr }}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-emerald-400">No action needed</span>
-                        )}
-                      </td>
-                      {/* Actions */}
-                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1 justify-center">
-                          {!isPaused ? (
-                            <ExecutionButton
-                              action="PAUSE_AD"
-                              entityId={c.ad_id}
-                              entityName={c.ad_name}
-                              entityType="ad"
-                              label=""
-                              variant={c.should_pause ? "destructive" : "ghost"}
-                              size="icon"
-                              icon={<Pause className="w-3.5 h-3.5" />}
-                              confirmMessage={`Pause ad "${c.ad_name}"?${c.auto_pause_reasons?.length ? `\n\nReasons: ${c.auto_pause_reasons.join(", ")}` : ""}`}
-                              params={{ reason: c.should_pause ? c.auto_pause_reasons?.join("; ") : `Manual pause from ${isGoogle ? "Ad Copy" : "Creatives"} page` }}
-                              className="h-7 w-7"
-                              data-testid={`button-pause-ad-${c.ad_id}`}
-                            />
-                          ) : (
-                            <ExecutionButton
-                              action={isGoogle ? "ENABLE_AD" : "UNPAUSE_AD"}
-                              entityId={c.ad_id}
-                              entityName={c.ad_name}
-                              entityType="ad"
-                              label=""
-                              variant="ghost"
-                              size="icon"
-                              icon={<Play className="w-3.5 h-3.5 text-emerald-400" />}
-                              confirmMessage={`Activate ad "${c.ad_name}"?`}
-                              params={{ reason: `Manual activation from ${isGoogle ? "Ad Copy" : "Creatives"} page` }}
-                              className="h-7 w-7"
-                              data-testid={`button-activate-ad-${c.ad_id}`}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {/* Expanded score breakdown row */}
-                    {isExpanded && (
-                      <tr key={`${c.ad_id}-expanded`} className="border-b border-border/30 bg-muted/20">
-                        <td colSpan={totalColSpan} className="p-4">
-                          <div className="space-y-4">
-                            {/* Score breakdown (all platforms) */}
-                            {c.score_breakdown && Object.keys(c.score_breakdown).length > 0 && (
-                              <div className="space-y-3">
-                                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                  Creative Score Breakdown — {c.ad_name}
-                                </p>
-                                <div className="flex flex-wrap gap-3">
-                                  {Object.entries(c.score_breakdown).map(([metric, score]: [string, any]) => {
-                                    const band = (c.score_bands as Record<string, string>)?.[metric] || "unknown";
-                                    const bandUpper = band.toUpperCase();
-                                    const bandColor =
-                                      bandUpper === "EXCELLENT" || bandUpper === "GOOD" ? "text-emerald-400 bg-emerald-500/10" :
-                                      bandUpper === "WATCH" ? "text-amber-400 bg-amber-500/10" :
-                                      bandUpper === "POOR" ? "text-red-400 bg-red-500/10" :
-                                      "text-muted-foreground bg-muted/50";
-                                    return (
-                                      <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
-                                        <div className="flex-1">
-                                          <p className="text-[10px] text-muted-foreground capitalize">{metric.replace(/_/g, " ")}</p>
-                                          <p className="text-sm font-semibold tabular-nums text-foreground">{typeof score === "number" ? score.toFixed(1) : String(score)}</p>
-                                        </div>
-                                        <Badge variant="secondary" className={`text-[9px] ${bandColor}`}>
-                                          {bandUpper}
-                                        </Badge>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* GCR-02: Search RSA Headlines & Descriptions */}
-                            {isGoogle && !isDGCampaign(c) && ((c as any).headlines?.length > 0 || (c as any).descriptions?.length > 0) && (
-                              <div className="space-y-3">
-                                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                  RSA Assets — {(c as any).ad_type_detail || "RSA"}
-                                </p>
-                                <div className="flex flex-wrap gap-6">
-                                  {(c as any).headlines?.length > 0 && (
-                                    <div className="min-w-[260px]">
-                                      <p className="text-[10px] font-medium text-muted-foreground mb-2 uppercase tracking-wider">Headlines</p>
-                                      <ul className="space-y-1">
-                                        {(c as any).headlines.map((h: any, i: number) => {
-                                          const text = typeof h === "string" ? h : h.text || h.asset || String(h);
-                                          const perf = typeof h === "object" ? (h.performance_label || h.performance || "") : "";
-                                          const perfUpper = perf.toUpperCase();
-                                          const perfColor =
-                                            perfUpper === "BEST" ? "text-emerald-400 bg-emerald-500/10" :
-                                            perfUpper === "GOOD" ? "text-blue-400 bg-blue-500/10" :
-                                            perfUpper === "LOW" ? "text-red-400 bg-red-500/10" :
-                                            "text-muted-foreground bg-muted/50";
-                                          return (
-                                            <li key={i} className="flex items-center gap-2">
-                                              <span className="text-xs text-foreground">{text}</span>
-                                              {perfUpper && (
-                                                <Badge variant="secondary" className={`text-[9px] px-1 py-0 shrink-0 ${perfColor}`}>
-                                                  {perfUpper}
-                                                </Badge>
-                                              )}
-                                            </li>
-                                          );
-                                        })}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  {(c as any).descriptions?.length > 0 && (
-                                    <div className="min-w-[260px]">
-                                      <p className="text-[10px] font-medium text-muted-foreground mb-2 uppercase tracking-wider">Descriptions</p>
-                                      <ul className="space-y-1">
-                                        {(c as any).descriptions.map((d: any, i: number) => {
-                                          const text = typeof d === "string" ? d : d.text || d.asset || String(d);
-                                          const perf = typeof d === "object" ? (d.performance_label || d.performance || "") : "";
-                                          const perfUpper = perf.toUpperCase();
-                                          const perfColor =
-                                            perfUpper === "BEST" ? "text-emerald-400 bg-emerald-500/10" :
-                                            perfUpper === "GOOD" ? "text-blue-400 bg-blue-500/10" :
-                                            perfUpper === "LOW" ? "text-red-400 bg-red-500/10" :
-                                            "text-muted-foreground bg-muted/50";
-                                          return (
-                                            <li key={i} className="flex items-center gap-2">
-                                              <span className="text-xs text-foreground">{text}</span>
-                                              {perfUpper && (
-                                                <Badge variant="secondary" className={`text-[9px] px-1 py-0 shrink-0 ${perfColor}`}>
-                                                  {perfUpper}
-                                                </Badge>
-                                              )}
-                                            </li>
-                                          );
-                                        })}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-amber-400 italic">
-                                  Consider replacing bottom 25% performing assets per SOP
-                                </p>
-                              </div>
-                            )}
-
-                            {/* GCR-03: DG Video Quartile Funnel */}
-                            {isGoogle && isDGCampaign(c) && (
-                              (c as any).video_p25 != null ||
-                              (c as any).video_p50 != null ||
-                              (c as any).video_p75 != null ||
-                              (c as any).video_p100 != null
-                            ) && (
-                              <div className="space-y-2">
-                                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                  Video Quartile Funnel
-                                </p>
-                                <div className="space-y-1.5 max-w-[360px]">
-                                  {([
-                                    { label: "P25", value: (c as any).video_p25 },
-                                    { label: "P50", value: (c as any).video_p50 },
-                                    { label: "P75", value: (c as any).video_p75 },
-                                    { label: "P100", value: (c as any).video_p100 },
-                                  ] as Array<{ label: string; value: number | null }>).map(({ label, value }) => {
-                                    const pct = value != null ? value * 100 : null;
-                                    const barColor =
-                                      pct == null ? "bg-muted" :
-                                      pct > 20 ? "bg-emerald-500" :
-                                      pct >= 10 ? "bg-amber-500" :
-                                      "bg-red-500";
-                                    return (
-                                      <div key={label} className="flex items-center gap-2">
-                                        <span className="text-[10px] text-muted-foreground w-8 shrink-0">{label}</span>
-                                        <div className="flex-1 h-3 bg-muted/40 rounded-full overflow-hidden">
-                                          <div
-                                            className={`h-full rounded-full ${barColor} transition-all`}
-                                            style={{ width: pct != null ? `${Math.min(pct, 100)}%` : "0%" }}
-                                          />
-                                        </div>
-                                        <span className="text-[10px] tabular-nums text-foreground w-10 text-right">
-                                          {pct != null ? `${pct.toFixed(1)}%` : "—"}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* GCR-05: Creative Refresh note */}
-                            {isGoogle && (() => {
-                              const age = c.creative_age_days;
-                              if (age == null) return null;
-                              const isDG = isDGCampaign(c);
-                              const threshold = isDG ? 21 : 40;
-                              if (age <= threshold) return null;
-                              const hasCtrDecline = (c.health_signals || []).some((s: string) => {
-                                const lower = s.toLowerCase();
-                                return lower.includes("ctr") && (lower.includes("declin") || lower.includes("drop"));
-                              });
-                              return (
-                                <div className="space-y-1 p-2 rounded-md bg-amber-500/5 border border-amber-500/20">
-                                  <p className="text-[10px] text-amber-400">
-                                    {isDG
-                                      ? `Creative is ${age} days old. SOP recommends refreshing DG creatives every 21-40 days.`
-                                      : `RSA is ${age} days old. SOP recommends asset refresh every 21-40 days.`}
-                                  </p>
-                                  {hasCtrDecline && (
-                                    <p className="text-[10px] text-red-400 font-medium">
-                                      CTR decline detected — prioritize refresh
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </td>
-                      </tr>
+      <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_340px]" aria-labelledby="creative-studio-title">
+        <aside className="min-h-0">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle id="creative-studio-title" className="flex items-center gap-2">
+                <History className="w-4 h-4 text-primary" />
+                Prompt History
+              </CardTitle>
+              <CardDescription>Every generation, variation, and duplicate stays client-scoped.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {hubData?.threads.length ? (
+                hubData.threads.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={cn(
+                      "grid gap-2 rounded-[10px] border px-3 py-3 text-left transition-colors",
+                      selectedThreadId === thread.id
+                        ? "border-primary/40 bg-primary/10 shadow-xs"
+                        : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/60",
                     )}
-                    </>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <DataTablePagination
-            totalItems={filteredCreatives.length}
-            pageSize={pageSize}
-            currentPage={page}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </CardContent>
-      </Card>
+                    onClick={() => {
+                      setSelectedThreadId(thread.id);
+                      setSelectedVersionId(thread.activeVersionId);
+                      setSelectedSection(null);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{thread.title}</p>
+                      <Badge
+                        variant={
+                          thread.statusTag === "winner"
+                            ? "success"
+                            : thread.statusTag === "loser"
+                            ? "destructive"
+                            : "warning"
+                        }
+                      >
+                        {thread.statusTag}
+                      </Badge>
+                    </div>
+                    <p className="type-sm text-muted-foreground line-clamp-2">{thread.input.offer}</p>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{thread.versions.length} version{thread.versions.length !== 1 ? "s" : ""}</span>
+                      <span>{formatRelativeTime(thread.updatedAt)}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-[10px] border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center">
+                  <p className="text-base font-semibold text-foreground">No creative threads yet</p>
+                  <p className="type-sm text-muted-foreground">Start with the generator and your prompt history will appear here.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4 text-primary" />
+                Creative Generation Interface
+              </CardTitle>
+              <CardDescription>
+                Use the SOP, session instructions, and past winners to generate platform-aware concepts fast.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid lg:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Campaign Idea</label>
+                  <Input value={promptInput.campaignIdea} onChange={(e) => setPromptInput((current) => ({ ...current, campaignIdea: e.target.value }))} placeholder="Launch the next high-intent lead-gen angle" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Offer</label>
+                  <Input value={promptInput.offer} onChange={(e) => setPromptInput((current) => ({ ...current, offer: e.target.value }))} placeholder="2 & 3 BHK from 99.39L with launch pricing" />
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Hook</label>
+                  <Input value={promptInput.hook} onChange={(e) => setPromptInput((current) => ({ ...current, hook: e.target.value }))} placeholder="The address serious buyers shortlist first" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="type-sm font-semibold text-foreground">Platform</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: "meta" as CreativePlatform, label: "Meta" },
+                      { value: "google_display" as CreativePlatform, label: "Google Display" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
+                          promptInput.platform === option.value
+                            ? "border-primary/40 bg-primary/14 text-foreground shadow-xs"
+                            : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/70 text-muted-foreground",
+                        )}
+                        onClick={() => setPromptInput((current) => ({ ...current, platform: option.value }))}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="type-sm font-semibold text-foreground">Add custom instruction for this creative</label>
+                <Textarea
+                  value={promptInput.customInstruction}
+                  onChange={(e) => setPromptInput((current) => ({ ...current, customInstruction: e.target.value }))}
+                  placeholder="Push more aspiration, reduce direct pricing, and lean harder into urgency."
+                />
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending}>
+                  {generateMutation.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  Generate More
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => generateImageMutation.mutate()}
+                  disabled={!selectedThread || !selectedVersion || generateImageMutation.isPending}
+                >
+                  {generateImageMutation.isPending ? <Loader2 className="animate-spin" /> : <ImagePlus />}
+                  Generate Image
+                </Button>
+                <Button variant="outline" onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending}>
+                  <Plus />
+                  Create Variations
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => selectedSection && regenerateMutation.mutate(selectedSection)}
+                  disabled={!selectedThread || !selectedSection || regenerateMutation.isPending}
+                >
+                  {regenerateMutation.isPending ? <Loader2 className="animate-spin" /> : <RefreshCcw />}
+                  Regenerate Selected Area
+                </Button>
+                {selectedSection && <Badge variant="warning">{sectionLabels[selectedSection]} selected</Badge>}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {imageSizeOptions.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      className={cn(
+                        "rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                        selectedImageSize === size
+                          ? "border-primary/40 bg-primary/14 text-foreground"
+                          : "border-border/60 bg-card text-muted-foreground hover:border-primary/25 hover:bg-accent/70",
+                      )}
+                      onClick={() => setSelectedImageSize(size)}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers3 className="w-4 h-4 text-primary" />
+                Chat + Output
+              </CardTitle>
+              <CardDescription>
+                Prompt history on the left, structured creative output in the center, preview and intelligence on the right.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-5">
+              {!selectedThread || !selectedVersion ? (
+                <div className="rounded-[10px] border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center">
+                  <p className="text-base font-semibold text-foreground">No active creative selected</p>
+                  <p className="type-sm text-muted-foreground">Generate one and the editable output blocks will appear here.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-3">
+                    {selectedThread.messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "max-w-[90%] rounded-[10px] px-4 py-3 shadow-xs",
+                          message.role === "user"
+                            ? "justify-self-end bg-primary/14 border border-primary/25"
+                            : "justify-self-start bg-card border border-border/70",
+                        )}
+                      >
+                        <p className="type-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                          {message.role === "user" ? "Prompt" : "Mojo"}
+                        </p>
+                        <p className="text-base whitespace-pre-wrap text-foreground">{message.content}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {(Object.keys(sectionLabels) as CreativeSectionKey[]).map((sectionKey) => (
+                      <button
+                        key={sectionKey}
+                        type="button"
+                        onClick={() => setSelectedSection(sectionKey)}
+                        className={cn(
+                          "rounded-[10px] border bg-card px-4 py-4 text-left transition-colors shadow-xs",
+                          selectedSection === sectionKey
+                            ? "border-primary/45 bg-primary/8"
+                            : "border-border/70 hover:border-primary/25 hover:bg-accent/60",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{sectionLabels[sectionKey]}</p>
+                            <p className="text-base font-semibold text-foreground mt-1">
+                              {selectedVersion.output[sectionKey]}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4 rounded-[10px] border border-border/70 bg-muted/18 p-4">
+                    <div className="grid gap-2">
+                      <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Copy Variations</p>
+                      <div className="grid lg:grid-cols-3 gap-3">
+                        <Card className="border-border/60">
+                          <CardHeader><CardTitle className="text-base">Headlines</CardTitle></CardHeader>
+                          <CardContent className="grid gap-2">
+                            {selectedVersion.output.copyVariations.headlines.map((item, index) => (
+                              <p key={index} className="text-base text-foreground">{item}</p>
+                            ))}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-border/60">
+                          <CardHeader><CardTitle className="text-base">Primary Text</CardTitle></CardHeader>
+                          <CardContent className="grid gap-2">
+                            {selectedVersion.output.copyVariations.primaryTexts.map((item, index) => (
+                              <p key={index} className="text-base text-foreground">{item}</p>
+                            ))}
+                          </CardContent>
+                        </Card>
+                        <Card className="border-border/60">
+                          <CardHeader><CardTitle className="text-base">CTA Options</CardTitle></CardHeader>
+                          <CardContent className="grid gap-2">
+                            {selectedVersion.output.copyVariations.ctaOptions.map((item, index) => (
+                              <p key={index} className="text-base text-foreground">{item}</p>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="grid gap-6 self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImagePlus className="w-4 h-4 text-primary" />
+                Preview Panel
+              </CardTitle>
+              <CardDescription>Static layout structure, AI image preview, and export-ready controls.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              {selectedThread && selectedVersion ? (
+                <>
+                  {latestGeneratedImage ? (
+                    <div className="rounded-[10px] border border-border/70 bg-card p-3 shadow-xs">
+                      <img
+                        src={latestGeneratedImage.dataUrl}
+                        alt={`${selectedThread.title} generated preview`}
+                        className="w-full rounded-lg border border-border/60 bg-muted/20 object-cover"
+                      />
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Generated Size</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {latestGeneratedImage.requestedSize} · model {latestGeneratedImage.modelSize}
+                          </p>
+                        </div>
+                        <Button variant="outline" onClick={handleDownloadGeneratedImage}>
+                          <Download />
+                          Download Image
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-[10px] border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center">
+                      <p className="text-base font-semibold text-foreground">No AI image yet</p>
+                      <p className="type-sm text-muted-foreground">
+                        Pick a size and use Generate Image to create a visual from the current creative version.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="rounded-[10px] border border-border/70 bg-card px-4 py-4 shadow-xs">
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Top Hook</p>
+                    <p className="text-lg font-bold text-foreground mt-2">{selectedVersion.output.staticAdStructure.topHook}</p>
+                    <div className="mt-4 grid gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Hero Visual Suggestion</p>
+                        <p className="text-base text-foreground mt-1">{selectedVersion.output.staticAdStructure.heroVisualSuggestion}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Mid Messaging</p>
+                        <p className="text-base text-foreground mt-1">{selectedVersion.output.staticAdStructure.midMessaging}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">CTA Block</p>
+                        <p className="text-base text-foreground mt-1">{selectedVersion.output.staticAdStructure.ctaBlock}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Button onClick={handleCopyBrief}><Copy />Copy Text</Button>
+                    <Button variant="outline" onClick={handleExportBrief}><Download />Export as Brief</Button>
+                    <Button variant="outline" onClick={handleCopyBrief}><Send />Send to Design Team</Button>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Creative Performance Tagging</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: "winner" as CreativeStatusTag, label: "Winner", icon: Crown, variant: "success" as const },
+                        { value: "testing" as CreativeStatusTag, label: "Testing", icon: FlaskConical, variant: "warning" as const },
+                        { value: "loser" as CreativeStatusTag, label: "Loser", icon: TriangleAlert, variant: "destructive" as const },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => tagMutation.mutate(option.value)}
+                          className={cn(
+                            "rounded-lg border px-3 py-3 text-center transition-colors",
+                            selectedThread.statusTag === option.value
+                              ? "border-primary/40 bg-primary/12 shadow-xs"
+                              : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/60",
+                          )}
+                        >
+                          <option.icon className="w-4 h-4 mx-auto mb-2 text-primary" />
+                          <p className="text-sm font-semibold text-foreground">{option.label}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="type-sm text-muted-foreground">Select a creative thread to preview its structure and export options.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Creative Intelligence</CardTitle>
+              <CardDescription>Recent high-performing creative references from the current analysis snapshot.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {creativeReferences.length ? (
+                creativeReferences.map((item) => (
+                  <div key={item.id} className="rounded-[10px] border border-border/70 bg-card px-3 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
+                      <Badge variant={item.score >= 70 ? "success" : item.score >= 40 ? "warning" : "destructive"}>
+                        {item.classification || "Testing"}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <span>Score {Math.round(item.score)}</span>
+                      <span>CTR {item.ctr.toFixed(2)}%</span>
+                      <span>CPL {Math.round(item.cpl)}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="type-sm text-muted-foreground">No creative performance context is available for this client yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Version History</CardTitle>
+              <CardDescription>Track iterations and jump back into prior versions if needed.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {selectedThread?.versions.length ? (
+                selectedThread.versions.map((version) => (
+                  <button
+                    key={version.id}
+                    type="button"
+                    className={cn(
+                      "rounded-[10px] border px-3 py-3 text-left transition-colors",
+                      selectedVersion?.id === version.id
+                        ? "border-primary/40 bg-primary/10 shadow-xs"
+                        : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/60",
+                    )}
+                    onClick={() => setSelectedVersionId(version.id)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {version.sectionRegenerated ? `Updated ${sectionLabels[version.sectionRegenerated]}` : "Initial generation"}
+                      </p>
+                      <span className="text-[11px] text-muted-foreground">{formatRelativeTime(version.createdAt)}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="type-sm text-muted-foreground">Create a concept to begin version tracking.</p>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+      </section>
     </div>
   );
 }

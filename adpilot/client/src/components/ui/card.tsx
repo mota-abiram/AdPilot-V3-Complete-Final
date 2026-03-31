@@ -9,7 +9,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "shadcn-card rounded-xl border bg-card border-card-border text-card-foreground shadow-xs",
+      "shadcn-card rounded-[10px] border bg-card border-card-border text-card-foreground shadow-md",
       className
     )}
     {...props}
@@ -23,22 +23,20 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    // Reduced from p-6 → p-5 for tighter data-dense SaaS layouts
-    className={cn("flex flex-col space-y-1 p-5", className)}
+    className={cn("flex flex-col space-y-2 p-5", className)}
     {...props}
   />
 ));
 CardHeader.displayName = "CardHeader"
 
 const CardTitle = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <div
+  <h3
     ref={ref}
     className={cn(
-      // Reduced from text-2xl — card titles should be section-level, not page-level
-      "text-base font-semibold leading-snug tracking-tight",
+      "type-lg font-bold leading-snug tracking-[-0.012em]",
       className
     )}
     {...props}
@@ -52,7 +50,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("text-[13px] text-muted-foreground leading-relaxed", className)}
+    className={cn("type-sm text-muted-foreground leading-relaxed", className)}
     {...props}
   />
 ));

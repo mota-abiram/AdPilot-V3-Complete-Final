@@ -80,6 +80,18 @@ interface SmartBiddingReadiness {
   current_strategy?: string;
 }
 
+interface CampaignGroup {
+  name: string;
+  type: string;
+  adGroups: AdGroupBid[];
+  strategy: string;
+  avgCpc: number;
+  avgCvr: number;
+  totalCost: number;
+  totalConv: number;
+  computedMaxCpc: number;
+}
+
 type CampaignSortKey = "campaign_name" | "cpc" | "cvr" | "cpl" | "computed_max_cpc" | "bidding_strategy";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -157,7 +169,7 @@ export default function GoogleBiddingPage() {
 
   // Group ad groups by campaign
   const campaignGroups = useMemo(() => {
-    const map = new Map<string, { name: string; type: string; adGroups: AdGroupBid[]; strategy: string; avgCpc: number; avgCvr: number; totalCost: number; totalConv: number; computedMaxCpc: number }>();
+    const map = new Map<string, CampaignGroup>();
     for (const ag of adGroupBids) {
       const key = ag.campaign_id || ag.campaign_name;
       if (!map.has(key)) {
@@ -176,21 +188,23 @@ export default function GoogleBiddingPage() {
       map.get(key)!.adGroups.push(ag);
     }
     // Compute campaign-level aggregates
-    for (const [, group] of map) {
-      const totalClicks = group.adGroups.reduce((s, ag) => s + (ag.clicks || 0), 0);
-      group.totalCost = group.adGroups.reduce((s, ag) => s + (ag.cost || 0), 0);
-      group.totalConv = group.adGroups.reduce((s, ag) => s + (ag.conversions || 0), 0);
+    for (const group of Array.from(map.values())) {
+      const totalClicks = group.adGroups.reduce((s: number, ag: AdGroupBid) => s + (ag.clicks || 0), 0);
+      group.totalCost = group.adGroups.reduce((s: number, ag: AdGroupBid) => s + (ag.cost || 0), 0);
+      group.totalConv = group.adGroups.reduce((s: number, ag: AdGroupBid) => s + (ag.conversions || 0), 0);
       group.avgCpc = totalClicks > 0 ? group.totalCost / totalClicks : 0;
       group.avgCvr = totalClicks > 0 ? (group.totalConv / totalClicks) * 100 : 0;
       // Use median of recommended max CPC values
-      const maxCpcs = group.adGroups.map((ag) => ag.recommended_max_cpc || ag.computed_max_cpc || 0).filter((v) => v > 0);
-      group.computedMaxCpc = maxCpcs.length > 0 ? maxCpcs.sort((a, b) => a - b)[Math.floor(maxCpcs.length / 2)] : 0;
+      const maxCpcs = group.adGroups
+        .map((ag: AdGroupBid) => ag.recommended_max_cpc || ag.computed_max_cpc || 0)
+        .filter((v: number) => v > 0);
+      group.computedMaxCpc = maxCpcs.length > 0 ? maxCpcs.sort((a: number, b: number) => a - b)[Math.floor(maxCpcs.length / 2)] : 0;
     }
     // Also get campaigns data for strategy info
     const campaigns = (data as any)?.campaigns || [];
     for (const camp of campaigns) {
       const key = camp.id || camp.campaign_id || camp.name;
-      const group = map.get(key) || [...map.values()].find((g) => g.name === camp.name);
+      const group = map.get(key) || Array.from(map.values()).find((g) => g.name === camp.name);
       if (group) {
         group.strategy = camp.bidding_strategy || "";
         group.type = camp.campaign_type || group.type;
@@ -760,10 +774,10 @@ export default function GoogleBiddingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...campaignGroups.entries()].map(([campId, group]) => {
+                  {Array.from(campaignGroups.entries()).map(([campId, group]) => {
                     const isExpanded = expandedCampaign === campId;
                     const cpcStatus = getCpcStatus(group.avgCpc, group.computedMaxCpc);
-                    const needsDecrease = group.adGroups.filter((ag) => ag.adjustment === "decrease").length;
+                    const needsDecrease = group.adGroups.filter((ag: AdGroupBid) => ag.adjustment === "decrease").length;
                     const recommendation = needsDecrease > 0
                       ? `${needsDecrease} ad group${needsDecrease !== 1 ? "s" : ""} overbidding`
                       : "Bids within range";
@@ -827,8 +841,8 @@ export default function GoogleBiddingPage() {
                                     params: {
                                       action_type: "decrease_cpc",
                                       ad_groups: group.adGroups
-                                        .filter((ag) => ag.adjustment === "decrease")
-                                        .map((ag) => ({ id: ag.ad_group_id, target_cpc: ag.recommended_max_cpc || ag.computed_max_cpc })),
+                                        .filter((ag: AdGroupBid) => ag.adjustment === "decrease")
+                                        .map((ag: AdGroupBid) => ({ id: ag.ad_group_id, target_cpc: ag.recommended_max_cpc || ag.computed_max_cpc })),
                                       reason: "CPC exceeds computed Max CPC (CPA = CPC/CVR formula)",
                                     },
                                   })}
@@ -866,7 +880,7 @@ export default function GoogleBiddingPage() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {group.adGroups.map((ag) => {
+                                    {group.adGroups.map((ag: AdGroupBid) => {
                                       const adj = adjustmentBadge(ag.adjustment);
                                       return (
                                         <tr key={ag.ad_group_id} className="border-b border-border/20 hover:bg-muted/20" data-testid={`row-adgroup-bid-${ag.ad_group_id}`}>

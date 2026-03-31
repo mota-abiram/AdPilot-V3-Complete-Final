@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useClient } from "@/lib/client-context";
@@ -45,7 +45,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/format";
-import { useExecution } from "@/hooks/use-execution";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -155,7 +154,9 @@ const BASE_QUICK_ACTIONS = [
   },
 ];
 
-// ─── Local storage for manual tasks ────────────────────────────
+// ─── In-memory storage for manual tasks ────────────────────────
+
+const _manualTasksCache: Record<string, ManualTask[]> = {};
 
 function getManualTasks(clientId: string): ManualTask[] {
   return _manualTasksCache[clientId] || [];
@@ -321,6 +322,10 @@ export default function CommandCenterPage() {
   // Agent Instructions state
   const [noteText, setNoteText] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    setManualTasks(getManualTasks(activeClientId));
+  }, [activeClientId]);
 
   // Count entities that will be affected
   const isGoogle = activePlatform === "google";

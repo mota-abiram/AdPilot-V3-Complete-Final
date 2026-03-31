@@ -18,11 +18,19 @@ import {
 interface CredentialStatus {
   hasMeta: boolean;
   hasGoogle: boolean;
+  metaSource?: "client" | "default" | "missing";
+  googleSource?: "client" | "default" | "missing";
   meta?: { accessToken: string; adAccountId: string };
   google?: {
     clientId: string; clientSecret: string; refreshToken: string;
     developerToken: string; mccId: string; customerId: string;
   };
+}
+
+function sourceLabel(source?: CredentialStatus["metaSource"]) {
+  if (source === "client") return "Client-specific";
+  if (source === "default") return "Using global default";
+  return "Not configured";
 }
 
 // ─── Field helpers ───────────────────────────────────────────────────
@@ -258,7 +266,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
             <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Credentials are stored server-side in an encrypted JSON file and never exposed in API responses. Tokens are masked in the UI.
+                Client-specific credentials are stored server-side. If a client has none, the app falls back to global defaults from `.env`. Tokens are masked in the UI.
               </p>
             </div>
 
@@ -270,6 +278,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
                 {credStatus?.hasMeta
                   ? <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
                   : <Badge variant="outline" className="text-[10px] text-muted-foreground">Not configured</Badge>}
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">{sourceLabel(credStatus?.metaSource)}</Badge>
               </div>
               {credStatus?.hasMeta && credStatus.meta && (
                 <div className="p-2 rounded-md bg-muted/30 text-[10px] text-muted-foreground space-y-0.5">
@@ -299,6 +308,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
                 {credStatus?.hasGoogle
                   ? <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
                   : <Badge variant="outline" className="text-[10px] text-muted-foreground">Not configured</Badge>}
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">{sourceLabel(credStatus?.googleSource)}</Badge>
               </div>
               {credStatus?.hasGoogle && credStatus.google && (
                 <div className="p-2 rounded-md bg-muted/30 text-[10px] text-muted-foreground space-y-0.5 font-mono">

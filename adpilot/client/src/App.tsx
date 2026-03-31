@@ -47,6 +47,7 @@ function ThemeToggle() {
       size="icon"
       variant="ghost"
       onClick={toggleTheme}
+      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
       data-testid="button-theme-toggle"
     >
       {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -91,43 +92,50 @@ function AppLayout() {
   const lastSynced = syncState?.last_synced_at ? timeAgo(syncState.last_synced_at) : undefined;
 
   const sidebarStyle = {
-    "--sidebar-width": "16rem",
+    "--sidebar-width": "17rem",
     "--sidebar-width-icon": "3rem",
   };
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full overflow-hidden">
-        <AppSidebar syncState={syncState} lastSynced={lastSynced} />
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between gap-2 px-4 py-2 border-b border-border/50 shrink-0 bg-background/80 backdrop-blur-sm z-10">
-            <div className="flex items-center gap-2">
+      <div className="flex h-screen w-full overflow-hidden bg-background">
+        <aside aria-label="Primary sidebar">
+          <AppSidebar syncState={syncState} lastSynced={lastSynced} />
+        </aside>
+        <div className="flex flex-col flex-1 min-w-0 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.55))]">
+          <header className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border/60 shrink-0 bg-background/88 backdrop-blur-xl z-10">
+            <nav className="flex items-center gap-3" aria-label="Workspace controls">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <span className="text-xs text-muted-foreground hidden md:inline">
-                {activeClient?.name || ""}
-                {activePlatformInfo?.enabled
-                  ? ` · ${activePlatformInfo.label}`
-                  : ""}
-                {analysisData?.period?.primary_7d
-                  ? ` · ${analysisData.period.primary_7d.start} — ${analysisData.period.primary_7d.end}`
-                  : ""}
-              </span>
+              <div className="hidden md:grid leading-none gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  {activeClient?.name || "No client selected"}
+                </span>
+                <span className="text-sm font-medium text-foreground/90">
+                  {activePlatformInfo?.enabled ? activePlatformInfo.label : "Platform unavailable"}
+                  {analysisData?.period?.primary_7d
+                    ? ` · ${analysisData.period.primary_7d.start} — ${analysisData.period.primary_7d.end}`
+                    : ""}
+                </span>
+              </div>
               {analysisData?.cadence && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 hidden md:inline-flex">
+                <Badge variant="warning" className="hidden md:inline-flex">
                   {analysisData.cadence.replace(/_/g, " ")}
                 </Badge>
               )}
               {analysisData?.agent_version && (
-                <span className="text-[10px] text-muted-foreground hidden md:inline">
+                <span className="text-[11px] font-medium text-muted-foreground hidden md:inline">
                   {analysisData.agent_version}
                 </span>
               )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden lg:inline">
-                {user?.name} · {user?.role}
+            </nav>
+            <div className="flex items-center gap-2.5" aria-label="User actions">
+              <span className="hidden lg:grid text-right leading-none gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Operator</span>
+                <span className="text-sm font-medium text-foreground/90">
+                  {user?.name} · {user?.role}
+                </span>
               </span>
-              <Button size="icon" variant="ghost" onClick={logout} data-testid="button-logout">
+              <Button size="icon" variant="outline" onClick={logout} aria-label="Log out" data-testid="button-logout">
                 <LogOut className="w-4 h-4" />
               </Button>
               <CommandTerminalToggle onClick={() => setTerminalOpen((o) => !o)} isOpen={terminalOpen} />
@@ -135,10 +143,12 @@ function AppLayout() {
             </div>
           </header>
           <main className="flex-1 overflow-y-auto overflow-x-hidden" style={{ overscrollBehavior: "contain" }}>
-            <AppRouter />
-            <div className="px-6 py-3 border-t border-border/30">
+            <section aria-label="Workspace content">
+              <AppRouter />
+            </section>
+            <aside className="px-6 py-4 border-t border-border/40 bg-background/72 backdrop-blur-sm" aria-label="Attribution">
               <PerplexityAttribution />
-            </div>
+            </aside>
           </main>
         </div>
       </div>

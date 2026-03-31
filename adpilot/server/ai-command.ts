@@ -18,13 +18,49 @@ import { executeGoogleAction, type GoogleExecutionRequest, type GoogleExecutionA
 
 // Groq — free tier covers ~14,400 req/day, no credit card needed.
 // Get a free key at: https://console.groq.com
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+
+function getGroqApiKey(): string {
+  return process.env.GROQ_API_KEY || "";
+}
+
+function getGroqModel(): string {
+  return process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+}
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const LEARNING_CSV = path.join(DATA_BASE, "learning-data.csv");
 const COOLDOWN_LOG = path.join(DATA_BASE, "ai_command_cooldown.json");
+
+function isPlaceholderSecret(value?: string): boolean {
+  return !value || value.trim() === "" || value.trim().startsWith("YOUR_");
+}
+
+function sanitizeClientCredentials(credentials: { meta?: any; google?: any }) {
+  const next: { meta?: any; google?: any } = {};
+
+  if (
+    credentials.meta?.accessToken &&
+    credentials.meta?.adAccountId &&
+    !isPlaceholderSecret(credentials.meta.accessToken) &&
+    !isPlaceholderSecret(credentials.meta.adAccountId)
+  ) {
+    next.meta = credentials.meta;
+  }
+
+  if (
+    credentials.google?.clientId &&
+    credentials.google?.clientSecret &&
+    credentials.google?.refreshToken &&
+    !isPlaceholderSecret(credentials.google.clientId) &&
+    !isPlaceholderSecret(credentials.google.clientSecret) &&
+    !isPlaceholderSecret(credentials.google.refreshToken)
+  ) {
+    next.google = credentials.google;
+  }
+
+  return next;
+}
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -353,22 +389,32 @@ async function executeActionPlan(
           requestedBy: "agent",
         };
 
-        // Override credentials for this client if provided
-        if (credentials.meta?.accessToken) {
-          process.env.META_ACCESS_TOKEN = credentials.meta.accessToken;
-          process.env.META_AD_ACCOUNT_ID = credentials.meta.adAccountId;
-        }
+        const previousMetaAccessToken = process.env.META_ACCESS_TOKEN;
+        const previousMetaAdAccountId = process.env.META_AD_ACCOUNT_ID;
 
-        const result = await executeAction(req);
-        outcomes.push({
-          campaignId,
-          campaignName,
-          action: metaAction,
-          success: result.success,
-          message: result.error || (result.success ? "Action completed" : "Action failed"),
-          previousValue: result.previousValue,
-          newValue: result.newValue,
-        });
+        try {
+          if (credentials.meta?.accessToken) {
+            process.env.META_ACCESS_TOKEN = credentials.meta.accessToken;
+            process.env.META_AD_ACCOUNT_ID = credentials.meta.adAccountId;
+          }
+
+          const result = await executeAction(req);
+          outcomes.push({
+            campaignId,
+            campaignName,
+            action: metaAction,
+            success: result.success,
+            message: result.error || (result.success ? "Action completed" : "Action failed"),
+            previousValue: result.previousValue,
+            newValue: result.newValue,
+          });
+        } finally {
+          if (previousMetaAccessToken === undefined) delete process.env.META_ACCESS_TOKEN;
+          else process.env.META_ACCESS_TOKEN = previousMetaAccessToken;
+
+          if (previousMetaAdAccountId === undefined) delete process.env.META_AD_ACCOUNT_ID;
+          else process.env.META_AD_ACCOUNT_ID = previousMetaAdAccountId;
+        }
 
       } else if (actionPlan.platform === "google") {
         let googleAction: GoogleExecutionActionType = "PAUSE_CAMPAIGN";
@@ -393,16 +439,41 @@ async function executeActionPlan(
           requestedBy: "agent",
         };
 
-        const result = await executeGoogleAction(req);
-        outcomes.push({
-          campaignId,
-          campaignName,
-          action: googleAction,
-          success: result.success,
-          message: result.error || (result.success ? "Action completed" : "Action failed"),
-          previousValue: result.previousValue,
-          newValue: result.newValue,
-        });
+        const previousGoogleEnv = {
+          GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+          GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN,
+          GOOGLE_DEVELOPER_TOKEN: process.env.GOOGLE_DEVELOPER_TOKEN,
+          GOOGLE_MCC_ID: process.env.GOOGLE_MCC_ID,
+          GOOGLE_CUSTOMER_ID: process.env.GOOGLE_CUSTOMER_ID,
+        };
+
+        try {
+          if (credentials.google?.clientId) {
+            process.env.GOOGLE_CLIENT_ID = credentials.google.clientId;
+            process.env.GOOGLE_CLIENT_SECRET = credentials.google.clientSecret;
+            process.env.GOOGLE_REFRESH_TOKEN = credentials.google.refreshToken;
+            process.env.GOOGLE_DEVELOPER_TOKEN = credentials.google.developerToken;
+            process.env.GOOGLE_MCC_ID = credentials.google.mccId;
+            process.env.GOOGLE_CUSTOMER_ID = credentials.google.customerId;
+          }
+
+          const result = await executeGoogleAction(req);
+          outcomes.push({
+            campaignId,
+            campaignName,
+            action: googleAction,
+            success: result.success,
+            message: result.error || (result.success ? "Action completed" : "Action failed"),
+            previousValue: result.previousValue,
+            newValue: result.newValue,
+          });
+        } finally {
+          for (const [key, value] of Object.entries(previousGoogleEnv)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+          }
+        }
       }
     } catch (err: any) {
       outcomes.push({
@@ -463,14 +534,17 @@ Analyse the campaigns and respond in the mandatory format.`;
 
   let rawResponse = "";
   try {
+    const groqApiKey = getGroqApiKey();
+    const groqModel = getGroqModel();
+
     const groqRes = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Authorization": `Bearer ${groqApiKey}`,
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: groqModel,
         max_tokens: 1500,
         messages: [
           { role: "system", content: systemPrompt },
@@ -564,7 +638,7 @@ Analyse the campaigns and respond in the mandatory format.`;
     try {
       const allCreds: any[] = JSON.parse(fs.readFileSync(credFile, "utf-8"));
       const clientCreds = allCreds.find((c: any) => c.clientId === clientId);
-      if (clientCreds) credentials = clientCreds;
+      if (clientCreds) credentials = sanitizeClientCredentials(clientCreds);
     } catch {}
   }
 

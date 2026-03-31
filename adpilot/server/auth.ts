@@ -281,7 +281,7 @@ export function setupAuth(app: Express) {
   });
 
   app.put("/api/access/users/:userId", requireAdmin, (req, res) => {
-    const user = getUserById(req.params.userId);
+    const user = getUserById(String(req.params.userId));
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
