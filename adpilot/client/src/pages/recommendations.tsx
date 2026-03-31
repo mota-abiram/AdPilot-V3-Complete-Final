@@ -59,9 +59,9 @@ function mapRecommendationToExecution(
   rec: Recommendation,
   data: AnalysisData
 ): ExecutionMapping | null {
-  const category = rec.category.toLowerCase();
-  const action = rec.action.toLowerCase();
-  const detail = rec.detail.toLowerCase();
+  const category = String(rec.category || "").toLowerCase();
+  const action = String(rec.action || "").toLowerCase();
+  const detail = String(rec.detail || "").toLowerCase();
   const isGoogle = (data as any).platform === "google";
   const entities: any[] = isGoogle
     ? ((data as any).ad_group_analysis || [])
@@ -91,15 +91,21 @@ function mapRecommendationToExecution(
         currentMetrics: getEntityMetrics(entity),
       };
     }
-    const campaign = data.campaign_audit?.find((c) => rec.detail.includes(c.campaign_name));
+    const campaigns: any[] = isGoogle
+      ? ((data as any).campaigns || [])
+      : (data.campaign_audit || []);
+    const campaign = campaigns.find((c: any) => {
+      const campaignName = c.campaign_name || c.name || "";
+      return String(rec.detail || "").includes(campaignName);
+    });
     if (campaign) {
       return {
-        action: "PAUSE_CAMPAIGN", entityType: "campaign", entityId: campaign.campaign_id,
-        entityName: campaign.campaign_name, params: { reason: rec.detail },
-        description: `Pause campaign "${campaign.campaign_name}" due to high CPL`,
+        action: "PAUSE_CAMPAIGN", entityType: "campaign", entityId: campaign.campaign_id || campaign.id,
+        entityName: campaign.campaign_name || campaign.name, params: { reason: rec.detail },
+        description: `Pause campaign "${campaign.campaign_name || campaign.name}" due to high CPL`,
         currentMetrics: {
-          spend: (campaign as any).spend,
-          leads: (campaign as any).leads,
+          spend: (campaign as any).spend ?? (campaign as any).cost,
+          leads: (campaign as any).leads ?? (campaign as any).conversions,
           cpl: (campaign as any).cpl,
           ctr: (campaign as any).ctr,
           impressions: (campaign as any).impressions,
@@ -176,6 +182,32 @@ function mapRecommendationToExecution(
   }
 
   return null;
+}
+
+function inferGoogleLayer(rec: any): string {
+  const source = `${rec?.campaign || ""} ${rec?.description || ""} ${rec?.title || ""}`.toLowerCase();
+  if (source.includes("demand_gen")) return "demand_gen";
+  if (source.includes("lookalike")) return "lookalike";
+  if (source.includes("inmarket")) return "inmarket";
+  if (source.includes("brand")) return "branded";
+  if (source.includes("location")) return "location";
+  if (source.includes("search")) return "search";
+  return "google";
+}
+
+function normalizeRecommendationShape(rec: any): Recommendation {
+  return {
+    layer: rec.layer || inferGoogleLayer(rec),
+    category: rec.category || "general",
+    action: rec.action || rec.title || rec.action_type || "Recommendation",
+    detail: rec.detail || rec.description || rec.campaign || rec.title || "",
+    ice_score: typeof rec.ice_score === "number" ? rec.ice_score : 5,
+    impact: typeof rec.impact === "number" ? rec.impact : 5,
+    confidence: typeof rec.confidence === "number" ? rec.confidence : 5,
+    ease: typeof rec.ease === "number" ? rec.ease : 5,
+    priority: rec.priority,
+    root_causes: Array.isArray(rec.root_causes) ? rec.root_causes : [],
+  };
 }
 
 // ─── Priority classification ────────────────────────────────────
@@ -365,15 +397,20 @@ export default function RecommendationsPage() {
 
   const enriched = useMemo(() => {
     if (!data) return [];
-    return data.recommendations.map((rec, idx) => ({
-      ...rec,
-      idx,
-      recId: `rec-${idx}`,
-      priorityBand: classifyPriority(rec),
-      currentAction: actionsData?.[`rec-${idx}`]?.action,
-      executionMapping: mapRecommendationToExecution(rec, data),
-      isAutoExec: isAutoExecutable(rec, mapRecommendationToExecution(rec, data)),
-    })).filter((rec) => {
+    const rawRecommendations = Array.isArray((data as any).recommendations) ? (data as any).recommendations : [];
+    return rawRecommendations.map((rawRec, idx) => {
+      const rec = normalizeRecommendationShape(rawRec);
+      const executionMapping = mapRecommendationToExecution(rec, data);
+      return {
+        ...rec,
+        idx,
+        recId: `rec-${idx}`,
+        priorityBand: classifyPriority(rec),
+        currentAction: actionsData?.[`rec-${idx}`]?.action,
+        executionMapping,
+        isAutoExec: isAutoExecutable(rec, executionMapping),
+      };
+    }).filter((rec) => {
       if (rec.executionMapping && isEntityPaused(rec.executionMapping.entityId)) return false;
       return true;
     });

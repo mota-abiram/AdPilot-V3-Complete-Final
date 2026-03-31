@@ -211,6 +211,59 @@ function audienceRecText(rec: string): string {
   }
 }
 
+function isDemandGenCampaignType(value?: string): boolean {
+  const normalized = String(value || "").toLowerCase();
+  return normalized.includes("demand_gen") || normalized === "demand gen";
+}
+
+function normalizeDgCampaign(raw: any): DgCampaign {
+  return {
+    campaign_id: raw.campaign_id || raw.id,
+    campaign_name: raw.campaign_name || raw.name || "Unnamed campaign",
+    campaign_type: raw.campaign_type || raw.type || raw.campaign_subtype || raw.channel_type,
+    audience_type: raw.audience_type,
+    cpm: raw.cpm ?? raw.avg_cpm ?? 0,
+    cpm_vs_baseline: raw.cpm_vs_baseline,
+    ctr: raw.ctr ?? 0,
+    cpc: raw.cpc ?? raw.avg_cpc ?? 0,
+    frequency_7d: raw.frequency_7d,
+    frequency_14d: raw.frequency_14d,
+    frequency_28d: raw.frequency_28d,
+    spend: raw.spend ?? raw.cost ?? 0,
+    impressions: raw.impressions ?? 0,
+    clicks: raw.clicks ?? 0,
+    leads: raw.leads ?? raw.conversions ?? 0,
+    conversions: raw.conversions ?? raw.leads ?? 0,
+    cpl: raw.cpl ?? 0,
+    optimized_targeting: raw.optimized_targeting,
+    ads: Array.isArray(raw.ads) ? raw.ads : [],
+    audience_analysis: raw.audience_analysis,
+    placement_analysis: raw.placement_analysis,
+  };
+}
+
+function normalizeDgSummary(rawSummary: any, campaigns: DgCampaign[]): DgSummary | null {
+  if (!rawSummary && campaigns.length === 0) return null;
+
+  const totalSpend = rawSummary?.total_spend ?? rawSummary?.spend ?? campaigns.reduce((sum, campaign) => sum + (campaign.spend || 0), 0);
+  const totalImpressions = rawSummary?.total_impressions ?? campaigns.reduce((sum, campaign) => sum + (campaign.impressions || 0), 0);
+  const totalClicks = rawSummary?.total_clicks ?? campaigns.reduce((sum, campaign) => sum + (campaign.clicks || 0), 0);
+  const totalConversions = rawSummary?.total_conversions ?? rawSummary?.leads ?? campaigns.reduce((sum, campaign) => sum + (campaign.leads || campaign.conversions || 0), 0);
+
+  return {
+    campaign_count: rawSummary?.campaign_count ?? campaigns.length,
+    total_spend: totalSpend,
+    total_impressions: totalImpressions,
+    total_clicks: totalClicks,
+    total_conversions: totalConversions,
+    avg_cpm: rawSummary?.avg_cpm ?? rawSummary?.cpm ?? (totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0),
+    avg_ctr: rawSummary?.avg_ctr ?? rawSummary?.ctr ?? (totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0),
+    avg_cpl: rawSummary?.avg_cpl ?? rawSummary?.cpl ?? (totalConversions > 0 ? totalSpend / totalConversions : 0),
+    avg_frequency: rawSummary?.avg_frequency,
+    video_metrics_aggregate: rawSummary?.video_metrics_aggregate,
+  };
+}
+
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function GoogleDemandGenPage() {
@@ -220,38 +273,49 @@ export default function GoogleDemandGenPage() {
   const [sortKey, setSortKey] = useState<string>("cpl");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  const dgCampaigns: DgCampaign[] = useMemo(() => {
+    if (!data) return [];
+    const summaryCampaigns = Array.isArray((data as any).dg_summary?.campaigns)
+      ? (data as any).dg_summary.campaigns
+      : [];
+    if (summaryCampaigns.length > 0) {
+      return summaryCampaigns.map(normalizeDgCampaign);
+    }
+
+    const allCampaigns = ((data as any).campaigns || []).filter((campaign: any) =>
+      isDemandGenCampaignType(campaign.campaign_type || campaign.type || campaign.campaign_subtype || campaign.channel_type)
+    );
+    if (allCampaigns.length > 0) return allCampaigns.map(normalizeDgCampaign);
+
+    const dga = (data as any).demand_gen_analysis;
+    return Array.isArray(dga?.campaigns) ? dga.campaigns.map(normalizeDgCampaign) : [];
+  }, [data]);
+
   // Read from dg_summary (new) or demand_gen_analysis (old)
   const dgSummary: DgSummary | null = useMemo(() => {
     if (!data) return null;
-    return (data as any).dg_summary || null;
-  }, [data]);
-
-  // DG campaigns: from campaigns array filtered to demand_gen type, or from demand_gen_analysis
-  const dgCampaigns: DgCampaign[] = useMemo(() => {
-    if (!data) return [];
-    const allCampaigns = (data as any).campaigns || [];
-    const dgFromCampaigns = allCampaigns.filter(
-      (c: any) => c.campaign_type === "demand_gen" || c.type === "demand_gen" || c.campaign_subtype === "demand_gen"
-    );
-    if (dgFromCampaigns.length > 0) return dgFromCampaigns;
-    // Fallback to demand_gen_analysis.campaigns
-    const dga = (data as any).demand_gen_analysis;
-    return dga?.campaigns || [];
-  }, [data]);
+    return normalizeDgSummary((data as any).dg_summary, dgCampaigns);
+  }, [data, dgCampaigns]);
 
   // DG frequency audit entries
   const freqAudit: FrequencyAuditEntry[] = useMemo(() => {
     if (!data) return [];
     const fa = (data as any).frequency_audit;
     if (!fa) return [];
+    const dgCampaignNames = new Set(dgCampaigns.map((campaign) => campaign.campaign_name));
     // frequency_audit may be keyed by campaign name or be an array
-    if (Array.isArray(fa)) return fa.filter((e: any) => e.campaign_type === "demand_gen" || !e.campaign_type);
+    if (Array.isArray(fa)) {
+      return fa.filter((entry: any) =>
+        isDemandGenCampaignType(entry.campaign_type) ||
+        dgCampaignNames.has(entry.campaign_name || entry.campaign || "")
+      );
+    }
     // Object keyed by campaign name
     return Object.entries(fa).map(([name, v]: [string, any]) => ({
       campaign_name: name,
       ...v,
-    }));
-  }, [data]);
+    })).filter((entry) => dgCampaignNames.has(entry.campaign_name || ""));
+  }, [data, dgCampaigns]);
 
   // Flatten all ads
   const allAds = useMemo(() => {
@@ -490,9 +554,9 @@ export default function GoogleDemandGenPage() {
               {highCpmWeakCplCampaigns.length} campaign{highCpmWeakCplCampaigns.length !== 1 ? "s" : ""} with CPM &gt; ₹200 — SOP recommends creative refresh when CPM exceeds benchmark with weak CPL
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {highCpmWeakCplCampaigns.map((c, idx) => (
+                  {highCpmWeakCplCampaigns.map((c, idx) => (
                 <span key={idx} className="text-[10px] text-gray-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
-                  {truncate(c.campaign_name, 28)}
+                  {truncate(c.campaign_name || "—", 28)}
                 </span>
               ))}
             </div>
@@ -903,12 +967,13 @@ export default function GoogleDemandGenPage() {
               {dgCampaigns
                 .filter((c) => c.audience_analysis?.audience_vs_optimized_targeting)
                 .map((c, idx) => {
-                  const avot = c.audience_analysis!.audience_vs_optimized_targeting!;
+                  const avot = c.audience_analysis?.audience_vs_optimized_targeting;
+                  if (!avot) return null;
                   return (
                     <Card key={idx} className="bg-[#1a1a2e]/60 border-gray-800" data-testid={`card-audience-vs-optimized-${idx}`}>
                       <CardContent className="p-4">
                         <p className="text-xs font-medium text-white mb-3 truncate">
-                          {truncate(c.campaign_name, 40)}
+                          {truncate(c.campaign_name || "—", 40)}
                         </p>
                         <div className="grid grid-cols-2 gap-4">
                           <div className={cn(
@@ -1021,7 +1086,7 @@ export default function GoogleDemandGenPage() {
                   .filter((c) => c.audience_analysis?.overlap_detection)
                   .map((c, idx) => (
                     <p key={idx} className="text-[10px] text-gray-400 ml-5">
-                      {c.campaign_name}: {c.audience_analysis!.overlap_detection}
+                      {c.campaign_name}: {c.audience_analysis?.overlap_detection}
                     </p>
                   ))}
               </CardContent>
