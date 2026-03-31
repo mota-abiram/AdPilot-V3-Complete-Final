@@ -1,0 +1,13 @@
+[
+  {
+    "id": "d06182a3-4ae9-4038-a849-adc555bcb8c3",
+    "email": "admin@adpilot.local",
+    "name": "Administrator",
+    "passwordHash": "8ae0bf817c1ea045b8c49c65bb304ac9:11afd1be2914d773c081a7a00aa4b3898c88fca14b1fd5e578f8175b61abde356673bf82f2fe7037b841dd139bfe72d63f862c9488e2452083c2927270edfc4e",
+    "role": "admin",
+    "status": "active",
+    "createdAt": "2026-03-31T06:46:05.380Z",
+    "updatedAt": "2026-03-31T08:16:59.665Z",
+    "lastLoginAt": "2026-03-31T08:16:59.665Z"
+  }
+]

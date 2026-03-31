@@ -124,7 +124,16 @@ def _get_access_token(creds):
     }, timeout=30)
 
     if resp.status_code != 200:
-        raise RuntimeError(f"Token refresh failed: {resp.status_code} - {resp.text[:300]}")
+        details = resp.text[:300]
+        if resp.status_code == 400 and "invalid_grant" in details:
+            raise RuntimeError(
+                "Token refresh failed: 400 invalid_grant. "
+                "The refresh token is rejected by Google. This is usually caused by "
+                "a revoked/expired refresh token, a refresh token generated for a different "
+                "OAuth client_id/client_secret, or an OAuth consent screen still in Testing mode. "
+                f"Raw response: {details}"
+            )
+        raise RuntimeError(f"Token refresh failed: {resp.status_code} - {details}")
 
     data = resp.json()
     access_token = data["access_token"]

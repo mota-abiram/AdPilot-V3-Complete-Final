@@ -1,12 +1,16 @@
-import 'dotenv/config';
+import dotenv from "dotenv";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initScheduler } from "./scheduler";
+import { protectApiRoutes, setupAuth } from "./auth";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
+
+dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
 
 declare module "http" {
   interface IncomingMessage {
@@ -23,6 +27,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+setupAuth(app);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -62,6 +67,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  app.use(protectApiRoutes);
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

@@ -8,10 +8,12 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
 import { ClientProvider, useClient } from "@/lib/client-context";
-import { Moon, Sun } from "lucide-react";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { CommandTerminal, CommandTerminalToggle } from "@/components/command-terminal";
+import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import CampaignsPage from "@/pages/campaigns";
@@ -36,6 +38,7 @@ import { timeAgo } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 import { useLiveUpdates } from "@/hooks/use-live-updates";
+import { useNow } from "@/hooks/use-now";
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -80,10 +83,12 @@ function AppRouter() {
 
 function AppLayout() {
   useLiveUpdates();
-  const { analysisData, activeClient, activePlatform, activePlatformInfo, activeCadence } = useClient();
+  const { analysisData, activeClient, activePlatformInfo, syncState } = useClient();
+  const { user, logout } = useAuth();
   const [terminalOpen, setTerminalOpen] = useState(false);
+  useNow();
 
-  const lastSynced = analysisData?.generated_at ? timeAgo(analysisData.generated_at) : undefined;
+  const lastSynced = syncState?.last_synced_at ? timeAgo(syncState.last_synced_at) : undefined;
 
   const sidebarStyle = {
     "--sidebar-width": "16rem",
@@ -93,7 +98,7 @@ function AppLayout() {
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full overflow-hidden">
-        <AppSidebar lastSynced={lastSynced} />
+        <AppSidebar syncState={syncState} lastSynced={lastSynced} />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-2 px-4 py-2 border-b border-border/50 shrink-0 bg-background/80 backdrop-blur-sm z-10">
             <div className="flex items-center gap-2">
@@ -119,6 +124,12 @@ function AppLayout() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden lg:inline">
+                {user?.name} · {user?.role}
+              </span>
+              <Button size="icon" variant="ghost" onClick={logout} data-testid="button-logout">
+                <LogOut className="w-4 h-4" />
+              </Button>
               <CommandTerminalToggle onClick={() => setTerminalOpen((o) => !o)} isOpen={terminalOpen} />
               <ThemeToggle />
             </div>
@@ -136,15 +147,37 @@ function AppLayout() {
   );
 }
 
+function AuthGate() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+        Checking access...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  return (
+    <ClientProvider>
+      <AppLayout />
+    </ClientProvider>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
           <Router hook={useHashLocation}>
-            <ClientProvider>
-              <AppLayout />
-            </ClientProvider>
+            <AuthProvider>
+              <AuthGate />
+            </AuthProvider>
           </Router>
           <Toaster />
         </TooltipProvider>

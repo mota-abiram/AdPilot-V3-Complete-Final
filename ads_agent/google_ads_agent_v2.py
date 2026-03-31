@@ -35,16 +35,75 @@ from collections import defaultdict
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━ CONFIG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-MCC_ACCOUNT_ID = "7668970885"
-CLIENT_ACCOUNT_ID = "3120813693"
-DEV_TOKEN = "_3UIxhdvv6QErcI8BVJCNw"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ── Resolve client ID early (from --client arg or ADPILOT_CLIENT_ID env var) ──
+def _resolve_client_id():
+    import argparse as _ap
+    p = _ap.ArgumentParser(add_help=False)
+    p.add_argument("--client", default=None)
+    known, _ = p.parse_known_args()
+    return known.client or os.environ.get("ADPILOT_CLIENT_ID", "amara")
+
+_CLIENT_ID = _resolve_client_id()
+
+# ── Load per-client credentials from clients_credentials.json ──
+def _load_client_credentials(client_id):
+    creds_path = os.path.join(SCRIPT_DIR, "data", "clients_credentials.json")
+    if os.path.exists(creds_path):
+        try:
+            with open(creds_path) as f:
+                arr = json.load(f)
+            for entry in arr:
+                if entry.get("clientId") == client_id:
+                    g = entry.get("google", {})
+                    if g:
+                        return {
+                            "client_id": g.get("clientId", ""),
+                            "client_secret": g.get("clientSecret", ""),
+                            "refresh_token": g.get("refreshToken", ""),
+                            "developer_token": g.get("developerToken", ""),
+                            "login_customer_id": g.get("mccId", ""),
+                            "default_client_id": g.get("customerId", ""),
+                        }
+        except Exception:
+            pass
+    return None
+
+_client_creds = _load_client_credentials(_CLIENT_ID)
+if _client_creds:
+    # Inject into env so google_ads_api.py picks them up automatically
+    # Only override env vars when the client-scoped credential is non-empty.
+    # This keeps good .env values from being replaced by blank fields in
+    # clients_credentials.json.
+    if _client_creds["client_id"]:
+        os.environ["GOOGLE_CLIENT_ID"] = _client_creds["client_id"]
+    if _client_creds["client_secret"]:
+        os.environ["GOOGLE_CLIENT_SECRET"] = _client_creds["client_secret"]
+    if _client_creds["refresh_token"]:
+        os.environ["GOOGLE_REFRESH_TOKEN"] = _client_creds["refresh_token"]
+    if _client_creds["developer_token"]:
+        os.environ["GOOGLE_DEVELOPER_TOKEN"] = _client_creds["developer_token"]
+    if _client_creds["login_customer_id"]:
+        os.environ["GOOGLE_MCC_ID"] = _client_creds["login_customer_id"]
+    if _client_creds["default_client_id"]:
+        os.environ["GOOGLE_CUSTOMER_ID"] = _client_creds["default_client_id"]
+
+    MCC_ACCOUNT_ID = _client_creds["login_customer_id"] or os.environ.get("GOOGLE_MCC_ID", "7668970885")
+    CLIENT_ACCOUNT_ID = _client_creds["default_client_id"] or os.environ.get("GOOGLE_CUSTOMER_ID", "3120813693")
+    DEV_TOKEN = _client_creds["developer_token"] or os.environ.get("GOOGLE_DEVELOPER_TOKEN", "_3UIxhdvv6QErcI8BVJCNw")
+else:
+    # Fallback to legacy hardcoded values (amara default)
+    MCC_ACCOUNT_ID = os.environ.get("GOOGLE_MCC_ID", "7668970885")
+    CLIENT_ACCOUNT_ID = os.environ.get("GOOGLE_CUSTOMER_ID", "3120813693")
+    DEV_TOKEN = os.environ.get("GOOGLE_DEVELOPER_TOKEN", "_3UIxhdvv6QErcI8BVJCNw")
+
 SOURCE_ID = "google_ads__pipedream"  # Legacy - now using direct REST API
 
 # Import direct Google Ads REST API client (replaces broken Pipedream connector)
 from google_ads_api import get_report as _direct_get_report, gaql_search, mutate_campaign, mutate_ad_group, mutate_ad, mutate_campaign_budget
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, "data", "clients", "amara", "google")
+DATA_DIR = os.path.join(SCRIPT_DIR, "data", "clients", _CLIENT_ID, "google")
 HIST_DIR = os.path.join(DATA_DIR, "historical")
 LEARNING_FILE = os.path.join(SCRIPT_DIR, "data", "google_learning_history.json")
 
@@ -1095,8 +1154,12 @@ def analyze_bidding(ad_groups, campaigns):
                 rationale = f"CPC ₹{current_cpc:.0f} exceeds max ₹{computed_max_cpc:.0f} by {((current_cpc/computed_max_cpc)-1)*100:.0f}%"
             elif current_cpc < computed_max_cpc * 0.7:
                 adjustment = "increase"
-                adjustment_pct = round((computed_max_cpc * 0.85 - current_cpc) / current_cpc * 100)
-                rationale = f"CPC ₹{current_cpc:.0f} well below max ₹{computed_max_cpc:.0f} — room to bid higher for more IS"
+                if current_cpc > 0:
+                    adjustment_pct = round((computed_max_cpc * 0.85 - current_cpc) / current_cpc * 100)
+                    rationale = f"CPC ₹{current_cpc:.0f} well below max ₹{computed_max_cpc:.0f} — room to bid higher for more IS"
+                else:
+                    adjustment_pct = 0
+                    rationale = f"CPC is ₹0 while computed max is ₹{computed_max_cpc:.0f} — bid data is insufficient for a percentage-based increase"
             else:
                 rationale = f"CPC ₹{current_cpc:.0f} within healthy range of max ₹{computed_max_cpc:.0f}"
 
@@ -3407,6 +3470,8 @@ def run_multi_cadence_analysis():
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Mojo Performance Agent — Google Ads")
+    parser.add_argument("--client", default=_CLIENT_ID,
+                       help="Client id to analyze (already resolved during startup)")
     parser.add_argument("--cadence", default="twice_weekly",
                        choices=["daily", "twice_weekly", "weekly", "biweekly", "monthly"],
                        help="Analysis cadence (ignored when --multi-cadence is set)")

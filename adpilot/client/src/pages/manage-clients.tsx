@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   Users, Plus, Trash2, Edit2, ChevronDown, ChevronRight,
   KeyRound, Eye, EyeOff, CheckCircle, AlertCircle, Loader2,
-  Facebook, Globe, X, Save, ShieldCheck,
+  Facebook, Globe, X, Save, ShieldCheck, Play, RefreshCw, Clock, XCircle,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -478,6 +478,131 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
   );
 }
 
+// ─── Scheduler Panel ─────────────────────────────────────────────────
+
+interface SchedulerStatus {
+  lastRun?: string;
+  lastRunSuccess?: boolean;
+  lastRunDuration?: number;
+  lastError?: string;
+  nextRun?: string;
+  isRunning?: boolean;
+}
+
+function SchedulerPanel() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const [showError, setShowError] = useState(false);
+
+  const { data: status, isLoading } = useQuery<SchedulerStatus>({
+    queryKey: ["/api/scheduler/status"],
+    refetchInterval: running ? 3000 : 30000,
+  });
+
+  async function runNow() {
+    setRunning(true);
+    try {
+      const res = await apiRequest("POST", "/api/scheduler/run-now");
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Agent triggered", description: "Data fetch started — this may take ~60 seconds." });
+      // Poll faster while running
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["/api/scheduler/status"] });
+      }, 5000);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const isCurrentlyRunning = status?.isRunning || running;
+
+  function fmt(iso?: string) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function duration(ms?: number) {
+    if (!ms) return "";
+    return ms < 60000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60000)}m`;
+  }
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="px-4 py-3 pb-0">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 text-primary" /> Data Agent
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 py-3 space-y-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading status…
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 text-[11px]">
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wider mb-1">Last Run</p>
+              <p className="text-foreground">{fmt(status?.lastRun)}</p>
+              {status?.lastRunDuration && (
+                <p className="text-muted-foreground">{duration(status.lastRunDuration)}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wider mb-1">Status</p>
+              {isCurrentlyRunning ? (
+                <span className="flex items-center gap-1 text-amber-400">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Running…
+                </span>
+              ) : status?.lastRunSuccess === true ? (
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <CheckCircle className="w-3 h-3" /> Success
+                </span>
+              ) : status?.lastRunSuccess === false ? (
+                <button
+                  className="flex items-center gap-1 text-red-400 hover:underline text-left"
+                  onClick={() => setShowError((s) => !s)}
+                >
+                  <XCircle className="w-3 h-3" /> Failed
+                </button>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </div>
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wider mb-1">Next Scheduled</p>
+              <p className="text-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3 text-muted-foreground" />
+                {fmt(status?.nextRun)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {showError && status?.lastError && (
+          <div className="p-2 rounded-md bg-red-500/5 border border-red-500/20 text-[10px] text-red-400 font-mono overflow-auto max-h-28 whitespace-pre-wrap">
+            {status.lastError.split("\n").slice(-6).join("\n")}
+          </div>
+        )}
+
+        <Button
+          size="sm"
+          onClick={runNow}
+          disabled={isCurrentlyRunning}
+          className="gap-1.5 w-full"
+        >
+          {isCurrentlyRunning
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running…</>
+            : <><Play className="w-3.5 h-3.5" /> Run Now</>}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────
 
 export default function ManageClientsPage() {
@@ -543,6 +668,9 @@ export default function ManageClientsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Scheduler */}
+      <SchedulerPanel />
 
       {/* Client list */}
       {isLoadingClients ? (

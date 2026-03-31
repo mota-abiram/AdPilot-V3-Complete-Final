@@ -28,8 +28,8 @@ const API_VERSION = "v21";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-const CUSTOMER_ID = "3120813693";
-const LOGIN_CUSTOMER_ID = "7668970885";
+const CUSTOMER_ID = process.env.GOOGLE_CUSTOMER_ID || "3120813693";
+const LOGIN_CUSTOMER_ID = process.env.GOOGLE_MCC_ID || "7668970885";
 
 // Rate-limit: minimum delay between batch calls (ms)
 const BATCH_DELAY_MS = 300;
@@ -62,6 +62,8 @@ export interface GoogleExecutionRequest {
     recommendationId?: string;
   };
   requestedBy: "user" | "agent" | "auto";
+  requestedByName?: string;
+  strategicCall?: string;
 }
 
 export interface GoogleExecutionResult {
@@ -76,7 +78,9 @@ export interface GoogleExecutionResult {
   error?: string;
   timestamp: string;
   requestedBy: string;
+  requestedByName?: string;
   reason?: string;
+  strategicCall?: string;
   platform: "google";
 }
 
@@ -100,12 +104,40 @@ interface TokenCache {
 // ─── Credentials & OAuth ─────────────────────────────────────────
 
 function loadCredentials(): Credentials {
-  if (!fs.existsSync(CREDS_FILE)) {
-    throw new Error(
-      `Google Ads credentials not found at ${CREDS_FILE}. Run the OAuth setup flow first.`
-    );
+  const envCreds: Partial<Credentials> = {
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    developer_token: process.env.GOOGLE_DEVELOPER_TOKEN,
+    login_customer_id: process.env.GOOGLE_MCC_ID,
+  };
+
+  const envComplete = Object.values(envCreds).every(Boolean);
+
+  const fileExists = fs.existsSync(CREDS_FILE);
+  const fileCreds = fileExists ? JSON.parse(fs.readFileSync(CREDS_FILE, "utf-8")) as Partial<Credentials> : {};
+  const fileComplete = ["client_id","client_secret","refresh_token","developer_token","login_customer_id"].every(
+    (k) => (fileCreds as any)[k] && !(String((fileCreds as any)[k]).startsWith("YOUR_"))
+  );
+
+  if (envComplete) {
+    return envCreds as Credentials;
   }
-  return JSON.parse(fs.readFileSync(CREDS_FILE, "utf-8"));
+
+  if (fileComplete) {
+    return fileCreds as Credentials;
+  }
+
+  const missing = [];
+  if (!envCreds.client_id) missing.push("GOOGLE_CLIENT_ID");
+  if (!envCreds.client_secret) missing.push("GOOGLE_CLIENT_SECRET");
+  if (!envCreds.refresh_token) missing.push("GOOGLE_REFRESH_TOKEN");
+  if (!envCreds.developer_token) missing.push("GOOGLE_DEVELOPER_TOKEN");
+  if (!envCreds.login_customer_id) missing.push("GOOGLE_MCC_ID");
+
+  throw new Error(
+    `Google Ads credentials not configured. Either fill ${CREDS_FILE} or set env vars: ${missing.join(", ")}.`
+  );
 }
 
 /**
@@ -454,6 +486,10 @@ function logExecution(result: GoogleExecutionResult): AuditEntry {
   return entry;
 }
 
+export function appendGoogleAuditEntry(result: GoogleExecutionResult): AuditEntry {
+  return logExecution(result);
+}
+
 // ─── Status dispatch helper ──────────────────────────────────────
 
 async function setEntityStatus(
@@ -484,7 +520,9 @@ export async function executeGoogleAction(req: GoogleExecutionRequest): Promise<
     entityType: req.entityType,
     timestamp,
     requestedBy: req.requestedBy,
+    requestedByName: req.requestedByName,
     reason: req.params?.reason,
+    strategicCall: req.strategicCall,
     platform: "google" as const,
   };
 

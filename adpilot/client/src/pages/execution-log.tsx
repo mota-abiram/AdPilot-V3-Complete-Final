@@ -52,6 +52,7 @@ interface AuditEntry {
   error?: string;
   timestamp: string;
   requestedBy: string;
+  requestedByName?: string;
   reason?: string;
   platform?: string;
   strategicCall?: string;
@@ -348,6 +349,11 @@ function AuditLogTab({
                     </td>
                     <td className="p-3">
                       <StrategicCallCell text={entry.strategicCall} />
+                      {entry.reason && entry.reason !== entry.strategicCall && (
+                        <p className="mt-1 max-w-[220px] text-[10px] text-muted-foreground" title={entry.reason}>
+                          Reason: {entry.reason}
+                        </p>
+                      )}
                     </td>
                     <td className="p-3">
                       {entry.previousValue && entry.newValue ? (
@@ -386,9 +392,16 @@ function AuditLogTab({
                       {(() => {
                         const rbBadge = getRequestedByBadge(entry.requestedBy);
                         return (
-                          <Badge variant="outline" className={`text-[10px] ${rbBadge.className}`}>
-                            {rbBadge.label}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className={`w-fit text-[10px] ${rbBadge.className}`}>
+                              {rbBadge.label}
+                            </Badge>
+                            {entry.requestedByName && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {entry.requestedByName}
+                              </span>
+                            )}
+                          </div>
                         );
                       })()}
                     </td>

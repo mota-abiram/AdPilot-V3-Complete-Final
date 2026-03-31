@@ -99,13 +99,6 @@ export default function CampaignsPage() {
     const source = isGoogle ? ((data as any).campaigns || (data as any).campaign_analysis || (data as any).campaign_audit) : data.campaign_audit;
     if (!source) return [];
     let list = [...source];
-    // Only show ACTIVE campaigns, or PAUSED campaigns with spend > 0 in the window
-    list = list.filter((c: any) => {
-      const status = (c.status || "").toUpperCase();
-      if (status === "ACTIVE" || status === "ENABLED") return true;
-      if (status === "PAUSED" && (c.spend || c.cost || 0) > 0) return true;
-      return false;
-    });
     if (filterLayer !== "ALL") {
       if (isGoogle) {
         list = list.filter((c: any) => c.campaign_type === filterLayer || c.theme === filterLayer);

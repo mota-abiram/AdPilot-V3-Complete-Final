@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useClient } from "@/lib/client-context";
+import { useAuth, type AuthUser } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,6 @@ import {
   FileSpreadsheet,
   BookOpen,
   Users,
-  Plus,
-  X,
   RefreshCw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -73,6 +72,7 @@ export default function SettingsPage() {
     isLoadingAnalysis,
     apiBase,
   } = useClient();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
 
   const [metaStatus, setMetaStatus] = useState<"checking" | "ok" | "error">("checking");
@@ -91,9 +91,16 @@ export default function SettingsPage() {
   const [googleApiVersion, setGoogleApiVersion] = useState<string>("");
   const [isVerifyingGoogleApi, setIsVerifyingGoogleApi] = useState(false);
 
-  // Team Access state
-  const [teamEmails, setTeamEmails] = useState<string[]>([]);
-  const [newEmail, setNewEmail] = useState("");
+  const [accessUsers, setAccessUsers] = useState<AuthUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "member" as "admin" | "member",
+    status: "active" as "active" | "blocked",
+  });
 
   // Verify Meta API status — actually pings the Meta API
   async function verifyMetaApi() {
@@ -168,54 +175,58 @@ export default function SettingsPage() {
       .catch(() => {});
   }, [apiBase]);
 
-  // MV2-13: Load team emails from local storage on mount / client change
+  async function loadAccessUsers() {
+    if (!isAdmin) return;
+    setIsLoadingUsers(true);
+    try {
+      const res = await apiRequest("GET", "/api/access/users");
+      const users = await res.json();
+      setAccessUsers(users);
+    } catch {
+      setAccessUsers([]);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }
+
   useEffect(() => {
-    if (!activeClientId) return;
-    try {
-      let stored: string | null = null; // team emails loaded from backend only
-      if (stored) {
-        setTeamEmails(JSON.parse(stored));
-      } else {
-        setTeamEmails([]);
-      }
-    } catch {
-      setTeamEmails([]);
-    }
-  }, [activeClientId]);
+    loadAccessUsers();
+  }, [isAdmin]);
 
-  // MV2-13: Persist team emails to local storage + fire-and-forget backend save
-  function persistTeamEmails(emails: string[]) {
-    if (!activeClientId) return;
-    try {
-      // team emails persisted to backend only (no browser storage in iframe)
-    } catch {
-      // storage may be unavailable in some iframe contexts
-    }
-    // Fire-and-forget backend persistence
-    apiRequest("POST", `${apiBase}/team-access`, { emails }).catch(() => {});
-  }
-
-  function addTeamEmail() {
-    const email = newEmail.trim().toLowerCase();
-    if (!email || !email.includes("@")) {
-      toast({ title: "Invalid email", variant: "destructive" });
+  async function handleCreateUser() {
+    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password.trim()) {
+      toast({ title: "Missing fields", description: "Name, email, and password are required", variant: "destructive" });
       return;
     }
-    if (teamEmails.includes(email)) {
-      toast({ title: "Email already added", variant: "destructive" });
-      return;
+    setIsSavingUser(true);
+    try {
+      await apiRequest("POST", "/api/access/users", newUser);
+      setNewUser({ name: "", email: "", password: "", role: "member", status: "active" });
+      await loadAccessUsers();
+      toast({ title: "User created", description: `${newUser.email} can now use the app` });
+    } catch (err: any) {
+      toast({ title: "Create failed", description: err.message || "Could not create user", variant: "destructive" });
+    } finally {
+      setIsSavingUser(false);
     }
-    const updated = [...teamEmails, email];
-    setTeamEmails(updated);
-    persistTeamEmails(updated);
-    setNewEmail("");
-    toast({ title: "Email added", description: `${email} added to team access list` });
   }
 
-  function removeTeamEmail(email: string) {
-    const updated = teamEmails.filter(e => e !== email);
-    setTeamEmails(updated);
-    persistTeamEmails(updated);
+  async function updateUserAccess(target: AuthUser, patch: Partial<Pick<AuthUser, "role" | "status">>) {
+    try {
+      await apiRequest("PUT", `/api/access/users/${target.id}`, {
+        name: target.name,
+        email: target.email,
+        role: patch.role || target.role,
+        status: patch.status || target.status,
+      });
+      await loadAccessUsers();
+      toast({
+        title: "Access updated",
+        description: `${target.email} is now ${(patch.status || target.status) === "active" ? "allowed to log in" : "blocked from logging in"}`,
+      });
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.message || "Could not update user", variant: "destructive" });
+    }
   }
 
   // Google sync time from analysis
@@ -419,48 +430,108 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* ─── B) Team Access Section ─────────────────────────────────── */}
+      {/* ─── B) Access Management Section ───────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Users className="w-4 h-4" />
-            Team Access
-            <Badge variant="secondary" className="text-[10px]">{activeClient?.shortName || activeClientId}</Badge>
+            Access Management
+            <Badge variant="secondary" className="text-[10px]">{user?.role || "member"}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-[10px] text-muted-foreground">
-            Authorized team members for this client. Access list persists locally. Backend enforcement requires production auth layer.
+            Control which users can log in. Active users can enter the app; blocked users are denied at login.
           </p>
-          <div className="flex gap-2">
-            <Input
-              placeholder="team@example.com"
-              className="flex-1 text-sm bg-muted/30"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") addTeamEmail(); }}
-            />
-            <Button size="sm" onClick={addTeamEmail} disabled={!newEmail.trim()} className="gap-1">
-              <Plus className="w-3.5 h-3.5" />
-              Add
-            </Button>
-          </div>
-          {teamEmails.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {teamEmails.map((email) => (
-                <Badge key={email} variant="outline" className="text-xs py-1 px-2 flex items-center gap-1">
-                  {email}
-                  <button
-                    className="ml-1 text-muted-foreground hover:text-red-400 transition-colors"
-                    onClick={() => removeTeamEmail(email)}
+          {isAdmin ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <Input
+                  placeholder="Full name"
+                  className="text-sm bg-muted/30"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
+                />
+                <Input
+                  placeholder="email@example.com"
+                  className="text-sm bg-muted/30"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
+                />
+                <Input
+                  placeholder="Temporary password"
+                  type="password"
+                  className="text-sm bg-muted/30"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={newUser.role === "member" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setNewUser((prev) => ({ ...prev, role: "member" }))}
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
+                    Member
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={newUser.role === "admin" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setNewUser((prev) => ({ ...prev, role: "admin" }))}
+                  >
+                    Admin
+                  </Button>
+                </div>
+              </div>
+              <Button size="sm" onClick={handleCreateUser} disabled={isSavingUser}>
+                {isSavingUser ? "Creating..." : "Create user"}
+              </Button>
+
+              <div className="space-y-2">
+                {isLoadingUsers ? (
+                  <p className="text-[10px] text-muted-foreground italic">Loading users...</p>
+                ) : accessUsers.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground italic">No users found</p>
+                ) : (
+                  accessUsers.map((accessUser) => (
+                    <div key={accessUser.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 p-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{accessUser.name}</span>
+                          <Badge variant="secondary" className="text-[10px]">{accessUser.role}</Badge>
+                          <Badge
+                            variant="secondary"
+                            className={`text-[10px] ${accessUser.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
+                          >
+                            {accessUser.status}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">{accessUser.email}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateUserAccess(accessUser, { role: accessUser.role === "admin" ? "member" : "admin" })}
+                        >
+                          Make {accessUser.role === "admin" ? "member" : "admin"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={accessUser.status === "active" ? "destructive" : "default"}
+                          onClick={() => updateUserAccess(accessUser, { status: accessUser.status === "active" ? "blocked" : "active" })}
+                        >
+                          {accessUser.status === "active" ? "Block login" : "Allow login"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           ) : (
-            <p className="text-[10px] text-muted-foreground italic">No team members added yet</p>
+            <p className="text-[10px] text-muted-foreground italic">Only admins can manage user access.</p>
           )}
         </CardContent>
       </Card>

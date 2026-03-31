@@ -11,6 +11,7 @@ import {
   executeBatch,
   getAuditLog,
   getEntityStatus,
+  appendAuditEntry,
   type ExecutionRequest,
   type ExecutionActionType,
 } from "./meta-execution";
@@ -24,11 +25,13 @@ import {
   executeGoogleAction,
   executeGoogleBatch,
   getGoogleAuditLog,
+  appendGoogleAuditEntry,
   type GoogleExecutionRequest,
   type GoogleExecutionActionType,
 } from "./google-execution";
 import {
   addSSEClient,
+  getPlatformSyncState,
   getSchedulerStatus,
   triggerManualRun,
 } from "./scheduler";
@@ -85,6 +88,8 @@ interface ClientCredentials {
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
 const CREDENTIALS_FILE = path.join(DATA_BASE, "clients_credentials.json");
+const GOOGLE_ADS_TOKEN_CACHE = path.resolve(import.meta.dirname, "../../ads_agent/.google_ads_token_cache.json");
+const LEGACY_GOOGLE_CREDS_FILE = path.resolve(import.meta.dirname, "../../ads_agent/google_ads_credentials.json");
 
 // ─── Registry persistence helpers ─────────────────────────────────
 
@@ -153,8 +158,75 @@ function saveCredentials(store: Record<string, ClientCredentials>): void {
   fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(Object.values(store), null, 2));
 }
 
+function getDefaultGoogleCredsFromEnv() {
+  const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
+  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
+  const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || "").trim();
+  const developerToken = (process.env.GOOGLE_DEVELOPER_TOKEN || "").trim();
+  const mccId = (process.env.GOOGLE_MCC_ID || "").trim();
+  const customerId = (process.env.GOOGLE_CUSTOMER_ID || "").trim();
+
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  return {
+    clientId,
+    clientSecret,
+    refreshToken,
+    developerToken,
+    mccId,
+    customerId,
+  };
+}
+
+function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): void {
+  if (!google) return;
+  const payload = {
+    client_id: google.clientId,
+    client_secret: google.clientSecret,
+    refresh_token: google.refreshToken,
+    developer_token: google.developerToken,
+    login_customer_id: google.mccId,
+  };
+  fs.writeFileSync(LEGACY_GOOGLE_CREDS_FILE, JSON.stringify(payload, null, 2));
+}
+
+function bootstrapDefaultClientCredentials(): void {
+  const envGoogle = getDefaultGoogleCredsFromEnv();
+  const envMetaAccessToken = (process.env.META_ACCESS_TOKEN || "").trim();
+  const envMetaAdAccountId = (process.env.META_AD_ACCOUNT_ID || "").trim();
+
+  if (!envGoogle && (!envMetaAccessToken || !envMetaAdAccountId)) return;
+
+  const creds = loadCredentials();
+  const existing = creds["amara"] || { clientId: "amara", updatedAt: "" };
+
+  if (envGoogle) {
+    existing.google = {
+      clientId: envGoogle.clientId,
+      clientSecret: envGoogle.clientSecret,
+      refreshToken: envGoogle.refreshToken,
+      developerToken: envGoogle.developerToken,
+      mccId: envGoogle.mccId,
+      customerId: envGoogle.customerId,
+    };
+    syncLegacyGoogleCredentialsFile(existing.google);
+  }
+
+  if (envMetaAccessToken && envMetaAdAccountId) {
+    existing.meta = {
+      accessToken: envMetaAccessToken,
+      adAccountId: envMetaAdAccountId,
+    };
+  }
+
+  existing.updatedAt = new Date().toISOString();
+  creds["amara"] = existing;
+  saveCredentials(creds);
+}
+
 // Live in-memory registry (loaded at startup, mutated by CRUD APIs)
 let CLIENT_REGISTRY: ClientConfig[] = loadRegistry();
+bootstrapDefaultClientCredentials();
 
 // Also support the legacy flat file path as a fallback for amara/meta
 const LEGACY_META_PATH = path.join(DATA_BASE, "meta_analysis_v2.json");
@@ -564,6 +636,17 @@ export async function registerRoutes(
     existing.updatedAt = new Date().toISOString();
     creds[clientId] = existing;
     saveCredentials(creds);
+
+    // Keep the legacy Python credentials file aligned for local scripts.
+    if (google) {
+      syncLegacyGoogleCredentialsFile(existing.google);
+    }
+
+    // Clear stale token cache so the new refresh token is used immediately.
+    if (google && fs.existsSync(GOOGLE_ADS_TOKEN_CACHE)) {
+      fs.unlinkSync(GOOGLE_ADS_TOKEN_CACHE);
+    }
+
     res.json({ success: true, updatedAt: existing.updatedAt });
   });
 
@@ -581,6 +664,23 @@ export async function registerRoutes(
         : err.message.includes("not yet enabled") ? 403
         : 500;
       res.status(status).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/clients/:clientId/:platform/sync-state", (req, res) => {
+    try {
+      const client = CLIENT_REGISTRY.find((entry) => entry.id === req.params.clientId);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+      const platformConfig = client.platforms[req.params.platform];
+      if (!platformConfig) {
+        return res.status(404).json({ error: "Platform not configured" });
+      }
+
+      res.json(getPlatformSyncState(req.params.clientId, req.params.platform));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to load sync state" });
     }
   });
 
@@ -850,6 +950,7 @@ export async function registerRoutes(
   app.post("/api/execute", async (req, res) => {
     try {
       const { action, entityId, entityName, entityType, params, requestedBy } = req.body;
+      const actorName = req.authUser?.name || req.authUser?.email || "User";
 
       // Validate required fields
       if (!action || !entityId || !entityType) {
@@ -879,6 +980,7 @@ export async function registerRoutes(
         entityType,
         params: params || {},
         requestedBy: requestedBy || "user",
+        requestedByName: actorName,
       };
 
       const result = await executeAction(execReq);
@@ -892,13 +994,18 @@ export async function registerRoutes(
   app.post("/api/execute/batch", async (req, res) => {
     try {
       const { actions } = req.body;
+      const actorName = req.authUser?.name || req.authUser?.email || "User";
       if (!Array.isArray(actions) || actions.length === 0) {
         return res.status(400).json({ error: "actions must be a non-empty array" });
       }
       if (actions.length > 20) {
         return res.status(400).json({ error: "Maximum 20 actions per batch" });
       }
-      const results = await executeBatch(actions);
+      const results = await executeBatch(actions.map((action: any) => ({
+        ...action,
+        requestedBy: action.requestedBy || "user",
+        requestedByName: actorName,
+      })));
       res.json({ results, total: results.length, succeeded: results.filter(r => r.success).length });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Batch execution failed" });
@@ -1185,6 +1292,7 @@ export async function registerRoutes(
   app.post("/api/clients/:clientId/:platform/execute-action", async (req, res) => {
     try {
       const { action, entityId, entityName, entityType, params, strategicCall } = req.body;
+      const actorName = req.authUser?.name || req.authUser?.email || "User";
 
       if (!action || !entityId || !entityType) {
         return res.status(400).json({ error: "Missing required fields: action, entityId, entityType" });
@@ -1203,8 +1311,19 @@ export async function registerRoutes(
           newValue: action === "MARK_COMPLETE" ? "completed" : action === "REJECT" ? "rejected" : "deferred",
           timestamp: new Date().toISOString(),
           requestedBy: "user",
+          requestedByName: actorName,
           reason: params?.reason || strategicCall || "",
+          strategicCall,
         };
+
+        if (req.params.platform === "google") {
+          appendGoogleAuditEntry({
+            ...logResult,
+            platform: "google",
+          });
+        } else {
+          appendAuditEntry(logResult);
+        }
 
         // Record to learning engine
         try {
@@ -1249,6 +1368,8 @@ export async function registerRoutes(
         entityType,
         params: params || {},
         requestedBy: "user",
+        requestedByName: actorName,
+        strategicCall,
       };
 
       const result = await executeAction(execReq);
@@ -1392,6 +1513,7 @@ export async function registerRoutes(
   app.post("/api/clients/:clientId/google/execute-action", async (req, res) => {
     try {
       const { action, entityId, entityName, entityType, params, strategicCall } = req.body;
+      const actorName = req.authUser?.name || req.authUser?.email || "User";
 
       if (!action || !entityId || !entityType) {
         return res.status(400).json({ error: "Missing required fields: action, entityId, entityType" });
@@ -1418,6 +1540,8 @@ export async function registerRoutes(
         entityType,
         params: params || {},
         requestedBy: "user",
+        requestedByName: actorName,
+        strategicCall,
       };
 
       const result = await executeGoogleAction(execReq);
@@ -1449,13 +1573,18 @@ export async function registerRoutes(
   app.post("/api/clients/:clientId/google/execute-batch", async (req, res) => {
     try {
       const { actions } = req.body;
+      const actorName = req.authUser?.name || req.authUser?.email || "User";
       if (!Array.isArray(actions) || actions.length === 0) {
         return res.status(400).json({ error: "actions must be a non-empty array" });
       }
       if (actions.length > 20) {
         return res.status(400).json({ error: "Maximum 20 actions per batch" });
       }
-      const results = await executeGoogleBatch(actions);
+      const results = await executeGoogleBatch(actions.map((action: any) => ({
+        ...action,
+        requestedBy: action.requestedBy || "user",
+        requestedByName: actorName,
+      })));
       res.json({ results, total: results.length, succeeded: results.filter(r => r.success).length });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Batch execution failed" });

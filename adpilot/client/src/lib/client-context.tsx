@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useMemo, type ReactNo
 import { useQuery } from "@tanstack/react-query";
 import type { AnalysisData } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import type { PlatformSyncState } from "@/lib/sync-state";
 
 // ─── Cadence-aware metric recalculation ─────────────────────────────
 // The Python agent stores the same aggregate totals across all cadence files.
@@ -111,6 +112,8 @@ interface ClientContextValue {
   analysisData: AnalysisData | undefined;
   isLoadingAnalysis: boolean;
   analysisError: Error | null;
+  syncState: PlatformSyncState | undefined;
+  isLoadingSyncState: boolean;
 
   // Helpers
   apiBase: string; // e.g. "/api/clients/amara/meta"
@@ -147,6 +150,19 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       return res.json();
     },
     enabled: !!activePlatformInfo?.enabled && !!activePlatformInfo?.hasData,
+    retry: false,
+  });
+
+  const {
+    data: syncState,
+    isLoading: isLoadingSyncState,
+  } = useQuery<PlatformSyncState>({
+    queryKey: [apiBase, "sync-state"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `${apiBase}/sync-state`);
+      return res.json();
+    },
+    enabled: !!activePlatformInfo?.enabled,
     retry: false,
   });
 
@@ -187,6 +203,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         analysisData,
         isLoadingAnalysis,
         analysisError: analysisError as Error | null,
+        syncState,
+        isLoadingSyncState,
         apiBase,
       }}
     >

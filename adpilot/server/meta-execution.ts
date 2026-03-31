@@ -51,6 +51,8 @@ export interface ExecutionRequest {
     recommendationId?: string; // link to the recommendation
   };
   requestedBy: "user" | "agent" | "auto";
+  requestedByName?: string;
+  strategicCall?: string;
 }
 
 export interface ExecutionResult {
@@ -65,7 +67,9 @@ export interface ExecutionResult {
   error?: string;
   timestamp: string;
   requestedBy: string;
+  requestedByName?: string;
   reason?: string;
+  strategicCall?: string;
 }
 
 interface AuditEntry extends ExecutionResult {
@@ -100,6 +104,10 @@ function logExecution(result: ExecutionResult): AuditEntry {
   if (log.length > 500) log.length = 500;
   writeAuditLog(log);
   return entry;
+}
+
+export function appendAuditEntry(result: ExecutionResult): AuditEntry {
+  return logExecution(result);
 }
 
 // ─── Retry Helper ─────────────────────────────────────────────────
@@ -262,7 +270,9 @@ export async function executeAction(req: ExecutionRequest): Promise<ExecutionRes
     entityType: req.entityType,
     timestamp,
     requestedBy: req.requestedBy,
+    requestedByName: req.requestedByName,
     reason: req.params?.reason,
+    strategicCall: req.strategicCall,
   };
 
   try {

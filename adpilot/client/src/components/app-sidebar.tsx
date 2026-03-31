@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useClient } from "@/lib/client-context";
+import type { PlatformSyncState } from "@/lib/sync-state";
 import { cn } from "@/lib/utils";
 
 // ─── Navigation groups — grouped by workflow, not alphabetically ───────────────
@@ -94,6 +95,7 @@ const cadenceOptions = [
 ];
 
 interface AppSidebarProps {
+  syncState?: PlatformSyncState;
   lastSynced?: string;
 }
 
@@ -142,7 +144,7 @@ function NavSection({
 
 // ─── Main sidebar ──────────────────────────────────────────────────────────────
 
-export function AppSidebar({ lastSynced }: AppSidebarProps) {
+export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
   const [location] = useLocation();
   const {
     clients,
@@ -310,11 +312,23 @@ export function AppSidebar({ lastSynced }: AppSidebarProps) {
       <SidebarFooter className="px-4 py-3 border-t border-sidebar-border">
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground">
-            {lastSynced ? `Synced ${lastSynced}` : "Syncing…"}
+            {syncState?.sync_status === "failed"
+              ? "Sync failed"
+              : syncState?.sync_status === "loading"
+                ? "Syncing..."
+                : lastSynced
+                  ? `Synced ${lastSynced}`
+                  : "Syncing..."}
           </span>
           <div className={cn(
             "w-1.5 h-1.5 rounded-full shrink-0",
-            lastSynced ? "bg-emerald-500" : "bg-amber-400 animate-pulse"
+            syncState?.sync_status === "failed"
+              ? "bg-red-500"
+              : syncState?.sync_status === "loading"
+                ? "bg-amber-400 animate-pulse"
+                : lastSynced
+                  ? "bg-emerald-500"
+                  : "bg-amber-400 animate-pulse"
           )} />
         </div>
       </SidebarFooter>

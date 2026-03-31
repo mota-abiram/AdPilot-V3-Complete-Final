@@ -385,7 +385,9 @@ export interface ExecutionResult {
   error?: string;
   timestamp: string;
   requestedBy: string;
+  requestedByName?: string;
   reason?: string;
+  strategicCall?: string;
 }
 
 export type QuickActionType =

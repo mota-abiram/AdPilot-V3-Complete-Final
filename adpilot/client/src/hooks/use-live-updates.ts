@@ -12,17 +12,25 @@ export function useLiveUpdates() {
     const es = new EventSource("/api/events");
     esRef.current = es;
 
+    const invalidateSyncState = () => {
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) && query.queryKey.includes("sync-state"),
+      });
+    };
+
     es.addEventListener("data-refreshed", () => {
       // Invalidate all analysis queries so pages re-fetch
       queryClient.invalidateQueries();
     });
 
     es.addEventListener("agent-run-started", () => {
-      // Could show a toast — for now just log
+      invalidateSyncState();
       console.log("[SSE] Agent run started");
     });
 
     es.addEventListener("agent-run-failed", (e) => {
+      invalidateSyncState();
       console.warn("[SSE] Agent run failed:", e.data);
     });
 

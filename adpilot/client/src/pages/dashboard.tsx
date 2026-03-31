@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
 import { apiRequest } from "@/lib/queryClient";
 import type { AnalysisData } from "@shared/schema";
+import { useNow } from "@/hooks/use-now";
+import { formatHoursAgo, parseSyncTimestamp } from "@/lib/sync-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -166,7 +168,17 @@ function getCadencePeriodLabel(cadence: string): string {
 }
 
 export default function DashboardPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activeClient, activeClientId, activePlatformInfo, activePlatform, activeCadence } = useClient();
+  const {
+    analysisData: data,
+    isLoadingAnalysis: isLoading,
+    activeClient,
+    activeClientId,
+    activePlatformInfo,
+    activePlatform,
+    activeCadence,
+    syncState,
+  } = useClient();
+  const now = useNow();
 
   const { data: benchmarks } = useQuery<Record<string, any>>({
     queryKey: ["/api/clients", activeClientId, "benchmarks"],
@@ -212,18 +224,6 @@ export default function DashboardPage() {
     refetchInterval: 5 * 60 * 1000, // Poll every 5 minutes for new entities
   });
 
-  // Also fetch monthly analysis for always-MTD sections
-  const { data: monthlyData } = useQuery<any>({
-    queryKey: ["/api/clients", activeClientId, activePlatform, "analysis", "monthly"],
-    queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", `/api/clients/${activeClientId}/${activePlatform}/analysis?cadence=monthly`);
-        return res.json();
-      } catch { return null; }
-    },
-    enabled: !!activeClientId && !!activePlatform,
-  });
-
   const { data: recentAuditLog } = useQuery<Array<{
     id: string;
     success: boolean;
@@ -263,6 +263,13 @@ export default function DashboardPage() {
 
   const isGoogle = activePlatform === "google";
   const rawAp = (data as any).account_pulse || {};
+  const lastSuccessfulFetch =
+    syncState?.last_successful_fetch ||
+    (data as any)?.last_successful_fetch ||
+    (data as any)?.generated_at ||
+    (data as any)?.timestamp ||
+    null;
+  const lastSuccessfulFetchDate = parseSyncTimestamp(lastSuccessfulFetch);
 
   // ─── Normalize account_pulse for both platforms ─────────────────
   const ap = {
@@ -287,10 +294,9 @@ export default function DashboardPage() {
     daily_vhrs: rawAp.daily_vhrs || [],
   };
 
-  // ─── Normalize monthly_pacing (ALWAYS from monthly data) ────────
-  const monthlySource = monthlyData || data;
-  const rawMp = (monthlySource as any).monthly_pacing;
-  const rawMtdPacing = ((monthlySource as any).account_pulse || rawAp).mtd_pacing;
+  // ─── Normalize monthly_pacing from the active analysis snapshot ──
+  const rawMp = (data as any).monthly_pacing;
+  const rawMtdPacing = ((data as any).account_pulse || rawAp).mtd_pacing;
   const clientTargets = activeClient?.targets?.[activePlatform];
 
   const mp = rawMp ? rawMp : rawMtdPacing ? {
@@ -328,7 +334,7 @@ export default function DashboardPage() {
       spend: rawMtdPacing.days_remaining > 0 ? ((rawMtdPacing.target_budget ?? 0) - (rawMtdPacing.spend_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
       leads: rawMtdPacing.days_remaining > 0 ? ((rawMtdPacing.target_leads ?? 0) - (rawMtdPacing.leads_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
     },
-    alerts: ((monthlySource as any).account_pulse || rawAp).alerts?.map((a: any) => typeof a === 'string' ? a : a.message || a.alert || JSON.stringify(a)) || [],
+    alerts: ((data as any).account_pulse || rawAp).alerts?.map((a: any) => typeof a === "string" ? a : a.message || a.alert || JSON.stringify(a)) || [],
   } : null;
 
   // ─── Normalize other fields ────────────────────────────────────
@@ -550,6 +556,38 @@ export default function DashboardPage() {
     return null;
   }
 
+  const cadenceDisplayMap: Record<string, string> = {
+    daily: "Last 1 Day",
+    twice_weekly: "Last 7 Days",
+    weekly: "Last 14 Days",
+    biweekly: "Last 30 Days",
+    monthly: "Month to Date",
+  };
+
+  const displayDateRange = (() => {
+    const googleWindow = (data as any)?.window;
+    if (googleWindow?.since && googleWindow?.until) {
+      return { since: googleWindow.since, until: googleWindow.until };
+    }
+
+    const dateRange = (data as any)?.date_range;
+    if (dateRange?.since && dateRange?.until) {
+      return { since: dateRange.since, until: dateRange.until };
+    }
+
+    const period = (data as any)?.period?.primary;
+    if (period?.start && period?.end) {
+      return { since: period.start, until: period.end };
+    }
+
+    return null;
+  })();
+
+  const formatRangeDate = (value: string) => {
+    const parsed = new Date(`${value}T00:00:00`);
+    return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
   return (
     <div className="p-6 space-y-5 max-w-[1600px]">
       {/* Top bar */}
@@ -559,45 +597,16 @@ export default function DashboardPage() {
           <p className="text-xs text-muted-foreground">
             {activeClient?.name || ""} · {activePlatformInfo?.label || ""} · {cadenceLabel.replace(/_/g, " ")} analysis{agentVersion ? ` · ${agentVersion}` : ""}
           </p>
-          {(() => {
-            const dateRange = (data as any)?.date_range;
-            const cadenceDisplayMap: Record<string, string> = {
-              daily: "Last 1 Day",
-              twice_weekly: "Last 7 Days",
-              weekly: "Last 14 Days",
-              biweekly: "Last 30 Days",
-              monthly: "Month to Date",
-            };
-            const cadenceDisplay = cadenceDisplayMap[cadenceLabel] || "Last 7 Days";
-            if (dateRange?.since && dateRange?.until) {
-              const fmt = (d: string) => {
-                const dt = new Date(d + "T00:00:00");
-                return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-              };
-              return (
-                <Badge variant="secondary" className="mt-1 text-[10px] px-2 py-0.5 text-sky-400 bg-sky-500/10 font-normal">
-                  Showing: {cadenceDisplay} | {fmt(dateRange.since)} – {fmt(dateRange.until)}
-                </Badge>
-              );
-            }
-            return (
-              <Badge variant="secondary" className="mt-1 text-[10px] px-2 py-0.5 text-sky-400 bg-sky-500/10 font-normal">
-                Showing: {cadenceDisplay}
-              </Badge>
-            );
-          })()}
-          {(() => {
-            const generatedAt = (data as any)?.generated_at;
-            if (!generatedAt) return null;
-            const genDate = new Date(generatedAt);
-            const hoursAgo = Math.round((Date.now() - genDate.getTime()) / (1000 * 60 * 60));
-            const isStale = hoursAgo > 24;
-            return (
-              <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${isStale ? "text-red-400 bg-red-500/10" : "text-muted-foreground"}`}>
-                Data as of: {genDate.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} ({hoursAgo}h ago){isStale ? " ⚠ STALE" : ""}
-              </Badge>
-            );
-          })()}
+          <Badge variant="secondary" className="mt-1 text-[10px] px-2 py-0.5 text-sky-400 bg-sky-500/10 font-normal">
+            {displayDateRange
+              ? `Showing: ${cadenceDisplayMap[cadenceLabel] || "Last 7 Days"} | ${formatRangeDate(displayDateRange.since)} – ${formatRangeDate(displayDateRange.until)}`
+              : `Showing: ${cadenceDisplayMap[cadenceLabel] || "Last 7 Days"}`}
+          </Badge>
+          {lastSuccessfulFetchDate && (
+            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-muted-foreground">
+              Data as of: {lastSuccessfulFetchDate.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} ({formatHoursAgo(lastSuccessfulFetch, now)})
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -1085,8 +1094,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Monthly Pacing — Full Table (ALWAYS MTD) */}
+        {/* Monthly Pacing — Full Table */}
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardHeader className="pb-2 px-4 pt-4">
             <div className="flex items-center justify-between gap-2">
@@ -1210,9 +1218,6 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2 italic">
-              Monthly pacing always operates on MTD targets regardless of cadence filter.
-            </p>
             {(mp?.alerts?.length || 0) > 0 && (
               <div className="space-y-1 pt-2 mt-2 border-t border-border/30">
                 {(mp?.alerts || []).map((alert: string, i: number) => (
@@ -1227,10 +1232,9 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* ─── Tracking Sanity Card (ALWAYS MTD) ────────────────── */}
+      {/* ─── Tracking Sanity Card ────────────────── */}
       {(() => {
-        // Use monthly data for tracking sanity
-        const monthlyAp = monthlyData ? ((monthlyData as any).account_pulse || rawAp) : rawAp;
+        const monthlyAp = rawAp;
         const dailyLeads = ap.daily_leads || [];
         const latestDailyLeads = dailyLeads.length > 0 ? dailyLeads[dailyLeads.length - 1] : null;
         const prevDayLeads = dailyLeads.length > 1 ? dailyLeads[dailyLeads.length - 2] : null;
@@ -1276,8 +1280,8 @@ export default function DashboardPage() {
         const light = lightColors[trafficLight];
         const LightIcon = light.icon;
 
-        const lastVerified = (data as any).generated_at
-          ? new Date((data as any).generated_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+        const lastVerified = lastSuccessfulFetchDate
+          ? lastSuccessfulFetchDate.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
           : "Unknown";
 
         return (
@@ -1304,7 +1308,7 @@ export default function DashboardPage() {
                       </Badge>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Last verified: {lastVerified} · Always MTD
+                      Last verified: {lastVerified}
                     </p>
                   </div>
                 </div>
@@ -1985,7 +1989,7 @@ export default function DashboardPage() {
 
       {/* ─── MV2-N21: Audit completion tracking ─────────────────── */}
       {(() => {
-        const generatedAt = (data as any)?.generated_at ? new Date((data as any).generated_at) : null;
+        const generatedAt = lastSuccessfulFetchDate;
         const now = new Date();
 
         interface AuditCadenceDef {
