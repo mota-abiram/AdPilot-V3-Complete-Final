@@ -167,14 +167,18 @@ export function protectApiRoutes(req: Request, res: Response, next: NextFunction
 }
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production";
+
   app.use(session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    proxy: isProduction,
+    name: "adpilot.sid",
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: isProduction,
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }));

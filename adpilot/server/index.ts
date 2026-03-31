@@ -12,6 +12,10 @@ const httpServer = createServer(app);
 
 dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
 
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
