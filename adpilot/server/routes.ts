@@ -1330,13 +1330,16 @@ export async function registerRoutes(
           const analysisData = readAnalysisData(req.params.clientId, req.params.platform);
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+            req.params.clientId,
+            req.params.platform === "google" ? "google" : "meta",
             entityId,
             entityName || entityId,
             entityType,
             action,
             params?.reason || strategicCall || `${action} by user`,
             analysisData,
-            strategicCall
+            strategicCall,
+            actorName
           );
         } catch (_) { /* best-effort */ }
 
@@ -1380,13 +1383,16 @@ export async function registerRoutes(
           const analysisData = readAnalysisData(req.params.clientId, req.params.platform);
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+            req.params.clientId,
+            req.params.platform === "google" ? "google" : "meta",
             entityId,
             entityName || entityId,
             entityType,
             action,
             params?.reason,
             analysisData,
-            strategicCall
+            strategicCall,
+            actorName
           );
         } catch (_) { /* don't fail the response if learning recording fails */ }
       }
@@ -1552,13 +1558,16 @@ export async function registerRoutes(
           const analysisData = readAnalysisData(req.params.clientId, "google");
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+            req.params.clientId,
+            "google",
             entityId,
             entityName || entityId,
             entityType,
             action,
             params?.reason,
             analysisData,
-            strategicCall
+            strategicCall,
+            actorName
           );
         } catch (_) { /* best-effort */ }
       }

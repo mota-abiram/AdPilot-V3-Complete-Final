@@ -15,16 +15,21 @@ import path from "path";
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const LEARNING_PATH = path.join(DATA_BASE, "execution_learning.json");
+const META_LEARNING_HISTORY_PATH = path.join(DATA_BASE, "learning_history.json");
+const GOOGLE_LEARNING_HISTORY_PATH = path.join(DATA_BASE, "google_learning_history.json");
 
 // ─── Types ────────────────────────────────────────────────────────
 
 export interface LearningEntry {
   executionId: string;
+  clientId?: string;
+  platform?: "meta" | "google";
   entityId: string;
   entityName: string;
   entityType: string;
   action: string;
   executedAt: string;
+  requestedByName?: string;
   reason?: string;
   strategicCall?: string;
   beforeMetrics: {
@@ -45,6 +50,22 @@ export interface LearningEntry {
   outcome?: "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "PENDING";
   outcomeReason?: string;
   daysElapsed?: number;
+}
+
+interface StrategicLearningInput {
+  id: string;
+  executionId: string;
+  clientId: string;
+  platform: "meta" | "google";
+  entityId: string;
+  entityName: string;
+  entityType: string;
+  action: string;
+  requestedByName?: string;
+  reason?: string;
+  strategicCall?: string;
+  recordedAt: string;
+  source: "user_strategy";
 }
 
 export interface LearningSummary {
@@ -74,6 +95,59 @@ function writeLearningData(entries: LearningEntry[]): void {
   const dir = path.dirname(LEARNING_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(LEARNING_PATH, JSON.stringify(entries, null, 2));
+}
+
+function readAgentLearningHistory(platform: "meta" | "google"): any {
+  const targetPath = platform === "google" ? GOOGLE_LEARNING_HISTORY_PATH : META_LEARNING_HISTORY_PATH;
+  if (!fs.existsSync(targetPath)) {
+    return platform === "google"
+      ? { runs: [], patterns: [], actions: [], strategic_inputs: [] }
+      : { runs: [], patterns: [], fatigue_timelines: {}, audience_saturation: {}, strategic_inputs: [] };
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(targetPath, "utf-8"));
+  } catch {
+    return platform === "google"
+      ? { runs: [], patterns: [], actions: [], strategic_inputs: [] }
+      : { runs: [], patterns: [], fatigue_timelines: {}, audience_saturation: {}, strategic_inputs: [] };
+  }
+}
+
+function writeAgentLearningHistory(platform: "meta" | "google", payload: any): void {
+  const targetPath = platform === "google" ? GOOGLE_LEARNING_HISTORY_PATH : META_LEARNING_HISTORY_PATH;
+  const dir = path.dirname(targetPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(targetPath, JSON.stringify(payload, null, 2));
+}
+
+function appendStrategicInputToAgentHistory(entry: LearningEntry): void {
+  if (!entry.clientId || !entry.platform) return;
+  if (!entry.reason && !entry.strategicCall) return;
+
+  const learningHistory = readAgentLearningHistory(entry.platform);
+  const strategicInputs: StrategicLearningInput[] = Array.isArray(learningHistory.strategic_inputs)
+    ? learningHistory.strategic_inputs
+    : [];
+
+  strategicInputs.unshift({
+    id: `${entry.executionId}:strategy`,
+    executionId: entry.executionId,
+    clientId: entry.clientId,
+    platform: entry.platform,
+    entityId: entry.entityId,
+    entityName: entry.entityName,
+    entityType: entry.entityType,
+    action: entry.action,
+    requestedByName: entry.requestedByName,
+    reason: entry.reason,
+    strategicCall: entry.strategicCall,
+    recordedAt: entry.executedAt,
+    source: "user_strategy",
+  });
+
+  learningHistory.strategic_inputs = strategicInputs.slice(0, 250);
+  writeAgentLearningHistory(entry.platform, learningHistory);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -176,13 +250,16 @@ function findEntityMetrics(
  */
 export function recordExecution(
   executionId: string,
+  clientId: string,
+  platform: "meta" | "google",
   entityId: string,
   entityName: string,
   entityType: string,
   action: string,
   reason: string | undefined,
   analysisData: any,
-  strategicCall?: string
+  strategicCall?: string,
+  requestedByName?: string
 ): LearningEntry {
   const beforeMetrics = findEntityMetrics(analysisData, entityId, entityType) || {
     spend: 0,
@@ -194,11 +271,14 @@ export function recordExecution(
 
   const entry: LearningEntry = {
     executionId,
+    clientId,
+    platform,
     entityId,
     entityName,
     entityType,
     action,
     executedAt: new Date().toISOString(),
+    requestedByName,
     reason,
     strategicCall,
     beforeMetrics,
@@ -211,6 +291,7 @@ export function recordExecution(
   // Keep last 1000 entries
   if (entries.length > 1000) entries.length = 1000;
   writeLearningData(entries);
+  appendStrategicInputToAgentHistory(entry);
 
   return entry;
 }
