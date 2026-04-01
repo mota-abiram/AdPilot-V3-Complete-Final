@@ -1,0 +1,48 @@
+{
+  "runs": [
+    {
+      "date": "2026-04-01",
+      "cadence": "multi_cadence",
+      "total_leads": 83,
+      "avg_cpl": 613.6839759036145,
+      "overall_ctr": 0.6621165142794877
+    }
+  ],
+  "patterns": [
+    {
+      "date": "2026-04-01",
+      "top_patterns": [
+        "'Video' format appears more in top performers (2/2) than bottom (0/2).",
+        "Top video TSR: 16.4% vs bottom: 11.8%. Top video VHR: 50.0% vs bottom: 60.0%. Strong hooks = lower CPL."
+      ]
+    }
+  ],
+  "fatigue_timelines": {},
+  "audience_saturation": {},
+  "campaign_cpl_history": {
+    "120242148702000466": [
+      {
+        "date": "2026-04-01",
+        "cpl": 699.3337499999999,
+        "leads": 24,
+        "spend": 16784.01
+      }
+    ],
+    "120231984866140466": [
+      {
+        "date": "2026-04-01",
+        "cpl": 578.8433898305085,
+        "leads": 59,
+        "spend": 34151.76
+      }
+    ],
+    "120240639389720466": [
+      {
+        "date": "2026-04-01",
+        "cpl": 0.0,
+        "leads": 0,
+        "spend": 0.0
+      }
+    ]
+  }
+}

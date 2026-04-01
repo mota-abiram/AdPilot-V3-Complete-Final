@@ -1,0 +1,15 @@
+{
+  "lastRun": "2026-04-01T18:25:50.925Z",
+  "lastRunSuccess": true,
+  "lastRunDuration": 126167,
+  "lastError": null,
+  "nextRun": "2026-04-02T03:30:00.000Z",
+  "isRunning": false,
+  "runHistory": [
+    {
+      "timestamp": "2026-04-01T18:25:50.925Z",
+      "success": true,
+      "duration": 126167
+    }
+  ]
+}

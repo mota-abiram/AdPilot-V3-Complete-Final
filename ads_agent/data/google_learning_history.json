@@ -1,0 +1,61 @@
+{
+  "runs": [
+    {
+      "timestamp": "2026-04-01 23:54:53.535516",
+      "cadence": "daily",
+      "total_spend": 13503.18,
+      "total_leads": 10.001902999999999,
+      "overall_cpl": 1350.06,
+      "overall_cvr": 1.21,
+      "auto_pause_count": 13,
+      "playbooks_triggered": 1,
+      "recommendations_count": 17
+    },
+    {
+      "timestamp": "2026-04-01 23:54:53.535516",
+      "cadence": "twice_weekly",
+      "total_spend": 109849.48,
+      "total_leads": 65.998355,
+      "overall_cpl": 1664.43,
+      "overall_cvr": 0.81,
+      "auto_pause_count": 26,
+      "playbooks_triggered": 3,
+      "recommendations_count": 33
+    },
+    {
+      "timestamp": "2026-04-01 23:54:53.535516",
+      "cadence": "weekly",
+      "total_spend": 193547.24,
+      "total_leads": 115.99839200000001,
+      "overall_cpl": 1668.53,
+      "overall_cvr": 0.41,
+      "auto_pause_count": 31,
+      "playbooks_triggered": 3,
+      "recommendations_count": 43
+    },
+    {
+      "timestamp": "2026-04-01 23:54:53.535516",
+      "cadence": "biweekly",
+      "total_spend": 342979.58,
+      "total_leads": 231.531954,
+      "overall_cpl": 1481.35,
+      "overall_cvr": 0.64,
+      "auto_pause_count": 27,
+      "playbooks_triggered": 3,
+      "recommendations_count": 39
+    },
+    {
+      "timestamp": "2026-04-01 23:54:53.535516",
+      "cadence": "monthly",
+      "total_spend": 14274.14,
+      "total_leads": 5.9954730000000005,
+      "overall_cpl": 2380.82,
+      "overall_cvr": 0.37,
+      "auto_pause_count": 14,
+      "playbooks_triggered": 3,
+      "recommendations_count": 18
+    }
+  ],
+  "patterns": [],
+  "actions": []
+}

@@ -1,7 +1,8 @@
 import { db } from "../server/db";
-import { creativeHubs, analysisSnapshots, clients } from "../shared/schema";
+import { creativeHubs, analysisSnapshots, clients, users } from "../shared/schema";
 import fs from "fs";
 import path from "path";
+import { eq } from "drizzle-orm";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -12,9 +13,31 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const DATA_BASE = path.resolve(__dirname, "../../../ads_agent/data");
+const USERS_FILE = path.join(DATA_BASE, "access_users.json");
 
 async function syncLocalToDb() {
   console.log("🚀 Starting One-Time Data Sync to PostgreSQL...");
+
+  // 0. Sync Users
+  console.log("  Syncing Users...");
+  if (fs.existsSync(USERS_FILE)) {
+    const rawUsers = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
+    for (const [email, uData] of Object.entries(rawUsers) as any) {
+      const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (!existing) {
+        await db.insert(users).values({
+          id: uData.id,
+          email: uData.email || email,
+          name: uData.name,
+          passwordHash: uData.passwordHash,
+          role: uData.role || "admin",
+          status: uData.status || "active",
+          createdAt: new Date(uData.createdAt),
+          updatedAt: new Date(uData.updatedAt),
+        });
+      }
+    }
+  }
 
   // 1. Sync Clients Registry
   console.log("  Syncing Clients...");

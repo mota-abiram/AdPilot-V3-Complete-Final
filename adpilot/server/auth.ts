@@ -169,12 +169,12 @@ export function setupAuth(app: Express) {
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    proxy: isProduction,
+    proxy: true, // IMPORTANT for Render
     name: "adpilot.sid",
     cookie: {
       httpOnly: true,
-      sameSite: "lax",
-      secure: isProduction,
+      sameSite: "none", // Fix for cross-site cookie drops on some proxies
+      secure: true,      // Must be true if sameSite is none
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }));
