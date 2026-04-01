@@ -493,7 +493,7 @@ export default function GoogleSearchTermsPage() {
     return (
       <div className="p-6 space-y-4 max-w-[1800px]" data-testid="search-terms-empty">
         <div>
-          <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h1 className="text-lg font-semibold text-black flex items-center gap-2">
             <Search className="w-5 h-5" />
             Search Terms Analysis
           </h1>
@@ -501,7 +501,7 @@ export default function GoogleSearchTermsPage() {
             Identify waste, find negatives, and expand high-value terms
           </p>
         </div>
-        <Card className="bg-[#1a1a2e]/60 border-gray-800">
+        <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <AlertTriangle className="w-10 h-10 text-gray-500 mb-3" />
             <p className="text-sm text-gray-400">
@@ -532,7 +532,7 @@ export default function GoogleSearchTermsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h1 className="text-lg font-semibold text-black flex items-center gap-2">
             <Search className="w-5 h-5" />
             Search Terms Analysis
           </h1>
@@ -567,29 +567,28 @@ export default function GoogleSearchTermsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="search-terms-summary">
-        <Card className="bg-[#1a1a2e]/60 border-gray-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400">Terms Reviewed</p>
-            <p className="text-2xl font-bold tabular-nums text-white mt-1">{termsReviewed.toLocaleString()}</p>
+            <p className="text-[10px] uppercase tracking-wider text-black-400">Terms Reviewed</p>
+            <p className="text-2xl font-bold tabular-nums text-black mt-1">{termsReviewed.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className={cn("bg-[#1a1a2e]/60 border-gray-800", negativesCount > 0 && "border-red-500/30")}>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400">Negatives Found</p>
-            <p className={cn("text-2xl font-bold tabular-nums mt-1", negativesCount > 0 ? "text-red-400" : "text-white")}>
-              {negativesCount}
-            </p>
-          </CardContent>
+        <Card className={cn("bg-card border-border", negativesCount > 0 && "border-red-500/30")}>          <CardContent className="p-4">
+          <p className="text-[10px] uppercase tracking-wider text-black-400">Negatives Found</p>
+          <p className={cn("text-2xl font-bold tabular-nums mt-1 text-black", negativesCount > 0 ? "text-red-400" : "text-black")}>
+            {negativesCount}
+          </p>
+        </CardContent>
         </Card>
-        <Card className="bg-[#1a1a2e]/60 border-gray-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400">Competitor Terms</p>
+            <p className="text-[10px] uppercase tracking-wider text-black-400">Competitor Terms</p>
             <p className="text-2xl font-bold tabular-nums text-amber-400 mt-1">{competitorsCount}</p>
           </CardContent>
         </Card>
-        <Card className="bg-[#1a1a2e]/60 border-gray-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-gray-400">High-Value Terms</p>
+            <p className="text-[10px] uppercase tracking-wider text-black-400">High-Value Terms</p>
             <p className="text-2xl font-bold tabular-nums text-emerald-400 mt-1">{highValueCount}</p>
           </CardContent>
         </Card>
@@ -611,7 +610,7 @@ export default function GoogleSearchTermsPage() {
       {/* Campaign Filter + Search */}
       <div className="flex items-center gap-3 flex-wrap">
         <select
-          className="text-xs bg-[#1a1a2e] border border-gray-700 rounded-md px-3 py-1.5 text-white min-w-[200px]"
+          className="text-xs bg-card border border-border rounded-md px-3 py-1.5 text-black min-w-[200px]"
           value={selectedCampaign}
           onChange={(e) => setSelectedCampaign(e.target.value)}
           data-testid="select-campaign-filter"
@@ -626,7 +625,7 @@ export default function GoogleSearchTermsPage() {
           <input
             type="text"
             placeholder="Filter terms..."
-            className="pl-8 pr-3 py-1.5 text-xs rounded-md bg-[#1a1a2e] border border-gray-700 text-white w-60"
+            className="pl-8 pr-3 py-1.5 text-xs rounded-md bg-card border border-border text-black w-60"
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             data-testid="input-filter-terms"
@@ -634,7 +633,7 @@ export default function GoogleSearchTermsPage() {
         </div>
         {isTermTableTab && (
           <button
-            className="text-xs text-gray-500 hover:text-white transition-colors px-2 py-1 border border-gray-800 rounded"
+            className="text-xs text-gray-500 hover:text-white transition-colors px-2 py-1 bg-card border border-border rounded"
             onClick={selectAllVisible}
             data-testid="btn-select-all"
           >
@@ -651,8 +650,8 @@ export default function GoogleSearchTermsPage() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors",
               activeTab === tab.id
-                ? "border-[#F0BC00] text-white"
-                : "border-transparent text-gray-400 hover:text-white"
+                ? "border-[#F0BC00] text-black"
+                : "border-transparent text-black hover:text-black"
             )}
             onClick={() => { setActiveTab(tab.id); setSortKey(tab.id === "ngrams" ? "count" : "cost"); setSortDir("desc"); }}
             data-testid={`tab-${tab.id}`}
@@ -670,12 +669,12 @@ export default function GoogleSearchTermsPage() {
 
       {/* Term Tables (non-ngram, non-existing-negatives tabs) */}
       {isTermTableTab && (
-        <Card className="bg-[#1a1a2e]/60 border-gray-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-800">
+                  <tr className="border-b bg-card border border-border">
                     <th className="p-3 w-8">
                       <span className="sr-only">Select</span>
                     </th>
@@ -740,7 +739,7 @@ export default function GoogleSearchTermsPage() {
                         <td className="p-3 max-w-[250px]">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="text-white truncate block cursor-default">
+                              <span className="text-black truncate block cursor-default">
                                 {truncate(termText, 40)}
                               </span>
                             </TooltipTrigger>
@@ -864,7 +863,7 @@ export default function GoogleSearchTermsPage() {
                   "px-3 py-1.5 text-xs font-medium rounded-md border transition-colors",
                   ngramType === n
                     ? "bg-[#F0BC00]/10 border-[#F0BC00]/30 text-[#F0BC00]"
-                    : "bg-[#1a1a2e] border-gray-700 text-gray-400 hover:text-white"
+                    : "bg-card border border-border text-black hover:text-black"
                 )}
                 onClick={() => setNgramType(n)}
                 data-testid={`btn-ngram-${n}`}
@@ -879,7 +878,7 @@ export default function GoogleSearchTermsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-gray-800">
+                    <tr className="border-b bg-card border border-border">
                       {[
                         { key: "ngram", label: "N-gram", align: "left" },
                         { key: "count", label: "Occurrences", align: "right" },
@@ -891,7 +890,7 @@ export default function GoogleSearchTermsPage() {
                         <th
                           key={col.key}
                           className={cn(
-                            "p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 cursor-pointer select-none whitespace-nowrap",
+                            "p-3 text-[10px] font-medium uppercase tracking-wider text-black cursor-pointer select-none whitespace-nowrap",
                             col.align === "right" ? "text-right" : "text-left"
                           )}
                           onClick={() => toggleSort(col.key)}
@@ -902,7 +901,7 @@ export default function GoogleSearchTermsPage() {
                           </span>
                         </th>
                       ))}
-                      <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 text-left">
+                      <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">
                         Signal
                       </th>
                     </tr>
@@ -911,13 +910,13 @@ export default function GoogleSearchTermsPage() {
                     {activeNgrams.map((ng, idx) => (
                       <tr
                         key={`${ng.ngram}-${idx}`}
-                        className="border-b border-gray-800/50 hover:bg-white/[0.02] transition-colors"
+                        className="border-b bg-card border border-border hover:bg-white/[0.02] transition-colors"
                         data-testid={`row-ngram-${idx}`}
                       >
-                        <td className="p-3 font-medium text-white">{ng.ngram}</td>
-                        <td className="p-3 text-right tabular-nums text-gray-400">{ng.count ?? ng.frequency ?? "—"}</td>
-                        <td className="p-3 text-right tabular-nums text-gray-400">{ng.impressions?.toLocaleString() ?? "—"}</td>
-                        <td className="p-3 text-right tabular-nums text-white">{ng.cost != null ? formatINR(ng.cost, 0) : "—"}</td>
+                        <td className="p-3 font-medium text-black">{ng.ngram}</td>
+                        <td className="p-3 text-right tabular-nums text-black">{ng.count ?? ng.frequency ?? "—"}</td>
+                        <td className="p-3 text-right tabular-nums text-black">{ng.impressions?.toLocaleString() ?? "—"}</td>
+                        <td className="p-3 text-right tabular-nums text-black">{ng.cost != null ? formatINR(ng.cost, 0) : "—"}</td>
                         <td className="p-3 text-right tabular-nums">
                           <span className={(ng.conversions ?? 0) > 0 ? "text-emerald-400" : "text-gray-500"}>
                             {ng.conversions ?? "—"}
@@ -931,8 +930,8 @@ export default function GoogleSearchTermsPage() {
                             <Badge variant="outline" className={cn(
                               "text-[10px] px-1.5 py-0 border",
                               ng.recommendation.toLowerCase().includes("negative") ? "bg-red-500/10 text-red-400 border-red-500/30" :
-                              ng.recommendation.toLowerCase().includes("keep") || ng.recommendation.toLowerCase().includes("expand") ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                              "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                ng.recommendation.toLowerCase().includes("keep") || ng.recommendation.toLowerCase().includes("expand") ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                                  "bg-amber-500/10 text-amber-400 border-amber-500/30"
                             )}>
                               {truncate(ng.recommendation, 25)}
                             </Badge>
@@ -945,14 +944,14 @@ export default function GoogleSearchTermsPage() {
                               High-Value
                             </Badge>
                           ) : (
-                            <span className="text-gray-600 text-[10px]">Monitor</span>
+                            <span className="text-black text-[10px]">Monitor</span>
                           )}
                         </td>
                       </tr>
                     ))}
                     {activeNgrams.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-xs text-gray-500">
+                        <td colSpan={7} className="p-8 text-center text-xs text-black">
                           No {ngramType}-gram patterns available.
                         </td>
                       </tr>
@@ -969,12 +968,12 @@ export default function GoogleSearchTermsPage() {
       {activeTab === "existing_negatives" && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <label className="text-xs text-gray-400">Campaign:</label>
+            <label className="text-xs text-black">Campaign:</label>
             <Select value={negativesCampaignId} onValueChange={(val) => setNegativesCampaignId(val)}>
-              <SelectTrigger className="w-[350px] text-xs bg-[#1a1a2e] border-gray-700 text-white h-8">
+              <SelectTrigger className="w-[350px] text-xs bg-card border border-border text-black h-8">
                 <SelectValue placeholder="Select a campaign" />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a1a2e] border-gray-700">
+              <SelectContent className="bg-card border border-border">
                 {campaigns.map((c) => (
                   <SelectItem key={c.id} value={c.id} className="text-xs text-white">
                     {truncate(c.name, 55)}
@@ -983,7 +982,7 @@ export default function GoogleSearchTermsPage() {
               </SelectContent>
             </Select>
             <button
-              className="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 border border-gray-700 rounded"
+              className="text-xs text-black hover:text-black transition-colors px-2 py-1 border bg-card border border-border rounded"
               onClick={() => negativesCampaignId && fetchExistingNegatives(negativesCampaignId)}
               disabled={negativesLoading}
               data-testid="btn-refresh-negatives"
@@ -992,16 +991,16 @@ export default function GoogleSearchTermsPage() {
             </button>
           </div>
 
-          <Card className="bg-[#1a1a2e]/60 border-gray-800">
+          <Card className="bg-card border border-border">
             <CardContent className="p-0">
               {negativesLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-                  <span className="text-xs text-gray-500 ml-2">Loading negatives...</span>
+                  <Loader2 className="w-5 h-5 animate-spin text-black" />
+                  <span className="text-xs text-black ml-2">Loading negatives...</span>
                 </div>
               ) : existingNegatives.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <ShieldBan className="w-8 h-8 text-gray-600 mb-2" />
+                  <ShieldBan className="w-8 h-8 text-black mb-2" />
                   <p className="text-xs text-gray-500">
                     {negativesCampaignId ? "No negative keywords found for this campaign." : "Select a campaign to view existing negatives."}
                   </p>
@@ -1011,37 +1010,37 @@ export default function GoogleSearchTermsPage() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-800">
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 text-left">Keyword</th>
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 text-left">Match Type</th>
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 text-left">Campaign</th>
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 text-left">Criterion ID</th>
+                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Keyword</th>
+                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Match Type</th>
+                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Campaign</th>
+                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Criterion ID</th>
                       </tr>
                     </thead>
                     <tbody>
                       {existingNegatives.map((neg, idx) => (
                         <tr
                           key={`${neg.criterionId}-${idx}`}
-                          className="border-b border-gray-800/50 hover:bg-white/[0.02] transition-colors"
+                          className="border-b bg-card border border-border hover:bg-white/[0.02] transition-colors"
                           data-testid={`row-existing-neg-${idx}`}
                         >
-                          <td className="p-3 text-white font-medium">{neg.keyword}</td>
+                          <td className="p-3 text-black font-medium">{neg.keyword}</td>
                           <td className="p-3">
                             <Badge variant="outline" className={cn(
                               "text-[10px] px-1.5 py-0 border",
                               neg.matchType === "EXACT" ? "bg-blue-500/10 text-blue-400 border-blue-500/30" :
-                              neg.matchType === "PHRASE" ? "bg-purple-500/10 text-purple-400 border-purple-500/30" :
-                              "bg-gray-500/10 text-gray-400 border-gray-500/30"
+                                neg.matchType === "PHRASE" ? "bg-purple-500/10 text-purple-400 border-purple-500/30" :
+                                  "bg-gray-500/10 text-gray-400 border-gray-500/30"
                             )}>
                               {neg.matchType}
                             </Badge>
                           </td>
-                          <td className="p-3 text-gray-400">{truncate(neg.campaignName, 40)}</td>
+                          <td className="p-3 text-black">{truncate(neg.campaignName, 40)}</td>
                           <td className="p-3 text-gray-600 font-mono text-[10px]">{neg.criterionId}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div className="p-3 border-t border-gray-800 text-[10px] text-gray-500">
+                  <div className="p-3 border-t bg-card border border-border text-[10px] text-black">
                     {existingNegatives.length} negative keyword{existingNegatives.length !== 1 ? "s" : ""} found
                   </div>
                 </div>
@@ -1053,13 +1052,13 @@ export default function GoogleSearchTermsPage() {
 
       {/* ─── Block Single Term Dialog ─────────────────────────────── */}
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
-        <DialogContent className="bg-[#1a1a2e] border-gray-700 text-white max-w-md">
+        <DialogContent className="bg-card border border-border text-black max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold flex items-center gap-2">
               <Ban className="w-4 h-4 text-red-400" />
               Add Negative Keyword
             </DialogTitle>
-            <DialogDescription className="text-xs text-gray-400">
+            <DialogDescription className="text-xs text-black">
               Block this search term from triggering your ads.
             </DialogDescription>
           </DialogHeader>
@@ -1067,35 +1066,35 @@ export default function GoogleSearchTermsPage() {
           <div className="space-y-4 py-2">
             {/* Keyword (read-only) */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Keyword</label>
-              <div className="text-sm text-white bg-[#0d0d1a] border border-gray-700 rounded px-3 py-2">
+              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Keyword</label>
+              <div className="text-sm text-black bg-card border border-border rounded px-3 py-2">
                 {blockTerm ? getTermText(blockTerm) : ""}
               </div>
             </div>
 
             {/* Match Type */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Match Type</label>
+              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Match Type</label>
               <Select value={blockMatchType} onValueChange={(val) => setBlockMatchType(val as "EXACT" | "PHRASE" | "BROAD")}>
-                <SelectTrigger className="text-xs bg-[#0d0d1a] border-gray-700 text-white h-9">
+                <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-gray-700">
-                  <SelectItem value="EXACT" className="text-xs text-white">[Exact] — blocks only this exact query</SelectItem>
-                  <SelectItem value="PHRASE" className="text-xs text-white">"Phrase" — blocks queries containing this phrase</SelectItem>
-                  <SelectItem value="BROAD" className="text-xs text-white">Broad — blocks queries with these words in any order</SelectItem>
+                <SelectContent className="bg-card border border-border">
+                  <SelectItem value="EXACT" className="text-xs text-black">[Exact] — blocks only this exact query</SelectItem>
+                  <SelectItem value="PHRASE" className="text-xs text-black">"Phrase" — blocks queries containing this phrase</SelectItem>
+                  <SelectItem value="BROAD" className="text-xs text-black">Broad — blocks queries with these words in any order</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Campaign */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Campaign</label>
+              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Campaign</label>
               <Select value={blockCampaignId} onValueChange={setBlockCampaignId}>
-                <SelectTrigger className="text-xs bg-[#0d0d1a] border-gray-700 text-white h-9">
+                <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue placeholder="Select campaign" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-gray-700">
+                <SelectContent className="bg-card border border-border">
                   {campaigns.map((c) => (
                     <SelectItem key={c.id} value={c.id} className="text-xs text-white">
                       {truncate(c.name, 50)}
@@ -1108,7 +1107,7 @@ export default function GoogleSearchTermsPage() {
 
           <DialogFooter className="gap-2">
             <button
-              className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
+              className="text-xs px-3 py-1.5 rounded border bg-card border border-border text-black hover:text-black transition-colors"
               onClick={() => setBlockDialogOpen(false)}
               disabled={blockSubmitting}
             >
@@ -1134,13 +1133,13 @@ export default function GoogleSearchTermsPage() {
 
       {/* ─── Bulk Add Dialog ──────────────────────────────────────── */}
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-        <DialogContent className="bg-[#1a1a2e] border-gray-700 text-white max-w-lg">
+        <DialogContent className="bg-card border border-border text-black max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold flex items-center gap-2">
               <Ban className="w-4 h-4 text-red-400" />
               Bulk Add Negative Keywords
             </DialogTitle>
-            <DialogDescription className="text-xs text-gray-400">
+            <DialogDescription className="text-xs text-black">
               Add {selectedTermKeys.size} search term{selectedTermKeys.size !== 1 ? "s" : ""} as negative keywords.
             </DialogDescription>
           </DialogHeader>
@@ -1148,46 +1147,46 @@ export default function GoogleSearchTermsPage() {
           <div className="space-y-4 py-2">
             {/* Preview of selected terms */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">
+              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">
                 Keywords ({selectedTermKeys.size})
               </label>
-              <div className="bg-[#0d0d1a] border border-gray-700 rounded p-2 max-h-32 overflow-y-auto space-y-1">
+              <div className="bg-card border border-border rounded p-2 max-h-32 overflow-y-auto space-y-1">
                 {Array.from(selectedTermKeys).slice(0, 20).map((key) => (
-                  <div key={key} className="text-[11px] text-gray-300">
+                  <div key={key} className="text-[11px] text-black">
                     {key.split("__")[0]}
                   </div>
                 ))}
                 {selectedTermKeys.size > 20 && (
-                  <div className="text-[10px] text-gray-500">...and {selectedTermKeys.size - 20} more</div>
+                  <div className="text-[10px] text-black">...and {selectedTermKeys.size - 20} more</div>
                 )}
               </div>
             </div>
 
             {/* Match Type */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Match Type (applied to all)</label>
+              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Match Type (applied to all)</label>
               <Select value={bulkMatchType} onValueChange={(val) => setBulkMatchType(val as "EXACT" | "PHRASE" | "BROAD")}>
-                <SelectTrigger className="text-xs bg-[#0d0d1a] border-gray-700 text-white h-9">
+                <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-gray-700">
-                  <SelectItem value="EXACT" className="text-xs text-white">[Exact]</SelectItem>
-                  <SelectItem value="PHRASE" className="text-xs text-white">"Phrase"</SelectItem>
-                  <SelectItem value="BROAD" className="text-xs text-white">Broad</SelectItem>
+                <SelectContent className="bg-card border border-border">
+                  <SelectItem value="EXACT" className="text-xs text-black">[Exact]</SelectItem>
+                  <SelectItem value="PHRASE" className="text-xs text-black">"Phrase"</SelectItem>
+                  <SelectItem value="BROAD" className="text-xs text-black">Broad</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Campaign */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Target Campaign</label>
+              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Target Campaign</label>
               <Select value={bulkCampaignId} onValueChange={setBulkCampaignId}>
-                <SelectTrigger className="text-xs bg-[#0d0d1a] border-gray-700 text-white h-9">
+                <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue placeholder="Select campaign" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a2e] border-gray-700">
+                <SelectContent className="bg-card border border-border">
                   {campaigns.map((c) => (
-                    <SelectItem key={c.id} value={c.id} className="text-xs text-white">
+                    <SelectItem key={c.id} value={c.id} className="text-xs text-black">
                       {truncate(c.name, 50)}
                     </SelectItem>
                   ))}
@@ -1198,7 +1197,7 @@ export default function GoogleSearchTermsPage() {
 
           <DialogFooter className="gap-2">
             <button
-              className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
+              className="text-xs px-3 py-1.5 rounded border bg-card border border-border text-black hover:text-black transition-colors"
               onClick={() => setBulkDialogOpen(false)}
               disabled={bulkSubmitting}
             >

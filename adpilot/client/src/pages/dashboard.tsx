@@ -441,13 +441,13 @@ export default function DashboardPage() {
   // Funnel donut data
   const funnelData = cost_stack?.funnel_split_actual
     ? Object.entries(cost_stack.funnel_split_actual)
-        .filter(([, v]) => (v as number) > 0)
-        .map(([key, val]) => ({ name: key, value: val as number }))
+      .filter(([, v]) => (v as number) > 0)
+      .map(([key, val]) => ({ name: key, value: val as number }))
     : isGoogle && searchSummary && dgSummary
       ? [
-          { name: "Search", value: Math.round((searchSummary.spend / ap.total_spend_30d) * 100) || 0 },
-          { name: "Demand Gen", value: Math.round((dgSummary.spend / ap.total_spend_30d) * 100) || 0 },
-        ].filter(d => d.value > 0)
+        { name: "Search", value: Math.round((searchSummary.spend / ap.total_spend_30d) * 100) || 0 },
+        { name: "Demand Gen", value: Math.round((dgSummary.spend / ap.total_spend_30d) * 100) || 0 },
+      ].filter(d => d.value > 0)
       : [];
 
   const GOOGLE_FUNNEL_COLORS: Record<string, string> = {
@@ -673,71 +673,71 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <section className="page-zone" aria-labelledby="dashboard-kpis">
-      <h2 id="dashboard-kpis" className="sr-only">Key performance indicators</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <KpiCard
-          title={`Spend (${periodLabel})`}
-          value={formatINR(ap.total_spend_30d, 0)}
-          trend={ap.spend_trend}
-          trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
-          icon={IndianRupee}
-          subtitle="vs prior"
-          status={verifyData ? (
-            verifyData.verified
-              ? { label: "Verified ✓", variant: "success" }
-              : { label: `Mismatch: ${verifyData.discrepancyPct}%`, variant: "warning" }
-          ) : undefined}
-        />
-        <KpiCard
-          title={`Leads (${periodLabel})`}
-          value={ap.total_leads_30d.toString()}
-          trend={ap.leads_trend}
-          trendValue={`${Math.abs(ap.leads_change_pct).toFixed(1)}%`}
-          icon={Users}
-          subtitle="vs prior"
-        />
-        <KpiCard
-          title="Avg CPL"
-          value={formatINR(ap.overall_cpl, 0)}
-          trend={ap.spend_trend}
-          trendValue={`${Math.abs((ap as any).cpl_change_pct || ap.spend_change_pct || 0).toFixed(1)}%`}
-          icon={Target}
-          isInverse
-          status={
-            thresholds
-              ? ap.overall_cpl <= thresholds.cpl_target
-                ? { label: "On Target", variant: "success" }
-                : ap.overall_cpl <= thresholds.cpl_alert
-                ? { label: "Watch", variant: "warning" }
-                : { label: "Alert", variant: "destructive" }
-              : undefined
-          }
-        />
-        <KpiCard
-          title="CTR"
-          value={formatPct(ap.overall_ctr)}
-          trend={ap.ctr_trend}
-          trendValue={`${Math.abs(ap.ctr_change_pct).toFixed(1)}%`}
-          icon={MousePointerClick}
-          subtitle="vs prior"
-        />
-        <KpiCard
-          title="Monthly Pacing"
-          value={mp ? `${mp.pacing.spend_pct.toFixed(0)}%` : "—"}
-          icon={Gauge}
-          status={mp ? {
-            label: pacingSpendStatus,
-            variant: pacingSpendStatus === "ON_TRACK" ? "success" : pacingSpendStatus === "AHEAD" ? "warning" : "destructive",
-          } : undefined}
-          subtitle={mp ? `Leads: ${mp.pacing.leads_pct.toFixed(0)}%` : "No pacing data"}
-        />
-        <KpiCard
-          title="Active Alerts"
-          value={`${(s.total_fatigue_alerts || 0) + (s.immediate_actions || 0)}`}
-          icon={AlertTriangle}
-          subtitle={`${s.total_fatigue_alerts || 0} fatigue · ${s.immediate_actions || 0} actions`}
-        />
-      </div>
+        <h2 id="dashboard-kpis" className="sr-only">Key performance indicators</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <KpiCard
+            title={`Spend (${periodLabel})`}
+            value={formatINR(ap.total_spend_30d, 0)}
+            trend={ap.spend_trend}
+            trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
+            icon={IndianRupee}
+            subtitle="vs prior"
+            status={verifyData ? (
+              verifyData.verified
+                ? { label: "Verified ✓", variant: "success" }
+                : { label: `Mismatch: ${verifyData.discrepancyPct}%`, variant: "warning" }
+            ) : undefined}
+          />
+          <KpiCard
+            title={`Leads (${periodLabel})`}
+            value={ap.total_leads_30d.toString()}
+            trend={ap.leads_trend}
+            trendValue={`${Math.abs(ap.leads_change_pct).toFixed(1)}%`}
+            icon={Users}
+            subtitle="vs prior"
+          />
+          <KpiCard
+            title="Avg CPL"
+            value={formatINR(ap.overall_cpl, 0)}
+            trend={ap.spend_trend}
+            trendValue={`${Math.abs((ap as any).cpl_change_pct || ap.spend_change_pct || 0).toFixed(1)}%`}
+            icon={Target}
+            isInverse
+            status={
+              thresholds
+                ? ap.overall_cpl <= thresholds.cpl_target
+                  ? { label: "On Target", variant: "success" }
+                  : ap.overall_cpl <= thresholds.cpl_alert
+                    ? { label: "Watch", variant: "warning" }
+                    : { label: "Alert", variant: "destructive" }
+                : undefined
+            }
+          />
+          <KpiCard
+            title="CTR"
+            value={formatPct(ap.overall_ctr)}
+            trend={ap.ctr_trend}
+            trendValue={`${Math.abs(ap.ctr_change_pct).toFixed(1)}%`}
+            icon={MousePointerClick}
+            subtitle="vs prior"
+          />
+          <KpiCard
+            title="Monthly Pacing"
+            value={mp ? `${mp.pacing.spend_pct.toFixed(0)}%` : "—"}
+            icon={Gauge}
+            status={mp ? {
+              label: pacingSpendStatus,
+              variant: pacingSpendStatus === "ON_TRACK" ? "success" : pacingSpendStatus === "AHEAD" ? "warning" : "destructive",
+            } : undefined}
+            subtitle={mp ? `Leads: ${mp.pacing.leads_pct.toFixed(0)}%` : "No pacing data"}
+          />
+          <KpiCard
+            title="Active Alerts"
+            value={`${(s.total_fatigue_alerts || 0) + (s.immediate_actions || 0)}`}
+            icon={AlertTriangle}
+            subtitle={`${s.total_fatigue_alerts || 0} fatigue · ${s.immediate_actions || 0} actions`}
+          />
+        </div>
       </section>
 
       {/* Data Verification Widget */}
@@ -746,25 +746,24 @@ export default function DashboardPage() {
           verifyData.verified
             ? "border-emerald-500/30"
             : verifyData.discrepancyPct <= 5
-            ? "border-amber-500/30"
-            : "border-red-500/30"
+              ? "border-amber-500/30"
+              : "border-red-500/30"
         }>
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${
-                  verifyData.verified ? "bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "bg-amber-500/10" : "bg-red-500/10"
-                }`}>
+                <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${verifyData.verified ? "bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "bg-amber-500/10" : "bg-red-500/10"
+                  }`}>
                   {verifyData.verified
                     ? <ShieldCheck className="w-4 h-4 text-emerald-400" />
                     : verifyData.discrepancyPct <= 5
-                    ? <ShieldAlert className="w-4 h-4 text-amber-400" />
-                    : <ShieldX className="w-4 h-4 text-red-400" />
+                      ? <ShieldAlert className="w-4 h-4 text-amber-400" />
+                      : <ShieldX className="w-4 h-4 text-red-400" />
                   }
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-foreground">Data Verification</h3>
-                  <p className="text-[10px] text-muted-foreground">
+                  <h3 className="text-xs text-muted-foreground uppercase tracking-wider">Data Verification</h3>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
                     {verifyData.status === "verified" ? "Cross-checked with API" : verifyData.status === "cross_checked" ? "Cross-checked across cadences" : "Single source"}
                     {verifyData.lastVerified && ` · ${new Date(verifyData.lastVerified).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`}
                   </p>
@@ -772,24 +771,22 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-6 text-center">
                 <div>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider">API Spend</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">API Spend</p>
                   <p className="text-sm font-semibold tabular-nums">{formatINR(verifyData.apiSpend, 0)}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Agent Spend</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Agent Spend</p>
                   <p className="text-sm font-semibold tabular-nums">{formatINR(verifyData.agentSpend, 0)}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Difference</p>
-                  <p className={`text-sm font-semibold tabular-nums ${
-                    verifyData.discrepancyPct <= 2 ? "text-emerald-400" : verifyData.discrepancyPct <= 5 ? "text-amber-400" : "text-red-400"
-                  }`}>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Difference</p>
+                  <p className={`text-sm font-semibold tabular-nums ${verifyData.discrepancyPct <= 2 ? "text-emerald-400" : verifyData.discrepancyPct <= 5 ? "text-amber-400" : "text-red-400"
+                    }`}>
                     {verifyData.discrepancyPct.toFixed(1)}%
                   </p>
                 </div>
-                <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${
-                  verifyData.verified ? "text-emerald-400 bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"
-                }`}>
+                <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${verifyData.verified ? "text-emerald-400 bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"
+                  }`}>
                   {verifyData.verified ? "Verified" : verifyData.discrepancyPct <= 5 ? "Warning" : "Mismatch"}
                 </Badge>
               </div>
@@ -802,7 +799,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="h-full flex flex-col">
           <CardContent className="p-4 flex flex-col items-center justify-center flex-1">
-            <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">Account Health</h3>
+            <h3 className="text-[15px] font-large uppercase tracking-wider text-black mb-2">Account Health</h3>
             <div className="relative h-32 w-32">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -816,12 +813,12 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: healthScoreColor }}>{accountHealthScore}</p>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2">Weighted composite score</p>
+            <p className="text-[15px] font-large text-black text-muted-foreground mt-2">Weighted composite score</p>
           </CardContent>
         </Card>
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardContent className="p-4">
-            <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-3">Health Score Breakdown</h3>
+            <h3 className="text-[13px] font-large text-black uppercase tracking-wider text-muted-foreground mb-3">Health Score Breakdown</h3>
             <div className="grid grid-cols-5 gap-3">
               {([
                 { label: "CPL", score: healthScoreComponents.cpl, weight: "30%" },
@@ -831,11 +828,11 @@ export default function DashboardPage() {
                 { label: "Tracking", score: healthScoreComponents.tracking, weight: "10%" },
               ]).map((item) => (
                 <div key={item.label} className="text-center">
-                  <p className="text-[9px] text-muted-foreground uppercase">{item.label} ({item.weight})</p>
+                  <p className="text-s font-semibold text-black ppercase">{item.label} ({item.weight})</p>
                   <div className="w-full h-1.5 rounded-full bg-muted/50 mt-1.5">
                     <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(item.score, 100)}%`, backgroundColor: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }} />
                   </div>
-                  <p className="text-xs font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>
+                  <p className="text-s font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>
                     {Math.round(item.score)}
                   </p>
                 </div>
@@ -881,7 +878,7 @@ export default function DashboardPage() {
         {/* Funnel Split */}
         <Card className="h-full flex flex-col">
           <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">{isGoogle ? "Spend Split" : "Funnel Split"}</CardTitle>
+            <CardTitle className="text-m font-medium">{isGoogle ? "Spend Split" : "Funnel Split"}</CardTitle>
           </CardHeader>
           {/* GD-03: overflow fix — increased height so legend never gets clipped */}
           <CardContent className="px-2 pb-2 flex-1">
@@ -908,7 +905,7 @@ export default function DashboardPage() {
                   <Legend
                     verticalAlign="bottom"
                     height={36}
-                    wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+                    wrapperStyle={{ fontSize: "15px", paddingTop: "8px" }}
                     formatter={(value: string) => (
                       <span style={{ color: "hsl(215, 15%, 55%)" }}>{value}</span>
                     )}
@@ -923,62 +920,62 @@ export default function DashboardPage() {
         {/* Daily Spend + Leads — ComposedChart */}
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Daily Spend & Leads</CardTitle>
+            <CardTitle className="text-m font-medium">Daily Spend & Leads</CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-4">
             <div className="h-56">
               {dailyChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={dailyChartData}>
-                  <defs>
-                    <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.gold} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={CHART_COLORS.gold} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
-                  <YAxis
-                    yAxisId="spend"
-                    tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                    tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`}
-                  />
-                  <YAxis
-                    yAxisId="leads"
-                    orientation="right"
-                    tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                  />
-                  <RechartsTooltip content={<CustomTooltipContent />} />
-                  <Area
-                    yAxisId="spend"
-                    type="monotone"
-                    dataKey="spend"
-                    stroke={CHART_COLORS.gold}
-                    fill="url(#gradSpend)"
-                    strokeWidth={2}
-                    name="Spend (₹)"
-                  />
-                  <Line
-                    yAxisId="leads"
-                    type="monotone"
-                    dataKey="leads"
-                    stroke={CHART_COLORS.purple}
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: CHART_COLORS.purple }}
-                    name="Leads"
-                  />
-                  <Line
-                    yAxisId="spend"
-                    type="monotone"
-                    dataKey="cpl"
-                    stroke={CHART_COLORS.red}
-                    strokeWidth={2}
-                    strokeDasharray="5 3"
-                    dot={false}
-                    name="CPL (₹)"
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={dailyChartData}>
+                    <defs>
+                      <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CHART_COLORS.gold} stopOpacity={0.3} />
+                        <stop offset="100%" stopColor={CHART_COLORS.gold} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
+                    <YAxis
+                      yAxisId="spend"
+                      tick={{ fontSize: 10, fill: "hsl(260, 12%, 16%)" }}
+                      tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`}
+                    />
+                    <YAxis
+                      yAxisId="leads"
+                      orientation="right"
+                      tick={{ fontSize: 10, fill: "hsl(260, 12%, 16%)" }}
+                    />
+                    <RechartsTooltip content={<CustomTooltipContent />} />
+                    <Area
+                      yAxisId="spend"
+                      type="monotone"
+                      dataKey="spend"
+                      stroke={CHART_COLORS.gold}
+                      fill="url(#gradSpend)"
+                      strokeWidth={2}
+                      name="Spend (₹)"
+                    />
+                    <Line
+                      yAxisId="leads"
+                      type="monotone"
+                      dataKey="leads"
+                      stroke={CHART_COLORS.purple}
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: CHART_COLORS.purple }}
+                      name="Leads"
+                    />
+                    <Line
+                      yAxisId="spend"
+                      type="monotone"
+                      dataKey="cpl"
+                      stroke={CHART_COLORS.red}
+                      strokeWidth={2}
+                      strokeDasharray="5 3"
+                      dot={false}
+                      name="CPL (₹)"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No daily data available</div>
               )}
@@ -1363,11 +1360,10 @@ export default function DashboardPage() {
               {isGoogle && conversionSanity && (
                 <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/30">
                   {ga4Match && (
-                    <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${
-                      ga4Match === "match" ? "text-emerald-400 bg-emerald-500/10" :
+                    <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${ga4Match === "match" ? "text-emerald-400 bg-emerald-500/10" :
                       ga4Match === "mismatch" ? "text-amber-400 bg-amber-500/10" :
-                      "text-muted-foreground"
-                    }`}>
+                        "text-muted-foreground"
+                      }`}>
                       GA4: {ga4Match}
                     </Badge>
                   )}
@@ -1665,11 +1661,10 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className={`text-[10px] px-1 py-0 ${
-                              alert.severity === "CRITICAL"
-                                ? "text-red-400"
-                                : "text-amber-400"
-                            }`}
+                            className={`text-[10px] px-1 py-0 ${alert.severity === "CRITICAL"
+                              ? "text-red-400"
+                              : "text-amber-400"
+                              }`}
                           >
                             {alert.severity}
                           </Badge>
@@ -1740,8 +1735,8 @@ export default function DashboardPage() {
                   sev === "HIGH"
                     ? "text-red-400 bg-red-500/10"
                     : sev === "MEDIUM"
-                    ? "text-amber-400 bg-amber-500/10"
-                    : "text-blue-400 bg-blue-500/10";
+                      ? "text-amber-400 bg-amber-500/10"
+                      : "text-blue-400 bg-blue-500/10";
                 const insightType = insight.type || "insight";
                 const insightEntity = insight.entity || insight.title || "";
                 const insightDetail = insight.detail || insight.observation || "";
@@ -1832,12 +1827,11 @@ export default function DashboardPage() {
                     <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap shrink-0">{timeLabel}</span>
                     <Badge
                       variant="secondary"
-                      className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                        entry.action.includes("PAUSE") ? "text-amber-400 bg-amber-500/10" :
+                      className={`text-[10px] px-1.5 py-0 shrink-0 ${entry.action.includes("PAUSE") ? "text-amber-400 bg-amber-500/10" :
                         entry.action.includes("UNPAUSE") || entry.action.includes("PLAY") ? "text-emerald-400 bg-emerald-500/10" :
-                        entry.action.includes("SCALE") || entry.action.includes("BUDGET") ? "text-blue-400 bg-blue-500/10" :
-                        "text-muted-foreground"
-                      }`}
+                          entry.action.includes("SCALE") || entry.action.includes("BUDGET") ? "text-blue-400 bg-blue-500/10" :
+                            "text-muted-foreground"
+                        }`}
                     >
                       {actionLabel}
                     </Badge>
@@ -2060,8 +2054,8 @@ export default function DashboardPage() {
           s === "Completed"
             ? <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" />
             : s === "Due"
-            ? <CalendarClock className="w-3.5 h-3.5 text-amber-400" />
-            : <XCircle className="w-3.5 h-3.5 text-red-400" />;
+              ? <CalendarClock className="w-3.5 h-3.5 text-amber-400" />
+              : <XCircle className="w-3.5 h-3.5 text-red-400" />;
 
         return (
           <Card>

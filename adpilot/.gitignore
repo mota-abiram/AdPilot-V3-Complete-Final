@@ -5,5 +5,9 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
-google_ads_credentials.json
 *.log
+
+# Credentials and Data (DO NOT REMOVE)
+ads_agent/google_ads_credentials.json
+ads_agent/data/
+ads_agent/data/clients_credentials.json

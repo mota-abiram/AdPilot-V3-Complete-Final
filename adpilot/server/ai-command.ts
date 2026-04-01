@@ -19,6 +19,15 @@ import { executeGoogleAction, type GoogleExecutionRequest, type GoogleExecutionA
 // Groq — free tier covers ~14,400 req/day, no credit card needed.
 // Get a free key at: https://console.groq.com
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+
+function getOpenapiApiKey(): string {
+  return process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "";
+}
+
+function getGeminiModel(): string {
+  return process.env.GEMINI_MODEL || "gemini-1.5-flash";
+}
 
 function getGroqApiKey(): string {
   return process.env.GROQ_API_KEY || "";
@@ -70,6 +79,7 @@ export interface AICommandRequest {
   platform: "meta" | "google" | "all";
   analysisData: any; // the full analysis JSON for context
   clientTargets?: { cpl?: number; budget?: number; leads?: number };
+  provider?: "groq" | "gemini" | "auto";
 }
 
 export interface AICommandResponse {
@@ -364,9 +374,12 @@ async function executeActionPlan(
   for (const campaign of campaigns) {
     const campaignId = campaign.campaign_id || campaign.id || "";
     const campaignName = campaign.campaign_name || campaign.name || campaignId;
+    const executionPlatform = actionPlan.platform === "all"
+      ? (campaign._sourcePlatform === "google" ? "google" : "meta")
+      : actionPlan.platform;
 
     try {
-      if (actionPlan.platform === "meta") {
+      if (executionPlatform === "meta") {
         let metaAction: ExecutionActionType = "PAUSE_CAMPAIGN";
         const params: ExecutionRequest["params"] = {
           reason: action.parameters?.reason || actionPlan.strategic_rationale,
@@ -416,7 +429,7 @@ async function executeActionPlan(
           else process.env.META_AD_ACCOUNT_ID = previousMetaAdAccountId;
         }
 
-      } else if (actionPlan.platform === "google") {
+      } else if (executionPlatform === "google") {
         let googleAction: GoogleExecutionActionType = "PAUSE_CAMPAIGN";
         const params: GoogleExecutionRequest["params"] = {
           reason: action.parameters?.reason || actionPlan.strategic_rationale,
@@ -492,7 +505,7 @@ async function executeActionPlan(
 // ─── Main Handler ─────────────────────────────────────────────────
 
 export async function handleAICommand(req: AICommandRequest): Promise<AICommandResponse> {
-  const { command, clientId, platform, analysisData, clientTargets } = req;
+  const { command, clientId, platform, analysisData, clientTargets, provider = "auto" } = req;
 
   // Build campaign list from analysis data
   // Meta uses campaign_audit; Google uses campaign_performance; fallback to campaigns
@@ -504,6 +517,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
     return {
       id: c.campaign_id || c.id,
       name: c.campaign_name || c.name,
+      platform: c._sourcePlatform || platform,
       status: c.status || c.effective_status || c.delivery_status,
       classification: c.classification || null,
       health_score: c.health_score || null,
@@ -534,17 +548,54 @@ Analyse the campaigns and respond in the mandatory format.`;
 
   let rawResponse = "";
   try {
-    const groqApiKey = getGroqApiKey();
-    const groqModel = getGroqModel();
+    let baseUrl = GROQ_BASE_URL;
+    let apiKey = getGroqApiKey();
+    let model = getGroqModel();
 
-    const groqRes = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
+    if (provider === "gemini") {
+      const untrimmedKey = getOpenapiApiKey();
+      apiKey = untrimmedKey.trim();
+      const isSk = apiKey.startsWith("sk-");
+      console.log(`[Debug] AI Command: Detected ${isSk ? "OpenAI" : "Gemini"} key (begins with ${apiKey.slice(0, 10)})`);
+      baseUrl = isSk ? "https://api.openai.com/v1" : GEMINI_BASE_URL;
+      model = isSk ? "gpt-4o" : getGeminiModel();
+    } else if (provider === "groq") {
+      baseUrl = GROQ_BASE_URL;
+      apiKey = getGroqApiKey().trim();
+      model = getGroqModel();
+    } else {
+      const untrimmedKey = getOpenapiApiKey();
+      apiKey = untrimmedKey.trim();
+      if (apiKey) {
+        const isSk = apiKey.startsWith("sk-");
+        console.log(`[Debug] AI Command: Detected ${isSk ? "OpenAI" : "Gemini"} key (begins with ${apiKey.slice(0, 10)})`);
+        baseUrl = isSk ? "https://api.openai.com/v1" : GEMINI_BASE_URL;
+        model = isSk ? "gpt-4o" : getGeminiModel();
+      } else {
+        apiKey = getGroqApiKey().trim();
+        baseUrl = GROQ_BASE_URL;
+        model = getGroqModel();
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error(
+        provider === "groq"
+          ? "No Groq API key found. Please check GROQ_API_KEY in the environment variables."
+          : provider === "gemini"
+          ? "No OpenAI API key found. Please check OPENAPI_API_KEY in the environment variables."
+          : "No AI API key found (OpenAPI or Groq). Please check your environment variables.",
+      );
+    }
+
+    const aiRes = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${groqApiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: groqModel,
+        model: model,
         max_tokens: 1500,
         messages: [
           { role: "system", content: systemPrompt },
@@ -553,17 +604,17 @@ Analyse the campaigns and respond in the mandatory format.`;
       }),
     });
 
-    if (!groqRes.ok) {
-      const errText = await groqRes.text();
-      throw new Error(`Groq API ${groqRes.status}: ${errText}`);
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      throw new Error(`AI API (${baseUrl}) ${aiRes.status}: ${errText}`);
     }
 
-    const groqData = await groqRes.json() as any;
-    rawResponse = groqData?.choices?.[0]?.message?.content || "";
+    const aiData = await aiRes.json() as any;
+    rawResponse = aiData?.choices?.[0]?.message?.content || "";
   } catch (err: any) {
-    console.error("[AI Command] Groq error:", err.message);
+    console.error("[AI Command] AI error:", err.message);
     return {
-      humanResponse: `AI service error: ${err.message}. Please check your GROQ_API_KEY in the environment variables.`,
+      humanResponse: `AI service error: ${err.message}. Please check your OPENAPI_API_KEY or GROQ_API_KEY in the environment variables.`,
       actionJson: null,
       executionResults: [],
       safetyWarnings: [],

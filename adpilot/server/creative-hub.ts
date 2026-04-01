@@ -3,21 +3,41 @@ import path from "path";
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const CREATIVE_HUB_FILE = path.join(DATA_BASE, "creative_hub.json");
+const AI_CONFIG_FILE = path.join(DATA_BASE, "ai_config.json");
 const CREATIVE_SOP_FILE = path.resolve(import.meta.dirname, "../../docs/creative-video-creation-sop.md");
-const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+// Image generation models (tried in order):
+// 1. gemini-2.0-flash-exp-image-generation — Gemini native (generateContent + responseModalities)
+// 2. imagen-3.0-generate-002              — Imagen 3 (predict endpoint)
 
-function getOpenAiApiKey(): string {
-  return process.env.OPENAI_API_KEY || "";
+interface AiConfig {
+  openapiApiKey?: string;
+  geminiModel?: string;
+  geminiImageModel?: string;
+  groqApiKey?: string;
+  groqModel?: string;
 }
 
-function getOpenAiModel(): string {
-  return process.env.OPENAI_MODEL || "gpt-4.1-mini";
+function readAiConfig(): AiConfig {
+  try {
+    if (fs.existsSync(AI_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, "utf-8"));
+    }
+  } catch (err) {
+    console.error("[Creative Hub] Failed to read AI config:", err);
+  }
+  return {};
 }
 
-function getOpenAiImageModel(): string {
-  return process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+function getOpenapiApiKey(): string {
+  return readAiConfig().openapiApiKey || process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "";
 }
+
+function getGeminiModel(): string {
+  return readAiConfig().geminiModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+}
+
 
 function getGroqApiKey(): string {
   return process.env.GROQ_API_KEY || "";
@@ -295,7 +315,7 @@ function buildCreativeSopPrompt(): string {
 ${sop}`;
 }
 
-function mapRequestedSizeToOpenAiSize(size: CreativeGeneratedImage["requestedSize"]): CreativeGeneratedImage["modelSize"] {
+function mapRequestedSizeToModelSize(size: CreativeGeneratedImage["requestedSize"]): CreativeGeneratedImage["modelSize"] {
   switch (size) {
     case "1080x1920":
     case "960x1200":
@@ -319,12 +339,16 @@ function buildImagePrompt({
   output: CreativeOutput;
   requestedSize: CreativeGeneratedImage["requestedSize"];
 }): string {
-  return `Create a finished direct-response ad creative image for ${input.platform === "google_display" ? "Google Demand Gen" : "Meta Ads"}.
+  const context = `Create a finished direct-response ad creative image for ${input.platform === "google_display" ? "Google Demand Gen" : "Meta Ads"}.
 
-Use this SOP as the default creative memory:
+[LEARNED CLIENT MEMORY]
+The following rules have been learned for this specific client and must be followed for all images:
+${setup.customInstructions || "None provided for this client."}
+
+[LEARNED APP-WIDE SOP]
 ${buildCreativeSopPrompt()}
 
-Creative context:
+[CURRENT CREATIVE CONTEXT]
 - Project: ${setup.projectName}
 - Price: ${setup.price || input.offer}
 - Location: ${setup.location}
@@ -337,7 +361,7 @@ Creative context:
 - Hook: ${input.hook}
 - Session instruction: ${input.customInstruction || "None"}
 
-Use this generated creative output:
+Generated Creative Elements (Must Include):
 - Headline: ${output.headline}
 - Subtext: ${output.subtext}
 - Offer section: ${output.offerSection}
@@ -348,27 +372,35 @@ Use this generated creative output:
 - Mid messaging: ${output.staticAdStructure.midMessaging}
 - CTA block: ${output.staticAdStructure.ctaBlock}
 
-Image rules:
+Image Rules:
 - The output should look like a real high-performing social ad, not a plain poster mockup.
 - Make the core offer obvious immediately.
+- Use high-quality real estate/lifestyle photography context if appropriate.
+- Ensure text is legible and follows the creative structure.
 - Use strong hierarchy for headline, offer, and CTA zones.
 - Use bold contrast and mobile-first composition.
 - Avoid arrows, mouse cursors, fake UI, and fake play buttons.
 - Make it visually native to feed/story placements.
 - Keep the image practical for performance marketing use.`;
+
+  // Combine, ensuring we stay within OpenAI's character limit if possible
+  return context.length > 3900 ? context.slice(0, 3900) + "..." : context;
 }
 
 function getCreativeAiConfig():
-  | { provider: "openai"; apiKey: string; model: string; baseUrl: string }
+  | { provider: "openai" | "gemini"; apiKey: string; model: string; baseUrl: string }
   | { provider: "groq"; apiKey: string; model: string; baseUrl: string }
   | null {
-  const openAiApiKey = getOpenAiApiKey();
-  if (openAiApiKey) {
+  const openapiApiKey = getOpenapiApiKey();
+  if (openapiApiKey) {
+    const trimmedKey = openapiApiKey.trim();
+    const isSk = trimmedKey.startsWith("sk-");
+    console.log(`[Debug] Chat Config detected: ${isSk ? "OpenAI" : "Gemini"} (Key begins with ${trimmedKey.slice(0, 10)})`);
     return {
-      provider: "openai",
-      apiKey: openAiApiKey,
-      model: getOpenAiModel(),
-      baseUrl: OPENAI_BASE_URL,
+      provider: isSk ? "openai" : "gemini",
+      apiKey: trimmedKey,
+      model: isSk ? "gpt-4o" : getGeminiModel(),
+      baseUrl: isSk ? "https://api.openai.com/v1" : GEMINI_BASE_URL,
     };
   }
 
@@ -432,44 +464,157 @@ async function requestCreativeImage({
   output: CreativeOutput;
   requestedSize: CreativeGeneratedImage["requestedSize"];
 }): Promise<CreativeGeneratedImage | null> {
-  const openAiApiKey = getOpenAiApiKey();
-  if (!openAiApiKey) return null;
+  const openapiApiKey = getOpenapiApiKey();
+  console.log(`[Debug] API Key detected: ${openapiApiKey.slice(0, 10)}... (Length: ${openapiApiKey.length})`);
+  if (!openapiApiKey) {
+    throw new Error("Image generation requires a configured API key. Please add it in Settings → AI Engine Configuration or .env.");
+  }
 
-  const modelSize = mapRequestedSizeToOpenAiSize(requestedSize);
   const prompt = buildImagePrompt({ setup, input, output, requestedSize });
+  const modelSize = mapRequestedSizeToModelSize(requestedSize);
 
-  const response = await fetch(`${OPENAI_BASE_URL}/images/generations`, {
+  // ── Attempt 0: OpenAI (DALL-E 3) if key is detected as OpenAI ────
+  const trimmedKey = openapiApiKey.trim();
+  if (trimmedKey.startsWith("sk-")) {
+    try {
+      // Map sizes to DALL-E 3 supported sizes
+      let dalleSize: "1024x1024" | "1024x1792" | "1792x1024" = "1024x1024";
+      if (requestedSize === "1080x1920" || requestedSize === "960x1200") {
+        dalleSize = "1024x1792";
+      } else if (requestedSize === "1200x628") {
+        dalleSize = "1792x1024";
+      }
+
+      console.log(`[Creative Hub] Detected OpenAI key, generating DALL-E 3 image at ${dalleSize}...`);
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${trimmedKey}`,
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt: prompt.slice(0, 3950), // Hard safety limit for OpenAI
+          n: 1,
+          size: dalleSize,
+          response_format: "b64_json",
+        }),
+      });
+
+      if (response.ok) {
+        const json = await response.json() as any;
+        const b64 = json?.data?.[0]?.b64_json;
+        if (b64) {
+          return {
+            id: generateId(),
+            prompt,
+            requestedSize,
+            modelSize, // mapped for consistency
+            mimeType: "image/png",
+            dataUrl: `data:image/png;base64,${b64}`,
+            createdAt: new Date().toISOString(),
+          };
+        }
+      } else {
+        const errText = await response.text();
+        console.error(`[Creative Hub] OpenAI DALL-E 3 failed (${response.status}): ${errText}`);
+        throw new Error(`OpenAI image generation failed (${response.status}): ${errText}`);
+      }
+    } catch (err: any) {
+      console.error("[Creative Hub] OpenAI DALL-E 3 error:", err);
+      throw err;
+    }
+  }
+
+  // ── Attempt 1: Gemini 2.5 Flash image generation (free tier) ────
+  const geminiNativeModel = "gemini-2.5-flash-preview-04-17";
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiNativeModel}:generateContent?key=${openapiApiKey}`;
+
+  try {
+    const response = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+        },
+      }),
+    });
+
+    if (response.ok) {
+      const json = await response.json() as any;
+      const parts = json?.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+      if (imagePart?.inlineData) {
+        const mimeType = imagePart.inlineData.mimeType || "image/png";
+        return {
+          id: generateId(),
+          prompt,
+          requestedSize,
+          modelSize,
+          mimeType,
+          dataUrl: `data:${mimeType};base64,${imagePart.inlineData.data}`,
+          createdAt: new Date().toISOString(),
+        };
+      }
+      console.warn("[Creative Hub] Gemini 2.0 Flash returned no image part, trying Imagen 3...");
+    } else {
+      const errText = await response.text();
+      console.warn(`[Creative Hub] Gemini 2.0 Flash failed (${response.status}), trying Imagen 3... ${errText.slice(0, 200)}`);
+    }
+  } catch (err) {
+    console.warn("[Creative Hub] Gemini 2.0 Flash error, trying Imagen 3...", err);
+  }
+
+  // ── Attempt 2: Imagen 3 via predict endpoint ──────────────────────
+  const imagenModel = "imagen-3.0-generate-002";
+  const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/${imagenModel}:predict?key=${openapiApiKey}`;
+
+  // Map size to Imagen aspect ratio
+  const aspectRatioMap: Record<string, string> = {
+    "1080x1080": "1:1",
+    "1080x1920": "9:16",
+    "960x1200": "4:5",
+    "1200x628": "16:9",
+  };
+  const aspectRatio = aspectRatioMap[requestedSize] || "1:1";
+
+  const imagenResponse = await fetch(imagenUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openAiApiKey}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: getOpenAiImageModel(),
-      prompt,
-      size: modelSize,
-      quality: "medium",
-      output_format: "png",
-      moderation: "auto",
+      instances: [{ prompt }],
+      parameters: {
+        sampleCount: 1,
+        aspectRatio,
+        safetyFilterLevel: "block_few",
+        personGeneration: "allow_adult",
+      },
     }),
   });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`OpenAI image generation failed: ${errText}`);
+  if (!imagenResponse.ok) {
+    const errText = await imagenResponse.text();
+    console.error("[Creative Hub] Imagen 3 also failed:", imagenResponse.status, errText.slice(0, 400));
+    throw new Error(`Image generation failed (${imagenResponse.status}): ${errText}`);
   }
 
-  const json = await response.json() as any;
-  const b64 = json?.data?.[0]?.b64_json;
-  if (!b64) return null;
+  const imagenJson = await imagenResponse.json() as any;
+  const prediction = imagenJson?.predictions?.[0];
+  if (!prediction?.bytesBase64Encoded) {
+    console.error("[Creative Hub] Imagen 3 returned no image data:", JSON.stringify(imagenJson).slice(0, 300));
+    throw new Error("Image generation returned no data. Please try again with a different prompt.");
+  }
 
+  const mimeType = prediction.mimeType || "image/png";
   return {
     id: generateId(),
     prompt,
     requestedSize,
     modelSize,
-    mimeType: "image/png",
-    dataUrl: `data:image/png;base64,${b64}`,
+    mimeType,
+    dataUrl: `data:${mimeType};base64,${prediction.bytesBase64Encoded}`,
     createdAt: new Date().toISOString(),
   };
 }
@@ -832,7 +977,7 @@ export async function generateCreativeImageForThread(params: {
   });
 
   if (!image) {
-    throw new Error("Image generation is unavailable. Add OPENAI_API_KEY to enable it.");
+    throw new Error("Image generation returned no data. Please try again.");
   }
 
   const nextVersion: CreativeVersion = {

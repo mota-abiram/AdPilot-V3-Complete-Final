@@ -21,7 +21,6 @@ import {
   CalendarClock,
   FileBarChart,
   Sparkles,
-  Command,
 } from "lucide-react";
 import {
   Sidebar,
@@ -51,7 +50,6 @@ import { cn } from "@/lib/utils";
 
 const coreNavItems = [
   { title: "Dashboard", url: "/",          icon: LayoutDashboard },
-  { title: "Command Center", url: "/command-center", icon: Command },
   { title: "Creatives", url: "/creatives", icon: Sparkles },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
 ];

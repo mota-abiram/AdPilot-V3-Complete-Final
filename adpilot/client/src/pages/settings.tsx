@@ -90,6 +90,14 @@ export default function SettingsPage() {
   const [googleMccId, setGoogleMccId] = useState<string>("");
   const [googleApiVersion, setGoogleApiVersion] = useState<string>("");
   const [isVerifyingGoogleApi, setIsVerifyingGoogleApi] = useState(false);
+  const [aiConfig, setAiConfig] = useState({
+    openapiApiKey: "",
+    geminiModel: "",
+    geminiImageModel: "",
+    groqApiKey: "",
+    groqModel: "",
+  });
+  const [isSavingAiConfig, setIsSavingAiConfig] = useState(false);
 
   const [accessUsers, setAccessUsers] = useState<AuthUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -157,7 +165,32 @@ export default function SettingsPage() {
   // Initial Meta API check
   useEffect(() => {
     verifyMetaApi();
+    loadAiConfig();
   }, []);
+
+  async function loadAiConfig() {
+    try {
+      const r = await fetch("/api/config/ai");
+      if (r.ok) {
+        const d = await r.json();
+        setAiConfig(d);
+      }
+    } catch {}
+  }
+
+  async function handleSaveAiConfig() {
+    setIsSavingAiConfig(true);
+    try {
+      const r = await apiRequest("POST", "/api/config/ai", aiConfig);
+      if (r.ok) {
+        toast({ title: "AI Config updated", description: "AI engine parameters saved successfully." });
+      }
+    } catch (err: any) {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSavingAiConfig(false);
+    }
+  }
 
   // Fetch audit log for exports
   useEffect(() => {
@@ -421,12 +454,97 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {metaTokenExpiry && (
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Meta token expires: {metaTokenExpiry}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Text Engine</p>
+              <div className="flex items-center gap-2">
+                {aiConfig.openapiApiKey ? (
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 text-red-400" />
+                )}
+                <span className="text-[11px] text-foreground font-medium">
+                  {aiConfig.openapiApiKey ? "Ready" : "Not Configured"}
+                </span>
+                <Badge variant="secondary" className="text-[9px] px-1 py-0">{aiConfig.geminiModel || "gemini-1.5-flash"}</Badge>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Image Engine</p>
+              <div className="flex items-center gap-2">
+                {aiConfig.openapiApiKey ? (
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 text-red-400" />
+                )}
+                <span className="text-[11px] text-foreground font-medium">
+                  {aiConfig.openapiApiKey ? "Ready" : "Not Configured"}
+                </span>
+                <Badge variant="secondary" className="text-[9px] px-1 py-0">{aiConfig.geminiImageModel || "gemini-2.0-flash-img"}</Badge>
+              </div>
+            </div>
+          </div>
+
+        </CardContent>
+      </Card>
+
+      {/* ─── AI Engine Configuration ────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2 text-foreground">
+            <Terminal className="w-4 h-4 text-primary" />
+            AI Engine Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[10px] text-muted-foreground">
+            OpenAPI compatible endpoints power all AI in this platform — text generation for creatives and campaign intelligence,
+            and native image generation for the Creative Hub.
+          </p>
+
+          <div className="space-y-2 p-3 rounded-lg bg-muted/10 border border-border/30">
+            <p className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">OpenAPI</Badge>
+              API Key &amp; Models
             </p>
-          )}
+            <div className="grid md:grid-cols-3 gap-3 pt-1">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase">API Key</label>
+                <Input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  className="h-8 text-[11px] bg-background mt-1"
+                  value={aiConfig.openapiApiKey}
+                  onChange={(e) => setAiConfig(prev => ({ ...prev, openapiApiKey: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase">Text Model</label>
+                <Input
+                  placeholder="gemini-1.5-flash"
+                  className="h-8 text-[11px] bg-background mt-1"
+                  value={aiConfig.geminiModel}
+                  onChange={(e) => setAiConfig(prev => ({ ...prev, geminiModel: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase">Image Model</label>
+                <Input
+                  placeholder="gemini-2.0-flash-preview-image-generation"
+                  className="h-8 text-[11px] bg-background mt-1"
+                  value={aiConfig.geminiImageModel}
+                  onChange={(e) => setAiConfig(prev => ({ ...prev, geminiImageModel: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button size="sm" onClick={handleSaveAiConfig} disabled={isSavingAiConfig}>
+              {isSavingAiConfig ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />}
+              Save AI Configuration
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -52,6 +52,7 @@ import {
 // ─── Multi-Client Registry ─────────────────────────────────────────
 // The registry is now persisted to disk so clients added via the UI survive restarts.
 // File: ads_agent/data/clients_registry.json
+// ... (later in the file)
 
 interface PlatformConfig {
   enabled: boolean;
@@ -98,6 +99,26 @@ interface ClientCredentials {
 }
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
+const AI_CONFIG_FILE = path.join(DATA_BASE, "ai_config.json");
+
+function readAiConfig() {
+  try {
+    if (fs.existsSync(AI_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, "utf-8"));
+    }
+  } catch {}
+  return {
+    openapiApiKey: process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "",
+    geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    geminiImageModel: process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-preview-image-generation",
+    groqApiKey: process.env.GROQ_API_KEY || "",
+    groqModel: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+  };
+}
+
+function saveAiConfig(config: any) {
+  fs.writeFileSync(AI_CONFIG_FILE, JSON.stringify(config, null, 2));
+}
 const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
 const CREDENTIALS_FILE = path.join(DATA_BASE, "clients_credentials.json");
 const GOOGLE_ADS_TOKEN_CACHE = path.resolve(import.meta.dirname, "../../ads_agent/.google_ads_token_cache.json");
@@ -1045,7 +1066,8 @@ export async function registerRoutes(
       });
       res.json(next);
     } catch (error: any) {
-      res.status(500).json({ error: error?.message || "Failed to generate image" });
+      const status = error?.message?.includes("unavailable") || error?.message?.includes("key") ? 400 : 500;
+      res.status(status).json({ error: error?.message || "Failed to generate image" });
     }
   });
 
@@ -2494,10 +2516,11 @@ export async function registerRoutes(
   // Accepts a natural language command, runs it through Claude, executes actions
   app.post("/api/ai/command", async (req, res) => {
     try {
-      const { command, clientId, platform } = req.body as {
+      const { command, clientId, platform, provider } = req.body as {
         command: string;
         clientId: string;
         platform: "meta" | "google" | "all";
+        provider?: "groq" | "gemini" | "auto";
       };
 
       if (!command?.trim()) {
@@ -2514,29 +2537,71 @@ export async function registerRoutes(
         return res.status(404).json({ error: `Client "${clientId}" not found` });
       }
 
-      const activePlatform = platform === "all" ? "meta" : platform;
-      const platformConfig = client.platforms[activePlatform];
+      const requestedPlatform = platform || "all";
       let analysisData: any = {};
 
-      if (platformConfig) {
-        const resolvedPath = resolvePlatformDataPath(clientId, activePlatform, platformConfig);
-        if (fs.existsSync(resolvedPath)) {
-          try {
-            analysisData = JSON.parse(fs.readFileSync(resolvedPath, "utf-8"));
-          } catch {
-            // analysis data unavailable — Claude will work with empty context
+      if (requestedPlatform === "all") {
+        const metaConfig = client.platforms.meta;
+        const googleConfig = client.platforms.google;
+        let metaData: any = {};
+        let googleData: any = {};
+
+        if (metaConfig) {
+          const metaPath = resolvePlatformDataPath(clientId, "meta", metaConfig);
+          if (fs.existsSync(metaPath)) {
+            try {
+              metaData = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+            } catch {}
+          }
+        }
+
+        if (googleConfig) {
+          const googlePath = resolvePlatformDataPath(clientId, "google", googleConfig);
+          if (fs.existsSync(googlePath)) {
+            try {
+              googleData = JSON.parse(fs.readFileSync(googlePath, "utf-8"));
+            } catch {}
+          }
+        }
+
+        analysisData = {
+          campaign_audit: [
+            ...((metaData?.campaign_audit || metaData?.campaigns || []) as any[]).map((item) => ({
+              ...item,
+              _sourcePlatform: "meta",
+            })),
+            ...((googleData?.campaign_performance || googleData?.campaigns || []) as any[]).map((item) => ({
+              ...item,
+              _sourcePlatform: "google",
+            })),
+          ],
+        };
+      } else {
+        const platformConfig = client.platforms[requestedPlatform];
+        if (platformConfig) {
+          const resolvedPath = resolvePlatformDataPath(clientId, requestedPlatform, platformConfig);
+          if (fs.existsSync(resolvedPath)) {
+            try {
+              analysisData = JSON.parse(fs.readFileSync(resolvedPath, "utf-8"));
+            } catch {
+              // analysis data unavailable — AI will work with empty context
+            }
           }
         }
       }
 
-      const clientTargets = client.targets?.[activePlatform] || client.targets?.meta;
+      const clientTargets =
+        requestedPlatform === "google"
+          ? client.targets?.google || client.targets?.meta
+          : client.targets?.meta || client.targets?.google;
 
       const result = await handleAICommand({
         command: command.trim(),
         clientId,
-        platform: platform || "meta",
+        platform: requestedPlatform,
         analysisData,
         clientTargets,
+        provider: provider || "auto",
       });
 
       res.json(result);
@@ -2544,6 +2609,16 @@ export async function registerRoutes(
       console.error("[AI Command Route] Error:", err);
       res.status(500).json({ error: err.message || "AI command failed" });
     }
+  });
+
+  app.get("/api/config/ai", (_req, res) => {
+    res.json(readAiConfig());
+  });
+
+  app.post("/api/config/ai", (req, res) => {
+    const next = req.body;
+    saveAiConfig(next);
+    res.json({ success: true, config: next });
   });
 
   return httpServer;

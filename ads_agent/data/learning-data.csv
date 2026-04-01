@@ -1,4 +1,0 @@
-timestamp,clientId,platform,intent,command,rationale,campaignsActioned,action,safetyWarnings
-2026-03-30T07:22:10.934Z,amara,meta,"pause campaigns with high CPL","pause campaigns with CPL above target","Prevent further expenditure on underperforming campaigns to optimize ad spend.",2,pause,""
-2026-03-30T07:24:00.171Z,amara,meta,"pause campaigns with high CPL","pause the campaigns that have cpl above 500","Preventing further spending on underperforming ads to optimize campaign performance",1,pause,"'DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC' was actioned 0.0h ago — cooldown active. Skipped. | 'DM-18/02/2026-500-AL-MO-LED-(Lookalike)-CBO-DB-SL-LO-LC-HYD-SEC' was actioned 0.0h ago — cooldown active. Skipped."
-2026-03-31T06:10:09.951Z,amara,meta,"refresh meta campaigns","Refresh the campaigns of meta","Optimizing campaign performance to meet the target CPL of ₹720",0,adjust_budget,""

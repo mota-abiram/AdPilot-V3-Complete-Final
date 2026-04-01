@@ -6,11 +6,9 @@ import {
   Upload,
   Copy,
   Download,
-  Send,
   History,
   ImagePlus,
   Layers3,
-  Crown,
   FlaskConical,
   TriangleAlert,
   Loader2,
@@ -25,7 +23,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -196,6 +193,16 @@ function formatRelativeTime(value: string) {
   return `${days}d ago`;
 }
 
+function formatStatusLabel(status: CreativeStatusTag) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function promptHistoryStatusClass(status: CreativeStatusTag) {
+  if (status === "winner") return "border-emerald-500/25 bg-emerald-500/8 text-emerald-300";
+  if (status === "loser") return "border-rose-500/25 bg-rose-500/8 text-rose-300";
+  return "border-amber-500/25 bg-amber-500/8 text-amber-300";
+}
+
 async function filesToAssets(files: FileList | null, category: CreativeAsset["category"]) {
   if (!files?.length) return [] as CreativeAsset[];
   const items = Array.from(files);
@@ -273,7 +280,7 @@ async function parseJsonApiResponse<T>(res: Response): Promise<T> {
 }
 
 export default function CreativesPage() {
-  const { activeClientId, activeClient, activePlatform, analysisData } = useClient();
+  const { activeClientId, activeClient, activePlatform } = useClient();
   const { toast } = useToast();
   const [setupForm, setSetupForm] = useState<SetupFormState>(defaultSetupForm);
   const [promptInput, setPromptInput] = useState<CreativePromptInput>({
@@ -284,6 +291,7 @@ export default function CreativesPage() {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<CreativeSectionKey | null>(null);
   const [selectedImageSize, setSelectedImageSize] = useState<CreativeGeneratedImage["requestedSize"]>("1080x1080");
+  const [isSopVisible, setIsSopVisible] = useState(false);
 
   const { data: hubData, isLoading } = useQuery<CreativeHubState>({
     queryKey: ["/api/clients", activeClientId, "creative-hub"],
@@ -347,22 +355,6 @@ export default function CreativesPage() {
     );
   }, [selectedThread, selectedVersionId]);
 
-  const creativeReferences = useMemo(() => {
-    const raw = ((analysisData as any)?.creative_health || []) as any[];
-    return raw
-      .slice()
-      .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
-      .slice(0, 5)
-      .map((item) => ({
-        id: item.ad_id || item.id || item.ad_name,
-        name: item.ad_name || item.name || "Creative",
-        score: item.creative_score || 0,
-        ctr: item.ctr || 0,
-        cpl: item.cpl || 0,
-        classification: item.classification || "TESTING",
-      }));
-  }, [analysisData]);
-
   const syncHubState = (next: CreativeHubState) => {
     queryClient.setQueryData(["/api/clients", activeClientId, "creative-hub"], next);
   };
@@ -415,29 +407,6 @@ export default function CreativesPage() {
     },
     onError: (error: any) => {
       toast({ title: "Could not regenerate section", description: error?.message || "Please try again.", variant: "destructive" });
-    },
-  });
-
-  const tagMutation = useMutation({
-    mutationFn: async (statusTag: CreativeStatusTag) => {
-      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/${selectedThreadId}/tag`, { statusTag });
-      return parseJsonApiResponse<CreativeHubState>(res);
-    },
-    onSuccess: (next) => syncHubState(next),
-  });
-
-  const duplicateMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/clients/${activeClientId}/creative-hub/${selectedThreadId}/duplicate`);
-      return parseJsonApiResponse<CreativeHubState>(res);
-    },
-    onSuccess: (next) => {
-      syncHubState(next);
-      if (next.threads[0]) {
-        setSelectedThreadId(next.threads[0].id);
-        setSelectedVersionId(next.threads[0].activeVersionId);
-      }
-      toast({ title: "Creative duplicated", description: "You can now modify the copied version independently." });
     },
   });
 
@@ -536,21 +505,19 @@ export default function CreativesPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="warning">Primary creative workspace</Badge>
-              <Badge variant="secondary">{hubData?.threads.length || 0} prompt threads</Badge>
-              <Badge variant="secondary">{setupForm.winningCreatives.length} reference creatives</Badge>
+              <Button
+                variant={setupComplete ? "ghost" : "outline"}
+                onClick={() => setIsSopVisible(!isSopVisible)}
+                className={cn("gap-2", !setupComplete && "animate-pulse border-primary/40 bg-primary/5")}
+              >
+                <FlaskConical className="w-4 h-4" />
+                Configure Client SOP
+              </Button>
+              <Button onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending} className="shadow-lg shadow-primary/20">
+                {generateMutation.isPending ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                New Draft
+              </Button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => selectedThread && duplicateMutation.mutate()} disabled={!selectedThread || duplicateMutation.isPending}>
-              {duplicateMutation.isPending ? <Loader2 className="animate-spin" /> : <Copy />}
-              Duplicate & Modify
-            </Button>
-            <Button onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending}>
-              {generateMutation.isPending ? <Loader2 className="animate-spin" /> : <Wand2 />}
-              Generate Creative
-            </Button>
           </div>
         </div>
       </section>
@@ -569,15 +536,21 @@ export default function CreativesPage() {
         </section>
       )}
 
-      <section className="page-zone" aria-labelledby="creative-sop-title">
-        <Card>
-          <CardHeader>
-            <CardTitle id="creative-sop-title">Creative SOP Setup</CardTitle>
-            <CardDescription>
-              This client-level setup acts as persistent creative context for every generation and regeneration pass.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-5 lg:grid-cols-2">
+      {(isSopVisible || !setupComplete) && (
+        <section className="page-zone" aria-labelledby="creative-sop-title">
+          <Card className="border-primary/20 bg-primary/2 shadow-inner">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <div>
+                <CardTitle id="creative-sop-title" className="text-base">Creative Client SOP</CardTitle>
+                <CardDescription className="text-xs">
+                  This setup is reused across all generations to ensure platform-aware context.
+                </CardDescription>
+              </div>
+              {setupComplete && (
+                <Button variant="ghost" size="sm" onClick={() => setIsSopVisible(false)}>Close</Button>
+              )}
+            </CardHeader>
+            <CardContent className="grid gap-5 lg:grid-cols-2 pt-0">
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <label className="type-sm font-semibold text-foreground">Project Name</label>
@@ -708,28 +681,46 @@ export default function CreativesPage() {
           </CardContent>
         </Card>
       </section>
+      )}
 
-      <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_340px]" aria-labelledby="creative-studio-title">
-        <aside className="min-h-0">
-          <Card className="h-full">
-            <CardHeader>
+      <section
+        className="grid grid-cols-1 gap-6 min-h-0 xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)_350px] items-start"
+        aria-labelledby="creative-studio-title"
+      >
+        {/* -- COLUMN 1: PROMPT HISTORY -- */}
+        <aside className="w-full xl:w-[320px] shrink-0 self-start max-h-[85vh] min-h-0 flex flex-col overflow-hidden">
+          <Card className="h-full min-h-0 overflow-hidden flex flex-col">
+            <CardHeader className="border-b border-border/50 bg-muted/10 pb-4">
               <CardTitle id="creative-studio-title" className="flex items-center gap-2">
                 <History className="w-4 h-4 text-primary" />
                 Prompt History
               </CardTitle>
-              <CardDescription>Every generation, variation, and duplicate stays client-scoped.</CardDescription>
+              <CardDescription>Every generation stays client-scoped and easy to revisit.</CardDescription>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className="rounded-[12px] border border-border/50 bg-background/70 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Threads</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{hubData?.threads.length || 0}</p>
+                </div>
+                <div className="rounded-[12px] border border-border/50 bg-background/70 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Latest</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {hubData?.threads[0] ? formatRelativeTime(hubData.threads[0].updatedAt) : "None"}
+                  </p>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="grid gap-3">
+            <CardContent className="flex-1 min-h-0 overflow-y-auto p-4">
+              <div className="grid gap-3">
               {hubData?.threads.length ? (
                 hubData.threads.map((thread) => (
                   <button
                     key={thread.id}
                     type="button"
                     className={cn(
-                      "grid gap-2 rounded-[10px] border px-3 py-3 text-left transition-colors",
+                      "grid gap-3 rounded-[16px] border px-4 py-4 text-left transition-all duration-200",
                       selectedThreadId === thread.id
-                        ? "border-primary/40 bg-primary/10 shadow-xs"
-                        : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/60",
+                        ? "border-primary/50 bg-primary/10 shadow-sm ring-1 ring-primary/20"
+                        : "border-border/60 bg-card hover:border-primary/30 hover:bg-accent/40",
                     )}
                     onClick={() => {
                       setSelectedThreadId(thread.id);
@@ -737,46 +728,65 @@ export default function CreativesPage() {
                       setSelectedSection(null);
                     }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground truncate">{thread.title}</p>
-                      <Badge
-                        variant={
-                          thread.statusTag === "winner"
-                            ? "success"
-                            : thread.statusTag === "loser"
-                            ? "destructive"
-                            : "warning"
-                        }
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold leading-tight text-foreground line-clamp-2">{thread.title}</p>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                          {thread.input.platform === "google_display" ? "Google Display" : "Meta"}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                          promptHistoryStatusClass(thread.statusTag),
+                        )}
                       >
-                        {thread.statusTag}
-                      </Badge>
+                        {formatStatusLabel(thread.statusTag)}
+                      </span>
                     </div>
-                    <p className="type-sm text-muted-foreground line-clamp-2">{thread.input.offer}</p>
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>{thread.versions.length} version{thread.versions.length !== 1 ? "s" : ""}</span>
-                      <span>{formatRelativeTime(thread.updatedAt)}</span>
+
+                    <div className="rounded-[12px] bg-muted/35 px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Offer</p>
+                      <p className="mt-1 text-sm leading-relaxed text-foreground/88 line-clamp-2">
+                        {thread.input.offer || thread.input.campaignIdea || "No offer added"}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-left">
+                      <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Versions</p>
+                        <p className="mt-1 text-sm font-semibold text-foreground">
+                          {thread.versions.length} version{thread.versions.length === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Updated</p>
+                        <p className="mt-1 text-sm font-semibold text-foreground">{formatRelativeTime(thread.updatedAt)}</p>
+                      </div>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className="rounded-[10px] border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center">
+                <div className="rounded-[16px] border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
                   <p className="text-base font-semibold text-foreground">No creative threads yet</p>
-                  <p className="type-sm text-muted-foreground">Start with the generator and your prompt history will appear here.</p>
+                  <p className="mt-1 type-sm text-muted-foreground">Start with the generator and your prompt history will appear here.</p>
                 </div>
               )}
+              </div>
             </CardContent>
           </Card>
         </aside>
 
-        <div className="grid gap-6">
+        {/* -- COLUMN 2: CONCEPT LAB & CHAT -- */}
+        <div className="min-w-0 flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wand2 className="w-4 h-4 text-primary" />
-                Creative Generation Interface
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Wand2 className="w-5 h-5 text-primary" />
+                Ad Concept Lab
               </CardTitle>
-              <CardDescription>
-                Use the SOP, session instructions, and past winners to generate platform-aware concepts fast.
+              <CardDescription className="text-[11px]">
+                Phase 1: Input Details → Phase 2: Generate Ad Text → Phase 3: Create Visuals & Variations
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -830,62 +840,88 @@ export default function CreativesPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending}>
-                  {generateMutation.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                  Generate More
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => generateImageMutation.mutate()}
-                  disabled={!selectedThread || !selectedVersion || generateImageMutation.isPending}
-                >
-                  {generateImageMutation.isPending ? <Loader2 className="animate-spin" /> : <ImagePlus />}
-                  Generate Image
-                </Button>
-                <Button variant="outline" onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending}>
-                  <Plus />
-                  Create Variations
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => selectedSection && regenerateMutation.mutate(selectedSection)}
-                  disabled={!selectedThread || !selectedSection || regenerateMutation.isPending}
-                >
-                  {regenerateMutation.isPending ? <Loader2 className="animate-spin" /> : <RefreshCcw />}
-                  Regenerate Selected Area
-                </Button>
-                {selectedSection && <Badge variant="warning">{sectionLabels[selectedSection]} selected</Badge>}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {imageSizeOptions.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      className={cn(
-                        "rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors",
-                        selectedImageSize === size
-                          ? "border-primary/40 bg-primary/14 text-foreground"
-                          : "border-border/60 bg-card text-muted-foreground hover:border-primary/25 hover:bg-accent/70",
-                      )}
-                      onClick={() => setSelectedImageSize(size)}
-                    >
-                      {size}
-                    </button>
-                  ))}
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border/40">
+                <div className="flex flex-col gap-1.5 min-w-[200px]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Primary Generation</p>
+                  <Button
+                    size="lg"
+                    className="gap-2 px-6 shadow-md shadow-primary/20"
+                    onClick={() => generateMutation.mutate(promptInput)}
+                    disabled={!setupComplete || generateMutation.isPending}
+                  >
+                    {generateMutation.isPending ? <Loader2 className="animate-spin w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                    Draft Ad Copy
+                  </Button>
                 </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Visual Assets</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="gap-2 border-primary/25 bg-primary/5 hover:bg-primary/10"
+                      onClick={() => generateImageMutation.mutate()}
+                      disabled={!selectedThread || !selectedVersion || generateImageMutation.isPending}
+                    >
+                      {generateImageMutation.isPending ? <Loader2 className="animate-spin w-5 h-5" /> : <ImagePlus className="w-5 h-5" />}
+                      Generate AI Image
+                    </Button>
+
+                    <div className="h-10 w-px bg-border/50 mx-1 hidden min-[500px]:block" />
+
+                    <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/30 border border-border/40">
+                      {imageSizeOptions.map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          className={cn(
+                            "rounded-md px-2 py-1.5 text-[10px] font-bold transition-all",
+                            selectedImageSize === size
+                              ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                          onClick={() => setSelectedImageSize(size)}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedSection && (
+                  <div className="flex flex-col gap-1.5 ml-auto lg:ml-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-0.5">Refine Current</p>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="gap-2 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15 border border-emerald-500/20"
+                      onClick={() => regenerateMutation.mutate(selectedSection)}
+                      disabled={regenerateMutation.isPending}
+                    >
+                      {regenerateMutation.isPending ? <Loader2 className="animate-spin w-5 h-5" /> : <RefreshCcw className="w-5 h-5" />}
+                      Fix {sectionLabels[selectedSection]}
+                    </Button>
+                  </div>
+                )}
               </div>
+
+              {!selectedThread && (
+                <p className="text-[11px] text-muted-foreground italic flex items-center gap-2 bg-muted/20 p-2 rounded-md">
+                  <TriangleAlert className="w-3.5 h-3.5 text-warning" />
+                  Select or generate an ad concept to enable Visual and Refinement tools.
+                </p>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers3 className="w-4 h-4 text-primary" />
-                Chat + Output
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Layers3 className="w-5 h-5 text-primary" />
+                Creative Blueprint
               </CardTitle>
-              <CardDescription>
-                Prompt history on the left, structured creative output in the center, preview and intelligence on the right.
-              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5">
               {!selectedThread || !selectedVersion ? (
@@ -895,25 +931,6 @@ export default function CreativesPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid gap-3">
-                    {selectedThread.messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "max-w-[90%] rounded-[10px] px-4 py-3 shadow-xs",
-                          message.role === "user"
-                            ? "justify-self-end bg-primary/14 border border-primary/25"
-                            : "justify-self-start bg-card border border-border/70",
-                        )}
-                      >
-                        <p className="type-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
-                          {message.role === "user" ? "Prompt" : "Mojo"}
-                        </p>
-                        <p className="text-base whitespace-pre-wrap text-foreground">{message.content}</p>
-                      </div>
-                    ))}
-                  </div>
-
                   <div className="grid gap-3 md:grid-cols-2">
                     {(Object.keys(sectionLabels) as CreativeSectionKey[]).map((sectionKey) => (
                       <button
@@ -939,45 +956,14 @@ export default function CreativesPage() {
                       </button>
                     ))}
                   </div>
-
-                  <div className="grid gap-4 rounded-[10px] border border-border/70 bg-muted/18 p-4">
-                    <div className="grid gap-2">
-                      <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Copy Variations</p>
-                      <div className="grid lg:grid-cols-3 gap-3">
-                        <Card className="border-border/60">
-                          <CardHeader><CardTitle className="text-base">Headlines</CardTitle></CardHeader>
-                          <CardContent className="grid gap-2">
-                            {selectedVersion.output.copyVariations.headlines.map((item, index) => (
-                              <p key={index} className="text-base text-foreground">{item}</p>
-                            ))}
-                          </CardContent>
-                        </Card>
-                        <Card className="border-border/60">
-                          <CardHeader><CardTitle className="text-base">Primary Text</CardTitle></CardHeader>
-                          <CardContent className="grid gap-2">
-                            {selectedVersion.output.copyVariations.primaryTexts.map((item, index) => (
-                              <p key={index} className="text-base text-foreground">{item}</p>
-                            ))}
-                          </CardContent>
-                        </Card>
-                        <Card className="border-border/60">
-                          <CardHeader><CardTitle className="text-base">CTA Options</CardTitle></CardHeader>
-                          <CardContent className="grid gap-2">
-                            {selectedVersion.output.copyVariations.ctaOptions.map((item, index) => (
-                              <p key={index} className="text-base text-foreground">{item}</p>
-                            ))}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  </div>
                 </>
               )}
             </CardContent>
           </Card>
         </div>
 
-        <aside className="grid gap-6 self-start">
+        {/* -- COLUMN 3: PREVIEW & INTELLIGENCE -- */}
+        <aside className="w-full xl:col-span-2 2xl:col-span-1 2xl:w-[350px] flex flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -990,22 +976,24 @@ export default function CreativesPage() {
               {selectedThread && selectedVersion ? (
                 <>
                   {latestGeneratedImage ? (
-                    <div className="rounded-[10px] border border-border/70 bg-card p-3 shadow-xs">
-                      <img
-                        src={latestGeneratedImage.dataUrl}
-                        alt={`${selectedThread.title} generated preview`}
-                        className="w-full rounded-lg border border-border/60 bg-muted/20 object-cover"
-                      />
-                      <div className="mt-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Generated Size</p>
-                          <p className="text-sm font-semibold text-foreground">
-                            {latestGeneratedImage.requestedSize} · model {latestGeneratedImage.modelSize}
+                    <div className="rounded-[10px] border border-border/70 bg-card p-3 shadow-xs overflow-hidden">
+                      <div className="aspect-square w-full rounded-lg bg-muted/20 relative overflow-hidden group">
+                        <img
+                          src={latestGeneratedImage.dataUrl}
+                          alt={`${selectedThread.title} preview`}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <div className="mt-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Original Build</p>
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {latestGeneratedImage.requestedSize} · {latestGeneratedImage.modelSize}
                           </p>
                         </div>
-                        <Button variant="outline" onClick={handleDownloadGeneratedImage}>
-                          <Download />
-                          Download Image
+                        <Button variant="outline" size="sm" onClick={handleDownloadGeneratedImage} className="shrink-0 h-8 px-3">
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                          Save
                         </Button>
                       </div>
                     </div>
@@ -1037,101 +1025,13 @@ export default function CreativesPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Button onClick={handleCopyBrief}><Copy />Copy Text</Button>
-                    <Button variant="outline" onClick={handleExportBrief}><Download />Export as Brief</Button>
-                    <Button variant="outline" onClick={handleCopyBrief}><Send />Send to Design Team</Button>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Creative Performance Tagging</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { value: "winner" as CreativeStatusTag, label: "Winner", icon: Crown, variant: "success" as const },
-                        { value: "testing" as CreativeStatusTag, label: "Testing", icon: FlaskConical, variant: "warning" as const },
-                        { value: "loser" as CreativeStatusTag, label: "Loser", icon: TriangleAlert, variant: "destructive" as const },
-                      ].map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => tagMutation.mutate(option.value)}
-                          className={cn(
-                            "rounded-lg border px-3 py-3 text-center transition-colors",
-                            selectedThread.statusTag === option.value
-                              ? "border-primary/40 bg-primary/12 shadow-xs"
-                              : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/60",
-                          )}
-                        >
-                          <option.icon className="w-4 h-4 mx-auto mb-2 text-primary" />
-                          <p className="text-sm font-semibold text-foreground">{option.label}</p>
-                        </button>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button onClick={handleCopyBrief} className="h-11 gap-2 shadow-xs shadow-primary/10"><Copy className="w-4 h-4" />Copy Summary</Button>
+                    <Button variant="outline" onClick={handleExportBrief} className="h-11 gap-2 border-border/70"><Download className="w-4 h-4" />Export .txt</Button>
                   </div>
                 </>
               ) : (
                 <p className="type-sm text-muted-foreground">Select a creative thread to preview its structure and export options.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Creative Intelligence</CardTitle>
-              <CardDescription>Recent high-performing creative references from the current analysis snapshot.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {creativeReferences.length ? (
-                creativeReferences.map((item) => (
-                  <div key={item.id} className="rounded-[10px] border border-border/70 bg-card px-3 py-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
-                      <Badge variant={item.score >= 70 ? "success" : item.score >= 40 ? "warning" : "destructive"}>
-                        {item.classification || "Testing"}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span>Score {Math.round(item.score)}</span>
-                      <span>CTR {item.ctr.toFixed(2)}%</span>
-                      <span>CPL {Math.round(item.cpl)}</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="type-sm text-muted-foreground">No creative performance context is available for this client yet.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Version History</CardTitle>
-              <CardDescription>Track iterations and jump back into prior versions if needed.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {selectedThread?.versions.length ? (
-                selectedThread.versions.map((version) => (
-                  <button
-                    key={version.id}
-                    type="button"
-                    className={cn(
-                      "rounded-[10px] border px-3 py-3 text-left transition-colors",
-                      selectedVersion?.id === version.id
-                        ? "border-primary/40 bg-primary/10 shadow-xs"
-                        : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/60",
-                    )}
-                    onClick={() => setSelectedVersionId(version.id)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">
-                        {version.sectionRegenerated ? `Updated ${sectionLabels[version.sectionRegenerated]}` : "Initial generation"}
-                      </p>
-                      <span className="text-[11px] text-muted-foreground">{formatRelativeTime(version.createdAt)}</span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <p className="type-sm text-muted-foreground">Create a concept to begin version tracking.</p>
               )}
             </CardContent>
           </Card>

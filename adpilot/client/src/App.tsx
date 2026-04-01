@@ -6,10 +6,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeProvider, useTheme } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import { ClientProvider, useClient } from "@/lib/client-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { CommandTerminal, CommandTerminalToggle } from "@/components/command-terminal";
@@ -39,21 +39,6 @@ import { Badge } from "@/components/ui/badge";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 import { useLiveUpdates } from "@/hooks/use-live-updates";
 import { useNow } from "@/hooks/use-now";
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <Button
-      size="icon"
-      variant="ghost"
-      onClick={toggleTheme}
-      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-      data-testid="button-theme-toggle"
-    >
-      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-    </Button>
-  );
-}
 
 function AppRouter() {
   return (
@@ -139,7 +124,6 @@ function AppLayout() {
                 <LogOut className="w-4 h-4" />
               </Button>
               <CommandTerminalToggle onClick={() => setTerminalOpen((o) => !o)} isOpen={terminalOpen} />
-              <ThemeToggle />
             </div>
           </header>
           <main className="flex-1 overflow-y-auto overflow-x-hidden" style={{ overscrollBehavior: "contain" }}>

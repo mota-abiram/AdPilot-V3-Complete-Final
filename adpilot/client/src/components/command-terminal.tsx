@@ -148,14 +148,6 @@ function ActionPlanChip({ actionJson }: { actionJson: ActionPlan }) {
       <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border font-mono uppercase tracking-wide", color)}>
         {actionJson.action.type}
       </Badge>
-      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border border-border text-muted-foreground font-mono">
-        {actionJson.platform}
-      </Badge>
-      {actionJson.filters?.length > 0 && (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border border-border text-muted-foreground font-mono">
-          {actionJson.filters.length} filter{actionJson.filters.length !== 1 ? "s" : ""}
-        </Badge>
-      )}
     </div>
   );
 }
@@ -221,11 +213,12 @@ function MessageBubble({ message }: { message: Message }) {
 // ─── Suggested Commands ───────────────────────────────────────────
 
 const SUGGESTED_COMMANDS = [
-  "pause campaigns with CPL above target",
-  "scale winners by 25%",
+  "pause all losers",
+  "scale winners by 20%",
   "pause campaigns spending but no leads",
-  "stop bad campaigns from last 3 days",
-  "increase budget for high CTR campaigns",
+  "fix learning limited campaigns",
+  "pause high CPL campaigns",
+  "add top negative keywords",
 ];
 
 // ─── Main Terminal Component ──────────────────────────────────────
@@ -236,7 +229,7 @@ interface CommandTerminalProps {
 }
 
 export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
-  const { activeClientId, activePlatform } = useClient();
+  const { activeClientId } = useClient();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -292,7 +285,8 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
       const res = await apiRequest("POST", "/api/ai/command", {
         command: trimmed,
         clientId: activeClientId || "amara",
-        platform: activePlatform || "meta",
+        platform: "all",
+        provider: "groq",
       });
 
       const data: AICommandResponse = await res.json();
@@ -325,7 +319,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [activeClientId, activePlatform, isLoading]);
+  }, [activeClientId, isLoading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -362,8 +356,8 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
             </div>
             <div>
               <h2 className="text-sm font-semibold leading-none">Mojo Terminal</h2>
-              <p className="text-[10px] text-muted-foreground mt-0.5 leading-none capitalize">
-                {activePlatform || "meta"} · {activeClientId || "—"}
+              <p className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                Instant command execution
               </p>
             </div>
           </div>
