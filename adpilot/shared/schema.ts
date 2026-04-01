@@ -1,5 +1,47 @@
-// TypeScript types matching the JSON analysis structure
-// No DB tables needed — this is a read-only dashboard
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, numeric } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// ─── Database Tables ────────────────────────────────────────────────
+
+export const apiConfigs = pgTable("ai_configs", {
+  id: serial("id").primaryKey(),
+  openapiApiKey: text("openapi_api_key").notNull().default(""),
+  geminiModel: text("gemini_model").notNull().default("gemini-1.5-flash"),
+  geminiImageModel: text("gemini_image_model").notNull().default("gemini-2.0-flash-preview-image-generation"),
+  groqApiKey: text("groq_api_key").notNull().default(""),
+  groqModel: text("groq_model").notNull().default("llama-3.3-70b-versatile"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const clients = pgTable("clients", {
+  id: text("id").primaryKey(), // e.g. "amara"
+  name: text("name").notNull(),
+  shortName: text("short_name").notNull(),
+  project: text("project").notNull(),
+  location: text("location").notNull(),
+  targetLocations: jsonb("target_locations").$type<string[]>().default([]),
+  platforms: jsonb("platforms").notNull().default({}),
+  targets: jsonb("targets").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const creativeHubs = pgTable("creative_hubs", {
+  clientId: text("client_id").primaryKey(),
+  setup: jsonb("setup").default(null),
+  threads: jsonb("threads").notNull().default([]),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Zod schemas for validation
+export const insertApiConfigSchema = createInsertSchema(apiConfigs);
+export const insertClientSchema = createInsertSchema(clients);
+export const insertCreativeHubSchema = createInsertSchema(creativeHubs);
+
+export type ApiConfig = typeof apiConfigs.$inferSelect;
+export type Client = typeof clients.$inferSelect;
+export type CreativeHub = typeof creativeHubs.$inferSelect;
 
 export interface AnalysisPeriod {
   start: string;
@@ -400,9 +442,58 @@ export interface QuickActionRequest {
   scalePercent?: number;
 }
 
-export interface ExecutionDetails {
-  entityId: string;
-  entityType: "campaign" | "adset" | "ad" | "ad_group";
-  executionAction: ExecutionActionType | string;
-  params?: Record<string, any>;
-}
+export const analysisSnapshots = pgTable("analysis_snapshots", {
+  id: serial("id").primaryKey(),
+  clientId: text("client_id").notNull(), // amara
+  platform: text("platform").notNull(), // meta, google
+  data: jsonb("data").notNull(), // the full analysis JSON
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AnalysisSnapshot = typeof analysisSnapshots.$inferSelect;
+
+// ─── Managed Auth & Learning Tables ─────────────────────────────
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role", { enum: ["admin", "member"] }).notNull().default("member"),
+  status: text("status", { enum: ["active", "blocked"] }).notNull().default("active"),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const executionLogs = pgTable("execution_logs", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull(),
+  platform: text("platform").notNull(),
+  intent: text("intent").notNull(),
+  command: text("command").notNull(),
+  actionType: text("action_type").notNull(),
+  campaignIds: jsonb("campaign_ids").notNull(),
+  rationale: text("rationale"),
+  safetyWarnings: text("safety_warnings"),
+  successCount: integer("success_count").notNull().default(0),
+  failureCount: integer("failure_count").notNull().default(0),
+  requestedBy: text("requested_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const executionOutcomes = pgTable("execution_outcomes", {
+  id: text("id").primaryKey(),
+  logId: text("log_id").notNull(),
+  clientId: text("client_id").notNull(),
+  metricType: text("metric_type").notNull(), // cpl, leads, spend
+  preValue: numeric("pre_value").notNull(),
+  postValue: numeric("post_value"),
+  recordedAt: timestamp("recorded_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type ExecutionLog = typeof executionLogs.$inferSelect;
+export type ExecutionOutcome = typeof executionOutcomes.$inferSelect;

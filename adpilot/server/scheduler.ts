@@ -4,6 +4,9 @@ import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 import { log } from "./index";
+import { saveAnalysisSnapshot } from "./analysis-persistence";
+import { db } from "./db";
+import { clients as clientTable } from "@shared/schema";
 
 const execFileAsync = promisify(execFile);
 
@@ -283,13 +286,24 @@ async function runAgent(): Promise<void> {
         throw error;
       }
       const syncCompletedAt = new Date().toISOString();
-      metaClients.forEach((clientId) => {
+      for (const clientId of metaClients) {
         setPlatformSyncState(clientId, "meta", {
           last_synced_at: syncCompletedAt,
           last_successful_fetch: getLatestAnalysisTimestamp(clientId, "meta"),
           sync_status: "success",
         });
-      });
+
+        // PERSIST TO DB: Capture the newly generated JSON file and push to Postgres
+        const metaPath = path.join(ADS_AGENT_DIR, "data", clientId, "meta", "analysis.json");
+        if (fs.existsSync(metaPath)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+            await saveAnalysisSnapshot(clientId, "meta", data);
+          } catch (e) {
+            log(`[DB Push] Failed to persist Meta snapshot for ${clientId}: ${e}`, "scheduler");
+          }
+        }
+      }
     }
 
     if (fs.existsSync(googleAgent)) {
@@ -322,6 +336,17 @@ async function runAgent(): Promise<void> {
           last_successful_fetch: getLatestAnalysisTimestamp(client.id, "google"),
           sync_status: "success",
         });
+
+        // PERSIST TO DB: Capture the newly generated JSON file and push to Postgres
+        const googlePath = path.join(ADS_AGENT_DIR, "data", client.id, "google", "analysis.json");
+        if (fs.existsSync(googlePath)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(googlePath, "utf-8"));
+            await saveAnalysisSnapshot(client.id, "google", data);
+          } catch (e) {
+            log(`[DB Push] Failed to persist Google snapshot for ${client.id}: ${e}`, "scheduler");
+          }
+        }
         log(`Scheduler: Google agent completed for client '${client.id}'`, "scheduler");
       }
     }

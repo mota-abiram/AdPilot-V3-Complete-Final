@@ -21,6 +21,7 @@ import {
   getLearningSummary,
   triggerOutcomeUpdate,
 } from "./execution-learning";
+import { loadAnalysisSnapshot } from "./analysis-persistence";
 import {
   executeGoogleAction,
   executeGoogleBatch,
@@ -359,7 +360,12 @@ function getRecommendationActionsForPrefix(prefix: string): Record<string, { act
   return result;
 }
 
-function readAnalysisData(clientId: string, platform: string, cadence?: string): any {
+async function readAnalysisData(clientId: string, platform: string, cadence?: string): Promise<any> {
+  // 1. Try DB first (Most reliable)
+  const snap = await loadAnalysisSnapshot(clientId, platform);
+  if (snap) return snap;
+
+  // 2. Legacy Fallback
   const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
   if (!client) {
     throw new Error(`Client '${clientId}' not found in registry`);
@@ -368,35 +374,17 @@ function readAnalysisData(clientId: string, platform: string, cadence?: string):
   if (!platformConfig) {
     throw new Error(`Platform '${platform}' not configured for client '${clientId}'`);
   }
-  if (!platformConfig.enabled) {
-    throw new Error(`Platform '${platform}' is not yet enabled for client '${clientId}'`);
-  }
-
+  
   let dataPath = resolvePlatformDataPath(clientId, platform, platformConfig);
 
-  // If cadence specified, try cadence-specific file first
+  // If cadence specified, try cadence-specific file
   if (cadence) {
-    // 1. Client-specific cadence path
     const cadencePath = dataPath.replace(/analysis\.json$/, `analysis_${cadence}.json`);
-    if (fs.existsSync(cadencePath)) {
-      dataPath = cadencePath;
-    } else if (platform === "meta") {
-      // 2. Legacy flat cadence path — Meta only (e.g., /data/meta_analysis_twice_weekly.json)
-      const legacyCadencePath = path.join(DATA_BASE, `meta_analysis_${cadence}.json`);
-      if (fs.existsSync(legacyCadencePath)) {
-        dataPath = legacyCadencePath;
-      }
-      // else: fall through to default dataPath (analysis.json)
-    }
-  }
-
-  // Fallback: if the client-specific path doesn't exist but legacy does (for amara/meta)
-  if (!fs.existsSync(dataPath) && clientId === "amara" && platform === "meta") {
-    dataPath = LEGACY_META_PATH;
+    if (fs.existsSync(cadencePath)) dataPath = cadencePath;
   }
 
   if (!fs.existsSync(dataPath)) {
-    throw new Error(`No analysis data found at ${dataPath}`);
+    throw new Error(`No analysis data found (DB or File) for ${clientId}/${platform}`);
   }
 
   const raw = fs.readFileSync(dataPath, "utf-8");
@@ -686,12 +674,10 @@ export async function registerRoutes(
 
   // ─── Analysis Data Endpoints (client + platform aware) ─────────
 
-
-  // Full analysis data for a client/platform (optional ?cadence=twice_weekly|weekly|biweekly|monthly)
-  app.get("/api/clients/:clientId/:platform/analysis", (req, res) => {
+  app.get("/api/clients/:clientId/platforms/:platform/analysis", async (req, res) => {
     try {
-      const cadence = req.query.cadence as string | undefined;
-      const data = readAnalysisData(req.params.clientId, req.params.platform, cadence);
+      const cadence = req.query.cadence as string;
+      const data = await readAnalysisData(req.params.clientId, req.params.platform, cadence);
       res.json(data);
     } catch (err: any) {
       const status = err.message.includes("not found") || err.message.includes("not configured") ? 404
@@ -725,9 +711,9 @@ export async function registerRoutes(
   });
 
   // Summary for a client/platform
-  app.get("/api/clients/:clientId/:platform/summary", (req, res) => {
+  app.get("/api/clients/:clientId/platforms/:platform/performance", async (req, res) => {
     try {
-      const data = readAnalysisData(req.params.clientId, req.params.platform);
+      const data = await readAnalysisData(req.params.clientId, req.params.platform);
       res.json({
         summary: data.summary,
         account_pulse: data.account_pulse,
@@ -939,7 +925,7 @@ export async function registerRoutes(
     res.json(getCreativeHubState(req.params.clientId));
   });
 
-  app.post("/api/clients/:clientId/creative-hub/setup", (req, res) => {
+  app.post("/api/clients/:clientId/creative-hub/setup", async (req, res) => {
     const { clientId } = req.params;
     const {
       projectName = "",
@@ -956,7 +942,7 @@ export async function registerRoutes(
       winningCreatives = [],
     } = req.body || {};
 
-    const next = saveCreativeSetup(clientId, {
+    const next = await saveCreativeSetup(clientId, {
       projectName,
       logos,
       renders,
@@ -994,8 +980,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Campaign idea, offer, and hook are required." });
       }
 
-      const analysis = readAnalysisData(clientId, input.platform === "google_display" ? "google" : "meta");
-      const references = ((analysis?.creative_health || []) as any[])
+      const platform = req.query.platform === "google" ? "google" : "meta";
+      const analysis = await readAnalysisData(clientId, platform);
+      const references = (((analysis as any)?.creative_health || []) as any[])
         .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
         .slice(0, 5)
         .map((item) => ({
@@ -1017,19 +1004,19 @@ export async function registerRoutes(
       res.status(500).json({ error: error?.message || "Failed to generate creative" });
     }
   });
-
-  app.post("/api/clients/:clientId/creative-hub/:threadId/regenerate", async (req, res) => {
+  app.post("/api/clients/:clientId/creative-hub/regenerate", async (req, res) => {
     try {
-      const { clientId, threadId } = req.params;
-      const sectionKey = req.body?.sectionKey as CreativeSectionKey;
-      if (!sectionKey) {
-        return res.status(400).json({ error: "sectionKey is required." });
+      const { clientId } = req.params;
+      const { threadId, sectionKey } = req.body;
+      if (!threadId || !sectionKey) {
+        return res.status(400).json({ error: "threadId and sectionKey are required." });
       }
 
       const hub = getCreativeHubState(clientId);
-      const platform = hub.threads.find((thread) => thread.id === threadId)?.input.platform || "meta";
-      const analysis = readAnalysisData(clientId, platform === "google_display" ? "google" : "meta");
-      const references = ((analysis?.creative_health || []) as any[])
+      const input = (hub.threads.find((t) => t.id === threadId))?.input;
+      const platform = input?.platform === "google_display" ? "google" : "facebook";
+      const analysis = await readAnalysisData(clientId, platform === "google" ? "google" : "meta");
+      const references = (((analysis as any)?.creative_health || []) as any[])
         .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
         .slice(0, 5)
         .map((item) => ({
@@ -1055,7 +1042,7 @@ export async function registerRoutes(
   app.post("/api/clients/:clientId/creative-hub/:threadId/generate-image", async (req, res) => {
     try {
       const { clientId, threadId } = req.params;
-      const requestedSize = String(req.body?.requestedSize || "1080x1080") as "1080x1080" | "1080x1920" | "1200x628" | "960x1200";
+      const requestedSize = String(req.body?.requestedSize || "1080x1080") as any;
       const versionId = req.body?.versionId ? String(req.body.versionId) : undefined;
 
       const next = await generateCreativeImageForThread({
@@ -1071,38 +1058,40 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/clients/:clientId/creative-hub/:threadId/tag", (req, res) => {
+  app.post("/api/clients/:clientId/creative-hub/:threadId/tag", async (req, res) => {
     const { clientId, threadId } = req.params;
     const statusTag = req.body?.statusTag as CreativeStatusTag;
     if (!statusTag) {
       return res.status(400).json({ error: "statusTag is required." });
     }
-    res.json(updateCreativeThreadTag({ clientId, threadId, statusTag }));
+    const next = await updateCreativeThreadTag({ clientId, threadId, statusTag });
+    res.json(next);
   });
 
-  app.post("/api/clients/:clientId/creative-hub/:threadId/duplicate", (req, res) => {
+  app.post("/api/clients/:clientId/creative-hub/:threadId/duplicate", async (req, res) => {
     const { clientId, threadId } = req.params;
-    res.json(duplicateCreativeThread({ clientId, threadId }));
+    const next = await duplicateCreativeThread({ clientId, threadId });
+    res.json(next);
   });
 
   // ─── Legacy endpoints (backward compat — redirect to amara/meta) ───
 
-  app.get("/api/analysis", (_req, res) => {
+  app.get("/api/analysis", async (_req, res) => {
     try {
-      const data = readAnalysisData("amara", "meta");
+      const data = await readAnalysisData("amara", "meta");
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: "Failed to read analysis data", detail: err.message });
     }
   });
 
-  app.get("/api/analysis/summary", (_req, res) => {
+  app.get("/api/analysis/summary", async (_req, res) => {
     try {
-      const data = readAnalysisData("amara", "meta");
+      const data = await readAnalysisData("amara", "meta");
       res.json({
-        summary: data.summary,
-        account_pulse: data.account_pulse,
-        monthly_pacing: data.monthly_pacing,
+        summary: (data as any).summary,
+        account_pulse: (data as any).account_pulse,
+        monthly_pacing: (data as any).monthly_pacing,
       });
     } catch (err: any) {
       res.status(500).json({ error: "Failed to read summary", detail: err.message });
@@ -1219,7 +1208,7 @@ export async function registerRoutes(
   app.post("/api/auto-execute", async (req, res) => {
     try {
       const { clientId = "amara", platform = "meta" } = req.body || {};
-      const data = readAnalysisData(clientId, platform);
+      const data = await readAnalysisData(clientId, platform);
 
       const insights: any[] = data.intellect_insights || [];
       const autoInsights = insights.filter((i: any) => i.auto_action === true);
@@ -1303,7 +1292,7 @@ export async function registerRoutes(
         });
       }
 
-      const data = readAnalysisData(clientId, platform);
+      const data = await readAnalysisData(clientId, platform);
       const adsets: any[] = data.adset_analysis || [];
       const execRequests: ExecutionRequest[] = [];
 
@@ -1388,17 +1377,15 @@ export async function registerRoutes(
     }
   });
 
-  // ─── Auto-Execute Now (client/platform scoped) ──────────────────
-  // Reads latest analysis, finds all should_pause entities, executes pause
   app.post("/api/clients/:clientId/:platform/auto-execute-now", async (req, res) => {
     try {
       const { clientId, platform } = req.params;
-      const data = readAnalysisData(clientId, platform);
+      const data = await readAnalysisData(clientId, platform);
 
       const execRequests: ExecutionRequest[] = [];
 
       // 1. Ads from scoring_summary.ad_scores.auto_pause
-      const autoPauseAds: any[] = data.scoring_summary?.ad_scores?.auto_pause || [];
+      const autoPauseAds: any[] = (data as any).scoring_summary?.ad_scores?.auto_pause || [];
       for (const ad of autoPauseAds) {
         if (ad.ad_id) {
           execRequests.push({
@@ -1415,7 +1402,7 @@ export async function registerRoutes(
       }
 
       // 2. Ads from creative_health with should_pause === true
-      const creativeHealth: any[] = data.creative_health || [];
+      const creativeHealth: any[] = (data as any).creative_health || [];
       for (const ad of creativeHealth) {
         if (ad.should_pause && ad.ad_id) {
           // Avoid duplicates from scoring_summary
@@ -1435,7 +1422,7 @@ export async function registerRoutes(
       }
 
       // 3. Adsets from adset_analysis with should_pause === true
-      const adsetAnalysis: any[] = data.adset_analysis || [];
+      const adsetAnalysis: any[] = (data as any).adset_analysis || [];
       for (const adset of adsetAnalysis) {
         if (adset.should_pause && adset.adset_id) {
           execRequests.push({
@@ -1512,7 +1499,7 @@ export async function registerRoutes(
 
         // Record to learning engine
         try {
-          const analysisData = readAnalysisData(req.params.clientId, req.params.platform);
+          const analysisData = await readAnalysisData(req.params.clientId, req.params.platform);
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             req.params.clientId,
@@ -1565,7 +1552,7 @@ export async function registerRoutes(
       // Record execution for learning engine (best-effort)
       if (result.success) {
         try {
-          const analysisData = readAnalysisData(req.params.clientId, req.params.platform);
+          const analysisData = await readAnalysisData(req.params.clientId, req.params.platform);
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             req.params.clientId,
@@ -1627,7 +1614,7 @@ export async function registerRoutes(
 
   // ─── Breakdowns Endpoint ───────────────────────────────────────────
 
-  app.get("/api/clients/:clientId/:platform/breakdowns", (req, res) => {
+  app.get("/api/clients/:clientId/:platform/breakdowns", async (req, res) => {
     const { clientId, platform } = req.params;
     const cadence = req.query.cadence as string | undefined;
     const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
@@ -1636,7 +1623,7 @@ export async function registerRoutes(
     }
 
     try {
-      const data = readAnalysisData(clientId, platform, cadence);
+      const data = await readAnalysisData(clientId, platform, cadence);
 
       // Check for any breakdown data in the analysis
       const hasBreakdowns = data.breakdowns || data.breakdown_age || data.breakdown_gender ||
@@ -1674,7 +1661,7 @@ export async function registerRoutes(
 
   // ─── Campaign-Specific Breakdowns Endpoint ───────────────────────
 
-  app.get("/api/clients/:clientId/:platform/breakdowns/:campaignId", (req, res) => {
+  app.get("/api/clients/:clientId/:platform/breakdowns/:campaignId", async (req, res) => {
     const { clientId, platform, campaignId } = req.params;
     const cadence = req.query.cadence as string | undefined;
     const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
@@ -1683,7 +1670,7 @@ export async function registerRoutes(
     }
 
     try {
-      const data = readAnalysisData(clientId, platform, cadence);
+      const data = await readAnalysisData(clientId, platform, cadence);
       const cbd = data.campaign_breakdowns?.[campaignId];
       if (!cbd) {
         return res.json({ available: false, message: "No breakdown data for this campaign." });
@@ -1740,7 +1727,7 @@ export async function registerRoutes(
       // Record execution for learning engine (best-effort)
       if (result.success) {
         try {
-          const analysisData = readAnalysisData(req.params.clientId, "google");
+          const analysisData = await readAnalysisData(req.params.clientId, "google");
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             req.params.clientId,
@@ -1796,7 +1783,7 @@ export async function registerRoutes(
   app.post("/api/clients/:clientId/google/auto-execute-now", async (req, res) => {
     try {
       const { clientId } = req.params;
-      const data = readAnalysisData(clientId, "google");
+      const data = await readAnalysisData(clientId, "google");
 
       const execRequests: GoogleExecutionRequest[] = [];
 
@@ -1885,7 +1872,7 @@ export async function registerRoutes(
         });
       }
 
-      const data = readAnalysisData(clientId, "google");
+      const data = await readAnalysisData(clientId, "google");
       const campaigns: any[] = data.campaign_analysis || data.campaign_audit || [];
       const execRequests: GoogleExecutionRequest[] = [];
 
@@ -2154,13 +2141,13 @@ export async function registerRoutes(
   });
 
   // Trigger outcome update for pending learning entries
-  app.post("/api/execution-learning/update-outcomes", (req, res) => {
+  app.post("/api/execution-learning/update-outcomes", async (req, res) => {
     try {
       const { clientId = "amara", platform = "meta" } = req.body || {};
 
       let analysisData: any;
       try {
-        analysisData = readAnalysisData(clientId, platform);
+        analysisData = await readAnalysisData(clientId, platform);
       } catch (err: any) {
         return res.status(404).json({ error: `Could not read analysis data: ${err.message}` });
       }
@@ -2177,12 +2164,12 @@ export async function registerRoutes(
   });
 
   // ─── Data Verification Endpoint ─────────────────────────────────
-  app.get("/api/clients/:clientId/:platform/verify-data", (req, res) => {
+  app.get("/api/clients/:clientId/:platform/verify-data", async (req, res) => {
     const { clientId, platform } = req.params;
     const cadence = (req.query.cadence as string) || "twice_weekly";
 
     try {
-      const data = readAnalysisData(clientId, platform, cadence);
+      const data = await readAnalysisData(clientId, platform, cadence);
       const ap = data.account_pulse || {};
       const agentSpend = ap.total_spend_30d ?? ap.total_spend ?? 0;
 
@@ -2203,7 +2190,7 @@ export async function registerRoutes(
       // Cross-check: compare current cadence data with the base analysis.json
       // If they differ significantly, flag it
       try {
-        const baseData = readAnalysisData(clientId, platform); // default (no cadence)
+        const baseData = await readAnalysisData(clientId, platform); // default (no cadence)
         const baseSpend = (baseData.account_pulse || {}).total_spend_30d ?? (baseData.account_pulse || {}).total_spend ?? 0;
         const discrepancy = Math.abs(agentSpend - baseSpend);
         const discrepancyPct = baseSpend > 0 ? (discrepancy / baseSpend) * 100 : 0;
@@ -2234,15 +2221,14 @@ export async function registerRoutes(
     }
   });
 
-  // ─── New Entity Detection Endpoint ──────────────────────────────
-  app.get("/api/clients/:clientId/:platform/check-new-entities", (req, res) => {
-    const { clientId, platform } = req.params;
-
-    try {
-      const data = readAnalysisData(clientId, platform);
-
-      // Check for entities flagged as new by the agent
-      const campaigns = data.campaign_audit || data.campaigns || [];
+    app.get("/api/clients/:clientId/:platform/check-new-entities", async (req, res) => {
+      const { clientId, platform } = req.params;
+  
+      try {
+        const data = await readAnalysisData(clientId, platform);
+        const campaigns = (data as any).campaign_audit || (data as any).campaigns || [];
+        const adsetAnalysis = (data as any).adset_analysis || (data as any).ad_group_analysis || [];
+        const campaignAnalysis = (data as any).campaign_audit || (data as any).campaigns || (data as any).campaign_analysis || [];
       const adsets = data.adset_analysis || data.ad_groups || [];
 
       const newCampaigns = campaigns.filter((c: any) => {
@@ -2312,7 +2298,7 @@ export async function registerRoutes(
 
   // ─── Command Parser Endpoint ──────────────────────────────────────
   // Parses natural language commands into executable actions
-  app.post("/api/parse-command", (req, res) => {
+  app.post("/api/parse-command", async (req, res) => {
     try {
       const { command, clientId = "amara", platform = "meta" } = req.body;
       if (!command || typeof command !== "string") {
@@ -2320,9 +2306,9 @@ export async function registerRoutes(
       }
 
       const cmd = command.toLowerCase().trim();
-      const data = readAnalysisData(clientId, platform);
-      const adsets: any[] = data.adset_analysis || data.ad_group_analysis || [];
-      const campaigns: any[] = data.campaign_audit || data.campaigns || data.campaign_analysis || [];
+      const data = await readAnalysisData(clientId, platform);
+      const adsets: any[] = (data as any).adset_analysis || (data as any).ad_group_analysis || [];
+      const campaigns: any[] = (data as any).campaign_audit || (data as any).campaigns || (data as any).campaign_analysis || [];
 
       const parsed: Array<{
         action: string;

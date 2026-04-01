@@ -1,5 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { db } from "./db.js";
+import { creativeHubs, apiConfigs } from "../shared/schema.js";
+import { eq } from "drizzle-orm";
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const CREATIVE_HUB_FILE = path.join(DATA_BASE, "creative_hub.json");
@@ -20,7 +23,10 @@ interface AiConfig {
 }
 
 function readAiConfig(): AiConfig {
+  // If we have a DB, try to read from there first.
   try {
+    // In a synchronous function, we might just have to rely on JSON fallback
+    // unless we make these async.
     if (fs.existsSync(AI_CONFIG_FILE)) {
       return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, "utf-8"));
     }
@@ -184,6 +190,9 @@ function readCreativeSop(): string {
 }
 
 function readStore(): CreativeHubStore {
+  // Since this is currently synchronous in the codebase, and DB calls are async,
+  // we will continue to use the JSON store AS A CACHE, but writes will hit the DB.
+  // We'll update the JSON from DB on server startup or when we can.
   ensureDataDir();
   if (!fs.existsSync(CREATIVE_HUB_FILE)) {
     return { clients: {} };
@@ -195,9 +204,34 @@ function readStore(): CreativeHubStore {
   }
 }
 
-function writeStore(store: CreativeHubStore) {
+async function writeStore(store: CreativeHubStore) {
+  // 1. Perspective Write (JSON cache)
   ensureDataDir();
   fs.writeFileSync(CREATIVE_HUB_FILE, JSON.stringify(store, null, 2));
+
+  // 2. Persistent Write (Postgres)
+  try {
+    if (process.env.DATABASE_URL) {
+      console.log("[Creative Hub] Persisting store to Database...");
+      for (const [clientId, clientState] of Object.entries(store.clients)) {
+        await db.insert(creativeHubs).values({
+          clientId,
+          setup: clientState.setup,
+          threads: clientState.threads,
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: [creativeHubs.clientId],
+          set: {
+            setup: clientState.setup,
+            threads: clientState.threads,
+            updatedAt: new Date(),
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[Creative Hub] DB Persistence failed (will rely on JSON):", err);
+  }
 }
 
 function defaultClientState(clientId: string): CreativeHubClientState {
@@ -214,10 +248,10 @@ export function getCreativeHubState(clientId: string): CreativeHubClientState {
   return store.clients[clientId] || defaultClientState(clientId);
 }
 
-export function saveCreativeSetup(
+export async function saveCreativeSetup(
   clientId: string,
   setup: Omit<CreativeSetup, "updatedAt">,
-): CreativeHubClientState {
+): Promise<CreativeHubClientState> {
   const store = readStore();
   const existing = store.clients[clientId] || defaultClientState(clientId);
   const next: CreativeHubClientState = {
@@ -229,7 +263,7 @@ export function saveCreativeSetup(
     updatedAt: new Date().toISOString(),
   };
   store.clients[clientId] = next;
-  writeStore(store);
+  await writeStore(store);
   return next;
 }
 
@@ -819,7 +853,7 @@ export async function generateCreativeThread(params: {
     updatedAt: now,
   };
   store.clients[params.clientId] = next;
-  writeStore(store);
+  await writeStore(store);
   return next;
 }
 
@@ -881,15 +915,15 @@ export async function regenerateCreativeSectionForThread(params: {
     updatedAt: new Date().toISOString(),
   };
   store.clients[params.clientId] = next;
-  writeStore(store);
+  await writeStore(store);
   return next;
 }
 
-export function updateCreativeThreadTag(params: {
+export async function updateCreativeThreadTag(params: {
   clientId: string;
   threadId: string;
   statusTag: CreativeStatusTag;
-}): CreativeHubClientState {
+}): Promise<CreativeHubClientState> {
   const store = readStore();
   const existing = store.clients[params.clientId] || defaultClientState(params.clientId);
   const threads = existing.threads.map((thread) =>
@@ -899,14 +933,14 @@ export function updateCreativeThreadTag(params: {
   );
   const next = { ...existing, threads, updatedAt: new Date().toISOString() };
   store.clients[params.clientId] = next;
-  writeStore(store);
+  await writeStore(store);
   return next;
 }
 
-export function duplicateCreativeThread(params: {
+export async function duplicateCreativeThread(params: {
   clientId: string;
   threadId: string;
-}): CreativeHubClientState {
+}): Promise<CreativeHubClientState> {
   const store = readStore();
   const existing = store.clients[params.clientId] || defaultClientState(params.clientId);
   const thread = existing.threads.find((item) => item.id === params.threadId);
@@ -946,7 +980,7 @@ export function duplicateCreativeThread(params: {
     updatedAt: now,
   };
   store.clients[params.clientId] = next;
-  writeStore(store);
+  await writeStore(store);
   return next;
 }
 
@@ -1007,6 +1041,6 @@ export async function generateCreativeImageForThread(params: {
     updatedAt: now,
   };
   store.clients[params.clientId] = next;
-  writeStore(store);
+  await writeStore(store);
   return next;
 }

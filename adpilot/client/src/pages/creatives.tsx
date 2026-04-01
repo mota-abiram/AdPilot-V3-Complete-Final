@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Sparkles,
@@ -292,6 +292,7 @@ export default function CreativesPage() {
   const [selectedSection, setSelectedSection] = useState<CreativeSectionKey | null>(null);
   const [selectedImageSize, setSelectedImageSize] = useState<CreativeGeneratedImage["requestedSize"]>("1080x1080");
   const [isSopVisible, setIsSopVisible] = useState(false);
+  const sopRef = useRef<HTMLDivElement>(null);
 
   const { data: hubData, isLoading } = useQuery<CreativeHubState>({
     queryKey: ["/api/clients", activeClientId, "creative-hub"],
@@ -506,12 +507,22 @@ export default function CreativesPage() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Button
-                variant={setupComplete ? "ghost" : "outline"}
-                onClick={() => setIsSopVisible(!isSopVisible)}
-                className={cn("gap-2", !setupComplete && "animate-pulse border-primary/40 bg-primary/5")}
+                variant={(isSopVisible || !setupComplete) ? "secondary" : "outline"}
+                onClick={() => {
+                  setIsSopVisible(!isSopVisible);
+                  // Fixed: Always scroll into view when clicked so user knows it responded
+                  setTimeout(() => {
+                    sopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 100);
+                }}
+                className={cn(
+                  "gap-2 transition-all duration-300",
+                  !setupComplete && "animate-pulse border-primary/40 bg-primary/8 ring-1 ring-primary/20",
+                  (isSopVisible || !setupComplete) && "bg-primary/10 border-primary/30"
+                )}
               >
-                <FlaskConical className="w-4 h-4" />
-                Configure Client SOP
+                <FlaskConical className={cn("w-4 h-4", (isSopVisible || !setupComplete) && "text-primary")} />
+                {setupComplete ? "Configure Client SOP" : "Setup Required SOP"}
               </Button>
               <Button onClick={() => generateMutation.mutate(promptInput)} disabled={!setupComplete || generateMutation.isPending} className="shadow-lg shadow-primary/20">
                 {generateMutation.isPending ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
@@ -537,7 +548,7 @@ export default function CreativesPage() {
       )}
 
       {(isSopVisible || !setupComplete) && (
-        <section className="page-zone" aria-labelledby="creative-sop-title">
+        <section ref={sopRef} className="page-zone scroll-mt-6" aria-labelledby="creative-sop-title">
           <Card className="border-primary/20 bg-primary/2 shadow-inner">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <div>

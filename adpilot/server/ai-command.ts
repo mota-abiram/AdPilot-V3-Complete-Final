@@ -13,8 +13,11 @@
 
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { executeAction, type ExecutionRequest, type ExecutionActionType } from "./meta-execution";
 import { executeGoogleAction, type GoogleExecutionRequest, type GoogleExecutionActionType } from "./google-execution";
+import { db } from "./db";
+import { executionLogs, executionOutcomes, type ExecutionLog } from "@shared/schema";
 
 // Groq — free tier covers ~14,400 req/day, no credit card needed.
 // Get a free key at: https://console.groq.com
@@ -305,34 +308,52 @@ function updateCooldownLog(campaignIds: string[]) {
   fs.writeFileSync(COOLDOWN_LOG, JSON.stringify(cooldownLog, null, 2));
 }
 
-// ─── Learning Logger ──────────────────────────────────────────────
-
-function logToCSV(entry: {
-  timestamp: string;
+async function logExecutionToDb(entry: {
   clientId: string;
   platform: string;
   intent: string;
   command: string;
   rationale: string;
-  campaignsActioned: number;
-  action: string;
+  actionType: string;
+  campaignIds: string[];
+  successCount: number;
+  failureCount: number;
   safetyWarnings: string;
+  requestedBy: string;
+  outcomes: Array<{ metric: string; preValue: number }>;
 }) {
-  const header = "timestamp,clientId,platform,intent,command,rationale,campaignsActioned,action,safetyWarnings\n";
-  const row = [
-    entry.timestamp,
-    entry.clientId,
-    entry.platform,
-    `"${(entry.intent || "").replace(/"/g, "'")}"`,
-    `"${(entry.command || "").replace(/"/g, "'")}"`,
-    `"${(entry.rationale || "").replace(/"/g, "'")}"`,
-    entry.campaignsActioned,
-    entry.action,
-    `"${(entry.safetyWarnings || "").replace(/"/g, "'")}"`,
-  ].join(",") + "\n";
+  const logId = (globalThis as any).crypto?.randomUUID?.() || require("crypto").randomUUID();
+  
+  await db.insert(executionLogs).values({
+    id: logId,
+    clientId: entry.clientId,
+    platform: entry.platform,
+    intent: entry.intent,
+    command: entry.command,
+    actionType: entry.actionType,
+    campaignIds: entry.campaignIds,
+    rationale: entry.rationale,
+    safetyWarnings: entry.safetyWarnings,
+    successCount: entry.successCount,
+    failureCount: entry.failureCount,
+    requestedBy: entry.requestedBy,
+    createdAt: new Date(),
+  });
 
-  if (!fs.existsSync(LEARNING_CSV)) fs.writeFileSync(LEARNING_CSV, header);
-  fs.appendFileSync(LEARNING_CSV, row);
+  if (entry.outcomes.length > 0) {
+    await db.insert(executionOutcomes).values(
+      entry.outcomes.map((o) => ({
+        id: ((globalThis as any).crypto?.randomUUID?.() || require("crypto").randomUUID()),
+        logId,
+        clientId: entry.clientId,
+        metricType: o.metric,
+        preValue: String(o.preValue),
+        recordedAt: new Date(),
+      }))
+    );
+  }
+
+  console.log(`[AI Command] Logged execution ${logId} to database.`);
 }
 
 // ─── Claude Response Parser ───────────────────────────────────────
@@ -704,17 +725,23 @@ Analyse the campaigns and respond in the mandatory format.`;
   const actionedIds = safety.approvedCampaigns.map((c: any) => c.id || c.campaign_id || "").filter(Boolean);
   if (actionedIds.length > 0) updateCooldownLog(actionedIds);
 
-  // Log to learning CSV
-  logToCSV({
-    timestamp: new Date().toISOString(),
+  // Log to DB
+  await logExecutionToDb({
     clientId,
     platform,
     intent: actionJson.intent,
     command,
     rationale: actionJson.strategic_rationale,
-    campaignsActioned: executionResults.filter((r) => r.success).length,
-    action: actionJson.action.type,
+    actionType: actionJson.action.type,
+    campaignIds: actionedIds,
+    successCount: executionResults.filter((r) => r.success).length,
+    failureCount: executionResults.filter((r) => !r.success).length,
     safetyWarnings: allWarnings.join(" | "),
+    requestedBy: "mojo-ai",
+    outcomes: safety.approvedCampaigns.map((c: any) => {
+      const m = getCampaignMetrics(c);
+      return { metric: "cpl", preValue: m.cpl };
+    }),
   });
 
   return {

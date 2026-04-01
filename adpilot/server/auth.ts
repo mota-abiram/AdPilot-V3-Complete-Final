@@ -1,8 +1,14 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import session from "express-session";
+import connectPg from "connect-pg-simple";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { db } from "./db";
+import { users, type User, type NewUser } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
+const PostgresSessionStore = connectPg(session);
 
 type UserRole = "admin" | "member";
 type UserStatus = "active" | "blocked";
@@ -69,16 +75,22 @@ function verifyPassword(password: string, storedHash: string): boolean {
   return derived.length === expectedBuffer.length && crypto.timingSafeEqual(derived, expectedBuffer);
 }
 
-function sanitizeUser(user: StoredUser): SafeUser {
+function sanitizeUser(user: User): SafeUser {
   const { passwordHash: _passwordHash, ...safe } = user;
-  return safe;
+  // Convert timestamps to ISO strings for frontend compatibility if needed
+  return {
+    ...safe,
+    createdAt: (safe.createdAt as any)?.toISOString?.() || String(safe.createdAt),
+    updatedAt: (safe.updatedAt as any)?.toISOString?.() || String(safe.updatedAt),
+    lastLoginAt: (safe.lastLoginAt as any)?.toISOString?.() || (safe.lastLoginAt ? String(safe.lastLoginAt) : undefined),
+  } as SafeUser;
 }
 
-function loadUsers(): StoredUser[] {
-  ensureDataDir();
-  if (!fs.existsSync(USERS_FILE)) {
-    const now = new Date().toISOString();
-    const initialAdmin: StoredUser = {
+async function ensureBootstrapUser() {
+  const [existingAdmin] = await db.select().from(users).where(eq(users.email, BOOTSTRAP_EMAIL)).limit(1);
+  if (!existingAdmin) {
+    const now = new Date();
+    await db.insert(users).values({
       id: crypto.randomUUID(),
       email: BOOTSTRAP_EMAIL,
       name: BOOTSTRAP_NAME,
@@ -87,54 +99,30 @@ function loadUsers(): StoredUser[] {
       status: "active",
       createdAt: now,
       updatedAt: now,
-    };
-    fs.writeFileSync(USERS_FILE, JSON.stringify([initialAdmin], null, 2));
-    return [initialAdmin];
+    });
+    console.log(`[Auth] Bootstrapped admin user: ${BOOTSTRAP_EMAIL}`);
   }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8")) as StoredUser[];
-    if (Array.isArray(parsed)) return parsed;
-  } catch {
-    // fall through to reset below
-  }
-
-  const now = new Date().toISOString();
-  const fallbackAdmin: StoredUser = {
-    id: crypto.randomUUID(),
-    email: BOOTSTRAP_EMAIL,
-    name: BOOTSTRAP_NAME,
-    passwordHash: createPasswordHash(BOOTSTRAP_PASSWORD),
-    role: "admin",
-    status: "active",
-    createdAt: now,
-    updatedAt: now,
-  };
-  fs.writeFileSync(USERS_FILE, JSON.stringify([fallbackAdmin], null, 2));
-  return [fallbackAdmin];
 }
 
-function saveUsers(users: StoredUser[]) {
-  ensureDataDir();
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-let usersCache = loadUsers();
-
-function getUserById(id?: string): StoredUser | undefined {
+async function getUserById(id?: string): Promise<User | undefined> {
   if (!id) return undefined;
-  return usersCache.find((user) => user.id === id);
+  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return user;
 }
 
-function getUserByEmail(email: string): StoredUser | undefined {
-  return usersCache.find((user) => user.email === email.trim().toLowerCase());
+async function getUserByEmail(email: string): Promise<User | undefined> {
+  const [user] = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
+  return user;
 }
 
-function requireAuthenticatedUser(req: Request, res: Response, next: NextFunction) {
-  const user = getUserById(req.session.authUserId);
+async function requireAuthenticatedUser(req: Request, res: Response, next: NextFunction) {
+  const user = await getUserById(req.session.authUserId);
   if (!user) {
     req.session.authUserId = undefined;
-    return res.status(401).json({ error: "Authentication required" });
+    if (req.path.startsWith("/api")) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    return res.redirect("/auth/login");
   }
   if (user.status !== "active") {
     req.session.authUserId = undefined;
@@ -168,8 +156,16 @@ export function protectApiRoutes(req: Request, res: Response, next: NextFunction
 
 export function setupAuth(app: Express) {
   const isProduction = process.env.NODE_ENV === "production";
+  
+  ensureBootstrapUser();
+
+  const sessionStore = new PostgresSessionStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: true,
+  });
 
   app.use(session({
+    store: sessionStore,
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -183,8 +179,8 @@ export function setupAuth(app: Express) {
     },
   }));
 
-  app.get("/api/auth/me", (req, res) => {
-    const user = getUserById(req.session.authUserId);
+  app.get("/api/auth/me", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
     if (!user || user.status !== "active") {
       if (req.session.authUserId && (!user || user.status !== "active")) {
         req.session.authUserId = undefined;
@@ -208,7 +204,7 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.post("/api/auth/login", (req, res) => {
+  app.post("/api/auth/login", async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
 
@@ -216,7 +212,7 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
@@ -224,9 +220,10 @@ export function setupAuth(app: Express) {
       return res.status(403).json({ error: "This account is blocked from logging in" });
     }
 
-    user.lastLoginAt = new Date().toISOString();
-    user.updatedAt = user.lastLoginAt;
-    saveUsers(usersCache);
+    await db.update(users).set({
+      lastLoginAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(users.id, user.id));
 
     req.session.authUserId = user.id;
     return res.json({ success: true, user: sanitizeUser(user) });
@@ -239,16 +236,17 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/access/users", requireAdmin, (_req, res) => {
-    res.json(usersCache.map(sanitizeUser));
+  app.get("/api/access/users", requireAdmin, async (_req, res) => {
+    const allUsers = await db.select().from(users);
+    res.json(allUsers.map(sanitizeUser));
   });
 
-  app.post("/api/access/users", requireAdmin, (req, res) => {
+  app.post("/api/access/users", requireAdmin, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const name = String(req.body?.name || "").trim();
     const password = String(req.body?.password || "");
-    const role = (req.body?.role === "admin" ? "admin" : "member") as UserRole;
-    const status = (req.body?.status === "blocked" ? "blocked" : "active") as UserStatus;
+    const role = (req.body?.role === "admin" ? "admin" : "member") as any;
+    const status = (req.body?.status === "blocked" ? "blocked" : "active") as any;
 
     if (!email.includes("@")) {
       return res.status(400).json({ error: "A valid email is required" });
@@ -259,12 +257,13 @@ export function setupAuth(app: Express) {
     if (password.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
-    if (getUserByEmail(email)) {
+    const existing = await getUserByEmail(email);
+    if (existing) {
       return res.status(409).json({ error: "A user with that email already exists" });
     }
 
-    const now = new Date().toISOString();
-    const user: StoredUser = {
+    const now = new Date();
+    const newUserRecord: NewUser = {
       id: crypto.randomUUID(),
       email,
       name,
@@ -275,13 +274,12 @@ export function setupAuth(app: Express) {
       updatedAt: now,
     };
 
-    usersCache.push(user);
-    saveUsers(usersCache);
-    res.status(201).json(sanitizeUser(user));
+    const [inserted] = await db.insert(users).values(newUserRecord).returning();
+    res.status(201).json(sanitizeUser(inserted));
   });
 
-  app.put("/api/access/users/:userId", requireAdmin, (req, res) => {
-    const user = getUserById(String(req.params.userId));
+  app.put("/api/access/users/:userId", requireAdmin, async (req, res) => {
+    const user = await getUserById(String(req.params.userId));
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -299,13 +297,15 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ error: "Name is required" });
     }
 
-    const conflict = usersCache.find((candidate) => candidate.id !== user.id && candidate.email === nextEmail);
-    if (conflict) {
+    const conflict = await db.select().from(users).where(eq(users.email, nextEmail)).limit(1);
+    if (conflict.length > 0 && conflict[0].id !== user.id) {
       return res.status(409).json({ error: "Another user already uses that email" });
     }
 
-    const adminCount = usersCache.filter((candidate) => candidate.role === "admin" && candidate.id !== user.id).length;
+    const otherAdmins = await db.select().from(users).where(eq(users.role, "admin")).execute();
+    const adminCount = otherAdmins.filter(a => a.id !== user.id).length;
     const isSelf = req.authUser?.id === user.id;
+
     if (user.role === "admin" && nextRole !== "admin" && adminCount === 0) {
       return res.status(400).json({ error: "At least one admin must remain" });
     }
@@ -313,24 +313,27 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ error: "You cannot block the last admin account" });
     }
 
-    user.email = nextEmail;
-    user.name = nextName;
-    user.role = nextRole;
-    user.status = nextStatus;
+    const updates: any = {
+      email: nextEmail,
+      name: nextName,
+      role: nextRole,
+      status: nextStatus,
+      updatedAt: new Date(),
+    };
+
     if (nextPassword) {
       if (nextPassword.length < 8) {
         return res.status(400).json({ error: "Password must be at least 8 characters" });
       }
-      user.passwordHash = createPasswordHash(nextPassword);
+      updates.passwordHash = createPasswordHash(nextPassword);
     }
-    user.updatedAt = new Date().toISOString();
 
-    saveUsers(usersCache);
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, user.id)).returning();
 
     if (isSelf && nextStatus !== "active") {
       req.session.authUserId = undefined;
     }
 
-    res.json(sanitizeUser(user));
+    res.json(sanitizeUser(updated));
   });
 }
