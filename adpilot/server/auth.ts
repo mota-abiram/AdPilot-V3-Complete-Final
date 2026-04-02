@@ -173,8 +173,8 @@ export function setupAuth(app: Express) {
     name: "adpilot_prod_sid", // UNIQUE name for production
     cookie: {
       httpOnly: true,
-      sameSite: "lax", // Standard Lax is safer for same-domain on Render
-      secure: true,
+      sameSite: "lax",
+      secure: isProduction,
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }));
