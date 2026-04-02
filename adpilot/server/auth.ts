@@ -1,6 +1,7 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import createMemoryStore from "memorystore";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -9,6 +10,7 @@ import { users, type User, type NewUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
+const MemoryStore = createMemoryStore(session);
 
 type UserRole = "admin" | "member";
 type UserStatus = "active" | "blocked";
@@ -61,6 +63,22 @@ function ensureDataDir() {
   if (!fs.existsSync(DATA_BASE)) fs.mkdirSync(DATA_BASE, { recursive: true });
 }
 
+function readUsersFromFile(): StoredUser[] {
+  ensureDataDir();
+  if (!fs.existsSync(USERS_FILE)) return [];
+  try {
+    const raw = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUsersToFile(nextUsers: StoredUser[]) {
+  ensureDataDir();
+  fs.writeFileSync(USERS_FILE, JSON.stringify(nextUsers, null, 2));
+}
+
 function createPasswordHash(password: string): string {
   const salt = crypto.randomBytes(16).toString("hex");
   const derived = crypto.scryptSync(password, salt, 64).toString("hex");
@@ -86,11 +104,66 @@ function sanitizeUser(user: User): SafeUser {
   } as SafeUser;
 }
 
+function sanitizeStoredUser(user: StoredUser): SafeUser {
+  const { passwordHash: _passwordHash, ...safe } = user;
+  return safe;
+}
+
+function isUsableDatabaseUrl(connectionString?: string): boolean {
+  if (!connectionString?.trim()) return false;
+  try {
+    const parsed = new URL(connectionString);
+    return parsed.protocol === "postgres:" || parsed.protocol === "postgresql:";
+  } catch {
+    return false;
+  }
+}
+
+async function selectUserByEmailFromDb(email: string): Promise<User | undefined> {
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return user;
+}
+
+async function selectUserByIdFromDb(id: string): Promise<User | undefined> {
+  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return user;
+}
+
+async function getAllUsers(): Promise<Array<User | StoredUser>> {
+  try {
+    return await db.select().from(users);
+  } catch {
+    return readUsersFromFile();
+  }
+}
+
 async function ensureBootstrapUser() {
-  const [existingAdmin] = await db.select().from(users).where(eq(users.email, BOOTSTRAP_EMAIL)).limit(1);
+  try {
+    const existingAdmin = await selectUserByEmailFromDb(BOOTSTRAP_EMAIL);
+    if (!existingAdmin) {
+      const now = new Date();
+      await db.insert(users).values({
+        id: crypto.randomUUID(),
+        email: BOOTSTRAP_EMAIL,
+        name: BOOTSTRAP_NAME,
+        passwordHash: createPasswordHash(BOOTSTRAP_PASSWORD),
+        role: "admin",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      console.log(`[Auth] Bootstrapped admin user in database: ${BOOTSTRAP_EMAIL}`);
+    }
+    return;
+  } catch (error) {
+    console.warn("[Auth] Database bootstrap unavailable, falling back to file-based auth:", error);
+  }
+
+  const usersFromFile = readUsersFromFile();
+  const existingAdmin = usersFromFile.find((user) => user.email === BOOTSTRAP_EMAIL);
   if (!existingAdmin) {
-    const now = new Date();
-    await db.insert(users).values({
+    const now = new Date().toISOString();
+    usersFromFile.push({
       id: crypto.randomUUID(),
       email: BOOTSTRAP_EMAIL,
       name: BOOTSTRAP_NAME,
@@ -100,19 +173,81 @@ async function ensureBootstrapUser() {
       createdAt: now,
       updatedAt: now,
     });
-    console.log(`[Auth] Bootstrapped admin user: ${BOOTSTRAP_EMAIL}`);
+    writeUsersToFile(usersFromFile);
+    console.log(`[Auth] Bootstrapped admin user in file storage: ${BOOTSTRAP_EMAIL}`);
   }
 }
 
 async function getUserById(id?: string): Promise<User | undefined> {
   if (!id) return undefined;
-  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return user;
+  try {
+    return await selectUserByIdFromDb(id);
+  } catch {
+    const user = readUsersFromFile().find((entry) => entry.id === id);
+    return user as unknown as User | undefined;
+  }
 }
 
 async function getUserByEmail(email: string): Promise<User | undefined> {
-  const [user] = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
-  return user;
+  const normalizedEmail = email.trim().toLowerCase();
+  try {
+    return await selectUserByEmailFromDb(normalizedEmail);
+  } catch {
+    const user = readUsersFromFile().find((entry) => entry.email === normalizedEmail);
+    return user as unknown as User | undefined;
+  }
+}
+
+async function createUser(newUserRecord: NewUser): Promise<User | StoredUser> {
+  try {
+    const [inserted] = await db.insert(users).values(newUserRecord).returning();
+    return inserted;
+  } catch {
+    const usersFromFile = readUsersFromFile();
+    usersFromFile.push({
+      id: newUserRecord.id,
+      email: newUserRecord.email,
+      name: newUserRecord.name,
+      passwordHash: newUserRecord.passwordHash,
+      role: newUserRecord.role ?? "member",
+      status: newUserRecord.status ?? "active",
+      createdAt: newUserRecord.createdAt instanceof Date ? newUserRecord.createdAt.toISOString() : String(newUserRecord.createdAt),
+      updatedAt: newUserRecord.updatedAt instanceof Date ? newUserRecord.updatedAt.toISOString() : String(newUserRecord.updatedAt),
+    });
+    writeUsersToFile(usersFromFile);
+    return usersFromFile[usersFromFile.length - 1];
+  }
+}
+
+async function updateUser(userId: string, updates: Partial<NewUser> & { lastLoginAt?: Date | string | null }): Promise<User | StoredUser | undefined> {
+  try {
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
+    return updated;
+  } catch {
+    const usersFromFile = readUsersFromFile();
+    const index = usersFromFile.findIndex((entry) => entry.id === userId);
+    if (index === -1) return undefined;
+    const current = usersFromFile[index];
+    const nextUser: StoredUser = {
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(updates).map(([key, value]) => [
+          key,
+          value instanceof Date ? value.toISOString() : value,
+        ]),
+      ),
+      updatedAt: updates.updatedAt instanceof Date ? updates.updatedAt.toISOString() : String(updates.updatedAt || current.updatedAt),
+    } as StoredUser;
+    usersFromFile[index] = nextUser;
+    writeUsersToFile(usersFromFile);
+    return nextUser;
+  }
+}
+
+function toSafeUser(user: User | StoredUser): SafeUser {
+  return "passwordHash" in user && typeof user.createdAt === "string"
+    ? sanitizeStoredUser(user as StoredUser)
+    : sanitizeUser(user as User);
 }
 
 async function requireAuthenticatedUser(req: Request, res: Response, next: NextFunction) {
@@ -128,7 +263,7 @@ async function requireAuthenticatedUser(req: Request, res: Response, next: NextF
     req.session.authUserId = undefined;
     return res.status(403).json({ error: "Your access has been blocked" });
   }
-  req.authUser = sanitizeUser(user);
+  req.authUser = toSafeUser(user);
   next();
 }
 
@@ -154,15 +289,32 @@ export function protectApiRoutes(req: Request, res: Response, next: NextFunction
   return requireAuthenticatedUser(req, res, next);
 }
 
-export function setupAuth(app: Express) {
+export async function setupAuth(app: Express) {
   const isProduction = process.env.NODE_ENV === "production";
-  
-  ensureBootstrapUser();
+  const canUsePostgresSessions =
+    process.env.AUTH_USE_PG_SESSIONS === "true" &&
+    isUsableDatabaseUrl(process.env.DATABASE_URL);
+  const cookieSameSite = (process.env.AUTH_COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none";
+  const cookieSecure = process.env.AUTH_COOKIE_SECURE === "false"
+    ? false
+    : process.env.AUTH_COOKIE_SECURE === "true"
+      ? true
+      : isProduction;
 
-  const sessionStore = new PostgresSessionStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: true,
-  });
+  if (isProduction && !canUsePostgresSessions) {
+    console.warn("[Auth] Using in-memory sessions in production. This works only reliably on a single instance.");
+  }
+
+  await ensureBootstrapUser();
+
+  const sessionStore = canUsePostgresSessions
+    ? new PostgresSessionStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true,
+      })
+    : new MemoryStore({
+        checkPeriod: 1000 * 60 * 60 * 24,
+      });
 
   app.use(session({
     store: sessionStore,
@@ -173,8 +325,8 @@ export function setupAuth(app: Express) {
     name: "adpilot_prod_sid", // UNIQUE name for production
     cookie: {
       httpOnly: true,
-      sameSite: "lax",
-      secure: isProduction,
+      sameSite: cookieSameSite,
+      secure: cookieSecure,
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }));
@@ -196,7 +348,7 @@ export function setupAuth(app: Express) {
 
     return res.json({
       authenticated: true,
-      user: sanitizeUser(user),
+      user: toSafeUser(user),
       bootstrap: {
         email: BOOTSTRAP_EMAIL,
         passwordIsDefault: !process.env.AUTH_BOOTSTRAP_PASSWORD,
@@ -220,25 +372,32 @@ export function setupAuth(app: Express) {
       return res.status(403).json({ error: "This account is blocked from logging in" });
     }
 
-    await db.update(users).set({
+    await updateUser(user.id, {
       lastLoginAt: new Date(),
       updatedAt: new Date(),
-    }).where(eq(users.id, user.id));
+    });
 
     req.session.authUserId = user.id;
-    return res.json({ success: true, user: sanitizeUser(user) });
+    return req.session.save((error) => {
+      if (error) {
+        console.error("[Auth] Failed to persist session after login:", error);
+        return res.status(500).json({ error: "Login succeeded, but the session could not be saved" });
+      }
+
+      return res.json({ success: true, user: toSafeUser(user) });
+    });
   });
 
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
-      res.clearCookie("connect.sid");
+      res.clearCookie("adpilot_prod_sid");
       res.json({ success: true });
     });
   });
 
   app.get("/api/access/users", requireAdmin, async (_req, res) => {
-    const allUsers = await db.select().from(users);
-    res.json(allUsers.map(sanitizeUser));
+    const allUsers = await getAllUsers();
+    res.json(allUsers.map(toSafeUser));
   });
 
   app.post("/api/access/users", requireAdmin, async (req, res) => {
@@ -274,8 +433,8 @@ export function setupAuth(app: Express) {
       updatedAt: now,
     };
 
-    const [inserted] = await db.insert(users).values(newUserRecord).returning();
-    res.status(201).json(sanitizeUser(inserted));
+    const inserted = await createUser(newUserRecord);
+    res.status(201).json(toSafeUser(inserted));
   });
 
   app.put("/api/access/users/:userId", requireAdmin, async (req, res) => {
@@ -297,13 +456,13 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ error: "Name is required" });
     }
 
-    const conflict = await db.select().from(users).where(eq(users.email, nextEmail)).limit(1);
+    const conflict = await getUserByEmail(nextEmail).then((match) => (match ? [match] : []));
     if (conflict.length > 0 && conflict[0].id !== user.id) {
       return res.status(409).json({ error: "Another user already uses that email" });
     }
 
-    const otherAdmins = await db.select().from(users).where(eq(users.role, "admin")).execute();
-    const adminCount = otherAdmins.filter(a => a.id !== user.id).length;
+    const otherAdmins = await getAllUsers();
+    const adminCount = otherAdmins.filter((a) => a.id !== user.id && a.role === "admin").length;
     const isSelf = req.authUser?.id === user.id;
 
     if (user.role === "admin" && nextRole !== "admin" && adminCount === 0) {
@@ -328,12 +487,15 @@ export function setupAuth(app: Express) {
       updates.passwordHash = createPasswordHash(nextPassword);
     }
 
-    const [updated] = await db.update(users).set(updates).where(eq(users.id, user.id)).returning();
+    const updated = await updateUser(user.id, updates);
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     if (isSelf && nextStatus !== "active") {
       req.session.authUserId = undefined;
     }
 
-    res.json(sanitizeUser(updated));
+    res.json(toSafeUser(updated));
   });
 }

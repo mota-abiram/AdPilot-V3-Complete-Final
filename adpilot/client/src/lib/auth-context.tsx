@@ -57,7 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await apiRequest("POST", "/api/auth/login", { email, password });
         await queryClient.invalidateQueries();
-        await refetch();
+        const authResult = await refetch();
+        if (!authResult.data?.authenticated) {
+          throw new Error("Login returned 200, but the session was not persisted. Check Set-Cookie, cookie policy, and proxy settings.");
+        }
       } finally {
         setIsMutating(false);
       }

@@ -178,6 +178,7 @@ export default function DashboardPage() {
   const {
     analysisData: data,
     isLoadingAnalysis: isLoading,
+    analysisError,
     activeClient,
     activeClientId,
     activePlatformInfo,
@@ -186,6 +187,16 @@ export default function DashboardPage() {
     syncState,
   } = useClient();
   const now = useNow();
+
+  if (analysisError) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          Failed to load dashboard data: {analysisError.message.replace(/^\d+:\s*/, "")}
+        </div>
+      </div>
+    );
+  }
 
   const { data: benchmarks } = useQuery<Record<string, any>>({
     queryKey: ["/api/clients", activeClientId, "benchmarks"],

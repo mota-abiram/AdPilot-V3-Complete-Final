@@ -16,6 +16,23 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
+const allowedOrigin = process.env.CORS_ORIGIN?.trim();
+if (allowedOrigin) {
+  app.use((req, res, next) => {
+    if (req.headers.origin === allowedOrigin) {
+      res.header("Access-Control-Allow-Origin", allowedOrigin);
+      res.header("Access-Control-Allow-Credentials", "true");
+      res.header("Vary", "Origin");
+    }
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+    next();
+  });
+}
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -31,7 +48,6 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
-setupAuth(app);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -71,6 +87,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await setupAuth(app);
   app.use(protectApiRoutes);
   await registerRoutes(httpServer, app);
 

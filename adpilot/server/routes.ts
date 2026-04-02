@@ -674,7 +674,7 @@ export async function registerRoutes(
 
   // ─── Analysis Data Endpoints (client + platform aware) ─────────
 
-  app.get("/api/clients/:clientId/platforms/:platform/analysis", async (req, res) => {
+  const handleAnalysisRequest = async (req: any, res: any) => {
     try {
       const cadence = req.query.cadence as string;
       const data = await readAnalysisData(req.params.clientId, req.params.platform, cadence);
@@ -685,7 +685,10 @@ export async function registerRoutes(
         : 500;
       res.status(status).json({ error: err.message });
     }
-  });
+  };
+
+  app.get("/api/clients/:clientId/platforms/:platform/analysis", handleAnalysisRequest);
+  app.get("/api/clients/:clientId/:platform/analysis", handleAnalysisRequest);
 
   app.get("/api/clients/:clientId/:platform/sync-state", (req, res) => {
     try {

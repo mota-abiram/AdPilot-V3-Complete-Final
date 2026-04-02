@@ -1,10 +1,10 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import pg from 'pg';
-import * as schema from '../shared/schema.js';
-import dotenv from 'dotenv';
-import path from 'path';
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import * as schema from "../shared/schema.js";
+import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
 
 if (!process.env.DATABASE_URL) {
   // If no DB URL is provided, we use a local pool that will likely fail
@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
 export const db = drizzle(pool, { schema });
