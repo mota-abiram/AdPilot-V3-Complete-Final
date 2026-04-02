@@ -419,35 +419,46 @@ export async function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/login", loginLimiter, async (req, res) => {
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    const password = String(req.body?.password || "");
+    try {
+      const email = String(req.body?.email || "").trim().toLowerCase();
+      const password = String(req.body?.password || "");
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    const user = await getUserByEmail(email);
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-    if (user.status !== "active") {
-      return res.status(403).json({ error: "This account is blocked from logging in" });
-    }
-
-    await updateUser(user.id, {
-      lastLoginAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    req.session.authUserId = user.id;
-    return req.session.save((error) => {
-      if (error) {
-        console.error("[Auth] Failed to persist session after login:", error);
-        return res.status(500).json({ error: "Login succeeded, but the session could not be saved" });
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
       }
 
-      return res.json({ success: true, user: toSafeUser(user) });
-    });
+      const user = await getUserByEmail(email);
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      if (user.status !== "active") {
+        return res.status(403).json({ error: "This account is blocked from logging in" });
+      }
+
+      await updateUser(user.id, {
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      req.session.authUserId = user.id;
+      return req.session.save((error) => {
+        if (error) {
+          console.error("[Auth] Session Save Error:", error);
+          return res.status(500).json({ 
+            error: "Session persistence failure", 
+            detail: error.message 
+          });
+        }
+        return res.json({ success: true, user: toSafeUser(user) });
+      });
+    } catch (err: any) {
+      console.error("[Auth] Critical Login Crash:", err);
+      return res.status(500).json({ 
+        error: "Internal Server Error", 
+        detail: err.message,
+        stack: isProduction ? undefined : err.stack 
+      });
+    }
   });
 
   app.post("/api/auth/logout", (req, res) => {
