@@ -375,7 +375,7 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   }
 
   // 1. Try DB first (Most reliable)
-  const snap = await loadAnalysisSnapshot(clientId, platform);
+  const snap = await loadAnalysisSnapshot(clientId, platform, cadence);
   if (snap) {
     analysisCache.set(cacheKey, { data: snap, ts: Date.now() });
     return snap;
@@ -473,7 +473,40 @@ export async function registerRoutes(
   // ─── Client Registry Endpoints ─────────────────────────────────
   
   // List all clients
-  app.get("/api/clients", (_req, res) => {
+  app.get("/api/clients", async (_req, res) => {
+    // Collect all platforms across all clients to check DB presence efficiently
+    const platformStatusPromises = CLIENT_REGISTRY.flatMap(c => 
+      Object.keys(c.platforms).map(async (platformId) => {
+        // 1. Filesystem check
+        const fileExists = fs.existsSync(resolvePlatformDataPath(c.id, platformId, (c.platforms as any)[platformId])) ||
+                           (c.id === "amara" && platformId === "meta" && fs.existsSync(LEGACY_META_PATH));
+        
+        // 2. DB check (if available)
+        let dbExists = false;
+        if (process.env.DATABASE_URL) {
+          try {
+            const [snap] = await db
+              .select({ id: analysisSnapshots.id })
+              .from(analysisSnapshots)
+              .where(and(
+                eq(analysisSnapshots.clientId, c.id),
+                eq(analysisSnapshots.platform, platformId)
+              ))
+              .limit(1);
+            dbExists = !!snap;
+          } catch (e) {
+            console.error(`[hasData Check] Failed for ${c.id}/${platformId}:`, e);
+          }
+        }
+        
+        return { clientId: c.id, platformId, hasData: fileExists || dbExists };
+      })
+    );
+
+    const platformStatuses = await Promise.all(platformStatusPromises);
+    const statusMap = new Map<string, boolean>();
+    platformStatuses.forEach(s => statusMap.set(`${s.clientId}:${s.platformId}`, s.hasData));
+
     const clients = CLIENT_REGISTRY.map((c) => ({
       id: c.id,
       name: c.name,
@@ -485,9 +518,7 @@ export async function registerRoutes(
         id: key,
         label: p.label,
         enabled: p.enabled,
-        hasData:
-          fs.existsSync(resolvePlatformDataPath(c.id, key, p)) ||
-          (c.id === "amara" && key === "meta" && fs.existsSync(LEGACY_META_PATH)),
+        hasData: statusMap.get(`${c.id}:${key}`) ?? false,
       })),
       targets: c.targets || {},
     }));

@@ -446,13 +446,21 @@ export const analysisSnapshots = pgTable("analysis_snapshots", {
   id: serial("id").primaryKey(),
   clientId: text("client_id").notNull(),
   platform: text("platform").notNull(),
+  cadence: text("cadence").notNull().default("twice_weekly"),
   data: jsonb("data").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (t) => [
-  uniqueIndex("uq_analysis_client_platform").on(t.clientId, t.platform),
+  uniqueIndex("uq_analysis_client_platform_cadence").on(t.clientId, t.platform, t.cadence),
 ]);
 
+export const sessions = pgTable("session", {
+  sid: text("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});
+
 export type AnalysisSnapshot = typeof analysisSnapshots.$inferSelect;
+export type Session = typeof sessions.$inferSelect;
 
 // ─── Managed Auth & Learning Tables ─────────────────────────────
 

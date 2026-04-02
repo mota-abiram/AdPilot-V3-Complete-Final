@@ -4,7 +4,8 @@ import * as schema from "../shared/schema.js";
 import dotenv from "dotenv";
 import path from "path";
 
-dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
+const __root = import.meta.dirname || process.cwd();
+dotenv.config({ path: path.resolve(__root, "../.env") });
 
 if (!process.env.DATABASE_URL) {
   if (process.env.NODE_ENV === "production") {

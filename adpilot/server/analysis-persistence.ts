@@ -26,20 +26,23 @@ export function invalidateAnalysisCache(clientId: string, platform: string) {
  * Saves analysis data to both PostgreSQL (upsert) and the local filesystem.
  * Invalidates the in-memory cache so the next read reflects fresh data.
  */
-export async function saveAnalysisSnapshot(clientId: string, platform: string, data: any) {
+export async function saveAnalysisSnapshot(clientId: string, platform: string, data: any, cadence: string = "twice_weekly") {
   try {
-    // Upsert into DB — unique index on (client_id, platform) ensures one row per client/platform
-    await db
-      .insert(analysisSnapshots)
-      .values({ clientId, platform, data, createdAt: new Date() })
-      .onConflictDoUpdate({
-        target: [analysisSnapshots.clientId, analysisSnapshots.platform],
-        set: { data, createdAt: new Date() },
-      });
+    if (process.env.DATABASE_URL) {
+      // Upsert into DB — unique index on (client_id, platform, cadence)
+      await db
+        .insert(analysisSnapshots)
+        .values({ clientId, platform, cadence, data, createdAt: new Date() })
+        .onConflictDoUpdate({
+          target: [analysisSnapshots.clientId, analysisSnapshots.platform, analysisSnapshots.cadence],
+          set: { data, createdAt: new Date() },
+        });
+    }
 
     // Sync to local file for backward compatibility
     const platformDir = platform === "google" ? "google" : "meta";
-    const targetFile = path.join(DATA_BASE, "clients", clientId, platformDir, "analysis.json");
+    const filename = cadence === "twice_weekly" ? "analysis.json" : `analysis_${cadence}.json`;
+    const targetFile = path.join(DATA_BASE, "clients", clientId, platformDir, filename);
     const dir = path.dirname(targetFile);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(targetFile, JSON.stringify(data, null, 2));
@@ -47,7 +50,7 @@ export async function saveAnalysisSnapshot(clientId: string, platform: string, d
     // Bust cache so the next dashboard load fetches fresh data
     invalidateAnalysisCache(clientId, platform);
 
-    console.log(`[Analysis] Persisted ${platform} snapshot for client ${clientId} to DB & file.`);
+    console.log(`[Analysis] Persisted ${platform} (${cadence}) snapshot for client ${clientId} to DB & file.`);
   } catch (err) {
     console.error("[Analysis] Error persisting snapshot:", err);
   }
@@ -56,30 +59,34 @@ export async function saveAnalysisSnapshot(clientId: string, platform: string, d
 /**
  * Loads the latest analysis snapshot — DB first, then falls back to file.
  */
-export async function loadAnalysisSnapshot(clientId: string, platform: string): Promise<any | null> {
+export async function loadAnalysisSnapshot(clientId: string, platform: string, cadence: string = "twice_weekly"): Promise<any | null> {
   try {
-    const [dbResult] = await db
-      .select()
-      .from(analysisSnapshots)
-      .where(and(
-        eq(analysisSnapshots.clientId, clientId),
-        eq(analysisSnapshots.platform, platform),
-      ))
-      .orderBy(desc(analysisSnapshots.createdAt))
-      .limit(1);
+    if (process.env.DATABASE_URL) {
+      const [dbResult] = await db
+        .select()
+        .from(analysisSnapshots)
+        .where(and(
+          eq(analysisSnapshots.clientId, clientId),
+          eq(analysisSnapshots.platform, platform),
+          eq(analysisSnapshots.cadence, cadence),
+        ))
+        .orderBy(desc(analysisSnapshots.createdAt))
+        .limit(1);
 
-    if (dbResult?.data) return dbResult.data;
+      if (dbResult?.data) return dbResult.data;
+    }
 
     // Fallback to file (local dev / legacy)
     const platformDir = platform === "google" ? "google" : "meta";
-    const targetFile = path.join(DATA_BASE, "clients", clientId, platformDir, "analysis.json");
+    const filename = cadence === "twice_weekly" ? "analysis.json" : `analysis_${cadence}.json`;
+    const targetFile = path.join(DATA_BASE, "clients", clientId, platformDir, filename);
     if (fs.existsSync(targetFile)) {
       return JSON.parse(fs.readFileSync(targetFile, "utf-8"));
     }
 
     return null;
   } catch (err) {
-    console.error(`[Analysis] Error loading snapshot for ${clientId}/${platform}:`, err);
+    console.error(`[Analysis] Error loading snapshot for ${clientId}/${platform} (${cadence}):`, err);
     return null;
   }
 }
