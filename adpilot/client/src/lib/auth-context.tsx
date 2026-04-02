@@ -57,10 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await apiRequest("POST", "/api/auth/login", { email, password });
         await queryClient.invalidateQueries();
-        await refetch();
-        // Do not throw if authenticated is still false here — cookie may arrive
-        // on the next navigation tick (especially on Render behind a proxy).
-        // The AuthGate will re-evaluate after the refetch settles.
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const result = await refetch();
+          if (result.data?.authenticated) return;
+          await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+        }
+
+        throw new Error(
+          "Login succeeded, but the session did not stick. Check Render cookie settings and confirm the bootstrap credentials match the stored admin account.",
+        );
       } finally {
         setIsMutating(false);
       }

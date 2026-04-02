@@ -6,7 +6,7 @@ import createMemoryStore from "memorystore";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { users, type User, type NewUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -159,6 +159,20 @@ async function ensureBootstrapUser() {
         updatedAt: now,
       });
       console.log(`[Auth] Bootstrapped admin user in database: ${BOOTSTRAP_EMAIL}`);
+    } else {
+      const updates: Partial<NewUser> = {};
+      if (existingAdmin.name !== BOOTSTRAP_NAME) updates.name = BOOTSTRAP_NAME;
+      if (existingAdmin.role !== "admin") updates.role = "admin";
+      if (existingAdmin.status !== "active") updates.status = "active";
+      if (!verifyPassword(BOOTSTRAP_PASSWORD, existingAdmin.passwordHash)) {
+        updates.passwordHash = createPasswordHash(BOOTSTRAP_PASSWORD);
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date();
+        await db.update(users).set(updates).where(eq(users.id, existingAdmin.id));
+        console.log(`[Auth] Synced bootstrap admin from environment: ${BOOTSTRAP_EMAIL}`);
+      }
     }
     return;
   } catch (error) {
@@ -181,6 +195,31 @@ async function ensureBootstrapUser() {
     });
     writeUsersToFile(usersFromFile);
     console.log(`[Auth] Bootstrapped admin user in file storage: ${BOOTSTRAP_EMAIL}`);
+  } else {
+    let changed = false;
+
+    if (existingAdmin.name !== BOOTSTRAP_NAME) {
+      existingAdmin.name = BOOTSTRAP_NAME;
+      changed = true;
+    }
+    if (existingAdmin.role !== "admin") {
+      existingAdmin.role = "admin";
+      changed = true;
+    }
+    if (existingAdmin.status !== "active") {
+      existingAdmin.status = "active";
+      changed = true;
+    }
+    if (!verifyPassword(BOOTSTRAP_PASSWORD, existingAdmin.passwordHash)) {
+      existingAdmin.passwordHash = createPasswordHash(BOOTSTRAP_PASSWORD);
+      changed = true;
+    }
+
+    if (changed) {
+      existingAdmin.updatedAt = new Date().toISOString();
+      writeUsersToFile(usersFromFile);
+      console.log(`[Auth] Synced bootstrap admin in file storage from environment: ${BOOTSTRAP_EMAIL}`);
+    }
   }
 }
 
@@ -301,7 +340,12 @@ export async function setupAuth(app: Express) {
   const canUsePostgresSessions =
     process.env.AUTH_USE_PG_SESSIONS !== "false" &&
     isUsableDatabaseUrl(process.env.DATABASE_URL);
-  const cookieSameSite = (process.env.AUTH_COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none";
+  const cookieSameSite = process.env.AUTH_COOKIE_SAMESITE
+    ? (process.env.AUTH_COOKIE_SAMESITE as "lax" | "strict" | "none")
+    : isProduction
+      ? "none"
+      : "lax";
+
   const cookieSecure = process.env.AUTH_COOKIE_SECURE === "false"
     ? false
     : process.env.AUTH_COOKIE_SECURE === "true"
@@ -318,7 +362,7 @@ export async function setupAuth(app: Express) {
 
   const sessionStore = canUsePostgresSessions
     ? new PostgresSessionStore({
-        conString: process.env.DATABASE_URL,
+        pool,
         createTableIfMissing: true,
       })
     : new MemoryStore({
@@ -330,13 +374,14 @@ export async function setupAuth(app: Express) {
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    proxy: true,
-    name: "adpilot_prod_sid", // UNIQUE name for production
+    proxy: true, // MUST be true for Load Balancers (Render/AWS/Hostinger)
+    name: "adpilot_prod_sid",
     cookie: {
       httpOnly: true,
       sameSite: cookieSameSite,
       secure: cookieSecure,
       maxAge: 1000 * 60 * 60 * 24 * 7,
+      domain: isProduction ? undefined : undefined,
     },
   }));
 
