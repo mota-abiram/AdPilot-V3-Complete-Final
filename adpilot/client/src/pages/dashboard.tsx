@@ -443,9 +443,10 @@ export default function DashboardPage() {
 
   const multiMetricChartData = ap.daily_ctrs.map((ctr: number, i: number) => ({
     day: dayLabels[i],
-    ctr: parseFloat((ctr * 100).toFixed(2)),
-    tsr: ap.daily_tsrs?.[i] ?? (blendedTSR ?? 0),
-    vhr: ap.daily_vhrs?.[i] ?? (blendedVHR ?? 0),
+    ctr: parseFloat(ctr.toFixed(2)),
+    // Segregate TSR/VHR: only use video-specific metrics if available
+    tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
+    vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
     cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
   }));
 
@@ -518,41 +519,62 @@ export default function DashboardPage() {
   // ─── Account Health Score (composite) ──────────────────────────
   const healthScoreComponents = {
     cpl: (() => {
-      if (!thresholds?.cpl_target || ap.overall_cpl <= 0) return 70;
-      const ratio = ap.overall_cpl / thresholds.cpl_target;
+      const target = targetCpl || thresholds?.cpl_target || 800;
+      if (ap.overall_cpl <= 0) return 70;
+      const ratio = ap.overall_cpl / target;
       if (ratio <= 1) return 100;
-      if (ratio <= 1.3) return 70;
-      if (ratio <= 1.5) return 40;
+      if (ratio <= 1.2) return 80;
+      if (ratio <= 1.5) return 50;
       return 20;
     })(),
     creative: (() => {
       if (creativeHealth.length === 0) return 70;
       const avgScore = creativeHealth.reduce((s: number, c: any) => s + (c.creative_score || 50), 0) / creativeHealth.length;
-      return Math.min(100, avgScore);
+      return Math.min(100, Math.max(0, avgScore));
     })(),
-    pacing: (() => {
+    pacing_budget: (() => {
+      if (!mp?.mtd?.spend || !mp?.targets?.budget) return 50;
+      const pctThrough = mp.pct_through_month || 1;
+      const targetSpendAtPoint = mp.targets.budget * (pctThrough / 100);
+      const ratio = mp.mtd.spend / (targetSpendAtPoint || 1);
+      if (ratio >= 0.85 && ratio <= 1.15) return 100;
+      if (ratio >= 0.70 && ratio <= 1.30) return 75;
+      return 40;
+    })(),
+    pacing_leads: (() => {
       if (!mp) return 50;
       const leadsPct = mp.pacing?.leads_pct || 0;
-      if (leadsPct >= 90) return 100;
-      if (leadsPct >= 70) return 75;
-      if (leadsPct >= 50) return 50;
-      return 25;
+      if (leadsPct >= 95) return 100;
+      if (leadsPct >= 80) return 80;
+      if (leadsPct >= 60) return 50;
+      return 20;
     })(),
-    audience: 65, // Placeholder — would need audience freshness data
-    tracking: (() => {
-      const dailyLeads = ap.daily_leads || [];
-      const zeroDays = dailyLeads.filter((d: number) => d === 0).length;
-      if (zeroDays === 0) return 100;
-      if (zeroDays <= 1) return 70;
+    svs: (() => {
+      const svsMtd = benchmarks?.svs_mtd || 0;
+      const targetSvs = mp?.targets?.svs?.low || 10;
+      if (svsMtd >= targetSvs) return 100;
+      const pctThrough = mp?.pct_through_month || 50;
+      const mtdTargetSvs = targetSvs * (pctThrough / 100);
+      return svsMtd >= mtdTargetSvs ? 100 : Math.min(100, (svsMtd / mtdTargetSvs) * 100);
+    })(),
+    cpsv: (() => {
+      const svsMtd = benchmarks?.svs_mtd || 0;
+      const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
+      const targetCpsv = mp?.targets?.cpsv?.high || 20000;
+      if (cpsvMtd === 0) return 70;
+      if (cpsvMtd <= targetCpsv) return 100;
+      if (cpsvMtd <= targetCpsv * 1.3) return 60;
       return 30;
     })(),
   };
+
   const accountHealthScore = Math.round(
-    healthScoreComponents.cpl * 0.30 +
-    healthScoreComponents.creative * 0.25 +
-    healthScoreComponents.pacing * 0.20 +
-    healthScoreComponents.audience * 0.15 +
-    healthScoreComponents.tracking * 0.10
+    healthScoreComponents.cpsv * 0.25 +
+    healthScoreComponents.svs * 0.20 +
+    healthScoreComponents.pacing_budget * 0.20 +
+    healthScoreComponents.pacing_leads * 0.10 +
+    healthScoreComponents.cpl * 0.15 +
+    healthScoreComponents.creative * 0.10
   );
   const healthScoreColor = accountHealthScore >= 75 ? "hsl(142, 70%, 45%)" : accountHealthScore >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
   const healthScoreData = [
@@ -773,7 +795,17 @@ export default function DashboardPage() {
                   }
                 </div>
                 <div>
-                  <h3 className="text-xs text-muted-foreground uppercase tracking-wider">Data Verification</h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs text-muted-foreground uppercase tracking-wider">Data Verification</h3>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs">
+                        Validates consistency between the backend Intelligence agent and live platform APIs (Meta/Google). Flags discrepancies in spend or conversion counts.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">
                     {verifyData.status === "verified" ? "Cross-checked with API" : verifyData.status === "cross_checked" ? "Cross-checked across cadences" : "Single source"}
                     {verifyData.lastVerified && ` · ${new Date(verifyData.lastVerified).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`}
@@ -810,7 +842,25 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="h-full flex flex-col">
           <CardContent className="p-4 flex flex-col items-center justify-center flex-1">
-            <h3 className="text-[15px] font-large uppercase tracking-wider text-black mb-2">Account Health</h3>
+            <div className="flex items-center gap-1.5 mb-2">
+              <h3 className="text-[15px] font-large uppercase tracking-wider text-black">Account Health</h3>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs space-y-1.5">
+                  <p className="font-semibold">Performance Intelligence Score</p>
+                  <div className="space-y-1">
+                    <p>• 25% CPSV (Cost Per Site Visit)</p>
+                    <p>• 20% SVs (Site Visits vs Target)</p>
+                    <p>• 20% MTD Budget Alignment</p>
+                    <p>• 10% MTD Lead Velocity</p>
+                    <p>• 15% CPL Performance</p>
+                    <p>• 10% Creative Health (Avg TSR/VHR)</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <div className="relative h-32 w-32">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -832,18 +882,19 @@ export default function DashboardPage() {
             <h3 className="text-[13px] font-large text-black uppercase tracking-wider text-muted-foreground mb-3">Health Score Breakdown</h3>
             <div className="grid grid-cols-5 gap-3">
               {([
-                { label: "CPL", score: healthScoreComponents.cpl, weight: "30%" },
-                { label: "Creative", score: healthScoreComponents.creative, weight: "25%" },
-                { label: "Pacing", score: healthScoreComponents.pacing, weight: "20%" },
-                { label: "Audience", score: healthScoreComponents.audience, weight: "15%" },
-                { label: "Tracking", score: healthScoreComponents.tracking, weight: "10%" },
+                { label: "CPSV", score: healthScoreComponents.cpsv, weight: "25%" },
+                { label: "SVs", score: healthScoreComponents.svs, weight: "20%" },
+                { label: "Budget", score: healthScoreComponents.pacing_budget, weight: "20%" },
+                { label: "Leads", score: healthScoreComponents.pacing_leads, weight: "10%" },
+                { label: "CPL", score: healthScoreComponents.cpl, weight: "15%" },
+                { label: "Creative", score: healthScoreComponents.creative, weight: "10%" },
               ]).map((item) => (
                 <div key={item.label} className="text-center">
-                  <p className="text-s font-semibold text-black ppercase">{item.label} ({item.weight})</p>
+                  <p className="text-[11px] font-semibold text-black uppercase">{item.label} ({item.weight})</p>
                   <div className="w-full h-1.5 rounded-full bg-muted/50 mt-1.5">
                     <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(item.score, 100)}%`, backgroundColor: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }} />
                   </div>
-                  <p className="text-s font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>
+                  <p className="text-[11px] font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>
                     {Math.round(item.score)}
                   </p>
                 </div>
@@ -1143,49 +1194,78 @@ export default function DashboardPage() {
                   <tr className="border-b border-border/50">
                     <th className="p-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Metric</th>
                     <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD</th>
+                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Target</th>
+                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
                     <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Projected</th>
                     <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily Needed</th>
+                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily Required</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-border/30">
-                    <td className="p-2 text-foreground">Budget</td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.targets?.budget || 0, 0)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.mtd?.spend || 0, 0)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.projected_eom?.spend || 0, 0)}</td>
-                    <td className="p-2 text-right">
-                      <Badge variant="secondary" className={`text-[10px] ${mp?.pacing?.spend_status === "AHEAD" ? "text-amber-400" : mp?.pacing?.spend_status === "ON_TRACK" ? "text-emerald-400" : "text-red-400"}`}>
-                        {mp?.pacing?.spend_status || "—"} ({(mp?.pacing?.spend_pct || 0).toFixed(0)}%)
-                      </Badge>
-                    </td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.daily_needed?.spend || 0, 0)}/day</td>
-                  </tr>
-                  <tr className="border-b border-border/30">
-                    <td className="p-2 text-foreground">Leads</td>
-                    <td className="p-2 text-right tabular-nums">{mp?.targets?.leads || 0}</td>
-                    <td className="p-2 text-right tabular-nums">{mp?.mtd?.leads || 0}</td>
-                    <td className="p-2 text-right tabular-nums">{(mp?.projected_eom?.leads || 0).toFixed?.(0) ?? Math.round(mp?.projected_eom?.leads || 0)}</td>
-                    <td className="p-2 text-right">
-                      <Badge variant="secondary" className={`text-[10px] ${mp?.pacing?.leads_status === "AHEAD" ? "text-amber-400" : mp?.pacing?.leads_status === "ON_TRACK" ? "text-emerald-400" : "text-red-400"}`}>
-                        {mp?.pacing?.leads_status || "—"} ({(mp?.pacing?.leads_pct || 0).toFixed(0)}%)
-                      </Badge>
-                    </td>
-                    <td className="p-2 text-right tabular-nums">{(mp?.daily_needed?.leads || 0).toFixed(1)}/day</td>
-                  </tr>
-                  <tr className="border-b border-border/30">
-                    <td className="p-2 text-foreground">CPL</td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.targets?.cpl || 0, 0)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.mtd?.cpl || 0, 0)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatINR(mp?.projected_eom?.cpl || 0, 0)}</td>
-                    <td className="p-2 text-right">
-                      <Badge variant="secondary" className={`text-[10px] ${mp?.pacing?.cpl_status === "ON TARGET" ? "text-emerald-400" : "text-red-400"}`}>
-                        {mp?.pacing?.cpl_status || "—"}
-                      </Badge>
-                    </td>
-                    <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                  </tr>
+                  {(() => {
+                    const pctThrough = mp?.pct_through_month || 0;
+                    const daysRemaining = mp?.days_remaining || 1;
+                    
+                    const budgetTarget = mp?.targets?.budget || 0;
+                    const budgetMtdTarget = budgetTarget * (pctThrough / 100);
+                    const budgetDelivered = mp?.mtd?.spend || 0;
+                    const budgetProjected = mp?.projected_eom?.spend || 0;
+                    const budgetDailyNeeded = daysRemaining > 0 ? (budgetTarget - budgetDelivered) / daysRemaining : 0;
+                    
+                    const leadsTarget = mp?.targets?.leads || 0;
+                    const leadsMtdTarget = leadsTarget * (pctThrough / 100);
+                    const leadsDelivered = mp?.mtd?.leads || 0;
+                    const leadsProjected = mp?.projected_eom?.leads || 0;
+                    const leadsDailyNeeded = daysRemaining > 0 ? (leadsTarget - leadsDelivered) / daysRemaining : 0;
+                    
+                    const cplTarget = mp?.targets?.cpl || 0;
+                    const cplDelivered = mp?.mtd?.cpl || 0;
+                    const cplProjected = mp?.projected_eom?.cpl || 0;
+
+                    return (
+                      <>
+                        <tr className="border-b border-border/30">
+                          <td className="p-2 text-foreground font-medium">Budget</td>
+                          <td className="p-2 text-right tabular-nums text-muted-foreground">{formatINR(budgetTarget, 0)}</td>
+                          <td className="p-2 text-right tabular-nums text-primary/80">{formatINR(budgetMtdTarget, 0)}</td>
+                          <td className="p-2 text-right tabular-nums font-semibold">{formatINR(budgetDelivered, 0)}</td>
+                          <td className="p-2 text-right tabular-nums">{formatINR(budgetProjected, 0)}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant="secondary" className={`text-[10px] ${budgetDelivered >= budgetMtdTarget * 0.9 && budgetDelivered <= budgetMtdTarget * 1.1 ? "text-emerald-400" : "text-amber-400"}`}>
+                              {budgetDelivered >= budgetMtdTarget * 0.9 && budgetDelivered <= budgetMtdTarget * 1.1 ? "ON TRACK" : budgetDelivered > budgetMtdTarget * 1.1 ? "OVERSPENT" : "UNDERSPENT"}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right tabular-nums font-medium text-emerald-400">{formatINR(budgetDailyNeeded, 0)}</td>
+                        </tr>
+                        <tr className="border-b border-border/30">
+                          <td className="p-2 text-foreground font-medium">Leads</td>
+                          <td className="p-2 text-right tabular-nums text-muted-foreground">{Math.round(leadsTarget)}</td>
+                          <td className="p-2 text-right tabular-nums text-primary/80">{Math.round(leadsMtdTarget)}</td>
+                          <td className="p-2 text-right tabular-nums font-semibold">{Math.round(leadsDelivered)}</td>
+                          <td className="p-2 text-right tabular-nums">{Math.round(leadsProjected)}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant="secondary" className={`text-[10px] ${leadsDelivered >= leadsMtdTarget * 0.9 ? "text-emerald-400" : "text-red-400"}`}>
+                              {leadsDelivered >= leadsMtdTarget ? "AHEAD" : leadsDelivered >= leadsMtdTarget * 0.9 ? "ON TRACK" : "BEHIND"}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right tabular-nums font-medium text-emerald-400">{leadsDailyNeeded.toFixed(1)}</td>
+                        </tr>
+                        <tr className="border-b border-border/30">
+                          <td className="p-2 text-foreground font-medium">CPL</td>
+                          <td className="p-2 text-right tabular-nums text-muted-foreground">{formatINR(cplTarget, 0)}</td>
+                          <td className="p-2 text-right tabular-nums text-primary/80">{formatINR(cplTarget, 0)}</td>
+                          <td className="p-2 text-right tabular-nums font-semibold">{formatINR(cplDelivered, 0)}</td>
+                          <td className="p-2 text-right tabular-nums">{formatINR(cplProjected, 0)}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant="secondary" className={`text-[10px] ${cplDelivered <= cplTarget ? "text-emerald-400" : "text-red-400"}`}>
+                              {cplDelivered <= cplTarget ? "ON TARGET" : "HIGH"}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
+                        </tr>
+                      </>
+                    );
+                  })()}
                   {(() => {
                     const svsMtd = benchmarks?.svs_mtd ?? 0;
                     const projectedSvs = (mp?.pct_through_month || 0) > 0 ? Math.round(svsMtd / ((mp?.pct_through_month || 1) / 100)) : 0;
@@ -1269,6 +1349,7 @@ export default function DashboardPage() {
         // Monthly targets and MTD for tracking
         const targetLeads = mp?.targets?.leads || clientTargets?.leads || 0;
         const mtdLeads = mp?.mtd?.leads || monthlyAp.total_leads_30d || 0;
+        const mtdLeadsTarget = targetLeads * ((mp?.pct_through_month || 0) / 100);
         const todayLeads = latestDailyLeads ?? 0;
         const daysRemaining = mp?.days_remaining || 15;
         const dailyRateNeeded = daysRemaining > 0 ? Math.max(0, ((targetLeads - mtdLeads) / daysRemaining)) : 0;
@@ -1328,8 +1409,16 @@ export default function DashboardPage() {
                     <LightIcon className={`w-5 h-5 ${light.text}`} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <h3 className="text-sm font-medium text-foreground">Tracking Sanity</h3>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs">
+                          Monitors pixel/conversion stability by comparing MTD performance against expected daily velocity. Flags sudden drops or zero-lead days.
+                        </TooltipContent>
+                      </Tooltip>
                       <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${light.text} ${light.bg}`}>
                         {healthStatus}
                       </Badge>
@@ -1339,34 +1428,20 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-5 gap-4 text-center">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Target</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">{targetLeads}</p>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Target</p>
+                      <p className="text-sm font-semibold tabular-nums text-foreground">{Math.round(mtdLeadsTarget)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Delivered</p>
+                      <p className="text-sm font-semibold tabular-nums text-foreground">{mtdLeads}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Yesterday's Delivered</p>
+                      <p className="text-sm font-semibold tabular-nums text-foreground">{prevDayLeads || 0}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">{mtdLeads}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Today</p>
-                    <p className={`text-sm font-semibold tabular-nums ${isZeroToday ? "text-red-400" : "text-foreground"}`}>
-                      {leadsToday}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Daily Needed</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">
-                      {dailyRateNeeded > 0 ? dailyRateNeeded.toFixed(1) : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Zero Days</p>
-                    <p className={`text-sm font-semibold tabular-nums ${zeroLeadDays > 0 ? "text-amber-400" : "text-foreground"}`}>
-                      {zeroLeadDays}
-                    </p>
-                  </div>
-                </div>
               </div>
               {isGoogle && conversionSanity && (
                 <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/30">
@@ -1423,7 +1498,7 @@ export default function DashboardPage() {
                 <Trophy className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <span className="text-[11px] text-foreground leading-relaxed">
-                    Best performing: <strong className="text-emerald-400">{truncate(bestAd.ad_name, 30)}</strong> — CPL {formatINR(bestAd.cpl, 0)}, {bestAd.leads} leads, CTR {formatPct(bestAd.ctr)}
+                    Best performing: <strong className="text-emerald-400">{truncate(bestAd.ad_name, 30)}</strong> — CPL {formatINR(bestAd.cpl, 0)}, {bestAd.leads} leads, CTR {formatPct(bestAd.ctr / 100)}
                   </span>
                 </div>
               </div>
@@ -1467,7 +1542,7 @@ export default function DashboardPage() {
                   <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-blue-500/20">
                     <BarChart3 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                     <span className="text-[11px] text-foreground leading-relaxed">
-                      Search: <strong>{searchSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(searchSummary.cpl || 0, 0)} · CTR {formatPct(searchSummary.ctr || 0)} · IS {formatPct(searchSummary.impression_share || 0)}
+                      Search: <strong>{searchSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(searchSummary.cpl || 0, 0)} · CTR {formatPct(searchSummary.ctr / 100 || 0)} · IS {formatPct(searchSummary.impression_share || 0)}
                     </span>
                   </div>
                 )}
@@ -1475,7 +1550,7 @@ export default function DashboardPage() {
                   <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-amber-500/20">
                     <BarChart3 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                     <span className="text-[11px] text-foreground leading-relaxed">
-                      Demand Gen: <strong>{dgSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(dgSummary.cpl || 0, 0)} · CPM {formatINR(dgSummary.cpm || 0, 0)} · CTR {formatPct(dgSummary.ctr || 0)}
+                      Demand Gen: <strong>{dgSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(dgSummary.cpl || 0, 0)} · CPM {formatINR(dgSummary.cpm || 0, 0)} · CTR {formatPct(dgSummary.ctr / 100 || 0)}
                     </span>
                   </div>
                 )}
@@ -1543,7 +1618,17 @@ export default function DashboardPage() {
         {/* Campaign Table */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 px-4 pt-4 flex flex-row items-center justify-between gap-2">
-            <CardTitle className="text-sm font-medium">Campaign Health</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Campaign Health
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  Aggregated health score based on CPL, CTR, and spend efficiency. Click a score to view underlying adsets.
+                </TooltipContent>
+              </Tooltip>
+            </CardTitle>
             <Link href="/campaigns" className="text-xs text-primary flex items-center gap-1" data-testid="link-view-campaigns">
               View All <ArrowRight className="w-3 h-3" />
             </Link>
@@ -1592,15 +1677,17 @@ export default function DashboardPage() {
                           </span>
                         </td>
                         <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-16 h-1.5 rounded-full ${getHealthBarBg(c.health_score)}`}>
-                              <div
-                                className={`h-full rounded-full ${getHealthBgColor(c.health_score)}`}
-                                style={{ width: `${c.health_score}%` }}
-                              />
+                          <Link href={`/adsets?campaignId=${c.campaign_id}`}>
+                            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                              <div className={`w-16 h-1.5 rounded-full ${getHealthBarBg(c.health_score)}`}>
+                                <div
+                                  className={`h-full rounded-full ${getHealthBgColor(c.health_score)}`}
+                                  style={{ width: `${c.health_score}%` }}
+                                />
+                              </div>
+                              <span className="tabular-nums text-muted-foreground w-6 font-medium">{c.health_score}</span>
                             </div>
-                            <span className="tabular-nums text-muted-foreground">{c.health_score}</span>
-                          </div>
+                          </Link>
                         </td>
                         <td className="p-3 text-right tabular-nums">{formatINR(c.spend, 0)}</td>
                         <td className="p-3 text-right tabular-nums">{c.leads}</td>

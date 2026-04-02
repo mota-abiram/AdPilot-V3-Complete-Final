@@ -52,10 +52,16 @@ export default function AdsetsPage() {
 
   const [sortKey, setSortKey] = useState<SortKey>("health_score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  
+  // URL Parameter Handling
+  const queryParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
+  const initialFilter = queryParams.get("filter")?.toUpperCase() || "ALL";
+  const initialCampaignId = queryParams.get("campaignId") || "ALL";
+
   const [filterLayer, setFilterLayer] = useState<string>("ALL");
-  const [filterClassification, setFilterClassification] = useState<string>("ALL");
+  const [filterClassification, setFilterClassification] = useState<string>(initialFilter);
   const [filterLearning, setFilterLearning] = useState<string>("ALL");
-  const [filterCampaign, setFilterCampaign] = useState<string>("ALL");
+  const [filterCampaign, setFilterCampaign] = useState<string>(initialCampaignId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<{ open: boolean; action: "pause" | "activate" }>({ open: false, action: "pause" });
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -65,6 +71,15 @@ export default function AdsetsPage() {
   const [searchPageSize, setSearchPageSize] = useState(25);
   const [dgPage, setDgPage] = useState(1);
   const [dgPageSize, setDgPageSize] = useState(25);
+  
+  // Force classification filter sync if URL brand changes
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.hash.split("?")[1] || "");
+    const f = q.get("filter")?.toUpperCase();
+    if (f && f !== filterClassification) setFilterClassification(f);
+    const cid = q.get("campaignId");
+    if (cid && cid !== filterCampaign) setFilterCampaign(cid);
+  }, [window.location.hash]);
 
   // Reset page when filters change
   useEffect(() => { setPage(1); setSearchPage(1); setDgPage(1); }, [filterLayer, filterClassification, filterLearning, filterCampaign]);

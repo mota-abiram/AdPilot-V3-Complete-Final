@@ -39,7 +39,7 @@ export async function saveAnalysisSnapshot(clientId: string, platform: string, d
 
     // Sync to local file for backward compatibility
     const platformDir = platform === "google" ? "google" : "meta";
-    const targetFile = path.join(DATA_BASE, clientId, platformDir, "analysis.json");
+    const targetFile = path.join(DATA_BASE, "clients", clientId, platformDir, "analysis.json");
     const dir = path.dirname(targetFile);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(targetFile, JSON.stringify(data, null, 2));
@@ -72,7 +72,7 @@ export async function loadAnalysisSnapshot(clientId: string, platform: string): 
 
     // Fallback to file (local dev / legacy)
     const platformDir = platform === "google" ? "google" : "meta";
-    const targetFile = path.join(DATA_BASE, clientId, platformDir, "analysis.json");
+    const targetFile = path.join(DATA_BASE, "clients", clientId, platformDir, "analysis.json");
     if (fs.existsSync(targetFile)) {
       return JSON.parse(fs.readFileSync(targetFile, "utf-8"));
     }

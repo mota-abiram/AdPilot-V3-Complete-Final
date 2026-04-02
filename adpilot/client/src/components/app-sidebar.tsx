@@ -50,17 +50,18 @@ import { cn } from "@/lib/utils";
 
 const coreNavItems = [
   { title: "Dashboard", url: "/",          icon: LayoutDashboard },
-  { title: "Creatives", url: "/creatives", icon: Sparkles },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
 ];
 
 const metaNavItems = [
   { title: "Adsets",    url: "/adsets",    icon: Layers },
+  { title: "Ads",       url: "/creatives", icon: Sparkles },
 ];
 
 const googleNavItems = [
   { title: "Bidding",       url: "/google/bidding",       icon: IndianRupee },
   { title: "Ad Groups",     url: "/adsets",               icon: Layers },
+  { title: "Ads",           url: "/creatives",            icon: Sparkles },
   { title: "Quality Score", url: "/google/quality-score", icon: Search },
   { title: "Search Terms",  url: "/google/search-terms",  icon: Target },
   { title: "Demand Gen",    url: "/google/demand-gen",    icon: Users },
