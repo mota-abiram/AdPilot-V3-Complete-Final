@@ -5,7 +5,7 @@ services:
     # ⚠️  Upgrade to 'starter' ($7/mo) or higher before going live.
     # 'free' spins down after 15 min idle (30s cold start) and has no persistent disk.
     plan: starter
-    region: singapore  # ← must match your Postgres DB region exactly
+    region: oregon  # ← must match your Postgres DB region exactly
     dockerContext: .
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
