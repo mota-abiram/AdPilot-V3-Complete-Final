@@ -354,8 +354,31 @@ export async function setupAuth(app: Express) {
 
   if (isProduction && !canUsePostgresSessions) {
     console.warn("[Auth] WARNING: Using in-memory sessions in production. Sessions will be lost on restart.");
-  } else if (canUsePostgresSessions) {
-    console.log("[Auth] Using PostgreSQL session store.");
+  }
+
+  if (canUsePostgresSessions) {
+    console.log("[Auth] Ensuring session table exists in PostgreSQL...");
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "session" (
+          "sid" varchar NOT NULL COLLATE "default",
+          "sess" json NOT NULL,
+          "expire" timestamp(6) NOT NULL
+        ) WITH (OIDS=FALSE);
+        
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'session_pkey') THEN
+            ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
+          END IF;
+        END $$;
+
+        CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+      `);
+      console.log("[Auth] Session table verified.");
+    } catch (err) {
+      console.error("[Auth] Failed to initialize session table in DB:", err);
+    }
   }
 
   await ensureBootstrapUser();
@@ -363,7 +386,7 @@ export async function setupAuth(app: Express) {
   const sessionStore = canUsePostgresSessions
     ? new PostgresSessionStore({
         pool,
-        createTableIfMissing: true,
+        createTableIfMissing: false, // We just created it manually ^
       })
     : new MemoryStore({
         checkPeriod: 1000 * 60 * 60 * 24,
