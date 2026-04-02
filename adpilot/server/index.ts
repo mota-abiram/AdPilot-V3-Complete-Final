@@ -4,13 +4,22 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initScheduler } from "./scheduler";
-import { protectApiRoutes, setupAuth } from "./auth";
+import { setupAuth, protectApiRoutes } from "./auth";
 import path from "path";
+import fs from "fs";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 const app = express();
 const httpServer = createServer(app);
 
-dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
+httpServer.on("upgrade", (req, socket, head) => {
+  // placeholder for WebSocket if needed
+});
+
+// Use import.meta.dirname in ESM, or fallback for built script
+const __root = import.meta.dirname || process.cwd();
+dotenv.config({ path: path.resolve(__root, "../.env") });
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
@@ -110,9 +119,16 @@ app.use((req, res, next) => {
     return res.status(status).json({ message });
   });
 
-  if (process.env.NODE_ENV === "production") {
+  const buildPath = path.resolve(import.meta.dirname, isProduction ? "public" : "../dist/public");
+  const hasBuild = fs.existsSync(buildPath);
+
+  if (isProduction || !!process.env.RENDER || hasBuild) {
+    if (!isProduction && hasBuild) {
+      log("Build directory found, serving static files even in dev mode");
+    }
     serveStatic(app);
   } else {
+    log("Starting Vite development server...");
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
