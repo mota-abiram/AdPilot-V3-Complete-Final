@@ -2,9 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import fs from "fs";
 import path from "path";
-import { execSync, execFile } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 const execFileAsync = promisify(execFile);
+
 import type { RecommendationAction, QuickActionType } from "@shared/schema";
 import {
   executeAction,
@@ -21,7 +22,13 @@ import {
   getLearningSummary,
   triggerOutcomeUpdate,
 } from "./execution-learning";
-import { loadAnalysisSnapshot } from "./analysis-persistence";
+import {
+  loadAnalysisSnapshot,
+  analysisCache,
+  ANALYSIS_CACHE_TTL,
+  getCacheKey,
+} from "./analysis-persistence";
+import { pool } from "./db";
 import {
   executeGoogleAction,
   executeGoogleBatch,
@@ -361,11 +368,20 @@ function getRecommendationActionsForPrefix(prefix: string): Record<string, { act
 }
 
 async function readAnalysisData(clientId: string, platform: string, cadence?: string): Promise<any> {
+  const cacheKey = getCacheKey(clientId, platform, cadence);
+  const cached = analysisCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < ANALYSIS_CACHE_TTL) {
+    return cached.data;
+  }
+
   // 1. Try DB first (Most reliable)
   const snap = await loadAnalysisSnapshot(clientId, platform);
-  if (snap) return snap;
+  if (snap) {
+    analysisCache.set(cacheKey, { data: snap, ts: Date.now() });
+    return snap;
+  }
 
-  // 2. Legacy Fallback
+  // 2. File fallback
   const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
   if (!client) {
     throw new Error(`Client '${clientId}' not found in registry`);
@@ -374,10 +390,9 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   if (!platformConfig) {
     throw new Error(`Platform '${platform}' not configured for client '${clientId}'`);
   }
-  
+
   let dataPath = resolvePlatformDataPath(clientId, platform, platformConfig);
 
-  // If cadence specified, try cadence-specific file
   if (cadence) {
     const cadencePath = dataPath.replace(/analysis\.json$/, `analysis_${cadence}.json`);
     if (fs.existsSync(cadencePath)) dataPath = cadencePath;
@@ -387,8 +402,9 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
     throw new Error(`No analysis data found (DB or File) for ${clientId}/${platform}`);
   }
 
-  const raw = fs.readFileSync(dataPath, "utf-8");
-  return JSON.parse(raw);
+  const data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+  analysisCache.set(cacheKey, { data, ts: Date.now() });
+  return data;
 }
 
 // List available cadence files for a client/platform
@@ -442,10 +458,16 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // ─── Health check for deployment monitoring ──────────────────────
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  // ─── Health check (tests DB connectivity) ───────────────────────
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await pool.query("SELECT 1");
+      res.json({ status: "ok", db: "connected", timestamp: new Date().toISOString() });
+    } catch (err: any) {
+      res.status(503).json({ status: "error", db: "disconnected", detail: err.message });
+    }
   });
+
 
 
   // ─── Client Registry Endpoints ─────────────────────────────────

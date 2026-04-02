@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -444,11 +444,13 @@ export interface QuickActionRequest {
 
 export const analysisSnapshots = pgTable("analysis_snapshots", {
   id: serial("id").primaryKey(),
-  clientId: text("client_id").notNull(), // amara
-  platform: text("platform").notNull(), // meta, google
-  data: jsonb("data").notNull(), // the full analysis JSON
+  clientId: text("client_id").notNull(),
+  platform: text("platform").notNull(),
+  data: jsonb("data").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("uq_analysis_client_platform").on(t.clientId, t.platform),
+]);
 
 export type AnalysisSnapshot = typeof analysisSnapshots.$inferSelect;
 

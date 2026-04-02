@@ -2,8 +2,10 @@ services:
   - type: web
     name: adpilot-v3
     env: docker
-    plan: free # Change to 'starter' or higher for production use
-    region: ohio
+    # ⚠️  Upgrade to 'starter' ($7/mo) or higher before going live.
+    # 'free' spins down after 15 min idle (30s cold start) and has no persistent disk.
+    plan: starter
+    region: singapore  # ← must match your Postgres DB region exactly
     dockerContext: .
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
@@ -12,11 +14,22 @@ services:
         value: 10000
       - key: NODE_ENV
         value: production
+      # PostgreSQL sessions — uses DATABASE_URL automatically when this is omitted
+      # Set AUTH_USE_PG_SESSIONS=false only if you want to force in-memory sessions (dev)
+      - key: AUTH_COOKIE_SAMESITE
+        value: lax
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
       - fromGroup: adpilot-secrets
+
 
 envVarGroups:
   - name: adpilot-secrets
     envVars:
+      - key: SESSION_SECRET
+        generateValue: true   # Render auto-generates a secure random value
+      - key: DATABASE_URL
+        sync: false           # Set to your Render Postgres internal URL
       - key: META_ACCESS_TOKEN
         sync: false
       - key: META_AD_ACCOUNT_ID
@@ -32,4 +45,8 @@ envVarGroups:
       - key: GOOGLE_MCC_ID
         sync: false
       - key: GOOGLE_CUSTOMER_ID
+        sync: false
+      - key: AUTH_BOOTSTRAP_EMAIL
+        sync: false
+      - key: AUTH_BOOTSTRAP_PASSWORD
         sync: false

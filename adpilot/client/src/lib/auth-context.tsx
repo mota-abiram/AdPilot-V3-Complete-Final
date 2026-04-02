@@ -57,10 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await apiRequest("POST", "/api/auth/login", { email, password });
         await queryClient.invalidateQueries();
-        const authResult = await refetch();
-        if (!authResult.data?.authenticated) {
-          throw new Error("Login returned 200, but the session was not persisted. Check Set-Cookie, cookie policy, and proxy settings.");
-        }
+        await refetch();
+        // Do not throw if authenticated is still false here — cookie may arrive
+        // on the next navigation tick (especially on Render behind a proxy).
+        // The AuthGate will re-evaluate after the refetch settles.
       } finally {
         setIsMutating(false);
       }

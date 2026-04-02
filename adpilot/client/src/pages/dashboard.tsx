@@ -188,16 +188,6 @@ export default function DashboardPage() {
   } = useClient();
   const now = useNow();
 
-  if (analysisError) {
-    return (
-      <div className="p-6">
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          Failed to load dashboard data: {analysisError.message.replace(/^\d+:\s*/, "")}
-        </div>
-      </div>
-    );
-  }
-
   const { data: benchmarks } = useQuery<Record<string, any>>({
     queryKey: ["/api/clients", activeClientId, "benchmarks"],
     queryFn: async () => {
@@ -261,6 +251,16 @@ export default function DashboardPage() {
     },
     staleTime: 2 * 60 * 1000,
   });
+
+  if (analysisError) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          Failed to load dashboard data: {analysisError.message.replace(/^\d+:\s*/, "")}
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return (

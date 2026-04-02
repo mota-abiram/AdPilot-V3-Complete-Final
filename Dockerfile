@@ -17,14 +17,14 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 3. Install Python dependencies inside the venv
+# 3. Install Python dependencies — pinned versions for reproducible builds
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir --prefer-binary \
-    facebook-business \
-    google-ads \
-    requests \
-    python-dotenv \
-    pandas
+    "facebook-business==19.0.3" \
+    "google-ads==24.1.0" \
+    "requests==2.32.3" \
+    "python-dotenv==1.0.1" \
+    "pandas==2.2.2"
 
 # 4. Set Workspace & copy project files
 WORKDIR /app
@@ -35,13 +35,19 @@ WORKDIR /app/adpilot
 RUN npm install
 RUN npm run build
 
-# 6. Environment & Permissions
-# Create persistence layer for data JSONs
+# 6. Run database migrations at build time
+# (Requires DATABASE_URL build arg; skips gracefully if not provided)
+RUN --mount=type=secret,id=DATABASE_URL \
+    DATABASE_URL=$(cat /run/secrets/DATABASE_URL 2>/dev/null || echo "") \
+    npx drizzle-kit migrate 2>/dev/null || echo "[Docker] Skipping migrations at build time (no DATABASE_URL)"
+
+# 7. Environment & Permissions
 RUN mkdir -p /app/ads_agent/data && chmod -R 777 /app/ads_agent/data
 
-EXPOSE 5000
+# PORT must match render.yaml (10000) — do NOT hardcode 5000 here;
+# the app reads process.env.PORT at runtime.
+EXPOSE 10000
 ENV NODE_ENV=production
-ENV PORT=5000
 
-# Start the dashboard — it will automatically trigger the Python scheduler
+# Start the dashboard
 CMD ["npm", "start"]

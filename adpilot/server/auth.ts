@@ -1,4 +1,5 @@
 import type { Express, NextFunction, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
@@ -54,7 +55,12 @@ declare global {
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 const USERS_FILE = path.join(DATA_BASE, "access_users.json");
-const SESSION_SECRET = process.env.SESSION_SECRET || "adpilot-local-session-secret";
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction && !process.env.SESSION_SECRET) {
+  throw new Error("[Auth] SESSION_SECRET environment variable must be set in production");
+}
+const SESSION_SECRET = process.env.SESSION_SECRET || "adpilot-local-dev-only-secret";
 const BOOTSTRAP_EMAIL = (process.env.AUTH_BOOTSTRAP_EMAIL || "admin@adpilot.local").trim().toLowerCase();
 const BOOTSTRAP_PASSWORD = process.env.AUTH_BOOTSTRAP_PASSWORD || "change-me-123";
 const BOOTSTRAP_NAME = process.env.AUTH_BOOTSTRAP_NAME || "Administrator";
@@ -290,9 +296,10 @@ export function protectApiRoutes(req: Request, res: Response, next: NextFunction
 }
 
 export async function setupAuth(app: Express) {
-  const isProduction = process.env.NODE_ENV === "production";
+  // canUsePostgresSessions: true whenever DATABASE_URL is a valid postgres URL
+  // (AUTH_USE_PG_SESSIONS=false can explicitly opt-out for local dev without a DB)
   const canUsePostgresSessions =
-    process.env.AUTH_USE_PG_SESSIONS === "true" &&
+    process.env.AUTH_USE_PG_SESSIONS !== "false" &&
     isUsableDatabaseUrl(process.env.DATABASE_URL);
   const cookieSameSite = (process.env.AUTH_COOKIE_SAMESITE || "lax") as "lax" | "strict" | "none";
   const cookieSecure = process.env.AUTH_COOKIE_SECURE === "false"
@@ -302,7 +309,9 @@ export async function setupAuth(app: Express) {
       : isProduction;
 
   if (isProduction && !canUsePostgresSessions) {
-    console.warn("[Auth] Using in-memory sessions in production. This works only reliably on a single instance.");
+    console.warn("[Auth] WARNING: Using in-memory sessions in production. Sessions will be lost on restart.");
+  } else if (canUsePostgresSessions) {
+    console.log("[Auth] Using PostgreSQL session store.");
   }
 
   await ensureBootstrapUser();
@@ -356,7 +365,15 @@ export async function setupAuth(app: Express) {
     });
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many login attempts, please try again later" },
+  });
+
+  app.post("/api/auth/login", loginLimiter, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
 

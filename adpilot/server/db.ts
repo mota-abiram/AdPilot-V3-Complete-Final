@@ -7,14 +7,30 @@ import path from "path";
 dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
 
 if (!process.env.DATABASE_URL) {
-  // If no DB URL is provided, we use a local pool that will likely fail
-  // safely so the app can fall back to JSON in our code if we need.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("DATABASE_URL must be set in production");
+  }
   console.warn("DATABASE_URL is missing! Persistence will be limited to JSON files.");
 }
 
-const pool = new pg.Pool({
+export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  // Render's external Postgres URL requires SSL but uses a self-signed cert chain
+  // that fails strict validation. rejectUnauthorized: false is safe here because
+  // the connection is still encrypted — we're only skipping CA chain verification.
+  // If you switch to the internal URL (same-region), set this to true.
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000,
 });
+
+pool.on("error", (err) => {
+  console.error("[DB] Unexpected pool error:", err.message);
+});
+
+// Graceful shutdown — close pool when the process exits
+process.once("SIGTERM", () => pool.end());
+process.once("SIGINT", () => pool.end());
 
 export const db = drizzle(pool, { schema });
