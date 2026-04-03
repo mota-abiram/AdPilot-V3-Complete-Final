@@ -28,7 +28,9 @@ import {
   ANALYSIS_CACHE_TTL,
   getCacheKey,
 } from "./analysis-persistence";
-import { pool } from "./db";
+import { pool, db } from "./db";
+import { analysisSnapshots, biddingRecommendations } from "@shared/schema";
+import { and, eq, desc } from "drizzle-orm";
 import {
   executeGoogleAction,
   executeGoogleBatch,
@@ -56,6 +58,7 @@ import {
   type CreativeSectionKey,
   type CreativeStatusTag,
 } from "./creative-hub";
+import { generateBiddingRecommendations } from "./bidding-intelligence";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
 // The registry is now persisted to disk so clients added via the UI survive restarts.
@@ -107,6 +110,7 @@ interface ClientCredentials {
 }
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
+const getClientDataDir = (clientId: string) => path.join(DATA_BASE, "clients", clientId);
 const AI_CONFIG_FILE = path.join(DATA_BASE, "ai_config.json");
 
 function readAiConfig() {
@@ -332,8 +336,11 @@ function generateId(): string {
 
 // ─── File-based Recommendation Actions (replaces in-memory Map) ───
 const RECOMMENDATION_ACTIONS_PATH = path.join(DATA_BASE, "recommendation_actions.json");
+const ACTION_LOGS_PATH = path.join(DATA_BASE, "action_logs.json");
 
-function readRecommendationActions(): Record<string, { action: RecommendationAction; timestamp: string }> {
+type ActionRecord = { action: RecommendationAction; timestamp: string; strategic_call?: string };
+
+function readRecommendationActions(): Record<string, ActionRecord> {
   if (!fs.existsSync(RECOMMENDATION_ACTIONS_PATH)) return {};
   try {
     return JSON.parse(fs.readFileSync(RECOMMENDATION_ACTIONS_PATH, "utf-8"));
@@ -342,22 +349,40 @@ function readRecommendationActions(): Record<string, { action: RecommendationAct
   }
 }
 
-function writeRecommendationActions(data: Record<string, { action: RecommendationAction; timestamp: string }>): void {
+function writeRecommendationActions(data: Record<string, ActionRecord>): void {
   const dir = path.dirname(RECOMMENDATION_ACTIONS_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(RECOMMENDATION_ACTIONS_PATH, JSON.stringify(data, null, 2));
 }
 
-// Load persisted recommendation actions on startup
-let recommendationActionsCache: Record<string, { action: RecommendationAction; timestamp: string }> = readRecommendationActions();
+function appendActionLog(entry: {
+  id: string;
+  clientId: string;
+  platform: string;
+  action: string;
+  strategic_call: string;
+  timestamp: string;
+}): void {
+  let logs: any[] = [];
+  if (fs.existsSync(ACTION_LOGS_PATH)) {
+    try { logs = JSON.parse(fs.readFileSync(ACTION_LOGS_PATH, "utf-8")); } catch { /* empty */ }
+  }
+  logs.push(entry);
+  const dir = path.dirname(ACTION_LOGS_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(ACTION_LOGS_PATH, JSON.stringify(logs, null, 2));
+}
 
-function setRecommendationAction(key: string, value: { action: RecommendationAction; timestamp: string }): void {
+// Load persisted recommendation actions on startup
+let recommendationActionsCache: Record<string, ActionRecord> = readRecommendationActions();
+
+function setRecommendationAction(key: string, value: ActionRecord): void {
   recommendationActionsCache[key] = value;
   writeRecommendationActions(recommendationActionsCache);
 }
 
-function getRecommendationActionsForPrefix(prefix: string): Record<string, { action: string; timestamp: string }> {
-  const result: Record<string, { action: string; timestamp: string }> = {};
+function getRecommendationActionsForPrefix(prefix: string): Record<string, ActionRecord> {
+  const result: Record<string, ActionRecord> = {};
   for (const [key, value] of Object.entries(recommendationActionsCache)) {
     if (key.startsWith(prefix)) {
       const recId = key.slice(prefix.length);
@@ -857,15 +882,22 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/:platform/recommendations/:id/action", async (req, res) => {
     const { clientId, platform, id } = req.params;
-    const { action, executionDetails } = req.body;
+    const { action, executionDetails, strategic_call } = req.body;
     if (!action || !["approved", "rejected", "deferred"].includes(action)) {
       return res.status(400).json({ error: "Invalid action. Must be approved, rejected, or deferred." });
     }
+    if (!strategic_call || typeof strategic_call !== "string" || strategic_call.trim().length < 10) {
+      return res.status(400).json({ error: "strategic_call is required (min 10 chars). No action can be taken without a rationale." });
+    }
+    const timestamp = new Date().toISOString();
     const key = `${clientId}:${platform}:${id}`;
     setRecommendationAction(key, {
-      action,
-      timestamp: new Date().toISOString(),
+      action: action as RecommendationAction,
+      timestamp,
+      strategic_call: strategic_call.trim(),
     });
+    // Persist to action_logs for learning database
+    appendActionLog({ id, clientId, platform, action, strategic_call: strategic_call.trim(), timestamp });
 
     // If approved with executionDetails, execute the action via Meta API
     if (action === "approved" && executionDetails) {
@@ -1156,15 +1188,17 @@ export async function registerRoutes(
 
   app.post("/api/recommendations/:id/action", (req, res) => {
     const { id } = req.params;
-    const { action } = req.body;
+    const { action, strategic_call } = req.body;
     if (!action || !["approved", "rejected", "deferred"].includes(action)) {
       return res.status(400).json({ error: "Invalid action." });
     }
+    if (!strategic_call || typeof strategic_call !== "string" || strategic_call.trim().length < 10) {
+      return res.status(400).json({ error: "strategic_call is required (min 10 chars)." });
+    }
+    const timestamp = new Date().toISOString();
     const key = `amara:meta:${id}`;
-    setRecommendationAction(key, {
-      action,
-      timestamp: new Date().toISOString(),
-    });
+    setRecommendationAction(key, { action: action as RecommendationAction, timestamp, strategic_call: strategic_call.trim() });
+    appendActionLog({ id, clientId: "amara", platform: "meta", action, strategic_call: strategic_call.trim(), timestamp });
     res.json({ success: true, id, action });
   });
 
@@ -2129,6 +2163,294 @@ export async function registerRoutes(
     return path.join(DATA_BASE, "clients", clientId, "mtd_deliverables.json");
   }
 
+  function getMtdHistoryPath(clientId: string): string {
+    return path.join(DATA_BASE, "clients", clientId, "mtd_history.json");
+  }
+
+  // ─── Consolidated MTD Deliverables (Source of Truth) ────────────
+  app.get("/api/mtd-deliverables", async (req, res) => {
+    const { client_id: clientId } = req.query;
+    if (!clientId) return res.status(400).json({ error: "client_id is required" });
+
+    const client = CLIENT_REGISTRY.find(c => c.id === clientId);
+    if (!client) return res.status(404).json({ error: "Client not found" });
+
+    let totalSpend = 0;
+    let totalLeads = 0;
+    let dataComplete = true;
+    let manualInputMissing = false;
+    let trackingIssueFlag = false;
+    let lastAnalysisUpdate = "";
+
+    // 1. Accumulate API Data from Platforms
+    for (const [platformId, platform] of Object.entries(client.platforms)) {
+      if (!platform.enabled) continue;
+      try {
+        const data = await readAnalysisData(clientId as string, platformId);
+        if (data) {
+          // Meta uses 'monthly_pacing' -> 'mtd', Google uses 'mtd_pacing'
+          const mtd = data.monthly_pacing?.mtd || data.mtd_pacing || {};
+          totalSpend += mtd.spend ?? mtd.spend_mtd ?? 0;
+          totalLeads += mtd.leads ?? mtd.leads_mtd ?? 0;
+          
+          if (!lastAnalysisUpdate || (data.generated_at && data.generated_at > lastAnalysisUpdate)) {
+            lastAnalysisUpdate = data.generated_at;
+          }
+        } else {
+          dataComplete = false;
+        }
+      } catch (e) {
+        console.error(`[mtd-deliverables] Failed for ${clientId}/${platformId}:`, e);
+        dataComplete = false;
+      }
+    }
+
+    // 2. Fetch Manual Deliverables
+    const mtdFilePath = getMtdDeliverablesPath(clientId as string);
+    let manual: any = { svs_achieved: 0, positive_leads_achieved: 0, quality_lead_count: 0, updated_at: null };
+    if (fs.existsSync(mtdFilePath)) {
+      try {
+        manual = JSON.parse(fs.readFileSync(mtdFilePath, "utf-8"));
+      } catch (e) {}
+    } else {
+      manualInputMissing = true;
+    }
+
+    if (!manual.svs_achieved && !manual.positive_leads_achieved) {
+      manualInputMissing = true;
+    }
+
+    // 3. Calculation Logic (Backend Only)
+    const svs = manual.svs_achieved || 0;
+    const qLeads = manual.positive_leads_achieved || 0; // The UI uses positive_leads_achieved for "Qualified Leads"
+    // Handle specific field for QL if quality_lead_count is provided as fallback/secondary
+    const qCount = manual.quality_lead_count || qLeads; 
+
+    const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+    const cpql = qCount > 0 ? totalSpend / qCount : 0;
+    const cpsv = svs > 0 ? totalSpend / svs : 0;
+    const posPct = totalLeads > 0 ? (qLeads / totalLeads) * 100 : 0;
+    const svPct = totalLeads > 0 ? (svs / totalLeads) * 100 : 0;
+
+    // 4. Integrity Checks
+    if (totalSpend > 500 && totalLeads === 0) trackingIssueFlag = true;
+    if (totalLeads > 10 && qLeads === 0 && svs === 0) trackingIssueFlag = true;
+
+    const now = new Date();
+    const result = {
+      client_id: clientId,
+      month: now.toISOString().slice(0, 7), // YYYY-MM
+      mtd: {
+        spend: totalSpend,
+        leads: totalLeads,
+        qualified_leads: qCount,
+        svs: svs,
+        cpl: Math.round(cpl),
+        cpql: Math.round(cpql),
+        cpsv: Math.round(cpsv),
+        positive_pct: Number(posPct.toFixed(1)),
+        sv_pct: Number(svPct.toFixed(1))
+      },
+      status: {
+        data_complete: dataComplete,
+        manual_input_missing: manualInputMissing,
+        tracking_issue_flag: trackingIssueFlag
+      },
+      last_updated: manual.updated_at || lastAnalysisUpdate || now.toISOString()
+    };
+
+    res.json(result);
+  });
+
+  // ─── Monthly Pacing Pivot — all calculations backend-computed ─────
+  app.get("/api/clients/:clientId/pacing", async (req, res) => {
+    const { clientId } = req.params;
+    const platform = (req.query.platform as string) || "meta";
+
+    // Helper: safe divide
+    const div = (a: number, b: number) => (b > 0 ? a / b : 0);
+
+    // Date math
+    const now = new Date();
+    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed = now.getDate();
+    const daysRemaining = totalDays - daysElapsed;
+
+    // MTD Target formula: (Monthly Target / Total Days) × Days Elapsed
+    const calcMtdTarget = (monthly: number) => totalDays > 0 ? (monthly / totalDays) * daysElapsed : 0;
+    // Projected formula: (MTD Delivered / Days Elapsed) × Total Days
+    const calcProjected = (delivered: number) => daysElapsed > 0 ? (delivered / daysElapsed) * totalDays : 0;
+    // Daily Needed formula: (Monthly Target − MTD Delivered) / Remaining Days
+    const calcDailyNeeded = (monthly: number, delivered: number) => daysRemaining > 0 ? (monthly - delivered) / daysRemaining : 0;
+
+    // Status for volume metrics (higher = better)
+    const volumeStatus = (delivered: number, mtdTgt: number) => {
+      if (mtdTgt <= 0) return "—";
+      const r = div(delivered, mtdTgt);
+      if (r >= 1.0) return "ON TRACK";
+      if (r >= 0.9) return "SLIGHTLY BEHIND";
+      return "OFF TRACK";
+    };
+    // Status for cost metrics (lower = better)
+    const costStatus = (delivered: number, target: number) => {
+      if (target <= 0 || delivered <= 0) return "—";
+      const r = div(delivered, target);
+      if (r <= 1.0) return "ON TARGET";
+      if (r <= 1.1) return "SLIGHTLY HIGH";
+      return "OFF TARGET";
+    };
+    // Status for budget (within ±10% of MTD target = on track)
+    const budgetStatus = (delivered: number, mtdTgt: number) => {
+      if (mtdTgt <= 0) return "—";
+      const r = div(delivered, mtdTgt);
+      if (r >= 0.9 && r <= 1.1) return "ON TRACK";
+      if (r > 1.1) return "OVERSPENT";
+      if (r >= 0.8) return "SLIGHTLY UNDER";
+      return "UNDERSPENT";
+    };
+
+    // Fetch analysis data (for monthly_pacing targets + API-derived MTD)
+    let mp: any = null;
+    try {
+      const analysis = await readAnalysisData(clientId, platform);
+      mp = analysis?.monthly_pacing || null;
+    } catch (_) {}
+
+    // Fetch benchmarks for user-configured targets
+    let bm: Record<string, any> = {};
+    try {
+      const bmPath = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
+      if (fs.existsSync(bmPath)) bm = JSON.parse(fs.readFileSync(bmPath, "utf-8"));
+    } catch (_) {}
+
+    // Fetch MTD deliverables (manual inputs: svs, qualified_leads, closures)
+    let manual: any = { svs_achieved: 0, positive_leads_achieved: 0, closures_achieved: 0, quality_lead_count: 0 };
+    try {
+      const mtdPath = getMtdDeliverablesPath(clientId);
+      if (fs.existsSync(mtdPath)) manual = JSON.parse(fs.readFileSync(mtdPath, "utf-8"));
+    } catch (_) {}
+
+    // ─── Authoritative delivered values ─────────────────────────────
+    const mtdSpend = mp?.mtd?.spend ?? 0;
+    const mtdLeads = mp?.mtd?.leads ?? 0;
+    const mtdSvs = manual.svs_achieved || 0;
+    const mtdQLeads = manual.positive_leads_achieved || manual.quality_lead_count || 0;
+    const mtdClosures = manual.closures_achieved || 0;
+    const mtdCpl = mtdLeads > 0 ? Math.round(div(mtdSpend, mtdLeads)) : 0;
+    const mtdCpql = mtdQLeads > 0 ? Math.round(div(mtdSpend, mtdQLeads)) : 0;
+    const mtdCpsv = mtdSvs > 0 ? Math.round(div(mtdSpend, mtdSvs)) : 0;
+
+    // ─── Monthly targets ─────────────────────────────────────────────
+    const budgetTarget = bm.budget ?? mp?.targets?.budget ?? 0;
+    const leadsTarget = bm.leads ?? mp?.targets?.leads ?? 0;
+    const cplTarget = bm.cpl ?? mp?.targets?.cpl ?? 0;
+    const cpqlTarget = bm.cpql_target ?? 0;
+    const svsTargetLow = bm.svs_low ?? mp?.targets?.svs?.low ?? 0;
+    const svsTargetHigh = bm.svs_high ?? mp?.targets?.svs?.high ?? 0;
+    const cpsvTargetLow = bm.cpsv_low ?? mp?.targets?.cpsv?.low ?? 0;
+    const cpsvTargetHigh = bm.cpsv_high ?? mp?.targets?.cpsv?.high ?? 0;
+    const qLeadsTarget = bm.positive_lead_target ?? 0;
+
+    const rows = [
+      {
+        metric: "Spend",
+        monthly_target: budgetTarget,
+        mtd_target: Math.round(calcMtdTarget(budgetTarget)),
+        mtd_delivered: Math.round(mtdSpend),
+        projected: Math.round(calcProjected(mtdSpend)),
+        daily_needed: Math.round(calcDailyNeeded(budgetTarget, mtdSpend)),
+        status: budgetStatus(mtdSpend, calcMtdTarget(budgetTarget)),
+        format: "inr",
+      },
+      {
+        metric: "Leads",
+        monthly_target: leadsTarget,
+        mtd_target: Math.round(calcMtdTarget(leadsTarget)),
+        mtd_delivered: Math.round(mtdLeads),
+        projected: Math.round(calcProjected(mtdLeads)),
+        daily_needed: Number(calcDailyNeeded(leadsTarget, mtdLeads).toFixed(1)),
+        status: volumeStatus(mtdLeads, calcMtdTarget(leadsTarget)),
+        format: "number",
+      },
+      {
+        metric: "CPL",
+        monthly_target: cplTarget,
+        mtd_target: cplTarget,
+        mtd_delivered: mtdCpl,
+        projected: mp?.projected_eom?.cpl ?? 0,
+        daily_needed: null,
+        status: costStatus(mtdCpl, cplTarget),
+        format: "inr",
+      },
+      {
+        metric: "Qualified Leads",
+        monthly_target: qLeadsTarget,
+        mtd_target: Math.round(calcMtdTarget(qLeadsTarget)),
+        mtd_delivered: mtdQLeads,
+        projected: Math.round(calcProjected(mtdQLeads)),
+        daily_needed: Number(calcDailyNeeded(qLeadsTarget, mtdQLeads).toFixed(1)),
+        status: volumeStatus(mtdQLeads, calcMtdTarget(qLeadsTarget)),
+        format: "number",
+      },
+      {
+        metric: "CPQL",
+        monthly_target: cpqlTarget,
+        mtd_target: cpqlTarget,
+        mtd_delivered: mtdCpql,
+        projected: null,
+        daily_needed: null,
+        status: costStatus(mtdCpql, cpqlTarget),
+        format: "inr",
+      },
+      {
+        metric: "SVs",
+        monthly_target: `${svsTargetLow}–${svsTargetHigh}`,
+        mtd_target: Math.round(calcMtdTarget(svsTargetLow)),
+        mtd_delivered: mtdSvs,
+        projected: Math.round(calcProjected(mtdSvs)),
+        daily_needed: Number(calcDailyNeeded(svsTargetLow, mtdSvs).toFixed(1)),
+        status: volumeStatus(mtdSvs, calcMtdTarget(svsTargetLow)),
+        format: "number",
+      },
+      {
+        metric: "CPSV",
+        monthly_target: `${cpsvTargetLow}–${cpsvTargetHigh}`,
+        mtd_target: cpsvTargetHigh,
+        mtd_delivered: mtdCpsv,
+        projected: null,
+        daily_needed: null,
+        status: costStatus(mtdCpsv, cpsvTargetHigh),
+        format: "inr",
+      },
+      {
+        metric: "Closures",
+        monthly_target: null,
+        mtd_target: null,
+        mtd_delivered: mtdClosures,
+        projected: null,
+        daily_needed: null,
+        status: mtdClosures > 0 ? "TRACKING" : "AWAITING DATA",
+        format: "number",
+      },
+    ];
+
+    res.json({
+      client_id: clientId,
+      platform,
+      month: now.toISOString().slice(0, 7),
+      days_elapsed: daysElapsed,
+      days_remaining: daysRemaining,
+      total_days: totalDays,
+      pct_through_month: Number(((daysElapsed / totalDays) * 100).toFixed(1)),
+      rows,
+      alerts: mp?.alerts || [],
+      data_integrity: {
+        manual_input_missing: !manual.svs_achieved && !manual.positive_leads_achieved,
+        tracking_issue: mtdSpend > 500 && mtdLeads === 0,
+      },
+    });
+  });
+
   app.get("/api/clients/:clientId/mtd-deliverables", (req, res) => {
     const { clientId } = req.params;
     const filePath = getMtdDeliverablesPath(clientId);
@@ -2171,9 +2493,38 @@ export async function registerRoutes(
       quality_lead_count: Number(req.body.quality_lead_count) || 0,
       notes: req.body.notes || "",
       updated_at: new Date().toISOString(),
+      updated_by: req.body.user || "System User",
     };
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+
+    // Update History
+    const historyPath = getMtdHistoryPath(clientId);
+    let history: any[] = [];
+    if (fs.existsSync(historyPath)) {
+      try {
+        history = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
+      } catch (e) {}
+    }
+    history.unshift({ ...data, id: Date.now() });
+    // Keep last 50 entries
+    if (history.length > 50) history = history.slice(0, 50);
+    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
+
     res.json(data);
+  });
+
+  app.get("/api/clients/:clientId/mtd-deliverables/history", (req, res) => {
+    const { clientId } = req.params;
+    const historyPath = getMtdHistoryPath(clientId);
+    if (!fs.existsSync(historyPath)) {
+      return res.json([]);
+    }
+    try {
+      const history = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
+      res.json(history);
+    } catch {
+      res.json([]);
+    }
   });
 
   // ─── Execution Learning Endpoints ────────────────────────────────
@@ -2661,6 +3012,377 @@ export async function registerRoutes(
     const next = req.body;
     saveAiConfig(next);
     res.json({ success: true, config: next });
+  });
+
+  // ─── Bidding Intelligence Module ────────────────────────────────────────
+  // GET /api/clients/:clientId/google/bidding-recommendations
+  // Computes per-campaign bidding decisions: Max Clicks or tCPA + reason + confidence
+  app.get("/api/clients/:clientId/google/bidding-recommendations", (req, res) => {
+    const { clientId } = req.params;
+    const dataDir = getClientDataDir(clientId);
+    const analysisPath = path.join(dataDir, "google_analysis.json");
+
+    if (!fs.existsSync(analysisPath)) {
+      return res.json({ campaigns: [], meta: { generated_at: new Date().toISOString(), data_available: false } });
+    }
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(analysisPath, "utf8"));
+      const campaigns: any[] = raw.campaigns || [];
+      const biddingAnalysis = raw.bidding_analysis || {};
+      const perAdGroup: any[] = biddingAnalysis.per_ad_group || [];
+      const smartReadiness: any[] = biddingAnalysis.smart_bidding_readiness || [];
+      const targetCpa: number = raw.meta?.target_cpa || raw.targets?.google?.target_cpa || 850;
+
+      // Group ad groups by campaign for aggregation
+      const campMap = new Map<string, any[]>();
+      for (const ag of perAdGroup) {
+        const key = ag.campaign_id || ag.campaign_name;
+        if (!campMap.has(key)) campMap.set(key, []);
+        campMap.get(key)!.push(ag);
+      }
+
+      const recommendations = campaigns.map((camp: any) => {
+        const campId = camp.id || camp.campaign_id || camp.name;
+        const campName = camp.name || camp.campaign_name;
+        const adGroups = campMap.get(campId) || campMap.get(campName) || [];
+
+        // Aggregate metrics from ad groups
+        const totalClicks = adGroups.reduce((s: number, ag: any) => s + (ag.clicks || 0), 0);
+        const totalConversions = adGroups.reduce((s: number, ag: any) => s + (ag.conversions || 0), 0);
+        const totalCost = adGroups.reduce((s: number, ag: any) => s + (ag.cost || 0), 0);
+        const avgCpc = totalClicks > 0 ? totalCost / totalClicks : (camp.avg_cpc || camp.cpc || 0);
+        const cvr = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : (camp.cvr || 0);
+        const costPerConversion = totalConversions > 0 ? totalCost / totalConversions : 0;
+        const searchIs = camp.search_impression_share ?? camp.impression_share_analysis?.search_impression_share ?? null;
+        const lostIsRank = camp.search_rank_lost_is ?? camp.impression_share_analysis?.search_rank_lost_is ?? null;
+        const lostIsBudget = camp.search_budget_lost_is ?? camp.impression_share_analysis?.search_budget_lost_is ?? null;
+        const currentStrategy = camp.bidding_strategy || "MAXIMIZE_CLICKS";
+        const lowTopOfPageCpc = adGroups[0]?.low_top_of_page_cpc || avgCpc * 0.8;
+
+        // Find smart bidding readiness data for this campaign
+        const smartData = smartReadiness.find((sb: any) =>
+          sb.campaign_id === campId || sb.campaign_name === campName
+        );
+        const conversions30d = smartData?.conversions_30d ?? totalConversions;
+        const cvrVariance14d = smartData?.cvr_variance_14d ?? null;
+        const trackingStable = smartData?.tracking_stable ?? true;
+        const conv14d = camp.conversions_14d ?? totalConversions;
+
+        // ─── SOP Decision Engine ──────────────────────────────────────
+        // Bid Limit Formula: MIN(Low Top-of-Page CPC × 1.35, Target CPA × CVR)
+        const bidLimitByTopOfPage = lowTopOfPageCpc * 1.35;
+        const bidLimitByCPA = targetCpa * (cvr / 100);
+        const computedBidLimit = Math.min(bidLimitByTopOfPage, bidLimitByCPA);
+        const suggestedTcpa = costPerConversion > 0 ? Math.round(costPerConversion * 0.8) : Math.round(targetCpa * 0.9);
+
+        // CVR stability signals
+        const cvrStable = cvrVariance14d !== null ? cvrVariance14d < 20 : (cvr > 1);
+        const hasEnoughData = conversions30d >= 15;
+        const hasStrongData = conversions30d >= 30;
+        const hasMatureData = conversions30d >= 50;
+        const cpaOnTarget = costPerConversion > 0 && costPerConversion <= targetCpa * 1.2;
+        const lowImpressionShare = searchIs !== null && searchIs < 50;
+        const lostToBudget = lostIsBudget !== null && lostIsBudget > 15;
+
+        // ─── Primary Decision Logic ────────────────────────────────────
+        let recommendation: "stay_max_clicks" | "switch_tcpa" | "hold" = "stay_max_clicks";
+        let confidence: "high" | "medium" | "low" = "low";
+        const reasons: string[] = [];
+        const alerts: Array<{ severity: "critical" | "warning" | "info"; message: string }> = [];
+
+        // CHECK: Should we HOLD (do not switch)?
+        if (lostToBudget) {
+          recommendation = "hold";
+          confidence = "medium";
+          reasons.push("Lost IS due to budget — increase budget before changing strategy");
+          alerts.push({ severity: "warning", message: "Impression share lost due to budget constraints — optimize budget first" });
+        } else if (!trackingStable) {
+          recommendation = "hold";
+          confidence = "high";
+          reasons.push("Conversion tracking is unstable — fix tracking before switching");
+          alerts.push({ severity: "critical", message: "Conversion tracking unstable — bidding decisions may be unreliable" });
+        } else if (!hasEnoughData) {
+          recommendation = "stay_max_clicks";
+          confidence = "high";
+          reasons.push(`Only ${conversions30d} conversions — need ≥15 to consider tCPA`);
+          reasons.push(`Use Max Clicks with bid cap of ${Math.round(computedBidLimit)}`);
+          if (avgCpc > computedBidLimit * 1.1) {
+            alerts.push({ severity: "critical", message: `CPC ₹${Math.round(avgCpc)} exceeds bid limit ₹${Math.round(computedBidLimit)} — reduce bid cap` });
+          }
+        }
+        // CHECK: Switch to tCPA?
+        else if (hasMatureData && cvrStable && cpaOnTarget && trackingStable) {
+          recommendation = "switch_tcpa";
+          confidence = "high";
+          reasons.push(`CVR stable at ${cvr.toFixed(1)}%`);
+          reasons.push(`${conversions30d} conversions in last 30 days`);
+          reasons.push(`Cost/Conv ₹${Math.round(costPerConversion)} within target range`);
+          alerts.push({ severity: "info", message: `Eligible for tCPA @ ₹${suggestedTcpa} — all readiness criteria met` });
+        } else if (hasStrongData && cvrStable && trackingStable) {
+          recommendation = "switch_tcpa";
+          confidence = "medium";
+          reasons.push(`CVR stable at ${cvr.toFixed(1)}%`);
+          reasons.push(`${conversions30d} conversions in 30d — approaching tCPA threshold`);
+          if (!cpaOnTarget) reasons.push("Cost/Conv slightly above target — monitor before switching");
+          alerts.push({ severity: "info", message: `Almost ready for tCPA — continue monitoring for consistent CPA` });
+        }
+        // DEFAULT: Stay on Max Clicks
+        else {
+          recommendation = "stay_max_clicks";
+          confidence = hasEnoughData ? "medium" : "high";
+          reasons.push(`CVR ${!cvrStable ? "unstable" : `at ${cvr.toFixed(1)}%`} — Max Clicks mode appropriate`);
+          if (!hasStrongData) reasons.push(`Need ${30 - conversions30d} more conversions to qualify for tCPA`);
+          if (avgCpc > computedBidLimit * 1.1) {
+            alerts.push({ severity: "critical", message: `CPC ₹${Math.round(avgCpc)} exceeds computed bid limit ₹${Math.round(computedBidLimit)} — overbidding detected` });
+          }
+          if (lostIsRank !== null && lostIsRank > 20) {
+            alerts.push({ severity: "warning", message: `Lost ${lostIsRank.toFixed(0)}% IS due to low rank — consider raising bid limit` });
+          }
+        }
+
+        if (searchIs !== null && searchIs < 40) {
+          alerts.push({ severity: "warning", message: `Low impression share (${searchIs.toFixed(0)}%) — campaign visibility is limited` });
+        }
+
+        return {
+          campaign_id: campId,
+          campaign_name: campName,
+          campaign_type: camp.campaign_type || "",
+          status: camp.status || "ACTIVE",
+          // Current state
+          current_strategy: currentStrategy,
+          // Metrics
+          avg_cpc: avgCpc,
+          cvr,
+          ctr: camp.ctr || 0,
+          conversions_30d: conversions30d,
+          conversions_14d: conv14d,
+          cost_per_conversion: costPerConversion,
+          search_impression_share: searchIs,
+          lost_is_rank: lostIsRank,
+          lost_is_budget: lostIsBudget,
+          clicks: totalClicks,
+          // Decision engine output
+          recommendation,
+          confidence,
+          reasons,
+          alerts,
+          // Bid calculations (SOP formula)
+          computed_bid_limit: computedBidLimit,
+          bid_limit_by_top_of_page: bidLimitByTopOfPage,
+          bid_limit_by_cpa: bidLimitByCPA,
+          suggested_tcpa: suggestedTcpa,
+          target_cpa: targetCpa,
+          // Additional context
+          cvr_variance_14d: cvrVariance14d,
+          tracking_stable: trackingStable,
+          low_top_of_page_cpc: lowTopOfPageCpc,
+        };
+      });
+
+      // Action history storage
+      const historyPath = path.join(dataDir, "bidding_action_history.json");
+      let history: any[] = [];
+      if (fs.existsSync(historyPath)) {
+        try { history = JSON.parse(fs.readFileSync(historyPath, "utf8")); } catch { history = []; }
+      }
+
+      const alertCount = recommendations.reduce((sum: number, r: any) =>
+        sum + r.alerts.filter((a: any) => a.severity === "critical" || a.severity === "warning").length, 0);
+      const onCorrectStrategy = recommendations.filter((r: any) =>
+        (r.recommendation === "stay_max_clicks" && r.current_strategy !== "TARGET_CPA") ||
+        (r.recommendation === "switch_tcpa" && r.current_strategy === "TARGET_CPA")
+      ).length;
+
+      res.json({
+        campaigns: recommendations,
+        meta: {
+          generated_at: new Date().toISOString(),
+          data_available: true,
+          total_campaigns: recommendations.length,
+          alert_count: alertCount,
+          on_correct_strategy: onCorrectStrategy,
+          target_cpa: targetCpa,
+        },
+        history: history.slice(-20), // Last 20 actions
+      });
+    } catch (err: any) {
+      console.error("[Bidding Recommendations] Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/clients/:clientId/google/bidding-recommendations/action
+  // Records user action (Apply/Reject) with mandatory strategic rationale
+  app.post("/api/clients/:clientId/google/bidding-recommendations/action", (req, res) => {
+    const { clientId } = req.params;
+    const { campaign_id, campaign_name, action, recommendation, rationale, params } = req.body;
+
+    if (!rationale || rationale.trim().length < 10) {
+      return res.status(400).json({ error: "Strategic rationale is required (min 10 characters)" });
+    }
+
+    const dataDir = getClientDataDir(clientId);
+    const historyPath = path.join(dataDir, "bidding_action_history.json");
+    let history: any[] = [];
+    if (fs.existsSync(historyPath)) {
+      try { history = JSON.parse(fs.readFileSync(historyPath, "utf8")); } catch { history = []; }
+    }
+
+    const entry = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      campaign_id,
+      campaign_name,
+      action, // "apply" | "reject" | "manual_apply"
+      recommendation,
+      rationale,
+      params: params || {},
+    };
+    history.push(entry);
+    if (history.length > 200) history = history.slice(-200);
+    fs.writeFileSync(historyPath, JSON.stringify(history, null, 2), "utf8");
+
+    res.json({ success: true, entry });
+  });
+
+  // ─── Bidding Intelligence Endpoints ───────────────────────────
+
+  app.get("/api/clients/:clientId/google/bidding-recommendations", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const history = await db
+        .select()
+        .from(biddingRecommendations)
+        .where(eq(biddingRecommendations.clientId, clientId))
+        .orderBy(desc(biddingRecommendations.createdAt));
+
+      if (history.length === 0) {
+        return res.json({ campaigns: [], meta: { data_available: false }, history: [] });
+      }
+
+      // Get latest per campaign
+      const latestMap = new Map();
+      const actionHistory: any[] = [];
+
+      history.forEach(rec => {
+        if (!latestMap.has(rec.campaignId)) {
+          let structuredReason = { reasons: [], alerts: [], recommendation: "hold" };
+          try {
+            structuredReason = JSON.parse(rec.reason);
+          } catch (e) {
+            structuredReason = { reasons: [rec.reason], alerts: [], recommendation: "hold" };
+          }
+
+          latestMap.set(rec.campaignId, {
+            campaign_id: rec.campaignId,
+            campaign_name: rec.campaignName,
+            current_strategy: rec.currentStrategy,
+            avg_cpc: parseFloat(rec.avgCpc),
+            cvr: parseFloat(rec.cvr),
+            ctr: parseFloat(rec.ctr),
+            conversions_30d: parseFloat(rec.conversions), // Using latest as 30d proxy if not split
+            conversions_14d: parseFloat(rec.conversions),
+            cost_per_conversion: parseFloat(rec.costPerConversion),
+            search_impression_share: rec.searchImpressionShare ? parseFloat(rec.searchImpressionShare) : null,
+            lost_is_rank: rec.lostIsRank ? parseFloat(rec.lostIsRank) : null,
+            lost_is_budget: rec.lostIsBudget ? parseFloat(rec.lostIsBudget) : null,
+            clicks: parseInt(rec.clicks),
+            recommendation: structuredReason.recommendation,
+            confidence: rec.confidenceLevel,
+            reasons: structuredReason.reasons,
+            alerts: structuredReason.alerts,
+            computed_bid_limit: rec.recommendedBidLimit ? parseFloat(rec.recommendedBidLimit) : 0,
+            suggested_tcpa: rec.recommendedTCPA ? parseFloat(rec.recommendedTCPA) : 0,
+            target_cpa: rec.currentTCPA ? parseFloat(rec.currentTCPA) : 850,
+            status: rec.status,
+            id: rec.id
+          });
+        }
+
+        if (rec.status !== "pending") {
+          actionHistory.push({
+            id: rec.id,
+            timestamp: rec.updatedAt?.toISOString(),
+            campaign_id: rec.campaignId,
+            campaign_name: rec.campaignName,
+            action: rec.status === "applied" ? "apply" : "reject",
+            recommendation: rec.recommendedStrategy,
+            rationale: rec.strategicRationale,
+          });
+        }
+      });
+
+      const campaigns = Array.from(latestMap.values());
+      const onCorrect = campaigns.filter(c => c.recommendation === "hold").length;
+
+      res.json({
+        campaigns,
+        meta: {
+          generated_at: history[0].createdAt?.toISOString(),
+          data_available: true,
+          total_campaigns: campaigns.length,
+          alert_count: campaigns.reduce((acc, c) => acc + c.alerts.length, 0),
+          on_correct_strategy: Math.round((onCorrect / campaigns.length) * 100) || 0,
+          target_cpa: campaigns[0]?.target_cpa || 850,
+        },
+        history: actionHistory
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/clients/:clientId/google/bidding-recommendations/trigger", async (req, res) => {
+    try {
+      await generateBiddingRecommendations(req.params.clientId);
+      res.json({ success: true, message: "Bidding intelligence run completed." });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/clients/:clientId/google/bidding-recommendations/action", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { campaign_id, action, rationale } = req.body; // "apply", "reject"
+      
+      const status = action === "apply" ? "applied" : "rejected";
+
+      if (!rationale) {
+        return res.status(400).json({ error: "Strategic rationale is required." });
+      }
+
+      // Update the latest pending recommendation for this campaign
+      const [latest] = await db
+        .select()
+        .from(biddingRecommendations)
+        .where(and(
+          eq(biddingRecommendations.clientId, clientId),
+          eq(biddingRecommendations.campaignId, campaign_id),
+          eq(biddingRecommendations.status, "pending")
+        ))
+        .orderBy(desc(biddingRecommendations.createdAt))
+        .limit(1);
+
+      if (!latest) {
+        return res.status(404).json({ error: "No pending recommendation found for this campaign." });
+      }
+
+      await db
+        .update(biddingRecommendations)
+        .set({ 
+          status: status, 
+          strategicRationale: rationale,
+          updatedAt: new Date()
+        })
+        .where(eq(biddingRecommendations.id, latest.id));
+
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   return httpServer;

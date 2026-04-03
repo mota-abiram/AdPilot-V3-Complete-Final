@@ -6,7 +6,8 @@ import fs from "fs";
 import { log } from "./index";
 import { saveAnalysisSnapshot } from "./analysis-persistence";
 import { db } from "./db";
-import { clients as clientTable } from "@shared/schema";
+import { clients as clientTable, biddingRecommendations } from "@shared/schema";
+import { generateBiddingRecommendations } from "./bidding-intelligence";
 
 const execFileAsync = promisify(execFile);
 
@@ -272,7 +273,7 @@ async function runAgent(): Promise<void> {
         });
       });
       try {
-        await execFileAsync("python3", [metaAgent], {
+        await execFileAsync("python3", [metaAgent, "--multi-cadence"], {
           cwd: ADS_AGENT_DIR,
           timeout: 600000,
         });
@@ -294,7 +295,7 @@ async function runAgent(): Promise<void> {
         });
 
         // PERSIST TO DB: Capture the newly generated JSON file and push to Postgres
-        const metaPath = path.join(ADS_AGENT_DIR, "data", clientId, "meta", "analysis.json");
+        const metaPath = path.join(DATA_BASE, "clients", clientId, "meta", "analysis.json");
         if (fs.existsSync(metaPath)) {
           try {
             const data = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
@@ -338,13 +339,16 @@ async function runAgent(): Promise<void> {
         });
 
         // PERSIST TO DB: Capture the newly generated JSON file and push to Postgres
-        const googlePath = path.join(ADS_AGENT_DIR, "data", client.id, "google", "analysis.json");
+        const googlePath = path.join(DATA_BASE, "clients", client.id, "google", "analysis.json");
         if (fs.existsSync(googlePath)) {
           try {
             const data = JSON.parse(fs.readFileSync(googlePath, "utf-8"));
             await saveAnalysisSnapshot(client.id, "google", data);
+            
+            // RUN BIDDING INTELLIGENCE
+            await generateBiddingRecommendations(client.id);
           } catch (e) {
-            log(`[DB Push] Failed to persist Google snapshot for ${client.id}: ${e}`, "scheduler");
+            log(`[Bidding/DB Push] Failed for ${client.id}: ${e}`, "scheduler");
           }
         }
         log(`Scheduler: Google agent completed for client '${client.id}'`, "scheduler");

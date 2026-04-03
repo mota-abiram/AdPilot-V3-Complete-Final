@@ -1,17 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { useClient } from "@/lib/client-context";
+import { useClient, benchmarksQueryKey } from "@/lib/client-context";
+import { useAuth } from "@/lib/auth-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatINR, formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -25,7 +21,6 @@ import {
   XCircle,
   Info,
   ChevronDown,
-  ChevronRight,
   IndianRupee,
   MousePointerClick,
   Eye,
@@ -68,27 +63,6 @@ interface Benchmarks {
 
   // Section 4: Location
   target_locations: string[];
-
-  // Section 5: Scoring Weights
-  video_scoring_weights?: {
-    cpl: number;
-    cpm: number;
-    tsr: number;
-    vhr: number;
-    ctr: number;
-  };
-  static_scoring_weights?: {
-    cpl: number;
-    cpm: number;
-    ctr: number;
-    cpc: number;
-  };
-  campaign_scoring_weights?: {
-    cpl: number;
-    volume: number;
-    efficiency: number;
-    trend: number;
-  };
 
   // MTD Deliverables
   svs_mtd: number;
@@ -163,45 +137,6 @@ const SECTION_3_AUTOPAUSE: SectionDef = {
   ],
 };
 
-const SECTION_5_SCORING: SectionDef[] = [
-  {
-    id: "video-scoring",
-    title: "Video Ad Scoring Weights",
-    icon: Eye,
-    description: "How video ad performance score is calculated",
-    fields: [
-      { key: "video_scoring_weights.cpl", label: "CPL Weight", type: "number", step: "0.05", help: "Weight for CPL in video ad score" },
-      { key: "video_scoring_weights.cpm", label: "CPM Weight", type: "number", step: "0.05", help: "Weight for CPM in video ad score" },
-      { key: "video_scoring_weights.tsr", label: "TSR Weight", type: "number", step: "0.05", help: "Weight for Thumb Stop Rate" },
-      { key: "video_scoring_weights.vhr", label: "VHR Weight", type: "number", step: "0.05", help: "Weight for Video Hold Rate" },
-      { key: "video_scoring_weights.ctr", label: "CTR Weight", type: "number", step: "0.05", help: "Weight for Click-Through Rate" },
-    ],
-  },
-  {
-    id: "static-scoring",
-    title: "Static Ad Scoring Weights",
-    icon: Eye,
-    description: "How static/image ad performance score is calculated",
-    fields: [
-      { key: "static_scoring_weights.cpl", label: "CPL Weight", type: "number", step: "0.05" },
-      { key: "static_scoring_weights.cpm", label: "CPM Weight", type: "number", step: "0.05" },
-      { key: "static_scoring_weights.ctr", label: "CTR Weight", type: "number", step: "0.05" },
-      { key: "static_scoring_weights.cpc", label: "CPC Weight", type: "number", step: "0.05" },
-    ],
-  },
-  {
-    id: "campaign-scoring",
-    title: "Campaign Scoring Weights",
-    icon: BarChart3,
-    description: "How campaign/adset performance score is calculated",
-    fields: [
-      { key: "campaign_scoring_weights.cpl", label: "CPL Weight", type: "number", step: "0.05" },
-      { key: "campaign_scoring_weights.volume", label: "Volume Weight", type: "number", step: "0.05" },
-      { key: "campaign_scoring_weights.efficiency", label: "Efficiency Weight", type: "number", step: "0.05" },
-      { key: "campaign_scoring_weights.trend", label: "Trend Weight", type: "number", step: "0.05" },
-    ],
-  },
-];
 
 const MTD_DELIVERABLES: SectionDef = {
   id: "mtd-deliverables",
@@ -275,34 +210,6 @@ const GOOGLE_AUTOPAUSE: SectionDef = {
   ],
 };
 
-const GOOGLE_SCORING_SECTIONS: SectionDef[] = [
-  {
-    id: "google-search-scoring",
-    title: "Search Campaign Scoring Weights",
-    icon: BarChart3,
-    description: "CPL 30%, CVR 25%, CTR 15%, IS 15%, QS 15%",
-    fields: [
-      { key: "google_search_scoring.cpl", label: "CPL Weight", type: "number", step: "0.05" },
-      { key: "google_search_scoring.cvr", label: "CVR Weight", type: "number", step: "0.05" },
-      { key: "google_search_scoring.ctr", label: "CTR Weight", type: "number", step: "0.05" },
-      { key: "google_search_scoring.is", label: "IS Weight", type: "number", step: "0.05" },
-      { key: "google_search_scoring.qs", label: "QS Weight", type: "number", step: "0.05" },
-    ],
-  },
-  {
-    id: "google-dg-scoring",
-    title: "Demand Gen Scoring Weights",
-    icon: Eye,
-    description: "CPL 35%, CPM 20%, CTR 15%, Video 15%, Frequency 15%",
-    fields: [
-      { key: "google_dg_scoring.cpl", label: "CPL Weight", type: "number", step: "0.05" },
-      { key: "google_dg_scoring.cpm", label: "CPM Weight", type: "number", step: "0.05" },
-      { key: "google_dg_scoring.ctr", label: "CTR Weight", type: "number", step: "0.05" },
-      { key: "google_dg_scoring.video", label: "Video Weight", type: "number", step: "0.05" },
-      { key: "google_dg_scoring.frequency", label: "Frequency Weight", type: "number", step: "0.05" },
-    ],
-  },
-];
 
 const GOOGLE_MTD: SectionDef = {
   id: "google-mtd",
@@ -407,19 +314,13 @@ function formatMetricValue(value: number | undefined, format: "pct" | "inr" | "n
 // ─── Google Benchmarks Component ─────────────────────────────────────
 
 function GoogleBenchmarks() {
-  const { analysisData: data, isLoadingAnalysis, activeClientId } = useClient();
+  const { analysisData: data, isLoadingAnalysis, activeClientId, benchmarks, isLoadingBenchmarks } = useClient();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState<Record<string, any>>({});
-  const [scoringOpen, setScoringOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"targets" | "actuals" | "mtd">("targets");
 
-  const { data: benchmarks, isLoading: isBenchmarksLoading } = useQuery<Record<string, any>>({
-    queryKey: ["/api/clients", activeClientId, "benchmarks"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks`);
-      return res.json();
-    },
-  });
+  const isBenchmarksLoading = isLoadingBenchmarks;
 
   useEffect(() => {
     if (benchmarks) {
@@ -432,8 +333,9 @@ function GoogleBenchmarks() {
       await apiRequest("PUT", `/api/clients/${activeClientId}/benchmarks`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, "benchmarks"] });
-      toast({ title: "Google Benchmarks Saved", description: "Your Google Ads benchmark values have been updated." });
+      // Invalidate the canonical key — propagates to dashboard, campaigns, adsets, MTD
+      queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId) });
+      toast({ title: "Google Benchmarks Saved", description: "Benchmark values updated and applied across all modules." });
     },
     onError: (err: Error) => {
       toast({ title: "Save Failed", description: err.message, variant: "destructive" });
@@ -530,48 +432,6 @@ function GoogleBenchmarks() {
           <EditableSection section={GOOGLE_SEARCH_METRICS} form={form} onFieldChange={handleFieldChange} />
           <EditableSection section={GOOGLE_DG_METRICS} form={form} onFieldChange={handleFieldChange} />
           <EditableSection section={GOOGLE_AUTOPAUSE} form={form} onFieldChange={handleFieldChange} />
-          <Collapsible open={scoringOpen} onOpenChange={setScoringOpen}>
-            <Card>
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="w-4 h-4 text-primary" />
-                      <CardTitle className="text-sm font-medium">Scoring Weights</CardTitle>
-                      <Badge variant="secondary" className="text-[9px] text-muted-foreground">Advanced</Badge>
-                    </div>
-                    {scoringOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 text-left">Customize Google Ads scoring. Weights should sum to 1.0 per category.</p>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="px-4 pb-4 pt-0 space-y-6">
-                  {GOOGLE_SCORING_SECTIONS.map((section) => (
-                    <div key={section.id} className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <section.icon className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-[11px] font-medium text-foreground">{section.title}</span>
-                        <span className="text-[9px] text-muted-foreground">{section.description}</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {section.fields.map((field) => {
-                          const parts = field.key.split(".");
-                          const val = form[parts[0]]?.[parts[1]] ?? "";
-                          return (
-                            <div key={field.key} className="space-y-1">
-                              <label className="text-[10px] text-muted-foreground">{field.label}</label>
-                              <Input type="number" step={field.step} value={val} onChange={(e) => handleFieldChange(field.key, e.target.value)} className="h-7 text-xs bg-muted/30" />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
         </>
       )}
 
@@ -663,10 +523,17 @@ function GoogleBenchmarks() {
       )}
 
       {/* Save Button */}
-      <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2" onClick={handleSave} disabled={saveMutation.isPending}>
-        {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-        Save Google Benchmarks
-      </Button>
+      {isAdmin ? (
+        <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2" onClick={handleSave} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save Google Benchmarks
+        </Button>
+      ) : (
+        <div className="p-3 rounded-lg bg-muted/30 border border-border/30 flex items-center justify-center gap-2">
+          <Shield className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Benchmarks are read-only for standard users</span>
+        </div>
+      )}
 
       {/* Info card */}
       <Card className="bg-muted/20 border-border/50">
@@ -676,8 +543,7 @@ function GoogleBenchmarks() {
             <p><strong>Branded Search:</strong> CTR 15–20%, CVR 6–8%, IS ≥70%, QS ≥7</p>
             <p><strong>Location Search:</strong> CTR 5–10%, CVR 3–5%, IS ≥20%, QS ≥6</p>
             <p><strong>Demand Gen:</strong> CPM ~₹150, CTR 0.7–1.2%, Frequency cap 28d</p>
-            <p><strong>Search Scoring:</strong> CPL 30%, CVR 25%, CTR 15%, IS 15%, QS 15%</p>
-            <p><strong>DG Scoring:</strong> CPL 35%, CPM 20%, CTR 15%, Video 15%, Frequency 15%</p>
+            <p><strong>Reference Only:</strong> Benchmarks are comparison references — they do not affect health scores or ad scoring weights.</p>
           </div>
         </CardContent>
       </Card>
@@ -747,25 +613,17 @@ function EditableSection({
 // ─── Meta Benchmarks Component (restructured) ───────────────────────
 
 function MetaBenchmarks() {
-  const { activeClientId } = useClient();
+  const { activeClientId, benchmarks, isLoadingBenchmarks } = useClient();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState<Record<string, any>>({});
   const [locations, setLocations] = useState("");
-  const [scoringOpen, setScoringOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"targets" | "mtd">("targets");
-
-  const { data: benchmarks, isLoading } = useQuery<Benchmarks>({
-    queryKey: ["/api/clients", activeClientId, "benchmarks"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks`);
-      return res.json();
-    },
-  });
 
   useEffect(() => {
     if (benchmarks) {
       setForm(benchmarks);
-      setLocations((benchmarks.target_locations || []).join(", "));
+      setLocations(((benchmarks as any).target_locations || []).join(", "));
     }
   }, [benchmarks]);
 
@@ -774,8 +632,9 @@ function MetaBenchmarks() {
       await apiRequest("PUT", `/api/clients/${activeClientId}/benchmarks`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, "benchmarks"] });
-      toast({ title: "Benchmarks Saved", description: "Your benchmark values have been updated. The agent will use these on the next run." });
+      // Invalidate canonical key — propagates to dashboard, campaigns, adsets, MTD
+      queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId) });
+      toast({ title: "Benchmarks Saved", description: "Benchmark values updated and applied across all modules instantly." });
     },
     onError: (err: Error) => {
       toast({ title: "Save Failed", description: err.message, variant: "destructive" });
@@ -787,7 +646,6 @@ function MetaBenchmarks() {
     if (parts.length === 1) {
       setForm((prev) => ({ ...prev, [key]: value === "" ? 0 : Number(value) }));
     } else {
-      // Handle nested keys like "video_scoring_weights.cpl"
       setForm((prev) => {
         const obj = { ...(prev[parts[0]] || {}) };
         obj[parts[1]] = value === "" ? 0 : Number(value);
@@ -804,7 +662,7 @@ function MetaBenchmarks() {
     saveMutation.mutate(payload);
   }
 
-  if (isLoading) {
+  if (isLoadingBenchmarks) {
     return (
       <div>
         <Skeleton className="h-8 w-48 mb-4" />
@@ -895,61 +753,6 @@ function MetaBenchmarks() {
             </CardContent>
           </Card>
 
-          {/* Section 5: Scoring Weights (Collapsible / Advanced) */}
-          <Collapsible open={scoringOpen} onOpenChange={setScoringOpen}>
-            <Card>
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="w-4 h-4 text-primary" />
-                      <CardTitle className="text-sm font-medium">Scoring Weights</CardTitle>
-                      <Badge variant="secondary" className="text-[9px] text-muted-foreground">Advanced</Badge>
-                    </div>
-                    {scoringOpen ? (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 text-left">
-                    Customize how ad, adset, and campaign scores are calculated. Weights should sum to 1.0.
-                  </p>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="px-4 pb-4 pt-0 space-y-6">
-                  {SECTION_5_SCORING.map((section) => (
-                    <div key={section.id} className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <section.icon className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-[11px] font-medium text-foreground">{section.title}</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {section.fields.map((field) => {
-                          const parts = field.key.split(".");
-                          const val = form[parts[0]]?.[parts[1]] ?? "";
-                          return (
-                            <div key={field.key} className="space-y-1">
-                              <label className="text-[10px] text-muted-foreground">{field.label}</label>
-                              <Input
-                                type="number"
-                                step={field.step}
-                                value={val}
-                                onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                                className="h-7 text-xs bg-muted/30"
-                                data-testid={`input-${field.key.replace(/\./g, "-")}`}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
         </>
       ) : (
         /* MTD Deliverables Tab */
@@ -996,28 +799,35 @@ function MetaBenchmarks() {
       )}
 
       {/* Save Button */}
-      <Button
-        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
-        onClick={handleSave}
-        disabled={saveMutation.isPending}
-        data-testid="button-save-benchmarks"
-      >
-        {saveMutation.isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Save className="w-4 h-4" />
-        )}
-        Save All Benchmarks
-      </Button>
+      {isAdmin ? (
+        <Button
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
+          onClick={handleSave}
+          disabled={saveMutation.isPending}
+          data-testid="button-save-benchmarks"
+        >
+          {saveMutation.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          Save All Benchmarks
+        </Button>
+      ) : (
+        <div className="p-3 rounded-lg bg-muted/30 border border-border/30 flex items-center justify-center gap-2">
+          <Shield className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Benchmarks are read-only for standard users</span>
+        </div>
+      )}
 
       {/* Info card */}
       <Card className="bg-muted/20 border-border/50">
         <CardContent className="p-4 flex items-start gap-3">
           <Info className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div className="text-xs text-muted-foreground space-y-1">
-            <p><strong>North Star:</strong> The agent reads from benchmarks.json on every 9 AM run. All thresholds, auto-pause rules, scoring, and alerts derive from these values.</p>
+            <p><strong>Reference Values:</strong> Benchmarks act as dynamic comparison references across Dashboard, Campaigns, Adsets, and MTD modules — changes apply instantly.</p>
+            <p><strong>Not Scoring:</strong> Benchmarks do not influence health scores or campaign scoring — they are display-only comparison targets.</p>
             <p><strong>MTD Deliverables:</strong> Enter SVs, positive leads, and closures manually. The agent calculates total leads, spend, and other metrics from API data automatically.</p>
-            <p><strong>Scoring Weights:</strong> Advanced section — customize how ads and campaigns are scored. Weights should sum to 1.0 within each category.</p>
           </div>
         </CardContent>
       </Card>

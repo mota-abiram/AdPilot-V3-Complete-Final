@@ -206,12 +206,21 @@ SOP = {
     "descriptions_target": 4,
     "kwi_headlines_min": 4,
     "creative_refresh_days": 30,
+    "creative_max_age_days": 45,
     "smart_bid_conv_threshold": 30,
     "smart_bid_cvr_variance_max": 0.20,
     "bid_nudge_pct": 0.20,  # 20% nudge
     "bid_multiplier_low": 1.30,
     "bid_multiplier_high": 1.40,
     "bid_multiplier_default": 1.35,
+    "ad_score_weights_dg": {
+        "cpl_vs_target": 40, "cpm": 20, "tsr": 15, "vhr": 15, "ctr": 10,
+    },
+    "ad_score_weights_search": {
+        "cpl_vs_target": 50, "cpc": 20, "ctr": 20, "cvr": 10,
+    },
+    "winner_threshold": 70,
+    "loser_threshold": 35,
 }
 
 # ── 10 Google-Specific SOP Playbooks ──
@@ -512,6 +521,57 @@ def save_learning_history(data):
     save_json(LEARNING_FILE, data)
 
 
+def calculate_daily_trends(rows):
+    """Calculate daily totals from raw rows that contain segments.date."""
+    if not rows:
+        return []
+    
+    daily = defaultdict(lambda: {
+        "spend": 0.0, "leads": 0.0, "impressions": 0, "clicks": 0,
+        "video_impressions": 0, "v3s": 0, "v25": 0
+    })
+    
+    for row in rows:
+        date = row.get("segments", {}).get("date")
+        if not date:
+            continue
+            
+        metrics = row.get("metrics", {})
+        target = daily[date]
+        target["spend"] += micros_to_inr(metrics.get("costMicros"))
+        target["leads"] += sf(metrics.get("conversions"))
+        target["impressions"] += si(metrics.get("impressions"))
+        target["clicks"] += si(metrics.get("clicks"))
+        
+        # TSR/VHR Segregation: Only aggregate if it's a video/DG row
+        ad_inner = row.get("adGroupAd", {}).get("ad", {})
+        is_video = bool(ad_inner.get("videoAd") or ad_inner.get("demandGenMultiAssetAd") or ad_inner.get("demandGenCarouselAd"))
+        if is_video:
+            target["video_impressions"] += si(metrics.get("impressions"))
+            v3s = si(metrics.get("threeSecondViews")) or si(metrics.get("videoViews"))
+            target["v3s"] += v3s
+            # VHR proxy: videoQuartileP25Rate * impressions = quartile_25_count
+            v25_rate = sf(metrics.get("videoQuartileP25Rate"))
+            target["v25"] += (v25_rate * si(metrics.get("impressions")))
+    
+    # Sort by date
+    sorted_dates = sorted(daily.keys())
+    results = []
+    for d in sorted_dates:
+        t = daily[d]
+        results.append({
+            "date": d,
+            "spend": round(t["spend"], 2),
+            "leads": round(t["leads"], 1),
+            "impressions": t["impressions"],
+            "clicks": t["clicks"],
+            "ctr": round(safe_div(t["clicks"], t["impressions"]) * 100, 2) if t["impressions"] > 0 else 0.0,
+            "cpl": round(safe_div(t["spend"], t["leads"]), 2) if t["leads"] > 0 else 0.0,
+            "tsr": round(safe_div(t["v3s"], t["video_impressions"]) * 100, 2) if t["video_impressions"] > 0 else 0.0,
+            "vhr": round(safe_div(t["v25"], t["v3s"]) * 100, 2) if t["v3s"] > 0 else 0.0,
+        })
+    return results
+
 def aggregate_google_rows(rows, resource_name):
     """Aggregate daily Google Ads API rows into entity-level totals."""
     if not rows:
@@ -563,7 +623,8 @@ def extract_campaign(row):
     conversions = sf(metrics.get("conversions"))
     all_conversions = sf(metrics.get("allConversions"))
 
-    ctr = sf(metrics.get("ctr")) * 100  # API returns decimal
+    # CTR MUST be recalculated: Clicks / Impressions
+    ctr = (safe_div(clicks, impressions) * 100) if impressions > 0 else 0
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
     avg_cpm = micros_to_inr(metrics.get("averageCpm"))
     cost_per_conv = micros_to_inr(metrics.get("costPerConversion"))
@@ -624,7 +685,7 @@ def extract_ad_group(row):
     clicks = si(metrics.get("clicks"))
     cost = micros_to_inr(metrics.get("costMicros"))
     conversions = sf(metrics.get("conversions"))
-    ctr = sf(metrics.get("ctr")) * 100
+    ctr = (safe_div(clicks, impressions) * 100) if impressions > 0 else 0
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
     cvr = safe_div(conversions, clicks) * 100
     cpl = safe_div(cost, conversions)
@@ -658,7 +719,7 @@ def extract_ad(row):
     clicks = si(metrics.get("clicks"))
     cost = micros_to_inr(metrics.get("costMicros"))
     conversions = sf(metrics.get("conversions"))
-    ctr = sf(metrics.get("ctr")) * 100
+    ctr = (safe_div(clicks, impressions) * 100) if impressions > 0 else 0
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
     cvr = safe_div(conversions, clicks) * 100
     cpl = safe_div(cost, conversions)
@@ -715,6 +776,7 @@ def extract_ad(row):
         "campaign_id": camp.get("id", ""),
         "campaign_name": camp.get("name", ""),
         "campaign_type": classify_campaign_type(camp),
+        "created_time": ad_inner.get("creation_date_time", ""),
         "impressions": impressions,
         "clicks": clicks,
         "cost": round(cost, 2),
@@ -783,6 +845,9 @@ def collect_data(cadence_window=None):
         ds["customer_raw"] = aggregate_google_rows(raw_customer if isinstance(raw_customer, list) else [], "customer")
     print(f"    -> Account data collected")
 
+    # 5. Process raw data — FIX: Preserve raw trends before aggregating
+    raw_trends = ds["campaigns_raw"].copy()
+
     # 5. Aggregate Daily Data into Totals
     print("  Aggregating daily rows...")
     ds["campaigns_raw"] = aggregate_google_rows(ds["campaigns_raw"], "campaign")
@@ -799,6 +864,9 @@ def collect_data(cadence_window=None):
     ds["active_campaigns"] = [c for c in ds["campaigns"] if c["status"] == "ENABLED"]
     ds["active_ad_groups"] = [ag for ag in ds["ad_groups"] if ag["status"] == "ENABLED"]
     ds["active_ads"] = [a for a in ds["ads"] if a["status"] == "ENABLED"]
+    
+    # Store raw rows for daily trends (before ID-aggregation)
+    ds["daily_trends_dataset"] = raw_trends
 
     print(f"    -> {len(ds['active_campaigns'])} active campaigns")
     print(f"    -> {len(ds['active_ad_groups'])} active ad groups")
@@ -826,7 +894,7 @@ def collect_data(cadence_window=None):
 
 # ━━━━━━━━━━━━━ MODULE 1: ACCOUNT PULSE & MTD PACING ━━━━━━━━━━━━━
 
-def analyze_account_pulse(campaigns, historical):
+def analyze_account_pulse(campaigns, historical, daily_trends=None):
     """Account-level health check + MTD pacing."""
     active = [c for c in campaigns if c["status"] == "ENABLED"]
 
@@ -918,6 +986,13 @@ def analyze_account_pulse(campaigns, historical):
         "not_spending_campaigns": not_spending,
         "paused_campaigns": len(paused_or_removed),
         "alerts": alerts,
+        "daily_spends": [d["spend"] for d in daily_trends] if daily_trends else [],
+        "daily_leads": [d["leads"] for d in daily_trends] if daily_trends else [],
+        "daily_ctrs": [d["ctr"] for d in daily_trends] if daily_trends else [],
+        "daily_clicks": [d["clicks"] for d in daily_trends] if daily_trends else [],
+        "daily_impressions": [d["impressions"] for d in daily_trends] if daily_trends else [],
+        "daily_tsrs": [d["tsr"] for d in daily_trends] if daily_trends else [],
+        "daily_vhrs": [d["vhr"] for d in daily_trends] if daily_trends else [],
     }
 
 
@@ -1116,6 +1191,164 @@ def analyze_dg_campaign_health(c, bench):
         "cpc": c["avg_cpc"],
         "frequency_note": "Frequency data requires segments.date query — check in Google Ads UI",
     }
+
+
+def _score_metric_vs_target(actual, target, weight, lower_is_better=True):
+    if target == 0:
+        return 0, "no_data"
+    ratio = actual / target if target > 0 else 999
+    if lower_is_better:
+        if ratio <= 1.0:
+            return weight, "excellent"
+        elif ratio <= 1.2:
+            return weight * 0.75, "good"
+        elif ratio <= 1.5:
+            return weight * 0.40, "watch"
+        else:
+            return weight * 0.10, "poor"
+    else:
+        if ratio >= 1.0:
+            return weight, "excellent"
+        elif ratio >= 0.75:
+            return weight * 0.75, "good"
+        elif ratio >= 0.5:
+            return weight * 0.40, "watch"
+        else:
+            return weight * 0.10, "poor"
+
+def score_google_ad(ad_data, cpl_target):
+    ctype = ad_data.get("campaign_type", "location")
+    is_dg = is_dg_type(ctype)
+    w = SOP["ad_score_weights_dg"] if is_dg else SOP["ad_score_weights_search"]
+    scores = {}
+    bands = {}
+    leads = ad_data.get("conversions", ad_data.get("leads", 0))
+    cpl = ad_data.get("cpl", 0)
+    impressions = ad_data.get("impressions", 0)
+    age_days = ad_data.get("age_days", 0)
+
+    # 1. Performance-based scoring
+    if leads > 0 and cpl > 0 and cpl_target > 0:
+        s, b = _score_metric_vs_target(cpl, cpl_target, w["cpl_vs_target"], lower_is_better=True)
+        scores["cpl_vs_target"] = s
+        bands["cpl_vs_target"] = b
+    elif leads == 0 and impressions >= SOP["auto_pause_zero_leads_impressions"]:
+        scores["cpl_vs_target"] = 0
+        bands["cpl_vs_target"] = "poor"
+    else:
+        scores["cpl_vs_target"] = w["cpl_vs_target"] * 0.5
+        bands["cpl_vs_target"] = "no_data"
+
+    if is_dg:
+        cpm = ad_data.get("avg_cpm", 0)
+        if cpm > 0:
+            s, b = _score_metric_vs_target(cpm, 150, w["cpm"], lower_is_better=True)
+            scores["cpm"] = s
+            bands["cpm"] = b
+        tsr = ad_data.get("tsr", 0)
+        if tsr > 0:
+            s, b = _score_metric_vs_target(tsr, 2.5, w["tsr"], lower_is_better=False)
+            scores["tsr"] = s
+            bands["tsr"] = b
+        vhr = ad_data.get("vhr", 0)
+        if vhr > 0:
+            s, b = _score_metric_vs_target(vhr, 25, w["vhr"], lower_is_better=False)
+            scores["vhr"] = s
+            bands["vhr"] = b
+    else:
+        cpc = ad_data.get("avg_cpc", 0)
+        if cpc > 0:
+            s, b = _score_metric_vs_target(cpc, 25, w["cpc"], lower_is_better=True)
+            scores["cpc"] = s
+            bands["cpc"] = b
+        cvr = ad_data.get("cvr", 0)
+        if cvr > 0:
+            s, b = _score_metric_vs_target(cvr, 3.0, w["cvr"], lower_is_better=False)
+            scores["cvr"] = s
+            bands["cvr"] = b
+
+    ctr = ad_data.get("ctr", 0)
+    if ctr > 0:
+        bench = get_benchmark_for_type(ctype)
+        s, b = _score_metric_vs_target(ctr, bench.get("ctr_low", 1.0), w["ctr"], lower_is_better=False)
+        scores["ctr"] = s
+        bands["ctr"] = b
+
+    perf_score = round(sum(scores.values()), 1)
+    perf_score = max(0, min(100, perf_score))
+
+    # 2. Age-based scoring (40% weight)
+    if age_days <= 21:
+        age_score = 100
+    else:
+        age_score = max(0, 100 - (age_days - 21) * (100 / (60 - 21)))
+    
+    total_score = round((0.6 * perf_score) + (0.4 * age_score), 1)
+
+    if total_score >= SOP["winner_threshold"]:
+        classification = "WINNER"
+    elif total_score <= SOP["loser_threshold"]:
+        classification = "LOSER"
+    else:
+        classification = "WATCH"
+
+    should_pause = (leads == 0 and impressions >= SOP["auto_pause_zero_leads_impressions"]) or (leads > 0 and cpl > cpl_target * SOP["auto_pause_cpl_multiplier"])
+
+    return {
+        "total_score": total_score,
+        "performance_score": perf_score,
+        "age_score": round(age_score, 1),
+        "scores": scores, "bands": bands,
+        "classification": classification, "should_pause": should_pause,
+        "scoring_type": "dg" if is_dg else "search"
+    }
+
+def analyze_creative_health(ads, cpl_target):
+    results = []
+    for ad in ads:
+        # Calculate age from created_time if available
+        created_time = ad.get("created_time")
+        age_days = 0
+        if created_time:
+            try:
+                # Google format: "2024-03-20 10:30:00"
+                dt = datetime.datetime.strptime(created_time[:10], "%Y-%m-%d").date()
+                age_days = (TODAY - dt).days
+            except:
+                pass
+        
+        vm = ad.get("video_metrics") or {}
+        ad_score_data = {
+            **ad,
+            "age_days": age_days,
+            "tsr": vm.get("tsr", 0),
+            "vhr": vm.get("vhr", 0)
+        }
+        scoring = score_google_ad(ad_score_data, cpl_target)
+        
+        ad_res = ad.copy()
+        signals = []
+        if age_days > 45:
+            signals.append(f"Ad is {age_days} days old — refresh recommended.")
+        if scoring["should_pause"]:
+            signals.append("Performance below thresholds — pause recommended.")
+            
+        ad_res.update({
+            "creative_age_days": age_days,
+            "creative_type": "video" if ad.get("video_metrics") else "static",
+            "is_video": bool(ad.get("video_metrics")),
+            "creative_score": scoring["total_score"],
+            "performance_score": scoring["performance_score"],
+            "age_score": scoring["age_score"],
+            "classification": scoring["classification"],
+            "should_pause": scoring["should_pause"],
+            "health_signals": signals,
+            "scoring_type": scoring["scoring_type"]
+        })
+        results.append(ad_res)
+    
+    # Sort by score ascending (lowest first for refresh queue)
+    return sorted(results, key=lambda x: x["creative_score"])
 
 
 # ━━━━━━━━━━━━━ MODULE 5: BIDDING ANALYSIS (CPA = CPC/CVR) ━━━━━━
@@ -3124,6 +3357,9 @@ def run_analysis(cadence="twice_weekly"):
 
     # 1. Collect data
     ds = collect_data(cadence_window=window)
+    # Use the preserved raw trends (fix dashboard chart aggregation)
+    daily_raw = ds.get("daily_trends_dataset", [])
+    daily_trends = calculate_daily_trends(daily_raw)
 
     if not ds["campaigns"]:
         print("\n[FATAL] No campaign data. Exiting.")
@@ -3144,7 +3380,7 @@ def run_analysis(cadence="twice_weekly"):
 
     # 2. Account Pulse
     print("\n--- Module 1: Account Pulse & MTD Pacing ---")
-    account_pulse = analyze_account_pulse(ds["campaigns"], ds["historical"])
+    account_pulse = analyze_account_pulse(ds["campaigns"], ds["historical"], daily_trends=daily_trends)
     print(f"  Spend: {fmt_inr(account_pulse['total_spend'])} | Leads: {account_pulse['total_leads']} | CPL: {fmt_inr(account_pulse['overall_cpl'])}")
     print(f"  Pacing: Spend {account_pulse['mtd_pacing']['pacing_spend_pct']:.0f}% | Leads {account_pulse['mtd_pacing']['pacing_leads_pct']:.0f}%")
 
@@ -3236,6 +3472,11 @@ def run_analysis(cadence="twice_weekly"):
     freq_severe = len(frequency_audit.get("severe", []))
     print(f"  {freq_warnings} warnings | {freq_severe} severe frequency issues")
 
+    # 14c. Creative Health (always)
+    print("\n--- Module 14c: Creative Health Analysis ---")
+    creative_health = analyze_creative_health(ds["ads"], CPL_TARGET)
+    print(f"  {len(creative_health)} ads analyzed")
+
     # 14b. Ad Group Restructuring Analysis (uses live QS + search terms)
     print("\n--- Module 14b: Ad Group Restructuring Analysis ---")
     restructuring = analyze_ad_group_restructuring(
@@ -3321,14 +3562,23 @@ def run_analysis(cadence="twice_weekly"):
             "cpl_alert": CPL_ALERT,
             "cpl_critical": CPL_CRITICAL,
         },
+        "dynamic_thresholds": {
+            "cpl_target": CPL_TARGET,
+            "cpl_alert": CPL_ALERT,
+            "cpl_critical": CPL_CRITICAL,
+            "budget": MONTHLY_TARGETS["google"]["budget"],
+            "leads": MONTHLY_TARGETS["google"]["leads"],
+        },
         "account_pulse": account_pulse,
         "campaigns": campaign_analysis,
+        "creative_health": creative_health,
         "search_summary": search_summary,
         "dg_summary": dg_summary,
         "bidding_analysis": bidding,
         "cvr_analysis": cvr_analysis,
         "conversion_sanity": conv_sanity,
         "geo_analysis": geo,
+        "daily_trends": daily_trends,
         "auto_pause_candidates": auto_pause,
         "playbooks_triggered": playbooks,
         "intellect_insights": intellect,

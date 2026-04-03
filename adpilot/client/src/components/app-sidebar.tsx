@@ -21,6 +21,8 @@ import {
   CalendarClock,
   FileBarChart,
   Sparkles,
+  Clapperboard,
+  Brain,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,25 +45,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useClient } from "@/lib/client-context";
+import { useAuth } from "@/lib/auth-context";
 import type { PlatformSyncState } from "@/lib/sync-state";
 import { cn } from "@/lib/utils";
+import logo from "../assets/logo.png";
+
 
 // ─── Navigation groups — grouped by workflow, not alphabetically ───────────────
 
 const coreNavItems = [
   { title: "Dashboard", url: "/",          icon: LayoutDashboard },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
+  { title: "Ads Panel", url: "/analytics/ads", icon: Clapperboard },
 ];
 
 const metaNavItems = [
   { title: "Adsets",    url: "/adsets",    icon: Layers },
-  { title: "Ads",       url: "/creatives", icon: Sparkles },
+  { title: "Ads",       url: "/ads",       icon: Sparkles },
 ];
 
 const googleNavItems = [
-  { title: "Bidding",       url: "/google/bidding",       icon: IndianRupee },
+  { title: "Bidding Intel",  url: "/google/bidding",       icon: Brain },
   { title: "Ad Groups",     url: "/adsets",               icon: Layers },
-  { title: "Ads",           url: "/creatives",            icon: Sparkles },
+  { title: "Ads",           url: "/ads",                  icon: Sparkles },
   { title: "Quality Score", url: "/google/quality-score", icon: Search },
   { title: "Search Terms",  url: "/google/search-terms",  icon: Target },
   { title: "Demand Gen",    url: "/google/demand-gen",    icon: Users },
@@ -69,9 +75,9 @@ const googleNavItems = [
 ];
 
 const planningNavItems = [
+  { title: "Breakdowns",        url: "/breakdowns",        icon: BarChart3 },
   { title: "Creative Calendar", url: "/creative-calendar", icon: CalendarClock },
   { title: "MTD Deliverables",  url: "/mtd-deliverables",  icon: FileBarChart },
-  { title: "Breakdowns",        url: "/breakdowns",        icon: BarChart3 },
 ];
 
 const opsNavItems = [
@@ -155,9 +161,12 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
     setActivePlatform,
     activeCadence,
     setActiveCadence,
+    apiBase,
   } = useClient();
+  const { isAdmin } = useAuth();
 
   const platformItems = activePlatform === "google" ? googleNavItems : metaNavItems;
+  const adminItems = isAdmin ? adminNavItems : adminNavItems.filter(i => i.title === "Settings");
 
   return (
     <Sidebar>
@@ -166,9 +175,11 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
 
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-[10px] bg-primary shadow-sm shrink-0">
-            <Zap className="w-4.5 h-4.5 text-primary-foreground" />
-          </div>
+          <img 
+            src={logo} 
+            alt="Mojo Logo" 
+            className="w-10 h-10 rounded-[10px] shadow-sm shrink-0 object-cover" 
+          />
           <div className="grid gap-1 leading-none">
             <p className="text-lg font-extrabold tracking-[-0.03em] leading-none">Mojo</p>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground leading-none">AdPilot V3</p>
@@ -312,7 +323,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
           <NavSection label="Analytics"  items={[...coreNavItems, ...platformItems]} location={location} />
           <NavSection label="Planning"   items={planningNavItems}  location={location} />
           <NavSection label="Operations" items={opsNavItems}       location={location} />
-          <NavSection label="Admin"      items={adminNavItems}     location={location} />
+          <NavSection label="Admin"      items={adminItems}        location={location} />
         </SidebarContent>
       </nav>
 

@@ -39,6 +39,8 @@ interface CreativeEntry {
   adset_name: string;
   age_days: number | null;
   creative_score: number | null;
+  performance_score: number | null;
+  age_score: number | null;
   ctr: number;
   cpm: number;
   cpl: number;
@@ -52,14 +54,16 @@ interface CreativeEntry {
   hold_rate_pct: number;
   source: "meta" | "google";
   campaign_type?: string;
+  classification?: string;
 }
 
 type FatigueLevel = "green" | "yellow" | "orange" | "red";
 
 // ─── Updated age thresholds: green<30, yellow 30-35, orange 35-45, red>45 ───
-function getAgeColor(ageDays: number, creativeScore: number | null): FatigueLevel {
-  // Override: if creative_score >= 70, show green regardless
-  if (creativeScore !== null && creativeScore >= 70) return "green";
+function getAgeColor(ageDays: number, performanceScore: number | null): FatigueLevel {
+  // Override: if performance_score >= 70, show green regardless of age
+  if (performanceScore !== null && performanceScore >= 70) return "green";
+  
   if (ageDays < 30) return "green";
   if (ageDays <= 35) return "yellow";
   if (ageDays <= 45) return "orange";
@@ -98,38 +102,52 @@ function getRefreshRecommendation(c: CreativeEntry, targetCpl: number): {
   text: string;
   actionType: string;
 } {
-  // Bad performance → recommend pause
-  if ((c.spend > 2000 && c.leads === 0) ||
-      (c.cpl > 0 && c.cpl > targetCpl * 1.5) ||
-      (c.creative_score !== null && c.creative_score < 30)) {
+  // 1. Critical Failure Signal: Poor Performance (regardless of age)
+  // Logic: Score < 30 OR (Spent > 2.5x target without leads)
+  const isPoorPerf = (c.performance_score !== null && c.performance_score < 35) || 
+                   (c.spend > targetCpl * 2.5 && c.leads === 0);
+
+  if (isPoorPerf) {
     return {
       type: "pause",
-      text: "Pause — poor performance" + (c.cpl > 0 ? `, CPL ₹${Math.round(c.cpl)}` : ", 0 leads"),
+      text: "Stop — poor performance baseline. No traction / high CPL.",
       actionType: "PAUSE_AD",
     };
   }
 
-  // OK performance but old → recommend refresh
-  const refreshSuggestions: string[] = [];
-  if (c.is_video && (c.thumb_stop_pct || 0) < 25) {
-    refreshSuggestions.push("change hook/first 3s");
+  // 2. High Age Signal: Aging / Fatigued but performance is "Okay" (35-70)
+  if (c.age_days !== null && c.age_days > 35) {
+    return {
+      type: "refresh",
+      text: `Fatigue — Creative is ${c.age_days}d old. Performance is stable but needs new visual.`,
+      actionType: "CREATIVE_REFRESH",
+    };
   }
-  if ((c.frequency || 0) > 2.5) {
-    refreshSuggestions.push("creative fatigue, new angle needed");
+
+  // 3. Middle ground: Check specific signals
+  const suggestions: string[] = [];
+  if (c.is_video && (c.thumb_stop_pct || 0) < 25) suggestions.push("fix hook");
+  if ((c.frequency || 0) > 3.0) suggestions.push("audience fatigue");
+  
+  if (suggestions.length > 0) {
+    return {
+      type: "refresh",
+      text: `Optimize — ${suggestions.join(", ")}`,
+      actionType: "CREATIVE_REFRESH",
+    };
   }
-  refreshSuggestions.push("update colors/format/copy, keep running");
 
   return {
     type: "refresh",
-    text: "Refresh — " + refreshSuggestions[0],
-    actionType: "CREATIVE_REFRESH",
+    text: "Healthy — Maintain rotation",
+    actionType: "MONITOR",
   };
 }
 
 // ─── Component ───────────────────────────────────────────────────
 
 export default function CreativeCalendarPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, activeClientId, activeClient, apiBase } = useClient();
+  const { analysisData: data, isLoadingAnalysis: isLoading, benchmarks, activePlatform, activeClientId, activeClient, apiBase } = useClient();
   const { toast } = useToast();
   const isGoogle = activePlatform === "google";
 
@@ -142,31 +160,39 @@ export default function CreativeCalendarPage() {
     if (!data) return [];
     const results: CreativeEntry[] = [];
 
-    if (!isGoogle) {
-      const ch = (data as any).creative_health || [];
-      for (const c of ch) {
+    // Unified path: both agents now provide 'creative_health' array
+    const creativeHealth = (data as any).creative_health || [];
+    
+    if (creativeHealth.length > 0) {
+      for (const c of creativeHealth) {
         results.push({
-          id: c.ad_id,
-          name: c.ad_name || `Ad ${c.ad_id}`,
+          id: c.ad_id || c.id,
+          name: c.ad_name || c.name || `Ad ${c.ad_id || ""}`,
           campaign_name: c.campaign_name || "",
-          adset_name: c.adset_name || "",
-          age_days: c.creative_age_days ?? null,
+          adset_name: c.adset_name || c.ad_group_name || "",
+          age_days: c.creative_age_days ?? c.age_days ?? null,
           creative_score: c.creative_score ?? null,
+          performance_score: c.performance_score ?? null,
+          age_score: c.age_score ?? null,
           ctr: c.ctr || 0,
           cpm: c.cpm || 0,
           cpl: c.cpl || 0,
           health_signals: c.health_signals || [],
           spend: c.spend || 0,
           impressions: c.impressions || 0,
-          leads: c.leads || 0,
+          leads: c.leads || c.conversions || 0,
           frequency: c.frequency || 0,
           is_video: !!c.is_video,
           thumb_stop_pct: c.thumb_stop_pct || 0,
           hold_rate_pct: c.hold_rate_pct || 0,
-          source: "meta",
+          source: isGoogle ? "google" : "meta",
+          classification: c.classification,
         });
       }
-    } else {
+    }
+    
+    // Fallback for older Google agent data or if creative_health missing
+    if (results.length === 0 && isGoogle) {
       const campaigns = (data as any).campaigns || [];
       for (const camp of campaigns) {
         const adGroups = camp.ad_groups || [];
@@ -178,8 +204,10 @@ export default function CreativeCalendarPage() {
               name: ad.name || ad.headline || `Ad ${ad.id || ""}`,
               campaign_name: camp.name || "",
               adset_name: ag.name || "",
-              age_days: ad.age_days ?? null,
-              creative_score: ad.score ?? ad.health_score ?? null,
+              age_days: ad.age_days ?? ad.creative_age_days ?? null,
+              creative_score: ad.score ?? ad.health_score ?? ad.creative_score ?? null,
+              performance_score: ad.performance_score ?? null,
+              age_score: ad.age_score ?? null,
               ctr: ad.ctr || 0,
               cpm: ad.cpm || 0,
               cpl: ad.cost_per_conversion || ad.cpl || 0,
@@ -207,11 +235,16 @@ export default function CreativeCalendarPage() {
       .filter((c) => {
         if (c.age_days === null) return false;
         if (refreshedIds.has(c.id)) return false;
-        // Override: if score >= 70, don't flag for refresh even if old
-        if (c.creative_score !== null && c.creative_score >= 70) return false;
+        // Override: if performance_score >= 70, don't flag for refresh even if old
+        if (c.performance_score !== null && c.performance_score >= 70) return false;
         return c.age_days > 35;
       })
-      .sort((a, b) => (b.age_days ?? 0) - (a.age_days ?? 0));
+      .sort((a, b) => {
+        // Sort by creative_score (weighted) ascending — worst performers first
+        const scoreA = a.creative_score ?? 0;
+        const scoreB = b.creative_score ?? 0;
+        return scoreA - scoreB;
+      });
   }, [creatives, refreshedIds]);
 
   const timelineCreatives = useMemo(() => {
@@ -219,8 +252,6 @@ export default function CreativeCalendarPage() {
       .filter((c) => c.age_days !== null)
       .sort((a, b) => (b.age_days ?? 0) - (a.age_days ?? 0));
   }, [creatives]);
-
-  // Removed "creatives without age" section per audit
 
   const maxAge = useMemo(() => {
     const ages = timelineCreatives.map((c) => c.age_days ?? 0);
@@ -237,17 +268,102 @@ export default function CreativeCalendarPage() {
     );
   }
 
+  // ─── MTD Calculations ─────────────────────────────────────────
+  const mp = (data as any)?.account_pulse?.monthly_pacing;
+  const mtdSpend = mp?.mtd?.spend || 0;
+  const mtdLeads = mp?.mtd?.leads || 0;
+  const mtdQL = benchmarks?.positive_leads_mtd || 0;
+  const mtdSV = benchmarks?.svs_mtd || 0;
+
+  const mtdCpl = mtdLeads > 0 ? mtdSpend / mtdLeads : 0;
+  const mtdCpql = mtdQL > 0 ? mtdSpend / mtdQL : 0;
+  const mtdCpsv = mtdSV > 0 ? mtdSpend / mtdSV : 0;
+
+  const posPct = mtdLeads > 0 ? (mtdQL / mtdLeads) * 100 : 0;
+  const svPct = mtdLeads > 0 ? (mtdSV / mtdLeads) * 100 : 0;
+
   return (
     <div className="p-6 space-y-5 max-w-[1600px]">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <CalendarClock className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-semibold text-foreground">Creative Rotation Calendar</h1>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <CalendarClock className="w-5 h-5 text-primary" />
+            <h1 className="text-lg font-semibold text-foreground">Creative Rotation Calendar</h1>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {creatives.length} creatives tracked · {timelineCreatives.length} with age data · Thresholds: &lt;30d green, 30-35d yellow, 35-45d orange, &gt;45d red
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {creatives.length} creatives tracked · {timelineCreatives.length} with age data · Thresholds: &lt;30d green, 30-35d yellow, 35-45d orange, &gt;45d red
-        </p>
+
+        {/* ─── MTD Performance Snapshot ─── */}
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">MTD Spend</p>
+            <p className="text-sm font-bold tabular-nums">{formatINR(mtdSpend, 0)}</p>
+          </div>
+          <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">MTD Leads</p>
+            <p className="text-sm font-bold tabular-nums">{formatNumber(mtdLeads)}</p>
+          </div>
+          <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">CPL</p>
+            <p className="text-sm font-bold tabular-nums text-primary">{formatINR(mtdCpl, 0)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Creative Efficiency Grid ────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Qualified Leads</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold tabular-nums">{mtdQL}</span>
+              <span className="text-[11px] font-medium text-emerald-400">{posPct.toFixed(1)}% Pos</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">CPQL: {formatINR(mtdCpql, 0)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Site Visits (SVs)</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold tabular-nums">{mtdSV}</span>
+              <span className="text-[11px] font-medium text-emerald-400">{svPct.toFixed(1)}% SV</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">CPSV: {formatINR(mtdCpsv, 0)}</p>
+          </CardContent>
+        </Card>
+        
+        {/* Existing health summary stats moved into this grid for compactness */}
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Fresh (&lt;30d)</p>
+            <p className="text-xl font-bold tabular-nums text-emerald-400">
+              {timelineCreatives.filter(c => (c.age_days ?? 0) < 30).length}
+            </p>
+            <p className="text-[9px] text-muted-foreground mt-1">Active rotation</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Aging (30–45d)</p>
+            <p className="text-xl font-bold tabular-nums text-amber-400">
+              {timelineCreatives.filter(c => (c.age_days ?? 0) >= 30 && (c.age_days ?? 0) <= 45).length}
+            </p>
+            <p className="text-[9px] text-muted-foreground mt-1">Watch for fatigue</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stale (&gt;45d)</p>
+            <p className="text-xl font-bold tabular-nums text-red-400">
+              {timelineCreatives.filter(c => (c.age_days ?? 0) > 45).length}
+            </p>
+            <p className="text-[9px] text-muted-foreground mt-1">Needs refresh</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ─── Refresh Queue ─────────────────────────────────────────── */}
@@ -294,13 +410,23 @@ export default function CreativeCalendarPage() {
                             {c.age_days}d old
                           </Badge>
                           {c.creative_score !== null && (
-                            <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                              c.creative_score >= 70 ? "text-emerald-400 bg-emerald-500/10" :
-                              c.creative_score >= 40 ? "text-amber-400 bg-amber-500/10" :
-                              "text-red-400 bg-red-500/10"
-                            }`}>
-                              Score: {c.creative_score}
-                            </Badge>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 shrink-0 ${
+                                  c.creative_score >= 70 ? "text-emerald-400 bg-emerald-500/10" :
+                                  c.creative_score >= 40 ? "text-amber-400 bg-amber-500/10" :
+                                  "text-red-400 bg-red-500/10"
+                                }`}>
+                                  Score: {c.creative_score.toFixed(0)}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-[10px] font-medium">60/40 Weighted Signal</p>
+                                <p className="text-[9px] text-muted-foreground mt-0.5">
+                                  Perf: {c.performance_score?.toFixed(0)} (60%) + Age: {c.age_score?.toFixed(0)} (40%)
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                           {/* Pause vs Refresh badge */}
                           {rec.type === "pause" ? (
@@ -477,15 +603,15 @@ export default function CreativeCalendarPage() {
                           </div>
                         </TooltipContent>
                       </Tooltip>
-                      {isPerformingWell && ageDays > 45 && (
+                      {c.performance_score !== null && c.performance_score >= 70 && ageDays > 30 && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Badge variant="secondary" className="text-[8px] px-1 py-0 text-emerald-400 bg-emerald-500/10 shrink-0">
-                              OK
+                              HIGH_PERF
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p className="text-xs">Performing Well (score {c.creative_score}) — OK to keep running</p>
+                            <p className="text-xs">High Performance (score {c.performance_score}) — Override aging fatigue</p>
                           </TooltipContent>
                         </Tooltip>
                       )}
@@ -514,10 +640,10 @@ export default function CreativeCalendarPage() {
                       {/* Score badge on bar */}
                       {c.creative_score !== null && (
                         <div
-                          className="absolute top-0.5 text-[9px] font-medium text-white/90 px-1 z-20"
+                          className="absolute top-0.5 text-[9px] font-bold text-white px-1 z-20 pointer-events-none"
                           style={{ left: `${Math.min(barWidth - 5, 90)}%` }}
                         >
-                          {c.creative_score}
+                          {Math.round(c.creative_score)}
                         </div>
                       )}
 

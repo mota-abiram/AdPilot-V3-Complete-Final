@@ -499,7 +499,7 @@ export default function CreativesPage() {
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h1 id="creative-hub-title" className="text-2xl font-extrabold">Creatives</h1>
+                <h1 id="creative-hub-title" className="text-2xl font-extrabold">Ads</h1>
                 <p className="type-base text-muted-foreground">
                   Creative Intelligence + Generation Hub for {activeClient?.name || "this client"}
                 </p>

@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, Pause, Play, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal } from "lucide-react";
 import {
   formatINR,
   formatPct,
@@ -38,12 +38,32 @@ import {
 import { useExecution } from "@/hooks/use-execution";
 import { ExecutionButton } from "@/components/execution-button";
 import { usePausedEntities } from "@/hooks/use-paused-entities";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type SortKey = keyof AdsetAnalysis;
 type SortDir = "asc" | "desc";
 
+// ─── Benchmark comparison badge ─────────────────────────────────────
+function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark: number; label?: string }) {
+  if (!benchmark || !value) return null;
+  const pct = ((value - benchmark) / benchmark) * 100;
+  const isAbove = value > benchmark;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={`inline-flex items-center text-[9px] font-medium px-1 py-0 rounded ml-1 cursor-default ${isAbove ? "text-red-400 bg-red-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
+          {isAbove ? "▲" : "▼"} {Math.abs(Math.round(pct))}%
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {label || "Benchmark"}: {formatINR(benchmark, 0)} — {isAbove ? "Above" : "Within"} benchmark
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export default function AdsetsPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform } = useClient();
+  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, benchmarks } = useClient();
   const { executeBatch, isExecuting } = useExecution();
   const { isPaused: isEntityPaused } = usePausedEntities();
   const isGoogle = activePlatform === "google";
@@ -64,7 +84,8 @@ export default function AdsetsPage() {
   const [filterCampaign, setFilterCampaign] = useState<string>(initialCampaignId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<{ open: boolean; action: "pause" | "activate" }>({ open: false, action: "pause" });
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [columnSize, setColumnSize] = useState<"compact" | "normal" | "wide">("normal");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [searchPage, setSearchPage] = useState(1);
@@ -302,7 +323,10 @@ export default function AdsetsPage() {
             data-testid={`checkbox-adgroup-${entityId}`}
           />
         </td>
-        <td className="p-3 max-w-[180px]">
+        <td className={`p-3 transition-all duration-200 ${
+          columnSize === "compact" ? "max-w-[120px]" : 
+          columnSize === "normal" ? "max-w-[180px]" : "max-w-[400px]"
+        }`}>
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="truncate block cursor-default text-foreground">{truncate(entityName, 28)}</span>
@@ -345,6 +369,9 @@ export default function AdsetsPage() {
         <td className="p-3 text-right tabular-nums">{formatINR(a.cpc || 0, 2)}</td>
         <td className={`p-3 text-right tabular-nums ${(a.cpl || 0) > 0 ? getCplColor(a.cpl, thresholds) : "text-foreground"}`}>
           {(a.cpl || 0) > 0 ? formatINR(a.cpl, 0) : "—"}
+          {(a.cpl || 0) > 0 && benchmarks?.cpl && (
+            <BenchmarkBadge value={a.cpl} benchmark={benchmarks.cpl} label="CPL Target" />
+          )}
         </td>
         <td className="p-3 text-right tabular-nums">
           {(() => {
@@ -461,18 +488,32 @@ export default function AdsetsPage() {
               <thead>
                 <tr className="border-b border-border/50">
                   <th className="p-3 w-8">
-                    <Checkbox
-                      checked={rows.length > 0 && rows.every((a: any) => selectedIds.has(a.ad_group_id || a.id))}
-                      onCheckedChange={() => {
-                        const ids = rows.map((a: any) => a.ad_group_id || a.id);
-                        const allSelected = ids.every((id) => selectedIds.has(id));
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev);
-                          ids.forEach((id) => allSelected ? next.delete(id) : next.add(id));
-                          return next;
-                        });
-                      }}
-                    />
+                    <div className="flex flex-col gap-2">
+                       <Checkbox
+                        checked={rows.length > 0 && rows.every((a: any) => selectedIds.has(a.ad_group_id || a.id))}
+                        onCheckedChange={() => {
+                          const ids = rows.map((a: any) => a.ad_group_id || a.id);
+                          const allSelected = ids.every((id) => selectedIds.has(id));
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            ids.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+                            return next;
+                          });
+                        }}
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 hover:opacity-100">
+                             <SlidersHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setColumnSize("normal")}>Normal Width</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide Width</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </th>
                   {googleAgColumns.map((col) => (
                     <th
@@ -678,11 +719,25 @@ export default function AdsetsPage() {
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="p-3 w-8">
-                      <Checkbox
-                        checked={adsets.length > 0 && selectedIds.size === adsets.length}
-                        onCheckedChange={toggleSelectAll}
-                        data-testid="checkbox-select-all"
-                      />
+                      <div className="flex flex-col gap-2">
+                        <Checkbox
+                          checked={adsets.length > 0 && selectedIds.size === adsets.length}
+                          onCheckedChange={toggleSelectAll}
+                          data-testid="checkbox-select-all"
+                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 hover:opacity-100">
+                               <SlidersHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setColumnSize("normal")}>Normal Width</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide Width</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </th>
                     {metaColumns.map((col) => (
                       <th
@@ -712,7 +767,7 @@ export default function AdsetsPage() {
                     const entityName = a.adset_name;
                     const isPaused = a.delivery_status === "NOT_DELIVERING" || a.delivery_status === "PAUSED" || a.status === "PAUSED" || isEntityPaused(entityId);
                     const isSelected = selectedIds.has(entityId);
-                    const isExpanded = expandedId === entityId;
+                    const isExpanded = expandedIds.has(entityId);
 
                     return (
                       <>
@@ -721,7 +776,14 @@ export default function AdsetsPage() {
                         className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
                           a.should_pause ? "border-l-2 border-l-red-500" : ""
                         } ${isSelected ? "bg-primary/5" : ""} ${isPaused ? "opacity-50" : ""}`}
-                        onClick={() => setExpandedId(isExpanded ? null : entityId)}
+                        onClick={() => {
+                          setExpandedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(entityId)) next.delete(entityId);
+                            else next.add(entityId);
+                            return next;
+                          });
+                        }}
                         data-testid={`row-adset-${entityId}`}
                       >
                         <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -731,7 +793,10 @@ export default function AdsetsPage() {
                             data-testid={`checkbox-adset-${entityId}`}
                           />
                         </td>
-                        <td className="p-3 max-w-[180px]">
+                        <td className={`p-3 transition-all duration-200 ${
+                          columnSize === "compact" ? "max-w-[120px]" : 
+                          columnSize === "normal" ? "max-w-[180px]" : "max-w-[400px]"
+                        }`}>
                           <div className="flex items-center gap-1.5">
                             {a.should_pause && (
                               <Tooltip>

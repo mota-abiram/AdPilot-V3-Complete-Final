@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClient, type ClientInfo } from "@/lib/client-context";
+import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -352,6 +354,8 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
   const { toast } = useToast();
   const qc = useQueryClient();
   const { setActiveClientId } = useClient();
+  const { isAdmin } = useAuth();
+  const [, setLocation] = useLocation();
   const [expanded, setExpanded] = useState(false);
   const [showCreds, setShowCreds] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -410,19 +414,25 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {isAdmin && (
+              <Button
+                size="sm" variant="outline" className="h-7 text-[11px] gap-1"
+                onClick={(e) => { e.stopPropagation(); setShowCreds(true); }}
+              >
+                <KeyRound className="w-3 h-3" /> Credentials
+              </Button>
+            )}
             <Button
               size="sm" variant="outline" className="h-7 text-[11px] gap-1"
-              onClick={(e) => { e.stopPropagation(); setShowCreds(true); }}
-            >
-              <KeyRound className="w-3 h-3" /> Credentials
-            </Button>
-            <Button
-              size="sm" variant="outline" className="h-7 text-[11px] gap-1"
-              onClick={(e) => { e.stopPropagation(); setActiveClientId(client.id); }}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setActiveClientId(client.id);
+                setLocation("/");
+              }}
             >
               <Eye className="w-3 h-3" /> View
             </Button>
-            {!isDefault && (
+            {isAdmin && !isDefault && (
               <Button
                 size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-red-400"
                 onClick={(e) => { e.stopPropagation(); deleteClient(); }}
@@ -488,135 +498,11 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
   );
 }
 
-// ─── Scheduler Panel ─────────────────────────────────────────────────
-
-interface SchedulerStatus {
-  lastRun?: string;
-  lastRunSuccess?: boolean;
-  lastRunDuration?: number;
-  lastError?: string;
-  nextRun?: string;
-  isRunning?: boolean;
-}
-
-function SchedulerPanel() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [running, setRunning] = useState(false);
-  const [showError, setShowError] = useState(false);
-
-  const { data: status, isLoading } = useQuery<SchedulerStatus>({
-    queryKey: ["/api/scheduler/status"],
-    refetchInterval: running ? 3000 : 30000,
-  });
-
-  async function runNow() {
-    setRunning(true);
-    try {
-      const res = await apiRequest("POST", "/api/scheduler/run-now");
-      if (!res.ok) throw new Error((await res.json()).error);
-      toast({ title: "Agent triggered", description: "Data fetch started — this may take ~60 seconds." });
-      // Poll faster while running
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ["/api/scheduler/status"] });
-      }, 5000);
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  const isCurrentlyRunning = status?.isRunning || running;
-
-  function fmt(iso?: string) {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-  }
-
-  function duration(ms?: number) {
-    if (!ms) return "";
-    return ms < 60000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60000)}m`;
-  }
-
-  return (
-    <Card className="border-border/50">
-      <CardHeader className="px-4 py-3 pb-0">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 text-primary" /> Data Agent
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 py-3 space-y-3">
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-xs">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading status…
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-3 text-[11px]">
-            <div>
-              <p className="text-muted-foreground uppercase tracking-wider mb-1">Last Run</p>
-              <p className="text-foreground">{fmt(status?.lastRun)}</p>
-              {status?.lastRunDuration && (
-                <p className="text-muted-foreground">{duration(status.lastRunDuration)}</p>
-              )}
-            </div>
-            <div>
-              <p className="text-muted-foreground uppercase tracking-wider mb-1">Status</p>
-              {isCurrentlyRunning ? (
-                <span className="flex items-center gap-1 text-amber-400">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Running…
-                </span>
-              ) : status?.lastRunSuccess === true ? (
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <CheckCircle className="w-3 h-3" /> Success
-                </span>
-              ) : status?.lastRunSuccess === false ? (
-                <button
-                  className="flex items-center gap-1 text-red-400 hover:underline text-left"
-                  onClick={() => setShowError((s) => !s)}
-                >
-                  <XCircle className="w-3 h-3" /> Failed
-                </button>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              )}
-            </div>
-            <div>
-              <p className="text-muted-foreground uppercase tracking-wider mb-1">Next Scheduled</p>
-              <p className="text-foreground flex items-center gap-1">
-                <Clock className="w-3 h-3 text-muted-foreground" />
-                {fmt(status?.nextRun)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {showError && status?.lastError && (
-          <div className="p-2 rounded-md bg-red-500/5 border border-red-500/20 text-[10px] text-red-400 font-mono overflow-auto max-h-28 whitespace-pre-wrap">
-            {status.lastError.split("\n").slice(-6).join("\n")}
-          </div>
-        )}
-
-        <Button
-          size="sm"
-          onClick={runNow}
-          disabled={isCurrentlyRunning}
-          className="gap-1.5 w-full"
-        >
-          {isCurrentlyRunning
-            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running…</>
-            : <><Play className="w-3.5 h-3.5" /> Run Now</>}
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ─── Main Page ───────────────────────────────────────────────────────
 
 export default function ManageClientsPage() {
   const { clients, isLoadingClients } = useClient();
+  const { isAdmin } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
 
@@ -632,9 +518,11 @@ export default function ManageClientsPage() {
             Add clients, configure their Meta &amp; Google Ads credentials, and enable platform integrations.
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1.5 shrink-0">
-          <Plus className="w-4 h-4" /> Add Client
-        </Button>
+        {isAdmin && (
+          <Button size="sm" onClick={() => setShowAdd(true)} className="gap-1.5 shrink-0">
+            <Plus className="w-4 h-4" /> Add Client
+          </Button>
+        )}
       </div>
 
       {/* Stats bar */}
@@ -678,9 +566,6 @@ export default function ManageClientsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Scheduler */}
-      <SchedulerPanel />
 
       {/* Client list */}
       {isLoadingClients ? (

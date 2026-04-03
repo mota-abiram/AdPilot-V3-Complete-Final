@@ -34,6 +34,7 @@ import GoogleDemandGenPage from "@/pages/google/demand-gen";
 import GoogleRestructuringPage from "@/pages/google/restructuring";
 import CreativeCalendarPage from "@/pages/creative-calendar";
 import MtdDeliverablesPage from "@/pages/mtd-deliverables";
+import AnalyticsAdsPage from "@/pages/analytics-ads";
 import { timeAgo } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
@@ -46,7 +47,7 @@ function AppRouter() {
       <Route path="/" component={DashboardPage} />
       <Route path="/campaigns" component={CampaignsPage} />
       <Route path="/adsets" component={AdsetsPage} />
-      <Route path="/creatives" component={CreativesPage} />
+      <Route path="/ads" component={CreativesPage} />
       <Route path="/audit" component={AuditPage} />
       <Route path="/recommendations" component={RecommendationsPage} />
       <Route path="/command-center" component={CommandCenterPage} />
@@ -62,6 +63,7 @@ function AppRouter() {
       <Route path="/google/restructuring" component={GoogleRestructuringPage} />
       <Route path="/creative-calendar" component={CreativeCalendarPage} />
       <Route path="/mtd-deliverables" component={MtdDeliverablesPage} />
+      <Route path="/analytics/ads" component={AnalyticsAdsPage} />
       <Route component={NotFound} />
     </Switch>
   );

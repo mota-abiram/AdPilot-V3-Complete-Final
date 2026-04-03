@@ -1,13 +1,13 @@
 {
   "amara": {
     "meta": {
-      "last_synced_at": "2026-04-02T05:23:43.094Z",
-      "last_successful_fetch": "2026-04-02T05:22:48.644Z",
+      "last_synced_at": "2026-04-03T10:59:30.446Z",
+      "last_successful_fetch": "2026-04-03T10:58:35.465Z",
       "sync_status": "success"
     },
     "google": {
-      "last_synced_at": "2026-04-02T05:24:44.226Z",
-      "last_successful_fetch": "2026-04-02T05:23:43.931Z",
+      "last_synced_at": "2026-04-03T11:00:27.622Z",
+      "last_successful_fetch": "2026-04-03T10:59:31.470Z",
       "sync_status": "success"
     }
   }

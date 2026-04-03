@@ -28,7 +28,7 @@ import {
 interface StrategicCallDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  actionType: string; // "PAUSE_AD" | "SCALE_BUDGET_UP" etc.
+  actionType: string; // "PAUSE_AD" | "SCALE_BUDGET_UP" | "REJECT" | "MARK_COMPLETE" etc.
   entityName: string;
   entityType: string; // "campaign" | "adset" | "ad" | "ad_group"
   platform: string; // "meta" | "google"
@@ -43,6 +43,10 @@ interface StrategicCallDialogProps {
   };
   onConfirm: (strategicCall: string) => void;
   isExecuting?: boolean;
+  /** Override the confirm button label */
+  confirmLabel?: string;
+  /** Override the dialog title */
+  titleOverride?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -88,6 +92,8 @@ export function StrategicCallDialog({
   currentMetrics,
   onConfirm,
   isExecuting = false,
+  confirmLabel,
+  titleOverride,
 }: StrategicCallDialogProps) {
   const [rationale, setRationale] = useState("");
   const actionDisplay = getActionDisplay(actionType);
@@ -116,10 +122,10 @@ export function StrategicCallDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-primary" />
-            Strategic Call Required
+            {titleOverride || "Strategic Call Required"}
           </DialogTitle>
           <DialogDescription className="type-sm">
-            Document your rationale before executing. This builds your decision-learning database.
+            Document your rationale before acting. This builds your decision-learning database.
           </DialogDescription>
         </DialogHeader>
 
@@ -264,7 +270,7 @@ export function StrategicCallDialog({
             ) : (
               <Play className="w-3.5 h-3.5" />
             )}
-            Execute with Rationale
+            {confirmLabel || "Execute with Rationale"}
           </Button>
         </DialogFooter>
       </DialogContent>

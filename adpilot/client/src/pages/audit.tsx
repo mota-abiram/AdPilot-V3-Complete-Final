@@ -72,8 +72,8 @@ interface ChecklistSection {
 // ─── Helper Functions ───────────────────────────────────────────────
 
 function getSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
-  const budget = data?.dynamic_thresholds?.budget ?? data?.benchmarks?.budget ?? 0;
-  const totalSpend = data?.total_spend ?? data?.account_summary?.spend ?? 0;
+  const budget = data?.dynamic_thresholds?.budget ?? data?.benchmarks?.budget ?? data?.sop_benchmarks?.budget ?? 0;
+  const totalSpend = data?.total_spend ?? data?.account_summary?.spend ?? data?.account_pulse?.total_spend_30d ?? data?.cost_stack?.total_spend ?? 0;
   const dailyBudget = budget / 30;
   const daysSoFar = new Date().getDate();
   const expectedSpend = dailyBudget * daysSoFar;
@@ -88,16 +88,17 @@ function getNonSpendingAdsets(data: any): any[] {
 function getCostStack(data: any): { cpm: number; ctr: number; cpc: number; cpl: number; cpmStatus: CheckStatus; ctrStatus: CheckStatus; cpcStatus: CheckStatus; cplStatus: CheckStatus } {
   const t = data?.dynamic_thresholds || {};
   const s = data?.account_summary || {};
-  const cpm = s.cpm ?? 0;
-  const ctr = s.ctr ?? 0;
-  const cpc = s.cpc ?? 0;
-  const cpl = s.cpl ?? 0;
+  const ap = data?.account_pulse || {};
+  const cpm = s.cpm ?? ap.overall_cpm ?? 0;
+  const ctr = s.ctr ?? ap.overall_ctr ?? 0;
+  const cpc = s.cpc ?? ap.overall_cpc ?? 0;
+  const cpl = s.cpl ?? ap.overall_cpl ?? 0;
   return {
     cpm, ctr, cpc, cpl,
     cpmStatus: cpm > (t.cpm_max ?? 600) ? "fail" : cpm > (t.cpm_max ?? 600) * 0.8 ? "warning" : "pass",
     ctrStatus: ctr < (t.ctr_min ?? 0.7) ? "fail" : ctr < (t.ctr_min ?? 0.7) * 1.2 ? "warning" : "pass",
     cpcStatus: cpc > (t.cpc_max ?? 50) ? "fail" : cpc > (t.cpc_max ?? 50) * 0.8 ? "warning" : "pass",
-    cplStatus: cpl > (t.cpl_target ?? 1500) * 1.3 ? "fail" : cpl > (t.cpl_target ?? 1500) ? "warning" : "pass",
+    cplStatus: cpl > ((t.cpl_target ?? data?.thresholds?.cpl_target ?? 1500)) * 1.3 ? "fail" : cpl > (t.cpl_target ?? data?.thresholds?.cpl_target ?? 1500) ? "warning" : "pass",
   };
 }
 
@@ -114,8 +115,8 @@ function getCreativeHealth(data: any): { adsAnalyzed: number; tsrFailing: number
 }
 
 function getTrackingSanity(data: any): { todayLeads: number; monthlyTarget: number; onTrack: boolean } {
-  const todayLeads = data?.tracking_sanity?.today_leads ?? data?.account_summary?.leads_today ?? 0;
-  const monthlyTarget = data?.dynamic_thresholds?.leads ?? data?.benchmarks?.leads ?? 0;
+  const todayLeads = data?.tracking_sanity?.today_leads ?? data?.account_summary?.leads_today ?? data?.account_pulse?.latest_daily_leads ?? 0;
+  const monthlyTarget = data?.dynamic_thresholds?.leads ?? data?.benchmarks?.leads ?? data?.sop_benchmarks?.leads_target ?? 0;
   const dayOfMonth = new Date().getDate();
   const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const expectedDaily = monthlyTarget / daysInMonth;
@@ -126,7 +127,7 @@ function getTrackingSanity(data: any): { todayLeads: number; monthlyTarget: numb
 
 function getGoogleSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
   const ap = data?.account_pulse || {};
-  const budget = data?.dynamic_thresholds?.budget ?? ap.target_budget ?? 0;
+  const budget = data?.dynamic_thresholds?.budget ?? data?.targets?.budget ?? ap.target_budget ?? 0;
   const totalSpend = ap.total_spend_30d ?? ap.total_spend ?? 0;
   const dailyBudget = budget / 30;
   const daysSoFar = new Date().getDate();
@@ -179,7 +180,7 @@ function getGoogleQSData(data: any): { avgQS: number; below6Count: number; total
 
 function getGoogleKeywordPerformance(data: any): { zeroConvCount: number; totalKeywords: number; wastedSpend: number } {
   const campaigns = data?.campaigns || [];
-  const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 850;
+  const cplTarget = data?.dynamic_thresholds?.cpl_target ?? data?.thresholds?.cpl_target ?? data?.targets?.cpl ?? 850;
   let zeroConvCount = 0, totalKeywords = 0, wastedSpend = 0;
   campaigns.forEach((c: any) => {
     (c.ad_groups || []).forEach((ag: any) => {
@@ -443,8 +444,8 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         sopText: "CPL too high & quality OK → remove one MCQ. CPL OK & quality poor → add one MCQ. Keep TY screen pushing WhatsApp/SV booking",
         icon: FileText,
         getData: (data) => {
-          const cpl = data?.account_summary?.cpl ?? 0;
-          const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 0;
+          const cpl = data?.account_summary?.cpl ?? data?.account_pulse?.overall_cpl ?? 0;
+          const cplTarget = data?.dynamic_thresholds?.cpl_target ?? data?.thresholds?.cpl_target ?? data?.targets?.cpl ?? 0;
           const isHigh = cplTarget > 0 && cpl > cplTarget * 1.2;
           return {
             status: isHigh ? "warning" : "pass",
@@ -786,7 +787,7 @@ const GOOGLE_WEEKLY_CHECKLIST: ChecklistSection[] = [
         icon: IndianRupee,
         getData: (data) => {
           const campaigns = data?.campaigns || [];
-          const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 850;
+          const cplTarget = data?.dynamic_thresholds?.cpl_target ?? data?.thresholds?.cpl_target ?? data?.targets?.cpl ?? 850;
           let overBidCount = 0;
           campaigns.forEach((c: any) => {
             (c.ad_groups || []).forEach((ag: any) => {
@@ -1375,7 +1376,7 @@ export default function AuditPage() {
           <div className="text-xs text-muted-foreground space-y-1">
             <p><strong>Data Source:</strong> Analysis generated at 9 AM IST daily. All metrics reflect the selected cadence window.</p>
             <p><strong>SOP Alignment:</strong> This checklist maps directly to the {isGoogle ? "Google Ads" : "Meta Ads"} SOP for each frequency. Items marked FAIL need immediate attention.</p>
-            <p><strong>Actions:</strong> Auto-Execute runs the action via API. Mark Complete for manually handled items. Reject with strategic rationale. Defer moves to next cycle.</p>
+            <p><strong>Actions:</strong> Auto-Execute runs the action via API. Mark Complete for manually handled items. Reject with strategic rationale.</p>
           </div>
         </CardContent>
       </Card>

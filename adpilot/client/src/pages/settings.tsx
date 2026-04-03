@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
 import { useAuth, type AuthUser } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,9 +26,11 @@ import {
   BookOpen,
   Users,
   RefreshCw,
+  Facebook,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 // ─── CSV Export Utility ──────────────────────────────────────────────
 
@@ -59,6 +62,17 @@ function downloadJSON(data: any, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Scheduler Shared ────────────────────────────────────────────────
+
+interface SchedulerStatus {
+  lastRun?: string;
+  lastRunSuccess?: boolean;
+  lastRunDuration?: number;
+  lastError?: string;
+  nextRun?: string;
+  isRunning?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -98,6 +112,33 @@ export default function SettingsPage() {
     groqModel: "",
   });
   const [isSavingAiConfig, setIsSavingAiConfig] = useState(false);
+
+  const qc = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const [showError, setShowError] = useState(false);
+
+  const { data: schedulerStatus, isLoading: isLoadingScheduler } = useQuery<SchedulerStatus>({
+    queryKey: ["/api/scheduler/status"],
+    refetchInterval: running ? 3000 : 30000,
+  });
+
+  async function runNow() {
+    setRunning(true);
+    try {
+      const res = await apiRequest("POST", "/api/scheduler/run-now");
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Agent triggered", description: "Data fetch started — this may take ~60 seconds." });
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["/api/scheduler/status"] });
+      }, 5000);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const isCurrentlyRunning = schedulerStatus?.isRunning || running;
 
   const [accessUsers, setAccessUsers] = useState<AuthUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -841,35 +882,94 @@ export default function SettingsPage() {
 
           {/* Run Agent Now */}
           <div className="border-t border-border/30 pt-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-4">
               Manual Agent Trigger
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-3 rounded-lg bg-muted/30 border border-border/30 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Play className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="text-xs font-medium text-foreground">Meta Ads Agent</span>
+            
+            <div className="space-y-4">
+              {isLoadingScheduler ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-xs p-4 bg-muted/20 rounded-lg border border-border/40">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading scheduler status…
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Agent execution requires manual trigger via CLI
-                </p>
-                <code className="block text-[10px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
-                  <Terminal className="w-3 h-3 inline-block mr-1 text-emerald-400" />
-                  python3 ads_agent/meta_ads_agent_v2.py
-                </code>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/30 border border-border/30 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Play className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs font-medium text-foreground">Google Ads Agent</span>
+              ) : (
+                <div className="p-4 rounded-lg bg-muted/20 border border-border/40 space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-2.5 h-2.5 rounded-full",
+                        isCurrentlyRunning ? "bg-amber-400 animate-pulse" : (schedulerStatus?.lastRunSuccess ? "bg-emerald-500" : "bg-red-500")
+                      )} />
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">
+                          {isCurrentlyRunning ? "Agent is currently running..." : "Last Run Result"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {isCurrentlyRunning 
+                            ? "Analyzing campaigns and synthesizing insights..." 
+                            : (schedulerStatus?.lastRunSuccess ? "All platforms synced successfully" : "Execution failed — check logs below")}
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="gap-2 shrink-0 h-9 px-6 bg-primary font-bold shadow-lg shadow-primary/20"
+                      onClick={runNow}
+                      disabled={isCurrentlyRunning}
+                    >
+                      {isCurrentlyRunning ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> RUNNING...</>
+                      ) : (
+                        <><Play className="w-4 h-4" /> RUN DATA AGENT NOW</>
+                      )}
+                    </Button>
+                  </div>
+
+                  {schedulerStatus?.lastRunDuration && (
+                    <p className="text-[10px] text-muted-foreground border-t border-border/20 pt-2">
+                       Processing time for last run: <span className="text-foreground font-medium">{schedulerStatus.lastRunDuration < 60000 ? `${Math.round(schedulerStatus.lastRunDuration / 1000)}s` : `${(schedulerStatus.lastRunDuration / 60000).toFixed(1)}m`}</span>
+                    </p>
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Agent execution requires manual trigger via CLI
-                </p>
-                <code className="block text-[10px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
-                  <Terminal className="w-3 h-3 inline-block mr-1 text-emerald-400" />
-                  python3 ads_agent/google_ads_agent_v2.py
-                </code>
+              )}
+
+              {schedulerStatus?.lastError && (
+                <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="w-3.5 h-3.5 text-red-400" />
+                      <span className="text-xs font-medium text-red-300">Last Execution Error</span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setShowError(!showError)}>
+                      {showError ? "Hide Details" : "Show Details"}
+                    </Button>
+                  </div>
+                  {showError && (
+                    <div className="mt-2 p-2 rounded bg-black/40 border border-white/5 font-mono text-[9px] text-red-200/70 overflow-auto max-h-40 whitespace-pre">
+                      {schedulerStatus.lastError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-muted/10 border border-border/30 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Facebook className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-xs font-medium text-foreground">Meta Ads Agent</span>
+                  </div>
+                  <code className="block text-[9px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
+                    python3 ads_agent/meta_ads_agent_v2.py
+                  </code>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/10 border border-border/30 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-medium text-foreground">Google Ads Agent</span>
+                  </div>
+                  <code className="block text-[9px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
+                    python3 ads_agent/google_ads_agent_v2.py
+                  </code>
+                </div>
               </div>
             </div>
           </div>

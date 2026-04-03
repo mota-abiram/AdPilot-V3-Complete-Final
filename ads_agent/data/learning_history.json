@@ -13,6 +13,34 @@
       "total_leads": 80,
       "avg_cpl": 624.997625,
       "overall_ctr": 0.6542041052513141
+    },
+    {
+      "date": "2026-04-03",
+      "cadence": "multi_cadence",
+      "total_leads": 84,
+      "avg_cpl": 611.7336904761905,
+      "overall_ctr": 0.6644307163182676
+    },
+    {
+      "date": "2026-04-03",
+      "cadence": "multi_cadence",
+      "total_leads": 84,
+      "avg_cpl": 611.7336904761905,
+      "overall_ctr": 0.6644307163182676
+    },
+    {
+      "date": "2026-04-03",
+      "cadence": "multi_cadence",
+      "total_leads": 84,
+      "avg_cpl": 611.7639285714286,
+      "overall_ctr": 0.6646068553591498
+    },
+    {
+      "date": "2026-04-03",
+      "cadence": "multi_cadence",
+      "total_leads": 84,
+      "avg_cpl": 611.782380952381,
+      "overall_ctr": 0.6645844212833806
     }
   ],
   "patterns": [
@@ -27,6 +55,34 @@
       "date": "2026-04-02",
       "top_patterns": [
         "'Video' format appears more in top performers (1/2) than bottom (0/2)."
+      ]
+    },
+    {
+      "date": "2026-04-03",
+      "top_patterns": [
+        "'Video' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 10.4% vs bottom: 9.5%. Top video VHR: 48.0% vs bottom: 34.8%. Strong hooks = lower CPL."
+      ]
+    },
+    {
+      "date": "2026-04-03",
+      "top_patterns": [
+        "'Video' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 10.4% vs bottom: 9.5%. Top video VHR: 48.0% vs bottom: 34.8%. Strong hooks = lower CPL."
+      ]
+    },
+    {
+      "date": "2026-04-03",
+      "top_patterns": [
+        "'Video' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 10.4% vs bottom: 9.5%. Top video VHR: 48.0% vs bottom: 34.8%. Strong hooks = lower CPL."
+      ]
+    },
+    {
+      "date": "2026-04-03",
+      "top_patterns": [
+        "'Video' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 10.4% vs bottom: 9.5%. Top video VHR: 48.0% vs bottom: 34.8%. Strong hooks = lower CPL."
       ]
     }
   ],
@@ -45,6 +101,30 @@
         "cpl": 703.9072,
         "leads": 25,
         "spend": 17597.68
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 701.5234615384616,
+        "leads": 26,
+        "spend": 18239.61
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 701.5234615384616,
+        "leads": 26,
+        "spend": 18239.61
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 701.5665384615385,
+        "leads": 26,
+        "spend": 18240.73
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 701.5673076923077,
+        "leads": 26,
+        "spend": 18240.75
       }
     ],
     "120231984866140466": [
@@ -59,6 +139,30 @@
         "cpl": 589.1296363636363,
         "leads": 55,
         "spend": 32402.13
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 571.483103448276,
+        "leads": 58,
+        "spend": 33146.020000000004
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 571.483103448276,
+        "leads": 58,
+        "spend": 33146.020000000004
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 571.5075862068966,
+        "leads": 58,
+        "spend": 33147.44
+      },
+      {
+        "date": "2026-04-03",
+        "cpl": 571.5339655172414,
+        "leads": 58,
+        "spend": 33148.97
       }
     ],
     "120240639389720466": [

@@ -699,10 +699,45 @@ def analyze_account_pulse(campaign_insights, daily_trends, historical):
     total_clicks = sum(si(c.get("clicks")) for c in campaign_insights)
     total_reach = sum(si(c.get("reach")) for c in campaign_insights)
 
-    sorted_daily = sorted(daily_trends, key=lambda x: x.get("date_start", ""))
-    daily_spends = [sf(d.get("spend")) for d in sorted_daily]
-    daily_leads = [get_action_value(d.get("actions"), LEAD_ACTION_TYPES) for d in sorted_daily]
-    daily_ctrs = [sf(d.get("ctr")) for d in sorted_daily]
+    # AGGREGATE DAILY TRENDS BY DATE (Fix: Avoid camp-daily overlaps)
+    daily_aggr = {}
+    for d in daily_trends:
+        dt = d.get("date_start")
+        if not dt: continue
+        if dt not in daily_aggr:
+            daily_aggr[dt] = {
+                "spend": 0, "leads": 0, "impressions": 0, "clicks": 0, 
+                "video_impressions": 0, "v3s": 0, "v50": 0, "v25": 0
+            }
+        
+        target = daily_aggr[dt]
+        target["spend"] += sf(d.get("spend"))
+        target["leads"] += get_action_value(d.get("actions"), LEAD_ACTION_TYPES)
+        target["impressions"] += si(d.get("impressions"))
+        target["clicks"] += si(d.get("clicks"))
+        
+        # TSR/VHR Segregation: Only aggregate if it's a video row
+        # (Assuming rows with video metrics are videos)
+        v3s = get_action_value(d.get("actions"), ["video_view"])
+        if v3s > 0 or d.get("video_p25_watched_actions"):
+            target["video_impressions"] += si(d.get("impressions"))
+            target["v3s"] += v3s
+            v25 = get_action_value(d.get("video_p25_watched_actions"), ["video_view"]) or 0
+            v50 = get_action_value(d.get("video_p50_watched_actions"), ["video_view"]) or 0
+            target["v25"] += v25
+            target["v50"] += v50
+
+    sorted_dates = sorted(daily_aggr.keys())
+    daily_spends = [daily_aggr[dt]["spend"] for dt in sorted_dates]
+    daily_leads = [daily_aggr[dt]["leads"] for dt in sorted_dates]
+    daily_ctrs = [round(safe_div(daily_aggr[dt]["clicks"], daily_aggr[dt]["impressions"]) * 100, 2) for dt in sorted_dates]
+    daily_cpms = [round(safe_div(daily_aggr[dt]["spend"], daily_aggr[dt]["impressions"]) * 1000, 2) for dt in sorted_dates]
+    
+    # Calculate TSR/VHR ONLY for video data
+    # TSR = 3s views / impressions
+    # VHR = 50% views / 3s views
+    daily_tsrs = [round(safe_div(daily_aggr[dt]["v3s"], daily_aggr[dt]["video_impressions"]) * 100, 2) for dt in sorted_dates]
+    daily_vhrs = [round(safe_div(daily_aggr[dt]["v50"], daily_aggr[dt]["v3s"]) * 100, 2) for dt in sorted_dates]
 
     avg_7d_spend = sum(daily_spends) / len(daily_spends) if daily_spends else 0
     latest_spend = daily_spends[-1] if daily_spends else 0
@@ -764,9 +799,14 @@ def analyze_account_pulse(campaign_insights, daily_trends, historical):
         "overall_cpl": overall_cpl,
         "not_spending_campaigns": not_spending,
         "alerts": alerts,
-        "daily_spends": daily_spends,
-        "daily_leads": daily_leads,
+        "daily_spends": [round(x, 2) for x in daily_spends],
+        "daily_leads": [round(x, 1) for x in daily_leads],
         "daily_ctrs": daily_ctrs,
+        "daily_cpms": daily_cpms,
+        "daily_tsrs": daily_tsrs,
+        "daily_vhrs": daily_vhrs,
+        "daily_impressions": [daily_aggr[dt]["impressions"] for dt in sorted_dates],
+        "daily_clicks": [daily_aggr[dt]["clicks"] for dt in sorted_dates],
     }
 
 
@@ -929,7 +969,9 @@ def score_meta_ad(ad_data, cpl_target):
     cpl = ad_data.get("cpl", 0)
     impressions = ad_data.get("impressions", 0)
     spend = ad_data.get("spend", 0)
+    age_days = ad_data.get("age_days", 0)
 
+    # 1. Performance-based scoring (Same as before)
     if leads > 0 and cpl > 0 and cpl_target > 0:
         s, b = _score_metric_vs_target(cpl, cpl_target, w["cpl_vs_target"], lower_is_better=True)
         scores["cpl_vs_target"] = s
@@ -981,8 +1023,18 @@ def score_meta_ad(ad_data, cpl_target):
             scores["video_hold"] = 0
             bands["video_hold"] = "poor"
 
-    total_score = round(sum(scores.values()), 1)
-    total_score = max(0, min(100, total_score))
+    perf_score = round(sum(scores.values()), 1)
+    perf_score = max(0, min(100, perf_score))
+
+    # 2. Age-based scoring (40% weight relative to performance)
+    # Age score: 100 if <21 days, linear decay to 0 at 60 days
+    if age_days <= 21:
+        age_score = 100
+    else:
+        age_score = max(0, 100 - (age_days - 21) * (100 / (60 - 21)))
+    
+    # 3. Combined Weighted Score: 60% Perf + 40% Age
+    total_score = round((0.6 * perf_score) + (0.4 * age_score), 1)
 
     if total_score >= SOP["winner_threshold"]:
         classification = "WINNER"
@@ -1000,7 +1052,10 @@ def score_meta_ad(ad_data, cpl_target):
             auto_pause_reasons.append(f"CPL ₹{cpl:,.0f} is {pct_above:.0f}% above target ₹{cpl_target:,.0f} (threshold: 30%)")
 
     return {
-        "total_score": total_score, "scoring_type": "video" if is_video else "static",
+        "total_score": total_score,
+        "performance_score": perf_score,
+        "age_score": round(age_score, 1),
+        "scoring_type": "video" if is_video else "static",
         "weights_used": w, "scores": scores, "bands": bands,
         "classification": classification, "should_pause": len(auto_pause_reasons) > 0,
         "auto_pause_reasons": auto_pause_reasons,
@@ -1206,7 +1261,7 @@ def analyze_creative_health(ad_insights, active_ads):
         ad_score_data = {
             "leads": leads, "cpl": cpl, "impressions": impressions, "spend": spend,
             "cpm": cpm, "thumb_stop_pct": thumb_stop, "hold_rate_pct": hold_rate,
-            "is_video": is_video, "ctr": ctr,
+            "is_video": is_video, "ctr": ctr, "age_days": creative_age_days,
         }
         scoring = score_meta_ad(ad_score_data, cpl_target)
 
@@ -1221,8 +1276,8 @@ def analyze_creative_health(ad_insights, active_ads):
             elif creative_age_days >= 30:
                 _age_status = "WATCH"
             if _age_status != "OK":
-                if scoring["total_score"] >= 70:
-                    signals.append(f"Creative running {creative_age_days} days [{_age_status}] but score {scoring['total_score']}/100 — PERFORMING_WELL, no refresh needed.")
+                if scoring["performance_score"] >= 70:
+                    signals.append(f"Creative running {creative_age_days} days [{_age_status}] but performance score {scoring['performance_score']}/100 — PERFORMING_WELL, no refresh needed.")
                 else:
                     signals.append(f"Creative running {creative_age_days} days [{_age_status}]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).")
         if frequency > SOP["freq_tofu_mofu_warn"]:
@@ -1237,16 +1292,24 @@ def analyze_creative_health(ad_insights, active_ads):
             "campaign_name": ad.get("campaign_name", ""), "adset_name": ad.get("adset_name", ""),
             "spend": spend, "impressions": impressions, "clicks": si(ad.get("clicks")),
             "ctr": ctr, "cpc": cpc, "cpm": cpm, "frequency": frequency,
-            "leads": leads, "cpl": cpl, "is_video": is_video,
+            "is_video": is_video,
+            "creative_type": "video" if is_video else "static",
             "thumb_stop_pct": thumb_stop, "hold_rate_pct": hold_rate,
             "first_frame_rate": ffr,
-            "video_p25": v25, "video_p50": v50, "video_p75": v75, "video_p100": v100,
-            "avg_watch_sec": avg_watch_sec, "creative_age_days": creative_age_days,
+            "creative_age_days": creative_age_days,
+            "creative_score": scoring["total_score"],
+            "performance_score": scoring["performance_score"],
+            "age_score": scoring["age_score"],
+            "classification": scoring["classification"],
             "health_signals": signals,
-            "creative_score": scoring["total_score"], "scoring_type": scoring["scoring_type"],
-            "weights_used": scoring["weights_used"], "score_breakdown": scoring["scores"],
-            "score_bands": scoring["bands"], "classification": scoring["classification"],
-            "should_pause": scoring["should_pause"], "auto_pause_reasons": scoring["auto_pause_reasons"],
+            "should_pause": scoring["should_pause"],
+            "auto_pause_reasons": scoring["auto_pause_reasons"],
+            "scoring_type": scoring["scoring_type"],
+            "video_p25": v25, "video_p50": v50, "video_p75": v75, "video_p100": v100,
+            "avg_watch_sec": avg_watch_sec,
+            "weights_used": scoring["weights_used"],
+            "score_breakdown": scoring["scores"],
+            "score_bands": scoring["bands"],
         })
 
     return sorted(results, key=lambda x: x["creative_score"], reverse=True)
@@ -1566,75 +1629,54 @@ def analyze_adsets(adset_insights, active_adsets, all_adsets, cost_stack):
 def analyze_breakdowns(ds):
     """Process demographic breakdown data from Meta API into structured format."""
     print("  Module 3.6B: Demographic Breakdowns...")
-
     result = {}
     target_locations = ["Hyderabad", "Secunderabad"]
-
-    # Load benchmarks for target locations
     benchmarks_path = os.path.join(DATA_DIR, "clients", "amara", "benchmarks.json")
     if os.path.exists(benchmarks_path):
         try:
             benchmarks = json.load(open(benchmarks_path))
             target_locations = benchmarks.get("target_locations", target_locations)
-        except:
-            pass
+        except: pass
 
     def process_rows(raw_rows, dimension_key):
-        rows = []
+        # Aggregate by dimension value to avoid duplicates from daily chunks
+        aggregated = {}
         for row in raw_rows:
-            spend = sf(row.get("spend"))
-            impressions = si(row.get("impressions"))
-            clicks = si(row.get("clicks"))
-            ctr = sf(row.get("ctr"))
-            cpc = sf(row.get("cpc"))
-            cpm = sf(row.get("cpm"))
-            leads = get_action_value(row.get("actions", []), ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"])
+            dim_val = str(row.get(dimension_key, "Unknown"))
+            if dim_val not in aggregated:
+                aggregated[dim_val] = {"dimension": dim_val, "spend": 0, "impressions": 0, "clicks": 0, "actions": []}
+            curr = aggregated[dim_val]
+            curr["spend"] += sf(row.get("spend"))
+            curr["impressions"] += si(row.get("impressions"))
+            curr["clicks"] += si(row.get("clicks"))
+            if row.get("actions"): curr["actions"].extend(row.get("actions"))
+        final_rows = []
+        for dim_val, data in aggregated.items():
+            spend = data["spend"]
+            leads = get_action_value(data["actions"], ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"])
             cpl = spend / leads if leads > 0 else 0
-
-            dimension_val = row.get(dimension_key, "Unknown")
-
-            # Classification
-            classification = "NEUTRAL"
-            if leads > 0 and cpl > 0 and cpl <= CPL_TARGET:
-                classification = "WINNER"
-            elif leads > 0 and cpl > CPL_CRITICAL:
-                classification = "UNDERPERFORMER"
-            elif leads == 0 and spend > 500:
-                classification = "UNDERPERFORMER"
-
-            rows.append({
-                "dimension": dimension_val,
-                "spend": round(spend, 2),
-                "impressions": impressions,
-                "clicks": clicks,
-                "ctr": round(ctr, 2),
-                "cpc": round(cpc, 2),
-                "cpm": round(cpm, 2),
-                "leads": leads,
-                "cpl": round(cpl, 2),
-                "classification": classification,
+            final_rows.append({
+                "dimension": dim_val, "spend": round(spend, 2), "impressions": data["impressions"], "clicks": data["clicks"],
+                "ctr": round(data["clicks"] / data["impressions"] * 100, 2) if data["impressions"] > 0 else 0,
+                "cpc": round(spend / data["clicks"], 2) if data["clicks"] > 0 else 0,
+                "cpm": round(spend / data["impressions"] * 1000, 2) if data["impressions"] > 0 else 0,
+                "leads": leads, "cpl": round(cpl, 2),
+                "classification": "WINNER" if (leads > 0 and cpl <= CPL_TARGET) else ("UNDERPERFORMER" if (leads > 0 and cpl > CPL_CRITICAL or (leads == 0 and spend > 500)) else "NEUTRAL"),
             })
-        # Sort by spend desc
-        rows.sort(key=lambda x: x["spend"], reverse=True)
-        return rows
+        final_rows.sort(key=lambda x: x["spend"], reverse=True)
+        return final_rows
 
-    # Process each breakdown type
-    breakdown_map = {
-        "age": ("breakdown_age", "age"),
-        "gender": ("breakdown_gender", "gender"),
-        "placement": ("breakdown_placement", "publisher_platform"),
-        "device": ("breakdown_device", "device_platform"),
-        "region": ("breakdown_region", "region"),
-    }
-
+    breakdown_map = {"age": ("breakdown_age", "age"), "gender": ("breakdown_gender", "gender"), "placement": ("breakdown_placement", "publisher_platform"), "device": ("breakdown_device", "device_platform"), "region": ("breakdown_region", "region")}
     for key, (ds_key, dim_key) in breakdown_map.items():
         raw = ds.get(ds_key, [])
         if raw:
             result[key] = process_rows(raw, dim_key)
         else:
             result[key] = []
+    
+    return result
 
-    # Geo-spend validation
+# Geo-spend validation
     # Meta API returns state-level regions (e.g. "Telangana") not cities.
     # Build a mapping of target cities to their states so state-level data
     # is correctly matched. Known city→state mappings for India:
@@ -3061,6 +3103,8 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
             "cpl_alert_formula": f"target ({CPL_TARGET}) × 1.3",
             "cpl_critical": CPL_CRITICAL,
             "cpl_critical_formula": f"target ({CPL_TARGET}) × 1.5",
+            "budget": MONTHLY_TARGETS["meta"]["budget"],
+            "leads": MONTHLY_TARGETS["meta"]["leads"],
         },
         "period": {
             "primary": {"start": date_since, "end": date_until, "cadence": cadence_name},
@@ -3343,7 +3387,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mojo Performance Agent v3 — Meta Ads (Multi-Cadence)")
     parser.add_argument("--cadence", choices=["daily", "twice_weekly", "weekly", "biweekly", "monthly"],
                         default="twice_weekly",
-                        help="Primary SOP cadence (all cadences are always generated)")
+                        help="Primary SOP cadence")
+    parser.add_argument("--multi-cadence", action="store_true",
+                        help="Generate analysis for all cadences (always enabled for Meta v3)")
     parser.add_argument("--date-range", dest="date_range",
                         help="Override date range: today, yesterday, 7d, 14d, 30d, mtd, or YYYY-MM-DD:YYYY-MM-DD")
     args = parser.parse_args()

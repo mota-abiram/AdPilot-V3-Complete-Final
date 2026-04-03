@@ -1,30 +1,32 @@
 import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
-import { Card, CardContent } from "@/components/ui/card";
+import { useLocation } from "wouter";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
-  ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  IndianRupee,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -32,1098 +34,1029 @@ import {
   Loader2,
   Zap,
   Info,
-  CircleDot,
   ShieldCheck,
   Clock,
   Target,
+  Brain,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  PenLine,
+  ArrowUpRight,
+  BarChart3,
+  MousePointerClick,
+  Activity,
+  Eye,
+  Ban,
+  History,
+  AlertCircle,
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import { formatINR, formatPct, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useExecution } from "@/hooks/use-execution";
-import { ExecutionButton } from "@/components/execution-button";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-// ─── Types ───────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AdGroupBid {
-  ad_group_id: string;
-  ad_group_name: string;
+interface BiddingAlert {
+  severity: "critical" | "warning" | "info";
+  message: string;
+}
+
+interface CampaignRecommendation {
   campaign_id: string;
   campaign_name: string;
-  campaign_type?: string;
-  impressions: number;
-  clicks: number;
-  cost: number;
-  conversions: number;
-  ctr: number;
+  campaign_type: string;
+  status: string;
+  current_strategy: string;
+  avg_cpc: number;
   cvr: number;
-  cpc: number;
-  cpl: number;
-  current_max_cpc?: number;
-  recommended_max_cpc?: number;
-  computed_max_cpc?: number;
-  adjustment: "increase" | "decrease" | "hold";
-  adjustment_pct?: number;
-  rationale?: string;
-  low_top_of_page_cpc?: number;
-  target_cpa?: number;
+  ctr: number;
+  conversions_30d: number;
+  conversions_14d: number;
+  cost_per_conversion: number;
+  search_impression_share: number | null;
+  lost_is_rank: number | null;
+  lost_is_budget: number | null;
+  clicks: number;
+  recommendation: "stay_max_clicks" | "switch_tcpa" | "hold";
+  confidence: "high" | "medium" | "low";
+  reasons: string[];
+  alerts: BiddingAlert[];
+  computed_bid_limit: number;
+  bid_limit_by_top_of_page: number;
+  bid_limit_by_cpa: number;
+  suggested_tcpa: number;
+  target_cpa: number;
+  cvr_variance_14d: number | null;
+  tracking_stable: boolean;
+  low_top_of_page_cpc: number;
 }
 
-interface SmartBiddingReadiness {
+interface BiddingMeta {
+  generated_at: string;
+  data_available: boolean;
+  total_campaigns: number;
+  alert_count: number;
+  on_correct_strategy: number;
+  target_cpa: number;
+}
+
+interface BiddingHistoryEntry {
+  id: number;
+  timestamp: string;
   campaign_id: string;
   campaign_name: string;
-  campaign_type?: string;
-  conversions_30d: number;
-  cvr_variance_14d?: number;
-  tracking_stable?: boolean;
+  action: "apply" | "reject" | "manual_apply";
   recommendation: string;
-  suggested_tcpa?: number;
-  current_strategy?: string;
+  rationale: string;
+  params: Record<string, any>;
 }
 
-interface CampaignGroup {
-  name: string;
-  type: string;
-  adGroups: AdGroupBid[];
-  strategy: string;
-  avgCpc: number;
-  avgCvr: number;
-  totalCost: number;
-  totalConv: number;
-  computedMaxCpc: number;
+interface BiddingData {
+  campaigns: CampaignRecommendation[];
+  meta: BiddingMeta;
+  history: BiddingHistoryEntry[];
 }
 
-type CampaignSortKey = "campaign_name" | "cpc" | "cvr" | "cpl" | "computed_max_cpc" | "bidding_strategy";
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────────
-
-function bidStatusBadge(status: string): { label: string; cls: string } {
-  switch (status) {
-    case "OPTIMAL": return { label: "Optimal", cls: "bg-emerald-500/15 text-emerald-400" };
-    case "OVER_BID": return { label: "Over Bid", cls: "bg-red-500/15 text-red-400" };
-    case "UNDER_BID": return { label: "Under Bid", cls: "bg-amber-500/15 text-amber-400" };
-    default: return { label: status || "—", cls: "bg-gray-500/15 text-gray-400" };
+function getRecommendationConfig(rec: string) {
+  switch (rec) {
+    case "switch_tcpa":
+      return {
+        label: "Switch to tCPA",
+        shortLabel: "→ tCPA",
+        color: "text-emerald-400",
+        bg: "bg-emerald-500/10",
+        border: "border-emerald-500/30",
+        icon: <Zap className="w-3.5 h-3.5" />,
+      };
+    case "hold":
+      return {
+        label: "Hold — Do Not Switch",
+        shortLabel: "Hold",
+        color: "text-amber-400",
+        bg: "bg-amber-500/10",
+        border: "border-amber-500/30",
+        icon: <Ban className="w-3.5 h-3.5" />,
+      };
+    default: // stay_max_clicks
+      return {
+        label: "Stay: Max Clicks",
+        shortLabel: "Max Clicks",
+        color: "text-blue-400",
+        bg: "bg-blue-500/10",
+        border: "border-blue-500/30",
+        icon: <MousePointerClick className="w-3.5 h-3.5" />,
+      };
   }
 }
 
-function adjustmentBadge(adj: string): { label: string; cls: string; icon: React.ReactNode } {
-  switch (adj) {
-    case "increase": return { label: "Increase", cls: "text-emerald-400", icon: <TrendingUp className="w-3 h-3" /> };
-    case "decrease": return { label: "Decrease", cls: "text-red-400", icon: <TrendingDown className="w-3 h-3" /> };
-    default: return { label: "Hold", cls: "text-muted-foreground", icon: <Minus className="w-3 h-3" /> };
+function getConfidenceConfig(conf: string) {
+  switch (conf) {
+    case "high":
+      return { label: "High", cls: "bg-emerald-500/15 text-emerald-400", dot: "bg-emerald-500" };
+    case "medium":
+      return { label: "Medium", cls: "bg-amber-500/15 text-amber-400", dot: "bg-amber-500" };
+    default:
+      return { label: "Low", cls: "bg-red-500/15 text-red-400", dot: "bg-red-500" };
   }
 }
 
-function smartBiddingBadge(recommendation: string): { label: string; cls: string } {
-  if (recommendation === "switch_tcpa" || recommendation === "test_tcpa") {
-    return { label: "Ready for tCPA", cls: "bg-emerald-500/15 text-emerald-400" };
+function getAlertConfig(severity: string) {
+  switch (severity) {
+    case "critical":
+      return { icon: <AlertCircle className="w-3.5 h-3.5 shrink-0" />, cls: "text-red-400 bg-red-500/5 border-red-500/20" };
+    case "warning":
+      return { icon: <AlertTriangle className="w-3.5 h-3.5 shrink-0" />, cls: "text-amber-400 bg-amber-500/5 border-amber-500/20" };
+    default:
+      return { icon: <Info className="w-3.5 h-3.5 shrink-0" />, cls: "text-blue-400 bg-blue-500/5 border-blue-500/20" };
   }
-  if (recommendation === "stay_manual") {
-    return { label: "Stay Manual", cls: "bg-gray-500/15 text-gray-400" };
-  }
-  if (recommendation === "needs_volume") {
-    return { label: "Needs Volume", cls: "bg-amber-500/15 text-amber-400" };
-  }
-  return { label: recommendation.replace(/_/g, " "), cls: "bg-amber-500/15 text-amber-400" };
 }
 
-function getCpcStatus(avgCpc: number, maxCpc: number): { label: string; cls: string } {
-  if (maxCpc <= 0) return { label: "N/A", cls: "text-muted-foreground" };
-  const ratio = avgCpc / maxCpc;
-  if (ratio > 1.1) return { label: "Above Max", cls: "text-red-400" };
-  if (ratio < 0.7) return { label: "Well Below", cls: "text-emerald-400" };
-  return { label: "Within Range", cls: "text-foreground" };
+function formatStrategy(s: string) {
+  if (!s) return "Manual CPC";
+  return s
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace("Maximize Clicks", "Max Clicks")
+    .replace("Target Cpa", "tCPA");
 }
 
-// ─── Component ───────────────────────────────────────────────────────
+// ─── Action Dialog ─────────────────────────────────────────────────────────────
+
+interface ActionDialogState {
+  open: boolean;
+  type: "apply" | "reject" | "manual_apply";
+  campaign: CampaignRecommendation;
+}
+
+function ActionDialog({
+  state,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  state: ActionDialogState;
+  onClose: () => void;
+  onSubmit: (rationale: string) => void;
+  isPending: boolean;
+}) {
+  const [rationale, setRationale] = useState("");
+  const rec = getRecommendationConfig(state.campaign.recommendation);
+
+  const actionLabels = {
+    apply: { title: "Auto Apply Recommendation", btn: "Apply Change", btnCls: "bg-emerald-600 hover:bg-emerald-700" },
+    manual_apply: { title: "Manual Apply", btn: "Confirm Manual Apply", btnCls: "bg-blue-600 hover:bg-blue-700" },
+    reject: { title: "Reject Recommendation", btn: "Reject", btnCls: "bg-red-600 hover:bg-red-700" },
+  };
+  const labels = actionLabels[state.type];
+
+  return (
+    <Dialog open={state.open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {state.type === "reject" ? (
+              <XCircle className="w-5 h-5 text-red-400" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            )}
+            {labels.title}
+          </DialogTitle>
+          <DialogDescription asChild>
+            <div className="space-y-3 mt-1">
+              <div className={cn("p-3 rounded-lg border text-xs", rec.bg, rec.border)}>
+                <p className="font-bold text-foreground mb-1 text-sm">{truncate(state.campaign.campaign_name, 40)}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-muted-foreground">Current:</span>
+                  <span className="font-medium">{formatStrategy(state.campaign.current_strategy)}</span>
+                  {state.campaign.recommendation === "switch_tcpa" && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className={cn("font-bold", rec.color)}>tCPA @ {formatINR(state.campaign.suggested_tcpa, 0)}</span>
+                    </>
+                  )}
+                  {state.campaign.recommendation === "stay_max_clicks" && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className={cn("font-bold", rec.color)}>Bid cap {formatINR(state.campaign.computed_bid_limit, 0)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              {state.type !== "reject" && (
+                <div className="space-y-1 text-[11px] text-muted-foreground">
+                  {state.campaign.reasons.map((r, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      <span className="text-primary mt-0.5">·</span>
+                      <span>{r}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <PenLine className="w-3.5 h-3.5 text-primary" />
+            <label className="text-xs font-semibold text-foreground">
+              Strategic Rationale <span className="text-red-400">*</span>
+            </label>
+          </div>
+          <Textarea
+            placeholder="Enter your strategic reasoning for this decision (required)..."
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            className="min-h-[90px] text-sm resize-none"
+            data-testid="input-rationale"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            All bidding decisions are logged with rationale for audit and learning purposes.
+            {rationale.length < 10 && rationale.length > 0 && (
+              <span className="text-red-400 ml-1">Min 10 characters required ({10 - rationale.length} more)</span>
+            )}
+          </p>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button
+            className={cn("gap-2", labels.btnCls)}
+            onClick={() => onSubmit(rationale)}
+            disabled={isPending || rationale.trim().length < 10}
+            data-testid="button-confirm-action"
+          >
+            {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {labels.btn}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Campaign Row ─────────────────────────────────────────────────────────────
+
+function CampaignRecommendationRow({
+  camp,
+  onAction,
+}: {
+  camp: CampaignRecommendation;
+  onAction: (type: "apply" | "reject" | "manual_apply") => void;
+}) {
+  const [, navigate] = useLocation();
+  const [expanded, setExpanded] = useState(false);
+  const rec = getRecommendationConfig(camp.recommendation);
+  const conf = getConfidenceConfig(camp.confidence);
+  const criticalAlerts = camp.alerts.filter((a) => a.severity === "critical");
+  const warningAlerts = camp.alerts.filter((a) => a.severity === "warning");
+
+  return (
+    <div className={cn(
+      "rounded-xl border transition-all duration-200",
+      criticalAlerts.length > 0
+        ? "border-red-500/30 bg-red-500/3"
+        : warningAlerts.length > 0
+        ? "border-amber-500/30 bg-amber-500/3"
+        : "border-border/50 bg-card/60"
+    )}>
+      {/* Main Row */}
+      <div className="p-4 grid grid-cols-[1fr_auto] gap-4 items-start">
+        <div className="min-w-0">
+          {/* Header */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1.5 hover:text-primary transition-colors"
+            >
+              {expanded ? (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              )}
+              <span className="text-sm font-semibold text-foreground">
+                {truncate(camp.campaign_name, 45)}
+              </span>
+            </button>
+            {camp.campaign_type && (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                {camp.campaign_type}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+              {formatStrategy(camp.current_strategy)}
+            </Badge>
+            {criticalAlerts.length > 0 && (
+              <Badge className="text-[9px] px-1.5 py-0 bg-red-500/15 text-red-400 border-red-500/30">
+                {criticalAlerts.length} critical
+              </Badge>
+            )}
+          </div>
+
+          {/* Metric chips */}
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <Activity className="w-3 h-3" />
+                  <span>CPC</span>
+                  <span className={cn(
+                    "font-bold tabular-nums",
+                    camp.avg_cpc > camp.computed_bid_limit * 1.1 ? "text-red-400" : "text-foreground"
+                  )}>
+                    {formatINR(camp.avg_cpc, 0)}
+                  </span>
+                  {camp.computed_bid_limit > 0 && (
+                    <span className="text-muted-foreground">/ cap {formatINR(camp.computed_bid_limit, 0)}</span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">
+                <p className="font-medium mb-1">Bid Limit (SOP Formula)</p>
+                <p>MIN(Low Top-of-Page CPC × 1.35, Target CPA × CVR)</p>
+                <p className="text-muted-foreground mt-1">
+                  = MIN({formatINR(camp.bid_limit_by_top_of_page, 0)}, {formatINR(camp.bid_limit_by_cpa, 0)})
+                </p>
+                <p className="font-bold text-primary mt-1">= {formatINR(camp.computed_bid_limit, 0)}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <div className="flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />
+              <span>CVR</span>
+              <span className={cn(
+                "font-bold tabular-nums",
+                camp.cvr < 1 ? "text-red-400" : camp.cvr >= 4 ? "text-emerald-400" : "text-foreground"
+              )}>
+                {camp.cvr.toFixed(1)}%
+              </span>
+              {camp.cvr_variance_14d != null && (
+                <span className={cn(
+                  "text-[10px]",
+                  camp.cvr_variance_14d < 20 ? "text-emerald-400" : "text-amber-400"
+                )}>
+                  ±{camp.cvr_variance_14d.toFixed(0)}%
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1">
+              <BarChart3 className="w-3 h-3" />
+              <span>Conv/30d</span>
+              <span className={cn(
+                "font-bold tabular-nums",
+                camp.conversions_30d >= 50 ? "text-emerald-400" :
+                camp.conversions_30d >= 30 ? "text-amber-400" : "text-red-400"
+              )}>
+                {camp.conversions_30d}
+              </span>
+              <span className="text-[10px]">(need ≥30)</span>
+            </div>
+
+            {camp.search_impression_share != null && (
+              <div className="flex items-center gap-1">
+                <Eye className="w-3 h-3" />
+                <span>IS</span>
+                <span className={cn(
+                  "font-bold tabular-nums",
+                  camp.search_impression_share >= 60 ? "text-emerald-400" :
+                  camp.search_impression_share >= 40 ? "text-amber-400" : "text-red-400"
+                )}>
+                  {camp.search_impression_share.toFixed(0)}%
+                </span>
+              </div>
+            )}
+
+            {camp.lost_is_rank != null && camp.lost_is_rank > 0 && (
+              <div className="flex items-center gap-1 text-red-400">
+                <ArrowUpRight className="w-3 h-3" />
+                <span>Lost(Rank) {camp.lost_is_rank.toFixed(0)}%</span>
+              </div>
+            )}
+
+            {camp.lost_is_budget != null && camp.lost_is_budget > 0 && (
+              <div className="flex items-center gap-1 text-amber-400">
+                <AlertTriangle className="w-3 h-3" />
+                <span>Lost(Budget) {camp.lost_is_budget.toFixed(0)}%</span>
+              </div>
+            )}
+
+            {camp.cost_per_conversion > 0 && (
+              <div className="flex items-center gap-1">
+                <Target className="w-3 h-3" />
+                <span>Cost/Conv</span>
+                <span className={cn(
+                  "font-bold tabular-nums",
+                  camp.cost_per_conversion <= camp.target_cpa ? "text-emerald-400" :
+                  camp.cost_per_conversion <= camp.target_cpa * 1.2 ? "text-amber-400" : "text-red-400"
+                )}>
+                  {formatINR(camp.cost_per_conversion, 0)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Alerts */}
+          {camp.alerts.length > 0 && (
+            <div className="flex flex-col gap-1.5 mb-3">
+              {camp.alerts.map((alert, i) => {
+                const ac = getAlertConfig(alert.severity);
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      "flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                      ac.cls
+                    )}
+                    onClick={() => navigate(`/campaigns?campaign_id=${camp.campaign_id}`)}
+                    title="Click to view campaign"
+                  >
+                    {ac.icon}
+                    <span>{alert.message}</span>
+                    <ExternalLink className="w-3 h-3 ml-auto shrink-0 opacity-50" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Recommendation pill + reasons */}
+          <div className={cn("flex items-start gap-2 p-2.5 rounded-lg border text-xs", rec.bg, rec.border)}>
+            <div className={cn("flex items-center gap-1.5 font-bold shrink-0 mt-0.5", rec.color)}>
+              {rec.icon}
+              <span>{rec.label}</span>
+            </div>
+            <div className="text-muted-foreground space-y-0.5">
+              {camp.reasons.map((r, i) => (
+                <div key={i}>· {r}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right panel: confidence + actions */}
+        <div className="flex flex-col items-end gap-3 shrink-0">
+          {/* Confidence badge */}
+          <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold", conf.cls)}>
+            <span className={cn("w-1.5 h-1.5 rounded-full", conf.dot)} />
+            {conf.label} Confidence
+          </div>
+
+          {/* tCPA target if applicable */}
+          {camp.recommendation === "switch_tcpa" && camp.suggested_tcpa > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Suggested tCPA</p>
+              <p className="text-lg font-black text-emerald-400 tabular-nums">{formatINR(camp.suggested_tcpa, 0)}</p>
+              <p className="text-[9px] text-muted-foreground">Current CPA × 0.8</p>
+            </div>
+          )}
+
+          {/* Bid limit if staying on Max Clicks */}
+          {camp.recommendation === "stay_max_clicks" && camp.computed_bid_limit > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Bid Cap</p>
+              <p className="text-lg font-black text-blue-400 tabular-nums">{formatINR(camp.computed_bid_limit, 0)}</p>
+              <p className="text-[9px] text-muted-foreground">SOP Formula</p>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-col gap-1.5 w-full">
+            {camp.recommendation !== "hold" && (
+              <Button
+                size="sm"
+                className="gap-1.5 text-[11px] h-8 px-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={() => onAction("apply")}
+                data-testid={`button-apply-${camp.campaign_id}`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Auto Apply
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-[11px] h-8 px-3 w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+              onClick={() => onAction("manual_apply")}
+              data-testid={`button-manual-${camp.campaign_id}`}
+            >
+              <PenLine className="w-3.5 h-3.5" />
+              Manual Apply
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1.5 text-[11px] h-8 px-3 w-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+              onClick={() => onAction("reject")}
+              data-testid={`button-reject-${camp.campaign_id}`}
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              Reject
+            </Button>
+          </div>
+
+          {/* Navigate to campaign */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1 text-[10px] h-6 text-muted-foreground hover:text-primary w-full"
+            onClick={() => navigate(`/campaigns?campaign_id=${camp.campaign_id}`)}
+          >
+            <ExternalLink className="w-3 h-3" />
+            View Campaign
+          </Button>
+        </div>
+      </div>
+
+      {/* Expanded: Bid formula breakdown */}
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-border/30 pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
+            Bid Limit Formula Breakdown
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              {
+                label: "Low Top-of-Page CPC",
+                value: formatINR(camp.low_top_of_page_cpc, 0),
+                sub: "Google benchmark",
+                color: "text-foreground",
+              },
+              {
+                label: "× 1.35 multiplier",
+                value: formatINR(camp.bid_limit_by_top_of_page, 0),
+                sub: "Route A ceiling",
+                color: "text-blue-400",
+              },
+              {
+                label: "Target CPA × CVR",
+                value: formatINR(camp.bid_limit_by_cpa, 0),
+                sub: `₹${camp.target_cpa} × ${camp.cvr.toFixed(2)}%`,
+                color: "text-purple-400",
+              },
+              {
+                label: "Computed Bid Limit",
+                value: formatINR(camp.computed_bid_limit, 0),
+                sub: "MIN(Route A, Route B)",
+                color: camp.avg_cpc > camp.computed_bid_limit ? "text-red-400" : "text-emerald-400",
+              },
+            ].map((item) => (
+              <div key={item.label} className="p-2.5 rounded-lg bg-muted/20 border border-border/30">
+                <p className="text-[10px] text-muted-foreground mb-1">{item.label}</p>
+                <p className={cn("text-base font-extrabold tabular-nums", item.color)}>{item.value}</p>
+                <p className="text-[9px] text-muted-foreground">{item.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {camp.recommendation === "switch_tcpa" && (
+            <div className="mt-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <p className="text-xs font-bold text-emerald-400 mb-1">tCPA Seed Calculation</p>
+              <p className="text-[11px] text-muted-foreground">
+                Recommended tCPA = Current CPA × 0.8 = {formatINR(camp.cost_per_conversion, 0)} × 0.8 = {" "}
+                <span className="font-bold text-emerald-400">{formatINR(camp.suggested_tcpa, 0)}</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Seeds tCPA conservatively below current CPA to allow Google's algorithm to optimize without overspending.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function GoogleBiddingPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading } = useClient();
-  const { execute, isExecuting } = useExecution();
+  const { activeClientId, apiBase } = useClient();
+  const { toast } = useToast();
+  const qc = useQueryClient();
 
-  const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
-  const [actionDialog, setActionDialog] = useState<{
-    open: boolean;
-    type: "decrease_cpc" | "switch_tcpa" | "switch_max_conv";
-    campaignId: string;
-    campaignName: string;
-    detail: string;
-    params: Record<string, any>;
-  } | null>(null);
+  const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
+  const [filterRec, setFilterRec] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"alerts" | "confidence" | "conversions">("alerts");
+  const [showHistory, setShowHistory] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const biddingData = useMemo(() => {
-    if (!data) return null;
-    return (data as any).bidding_analysis || null;
-  }, [data]);
+  // Fetch recommendations
+  const { data, isLoading, error, refetch } = useQuery<BiddingData>({
+    queryKey: ["/api/clients", activeClientId, "google/bidding-recommendations"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `${apiBase}/api/clients/${activeClientId}/google/bidding-recommendations`);
+      return res.json();
+    },
+    enabled: !!activeClientId,
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
 
-  // Per-ad-group data
-  const adGroupBids: AdGroupBid[] = useMemo(() => {
-    if (!biddingData) return [];
-    return biddingData.per_ad_group || [];
-  }, [biddingData]);
-
-  // Smart bidding readiness
-  const smartBidding: SmartBiddingReadiness[] = useMemo(() => {
-    if (!biddingData) return [];
-    return biddingData.smart_bidding_readiness || [];
-  }, [biddingData]);
-
-  // Group ad groups by campaign
-  const campaignGroups = useMemo(() => {
-    const map = new Map<string, CampaignGroup>();
-    for (const ag of adGroupBids) {
-      const key = ag.campaign_id || ag.campaign_name;
-      if (!map.has(key)) {
-        map.set(key, {
-          name: ag.campaign_name,
-          type: ag.campaign_type || "",
-          adGroups: [],
-          strategy: "",
-          avgCpc: 0,
-          avgCvr: 0,
-          totalCost: 0,
-          totalConv: 0,
-          computedMaxCpc: 0,
-        });
+  // Action mutation
+  const actionMutation = useMutation({
+    mutationFn: async (payload: {
+      campaign_id: string;
+      campaign_name: string;
+      action: string;
+      recommendation: string;
+      rationale: string;
+      params: Record<string, any>;
+    }) => {
+      const res = await apiRequest(
+        "POST",
+        `${apiBase}/api/clients/${activeClientId}/google/bidding-recommendations/action`,
+        payload
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Action failed");
       }
-      map.get(key)!.adGroups.push(ag);
-    }
-    // Compute campaign-level aggregates
-    for (const group of Array.from(map.values())) {
-      const totalClicks = group.adGroups.reduce((s: number, ag: AdGroupBid) => s + (ag.clicks || 0), 0);
-      group.totalCost = group.adGroups.reduce((s: number, ag: AdGroupBid) => s + (ag.cost || 0), 0);
-      group.totalConv = group.adGroups.reduce((s: number, ag: AdGroupBid) => s + (ag.conversions || 0), 0);
-      group.avgCpc = totalClicks > 0 ? group.totalCost / totalClicks : 0;
-      group.avgCvr = totalClicks > 0 ? (group.totalConv / totalClicks) * 100 : 0;
-      // Use median of recommended max CPC values
-      const maxCpcs = group.adGroups
-        .map((ag: AdGroupBid) => ag.recommended_max_cpc || ag.computed_max_cpc || 0)
-        .filter((v: number) => v > 0);
-      group.computedMaxCpc = maxCpcs.length > 0 ? maxCpcs.sort((a: number, b: number) => a - b)[Math.floor(maxCpcs.length / 2)] : 0;
-    }
-    // Also get campaigns data for strategy info
-    const campaigns = (data as any)?.campaigns || [];
-    for (const camp of campaigns) {
-      const key = camp.id || camp.campaign_id || camp.name;
-      const group = map.get(key) || Array.from(map.values()).find((g) => g.name === camp.name);
-      if (group) {
-        group.strategy = camp.bidding_strategy || "";
-        group.type = camp.campaign_type || group.type;
-      }
-    }
-    return map;
-  }, [adGroupBids, data]);
-
-  // ─── tCPA Readiness Assessment ─────────────────────────────────────
-  // Compute per-campaign readiness using ad group data + smart_bidding_readiness
-  const tcpaReadiness = useMemo(() => {
-    if (!biddingData && adGroupBids.length === 0) return [];
-
-    // If we already have smart_bidding_readiness, enrich it
-    if (smartBidding.length > 0) {
-      return smartBidding.map((sb) => {
-        const campGroup = campaignGroups.get(sb.campaign_id) || Array.from(campaignGroups.values()).find((g) => g.name === sb.campaign_name);
-        const totalConv = sb.conversions_30d;
-        const currentCPA = campGroup && campGroup.totalConv > 0 ? campGroup.totalCost / campGroup.totalConv : 0;
-        const cvrVariance = sb.cvr_variance_14d ?? null;
-        const trackingStable = sb.tracking_stable ?? true;
-
-        // Traffic light
-        let readiness: "green" | "yellow" | "red" = "red";
-        let readinessLabel = "Not ready — continue Max Clicks with cap";
-        if (totalConv >= 50 && (cvrVariance === null || cvrVariance < 20) && trackingStable) {
-          readiness = "green";
-          readinessLabel = "Ready for tCPA";
-        } else if (totalConv >= 30 && (cvrVariance === null || cvrVariance < 25)) {
-          readiness = "yellow";
-          readinessLabel = "Almost ready — monitor 1 more week";
-        }
-
-        return {
-          campaignId: sb.campaign_id,
-          campaignName: sb.campaign_name,
-          campaignType: sb.campaign_type || campGroup?.type || "",
-          conversions30d: totalConv,
-          cvrVariance14d: cvrVariance,
-          currentCPA,
-          recommendedTCPA: currentCPA > 0 ? Math.round(currentCPA * 0.8) : sb.suggested_tcpa || 0,
-          trackingStable,
-          readiness,
-          readinessLabel,
-          currentStrategy: sb.current_strategy || campGroup?.strategy || "Manual CPC",
-          suggestedTCPA: sb.suggested_tcpa || (currentCPA > 0 ? Math.round(currentCPA * 0.8) : 0),
-        };
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      toast({
+        title: vars.action === "reject" ? "Recommendation Rejected" : "Action Recorded",
+        description: `Logged with rationale. ${vars.action !== "reject" ? "Apply changes in Google Ads." : ""}`,
       });
-    }
+      qc.invalidateQueries({ queryKey: ["/api/clients", activeClientId, "google/bidding-recommendations"] });
+      setActionDialog(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
-    // Fallback: compute from campaign groups
-    return Array.from(campaignGroups.entries()).map(([campId, group]) => {
-      const totalConv = group.totalConv;
-      const currentCPA = totalConv > 0 ? group.totalCost / totalConv : 0;
-
-      let readiness: "green" | "yellow" | "red" = "red";
-      let readinessLabel = "Not ready — continue Max Clicks with cap";
-      if (totalConv >= 50 && group.avgCvr >= 2) {
-        readiness = "green";
-        readinessLabel = "Ready for tCPA";
-      } else if (totalConv >= 30) {
-        readiness = "yellow";
-        readinessLabel = "Almost ready — monitor 1 more week";
-      }
-
-      return {
-        campaignId: campId,
-        campaignName: group.name,
-        campaignType: group.type,
-        conversions30d: totalConv,
-        cvrVariance14d: null as number | null,
-        currentCPA,
-        recommendedTCPA: currentCPA > 0 ? Math.round(currentCPA * 0.8) : 0,
-        trackingStable: true,
-        readiness,
-        readinessLabel,
-        currentStrategy: group.strategy || "Manual CPC",
-        suggestedTCPA: currentCPA > 0 ? Math.round(currentCPA * 0.8) : 0,
-      };
-    });
-  }, [biddingData, adGroupBids, smartBidding, campaignGroups]);
-
-  // Summary counts
-  const adjustmentCounts = useMemo(() => {
-    const increase = adGroupBids.filter((ag) => ag.adjustment === "increase").length;
-    const decrease = adGroupBids.filter((ag) => ag.adjustment === "decrease").length;
-    const hold = adGroupBids.filter((ag) => ag.adjustment === "hold").length;
-    return { increase, decrease, hold, total: adGroupBids.length };
-  }, [adGroupBids]);
-
-  function handleExecuteAction() {
-    if (!actionDialog) return;
-    execute({
-      action: actionDialog.type === "decrease_cpc" ? "ADJUST_BID" :
-              actionDialog.type === "switch_tcpa" ? "CHANGE_BIDDING_STRATEGY" :
-              "CHANGE_BIDDING_STRATEGY",
-      entityId: actionDialog.campaignId,
-      entityName: actionDialog.campaignName,
-      entityType: "campaign",
-      params: actionDialog.params,
-    });
-    setActionDialog(null);
+  function handleAction(campaign: CampaignRecommendation, type: "apply" | "reject" | "manual_apply") {
+    setActionDialog({ open: true, type, campaign });
   }
 
+  function handleSubmitAction(rationale: string) {
+    if (!actionDialog) return;
+    const { campaign, type } = actionDialog;
+    actionMutation.mutate({
+      campaign_id: campaign.campaign_id,
+      campaign_name: campaign.campaign_name,
+      action: type,
+      recommendation: campaign.recommendation,
+      rationale,
+      params:
+        campaign.recommendation === "switch_tcpa"
+          ? { strategy: "TARGET_CPA", target_cpa: campaign.suggested_tcpa }
+          : { bid_limit: campaign.computed_bid_limit },
+    });
+  }
+
+  // Filtered + sorted campaigns
+  const processedCampaigns = useMemo(() => {
+    if (!data?.campaigns) return [];
+    let filtered = data.campaigns;
+
+    if (filterRec !== "all") {
+      filtered = filtered.filter((c) => c.recommendation === filterRec);
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter((c) => c.campaign_name.toLowerCase().includes(q));
+    }
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "alerts") {
+        const aScore = a.alerts.filter((x) => x.severity === "critical").length * 10 +
+                       a.alerts.filter((x) => x.severity === "warning").length;
+        const bScore = b.alerts.filter((x) => x.severity === "critical").length * 10 +
+                       b.alerts.filter((x) => x.severity === "warning").length;
+        return bScore - aScore;
+      }
+      if (sortBy === "confidence") {
+        const order = { high: 3, medium: 2, low: 1 };
+        return (order[b.confidence] || 0) - (order[a.confidence] || 0);
+      }
+      return b.conversions_30d - a.conversions_30d;
+    });
+  }, [data, filterRec, sortBy, searchQuery]);
+
   // Loading
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
-      <div className="p-6">
-        <Skeleton className="h-8 w-48 mb-4" />
-        <Skeleton className="h-24 rounded-md mb-4" />
-        <Skeleton className="h-[500px] rounded-md" />
+      <div className="p-6 space-y-4 max-w-[1400px]">
+        <Skeleton className="h-10 w-72 mb-6" />
+        <div className="grid grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-[500px] rounded-xl" />
       </div>
     );
   }
 
-  // Empty state
-  if (!biddingData || adGroupBids.length === 0) {
+  if (error || !data?.meta?.data_available) {
     return (
-      <div className="p-6 space-y-4 max-w-[1800px]">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <IndianRupee className="w-5 h-5" />
-            Bidding Analysis
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            CPA formula breakdown, Max CPC calculations, and bid optimization
-          </p>
+      <div className="p-6 space-y-4 max-w-[1400px]">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20">
+            <Brain className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-foreground tracking-tight">Bidding Intelligence</h1>
+            <p className="text-xs text-muted-foreground">Max Clicks ↔ tCPA decision engine</p>
+          </div>
         </div>
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <AlertTriangle className="w-10 h-10 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
-              Bidding data will be available after the next Google Ads agent run with weekly+ cadence.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              The agent analyzes CPA = CPC / CVR and computes optimal Max CPC caps.
-            </p>
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-3">
+            <AlertTriangle className="w-12 h-12 text-muted-foreground/40" />
+            <div>
+              <p className="text-sm font-medium text-foreground">No Bidding Data Available</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Run the Google Ads agent to generate bidding analysis.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  const meta = data.meta;
+  const tcpaSwitchCandidates = data.campaigns.filter((c) => c.recommendation === "switch_tcpa").length;
+  const holdCandidates = data.campaigns.filter((c) => c.recommendation === "hold").length;
+  const criticalAlertCount = data.campaigns.reduce(
+    (sum, c) => sum + c.alerts.filter((a) => a.severity === "critical").length, 0
+  );
+
   return (
-    <div className="p-6 space-y-4 max-w-[1800px]">
-      {/* Action Confirm Dialog */}
-      <AlertDialog open={!!actionDialog?.open} onOpenChange={(o) => { if (!o) setActionDialog(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Bidding Action</AlertDialogTitle>
-            <AlertDialogDescription>
-              <span className="block">{actionDialog?.detail}</span>
-              <span className="block text-xs mt-2 text-muted-foreground">
-                Campaign: {actionDialog?.campaignName}
-              </span>
-              <span className="block text-xs mt-1 text-amber-500">
-                This will modify your Google Ads account settings.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-action-cancel">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleExecuteAction} disabled={isExecuting} data-testid="button-action-confirm">
-              {isExecuting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}
-              Execute
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+    <div className="p-6 space-y-5 max-w-[1400px]">
+      {/* Action Dialog */}
+      {actionDialog && (
+        <ActionDialog
+          state={actionDialog}
+          onClose={() => setActionDialog(null)}
+          onSubmit={handleSubmitAction}
+          isPending={actionMutation.isPending}
+        />
+      )}
 
-      {/* Header */}
-      <div>
-        <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <IndianRupee className="w-5 h-5" />
-          Bidding Analysis
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          {adjustmentCounts.total} ad groups across {campaignGroups.size} campaigns · CPA = CPC / CVR
-        </p>
-      </div>
-
-      {/* ─── tCPA Readiness Assessment ──────────────────────────── */}
-      <div data-testid="tcpa-readiness-section">
-        <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Target className="w-4 h-4 text-primary" />
-            tCPA Readiness Assessment
-          </h2>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              <div className="text-xs space-y-1">
-                <p className="font-medium">SOP: tCPA Transition Criteria</p>
-                <p>Green: ≥50 conversions/30d + CVR variance &lt;20% + tracking confirmed</p>
-                <p>Yellow: 30-50 conversions OR CVR variance 15-20%</p>
-                <p>Red: &lt;30 conversions OR CVR unstable</p>
-                <p className="text-muted-foreground">Seed tCPA at current CPA minus 20%</p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
+      {/* ─── Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 shadow-sm">
+            <Brain className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-foreground tracking-tight">
+              Bidding Intelligence
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              SOP-aligned decision engine · Max Clicks ↔ tCPA · Target CPA: {formatINR(meta.target_cpa, 0)}
+            </p>
+          </div>
         </div>
-
-        {tcpaReadiness.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {tcpaReadiness.map((r, idx) => {
-              const trafficLightColors = {
-                green: {
-                  border: "border-emerald-500/30",
-                  bg: "bg-emerald-500",
-                  bgLight: "bg-emerald-500/10",
-                  text: "text-emerald-400",
-                  icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />,
-                },
-                yellow: {
-                  border: "border-amber-500/30",
-                  bg: "bg-amber-500",
-                  bgLight: "bg-amber-500/10",
-                  text: "text-amber-400",
-                  icon: <Clock className="w-4 h-4 text-amber-400" />,
-                },
-                red: {
-                  border: "border-red-500/30",
-                  bg: "bg-red-500",
-                  bgLight: "bg-red-500/10",
-                  text: "text-red-400",
-                  icon: <AlertTriangle className="w-4 h-4 text-red-400" />,
-                },
-              };
-              const colors = trafficLightColors[r.readiness];
-
-              return (
-                <Card key={idx} className={colors.border} data-testid={`card-tcpa-readiness-${idx}`}>
-                  <CardContent className="p-4">
-                    {/* Header: campaign name + traffic light */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <p className="text-xs font-medium text-foreground truncate cursor-default">
-                              {truncate(r.campaignName, 28)}
-                            </p>
-                          </TooltipTrigger>
-                          <TooltipContent><p className="text-xs">{r.campaignName}</p></TooltipContent>
-                        </Tooltip>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {r.currentStrategy} · {r.campaignType}
-                        </p>
-                      </div>
-                      <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium", colors.bgLight, colors.text)}>
-                        {colors.icon}
-                        <span className="hidden sm:inline">{r.readiness === "green" ? "Ready" : r.readiness === "yellow" ? "Almost" : "Not Ready"}</span>
-                      </div>
-                    </div>
-
-                    {/* Metrics */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground">Conversions (30d)</span>
-                        <span className={cn("tabular-nums font-medium", r.conversions30d >= 50 ? "text-emerald-400" : r.conversions30d >= 30 ? "text-amber-400" : "text-red-400")}>
-                          {r.conversions30d}
-                          <span className="text-muted-foreground ml-1">
-                            (need ≥30-50)
-                          </span>
-                        </span>
-                      </div>
-
-                      {r.cvrVariance14d != null && (
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">CVR Stability (14d)</span>
-                          <span className={cn("tabular-nums font-medium", r.cvrVariance14d < 20 ? "text-emerald-400" : "text-amber-400")}>
-                            ±{r.cvrVariance14d.toFixed(1)}%
-                            <span className="text-muted-foreground ml-1">
-                              (need &lt;±20%)
-                            </span>
-                          </span>
-                        </div>
-                      )}
-
-                      {r.currentCPA > 0 && (
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">Current CPA</span>
-                          <span className="tabular-nums font-medium text-foreground">
-                            {formatINR(r.currentCPA, 0)}
-                          </span>
-                        </div>
-                      )}
-
-                      {r.suggestedTCPA > 0 && (
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">Recommended tCPA Seed</span>
-                          <span className="tabular-nums font-semibold text-primary">
-                            {formatINR(r.suggestedTCPA, 0)}
-                            <span className="text-muted-foreground font-normal ml-1">
-                              (CPA × 0.8)
-                            </span>
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground">Tracking Stable</span>
-                        <span className={r.trackingStable ? "text-emerald-400" : "text-red-400"}>
-                          {r.trackingStable ? "Yes" : "No"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Readiness label + action */}
-                    <div className="mt-3 pt-3 border-t border-border/30">
-                      <p className={cn("text-[10px] font-medium mb-2", colors.text)}>
-                        {r.readinessLabel}
-                      </p>
-
-                      {r.readiness === "green" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-[10px] h-7 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                          onClick={() => setActionDialog({
-                            open: true,
-                            type: "switch_tcpa",
-                            campaignId: r.campaignId,
-                            campaignName: r.campaignName,
-                            detail: `Switch "${r.campaignName}" to Target CPA bidding.\n\nSeed tCPA: ₹${r.suggestedTCPA} (current CPA ₹${Math.round(r.currentCPA)} × 0.8)\n\nThis is a strategic bidding decision. Ensure conversion tracking is accurate before proceeding.`,
-                            params: {
-                              strategy: "TARGET_CPA",
-                              target_cpa: r.suggestedTCPA,
-                              reason: `tCPA readiness check passed: ${r.conversions30d} conv/30d${r.cvrVariance14d != null ? `, CVR variance ${r.cvrVariance14d.toFixed(1)}%` : ""}`,
-                            },
-                          })}
-                          data-testid={`button-switch-tcpa-readiness-${idx}`}
-                        >
-                          <Zap className="w-3 h-3 mr-1" />
-                          Switch to tCPA at {formatINR(r.suggestedTCPA, 0)}
-                        </Button>
-                      )}
-
-                      {r.readiness === "yellow" && (
-                        <div className="text-[10px] text-muted-foreground bg-muted/30 rounded p-2">
-                          <p>Continue monitoring. Once 50+ conversions accumulated with stable CVR, switch to tCPA.</p>
-                        </div>
-                      )}
-
-                      {r.readiness === "red" && (
-                        <div className="text-[10px] text-muted-foreground bg-muted/30 rounded p-2">
-                          <p>Keep Max Clicks with CPC cap. Focus on growing conversion volume before automated bidding.</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">
-                Run the agent with bidding analysis module enabled to see readiness data.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            <History className="w-3.5 h-3.5" />
+            Action History
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => refetch()}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* GB-06: Auction Position Analysis — IS metrics per campaign */}
-      {(() => {
-        const campaigns = (data as any)?.campaigns || [];
-        const searchCampaigns = campaigns.filter((c: any) =>
-          c.channel_type === "SEARCH" || c.campaign_type === "search" || c.campaign_type === "branded" || c.campaign_type === "location"
-        );
-        if (searchCampaigns.length === 0) return null;
-        return (
-          <div data-testid="section-auction-insights">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold">Auction Position Analysis</h2>
-              <span className="text-[10px] text-muted-foreground">Impression Share & Position metrics per campaign</span>
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              {searchCampaigns.map((c: any, idx: number) => {
-                const isa = c.impression_share_analysis || {};
-                const is = c.search_impression_share ?? isa.search_impression_share;
-                const absTop = c.absolute_top_is ?? isa.absolute_top_is;
-                const topIs = c.top_is ?? isa.top_is;
-                const clickShare = c.click_share ?? isa.click_share;
-                const exactIs = c.exact_match_is ?? isa.exact_match_is;
-                const lostRank = c.search_rank_lost_is ?? isa.search_rank_lost_is;
-                const lostBudget = c.search_budget_lost_is ?? isa.search_budget_lost_is;
-                const actions: string[] = isa.actions || [];
+      {/* ─── Overview Cards ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Total Campaigns</p>
+            <p className="text-3xl font-black tabular-nums text-foreground">{meta.total_campaigns}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Under bidding analysis</p>
+          </CardContent>
+        </Card>
 
-                const isTarget = isa.is_target ?? 70;
-                const isStatus = isa.is_status ?? (is >= isTarget ? "healthy" : is >= isTarget * 0.85 ? "warning" : "critical");
-                const statusColor = isStatus === "healthy" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-                  : isStatus === "warning" ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-                  : "text-red-400 bg-red-500/10 border-red-500/30";
+        <Card className={cn("border-border/50", criticalAlertCount > 0 && "border-red-500/40")}>
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Active Alerts</p>
+            <p className={cn("text-3xl font-black tabular-nums", criticalAlertCount > 0 ? "text-red-400" : "text-emerald-400")}>
+              {meta.alert_count}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {criticalAlertCount > 0 ? `${criticalAlertCount} critical` : "No critical alerts"}
+            </p>
+          </CardContent>
+        </Card>
 
-                return (
-                  <Card key={idx} data-testid={`card-auction-${idx}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-foreground truncate">{truncate(c.name, 50)}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px] text-muted-foreground capitalize">{c.bidding_strategy?.replace(/_/g, " ") || "Manual CPC"}</span>
-                            {c.campaign_type && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0">{c.campaign_type}</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5 shrink-0 border", statusColor)}>
-                          {isStatus === "healthy" ? "Healthy" : isStatus === "warning" ? "Monitor" : "Action Needed"}
-                        </Badge>
-                      </div>
+        <Card className={cn("border-border/50", tcpaSwitchCandidates > 0 && "border-emerald-500/40")}>
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">tCPA Candidates</p>
+            <p className={cn("text-3xl font-black tabular-nums", tcpaSwitchCandidates > 0 ? "text-emerald-400" : "text-foreground")}>
+              {tcpaSwitchCandidates}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">Ready to switch strategy</p>
+          </CardContent>
+        </Card>
 
-                      {/* IS Metrics Grid */}
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-3">
-                        {[
-                          { label: "Search IS", value: is, suffix: "%", target: isTarget, good: (v: number) => v >= isTarget },
-                          { label: "Abs Top IS", value: absTop, suffix: "%", target: 50, good: (v: number) => v >= 50 },
-                          { label: "Top IS", value: topIs, suffix: "%", target: 60, good: (v: number) => v >= 60 },
-                          { label: "Click Share", value: clickShare, suffix: "%", target: 60, good: (v: number) => v >= 60 },
-                          { label: "Exact IS", value: exactIs, suffix: "%", target: 75, good: (v: number) => v >= 75 },
-                          { label: "Lost (Rank)", value: lostRank, suffix: "%", target: 15, good: (v: number) => v <= 15, inverse: true },
-                        ].map((metric) => {
-                          if (metric.value == null) return null;
-                          const isGood = metric.good(metric.value);
-                          const color = metric.inverse
-                            ? (metric.value > 25 ? "text-red-400" : metric.value > 15 ? "text-amber-400" : "text-emerald-400")
-                            : (isGood ? "text-emerald-400" : metric.value >= metric.target * 0.85 ? "text-amber-400" : "text-red-400");
-                          return (
-                            <div key={metric.label}>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{metric.label}</p>
-                              <p className={cn("text-sm font-bold tabular-nums mt-0.5", color)}>
-                                {metric.value.toFixed(1)}{metric.suffix}
-                              </p>
-                              {/* Mini bar */}
-                              <div className="w-full h-1 bg-muted/40 rounded-full mt-1">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    width: `${Math.min(metric.inverse ? (100 - metric.value) : metric.value, 100)}%`,
-                                    backgroundColor: color.replace("text-", "").includes("emerald") ? "hsl(142, 70%, 45%)" : color.includes("amber") ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)"
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+        <Card className={cn("border-border/50", holdCandidates > 0 && "border-amber-500/40")}>
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Hold / Monitor</p>
+            <p className={cn("text-3xl font-black tabular-nums", holdCandidates > 0 ? "text-amber-400" : "text-foreground")}>
+              {holdCandidates}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">Budget / tracking issues</p>
+          </CardContent>
+        </Card>
+      </div>
 
-                      {/* IS bar visualisation */}
-                      {is != null && (
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                            <span>Search Impression Share</span>
-                            <span className="tabular-nums">{is.toFixed(1)}% / {isTarget}% target</span>
-                          </div>
-                          <div className="w-full h-2 bg-muted/40 rounded-full overflow-hidden">
-                            <div className="h-full flex">
-                              <div className="h-full rounded-l-full" style={{ width: `${Math.min(is, 100)}%`, backgroundColor: is >= isTarget ? "hsl(142, 70%, 45%)" : "hsl(38, 92%, 50%)" }} />
-                              {lostRank != null && lostRank > 0 && (
-                                <div className="h-full" style={{ width: `${Math.min(lostRank, 100 - is)}%`, backgroundColor: "hsl(0, 72%, 55%)" }} title={`Lost (Rank): ${lostRank.toFixed(1)}%`} />
-                              )}
-                              {lostBudget != null && lostBudget > 0 && (
-                                <div className="h-full" style={{ width: `${Math.min(lostBudget, 100 - is - (lostRank || 0))}%`, backgroundColor: "hsl(38, 92%, 50%)" }} title={`Lost (Budget): ${lostBudget.toFixed(1)}%`} />
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-                            <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-emerald-500 inline-block" />Won</span>
-                            {lostRank != null && lostRank > 0 && <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-red-500 inline-block" />Lost Rank</span>}
-                            {lostBudget != null && lostBudget > 0 && <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-amber-500 inline-block" />Lost Budget</span>}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Recommended actions */}
-                      {actions.length > 0 && (
-                        <div className="space-y-1">
-                          {actions.slice(0, 2).map((action: string, ai: number) => (
-                            <div key={ai} className="flex items-start gap-1.5 text-[11px] text-amber-400/80 bg-amber-500/5 rounded px-2 py-1.5 border border-amber-500/20">
-                              <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                              {action}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* CPA Formula Explainer */}
-      <Card className="border-primary/20" data-testid="card-formula">
+      {/* ─── SOP Formula Strip ───────────────────────────────────────── */}
+      <Card className="border-primary/20 bg-primary/3">
         <CardContent className="p-4">
-          <div className="flex items-start gap-6 flex-wrap">
-            <div className="flex-1 min-w-[300px]">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Bidding Formula</p>
-              <p className="text-sm font-mono text-foreground">
-                CPA = <span className="text-blue-400">CPC</span> / <span className="text-purple-400">CVR</span>
-              </p>
-              <p className="text-sm font-mono text-foreground mt-1">
-                Max CPC = MIN(<span className="text-amber-400">Low Top-of-Page CPC × 1.35</span>, <span className="text-emerald-400">Target CPA × CVR</span>)
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-2">
-                Target CPA ₹850 · If your CPC exceeds Max CPC, you're paying more per click than the lead value justifies.
+          <div className="flex flex-wrap items-center gap-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">SOP Bid Limit Formula</p>
+              <p className="text-sm font-mono">
+                Bid Limit = MIN(
+                <span className="text-blue-400 font-bold">Low Top-of-Page CPC × 1.3–1.4</span>,{" "}
+                <span className="text-purple-400 font-bold">Target CPA × CVR</span>
+                )
               </p>
             </div>
-            <div className="h-12 w-px bg-border/50 hidden md:block self-center" />
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">Need Decrease</p>
-                <p className="text-xl font-bold text-red-400 tabular-nums">{adjustmentCounts.decrease}</p>
+            <div className="h-10 w-px bg-border/50 hidden md:block" />
+            <div className="flex gap-5 text-xs">
+              <div className="flex items-center gap-1.5">
+                <MousePointerClick className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-muted-foreground">Default:</span>
+                <span className="font-bold">Max Clicks with Bid Cap</span>
               </div>
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">Hold</p>
-                <p className="text-xl font-bold text-emerald-400 tabular-nums">{adjustmentCounts.hold}</p>
+              <div className="flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-muted-foreground">Upgrade:</span>
+                <span className="font-bold">tCPA after ≥30 stable conversions</span>
               </div>
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">Can Increase</p>
-                <p className="text-xl font-bold text-amber-400 tabular-nums">{adjustmentCounts.increase}</p>
+              <div className="flex items-center gap-1.5">
+                <Ban className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-muted-foreground">Guard:</span>
+                <span className="font-bold">Never switch if budget-limited</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Over-bid alert */}
-      {adjustmentCounts.decrease > 0 && (
-        <Card className="border-red-500/30">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-red-400 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {adjustmentCounts.decrease} ad group{adjustmentCounts.decrease !== 1 ? "s" : ""} need bid decreases — CPC exceeds computed Max CPC. Review individual bids below.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ─── Section 1: Campaign Bidding Overview ─────────────────── */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Campaign Bidding Overview</h2>
+      {/* ─── Action History Panel ─────────────────────────────────────── */}
+      {showHistory && data.history.length > 0 && (
         <Card>
+          <CardHeader className="pb-2 border-b border-border/40">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              Bidding Action History
+            </CardTitle>
+          </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs" data-testid="table-campaign-bidding">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="p-3 w-8"></th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Campaign</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Type</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Strategy</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Avg CPC</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Computed Max CPC</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">CPC Status</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">CVR</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Ad Groups</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Recommendation</th>
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-center">Actions</th>
+                  <tr className="border-b border-border/30 bg-muted/20">
+                    {["Time", "Campaign", "Action", "Strategy", "Rationale"].map((h) => (
+                      <th key={h} className="p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-left">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from(campaignGroups.entries()).map(([campId, group]) => {
-                    const isExpanded = expandedCampaign === campId;
-                    const cpcStatus = getCpcStatus(group.avgCpc, group.computedMaxCpc);
-                    const needsDecrease = group.adGroups.filter((ag: AdGroupBid) => ag.adjustment === "decrease").length;
-                    const recommendation = needsDecrease > 0
-                      ? `${needsDecrease} ad group${needsDecrease !== 1 ? "s" : ""} overbidding`
-                      : "Bids within range";
-
-                    return (
-                      <>
-                        <tr
-                          key={campId}
-                          className="border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer"
-                          onClick={() => setExpandedCampaign(isExpanded ? null : campId)}
-                          data-testid={`row-campaign-bidding-${campId}`}
+                  {[...data.history].reverse().map((entry) => (
+                    <tr key={entry.id} className="border-b border-border/20 hover:bg-muted/10">
+                      <td className="p-3 tabular-nums text-muted-foreground whitespace-nowrap">
+                        {new Date(entry.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                      <td className="p-3 max-w-[160px]">
+                        <span className="truncate block">{truncate(entry.campaign_name, 25)}</span>
+                      </td>
+                      <td className="p-3">
+                        <Badge
+                          className={cn("text-[9px] px-1.5",
+                            entry.action === "apply" ? "bg-emerald-500/15 text-emerald-400" :
+                            entry.action === "reject" ? "bg-red-500/15 text-red-400" :
+                            "bg-blue-500/15 text-blue-400"
+                          )}
                         >
-                          <td className="p-3">
-                            <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
-                          </td>
-                          <td className="p-3 max-w-[200px]">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="truncate block text-foreground">{truncate(group.name, 30)}</span>
-                              </TooltipTrigger>
-                              <TooltipContent><p className="text-xs">{group.name}</p></TooltipContent>
-                            </Tooltip>
-                          </td>
-                          <td className="p-3">
-                            <Badge variant="secondary" className="text-[10px]">{group.type || "—"}</Badge>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-[10px] text-muted-foreground">{group.strategy || "Manual CPC"}</span>
-                          </td>
-                          <td className="p-3 text-right tabular-nums font-medium">{formatINR(group.avgCpc, 2)}</td>
-                          <td className="p-3 text-right tabular-nums font-medium text-foreground">
-                            {group.computedMaxCpc > 0 ? formatINR(group.computedMaxCpc, 2) : "—"}
-                          </td>
-                          <td className="p-3">
-                            <span className={cn("text-[10px] font-medium", cpcStatus.cls)}>{cpcStatus.label}</span>
-                          </td>
-                          <td className="p-3 text-right tabular-nums">
-                            <span className={cn(group.avgCvr < 2 ? "text-red-400" : group.avgCvr >= 5 ? "text-emerald-400" : "text-foreground")}>
-                              {group.avgCvr.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="p-3 text-right tabular-nums text-muted-foreground">{group.adGroups.length}</td>
-                          <td className="p-3 max-w-[180px]">
-                            <span className={cn("text-[10px]", needsDecrease > 0 ? "text-red-400" : "text-emerald-400")}>
-                              {recommendation}
-                            </span>
-                          </td>
-                          <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-1 justify-center">
-                              {needsDecrease > 0 && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-[10px] h-6 px-2 text-red-400 border-red-500/30 hover:bg-red-500/10"
-                                  onClick={() => setActionDialog({
-                                    open: true,
-                                    type: "decrease_cpc",
-                                    campaignId: campId,
-                                    campaignName: group.name,
-                                    detail: `Decrease CPC on ${needsDecrease} overbidding ad group(s) in "${group.name}" to their computed Max CPC values.`,
-                                    params: {
-                                      action_type: "decrease_cpc",
-                                      ad_groups: group.adGroups
-                                        .filter((ag: AdGroupBid) => ag.adjustment === "decrease")
-                                        .map((ag: AdGroupBid) => ({ id: ag.ad_group_id, target_cpc: ag.recommended_max_cpc || ag.computed_max_cpc })),
-                                      reason: "CPC exceeds computed Max CPC (CPA = CPC/CVR formula)",
-                                    },
-                                  })}
-                                  data-testid={`button-decrease-cpc-${campId}`}
-                                >
-                                  <TrendingDown className="w-3 h-3 mr-1" />
-                                  Decrease CPC
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-
-                        {/* ─── Expanded: Ad Group Bidding Detail ───── */}
-                        {isExpanded && (
-                          <tr key={`${campId}-expanded`} className="border-b border-border/30 bg-muted/10">
-                            <td colSpan={11} className="p-0">
-                              <div className="px-6 py-3">
-                                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                                  Ad Group Detail — {group.name}
-                                </p>
-                                <table className="w-full text-xs" data-testid={`table-adgroup-detail-${campId}`}>
-                                  <thead>
-                                    <tr className="border-b border-border/30">
-                                      <th className="py-2 pr-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Ad Group</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">CVR</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Current CPC</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Target CPA</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Max CPC</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Formula</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">Adjustment</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">Adj %</th>
-                                      <th className="py-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">IS Lost</th>
-                                      <th className="py-2 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-center">Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {group.adGroups.map((ag: AdGroupBid) => {
-                                      const adj = adjustmentBadge(ag.adjustment);
-                                      return (
-                                        <tr key={ag.ad_group_id} className="border-b border-border/20 hover:bg-muted/20" data-testid={`row-adgroup-bid-${ag.ad_group_id}`}>
-                                          <td className="py-2 pr-3 max-w-[180px]">
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <span className="truncate block text-foreground">{truncate(ag.ad_group_name, 28)}</span>
-                                              </TooltipTrigger>
-                                              <TooltipContent><p className="text-xs">{ag.ad_group_name}</p></TooltipContent>
-                                            </Tooltip>
-                                          </td>
-                                          <td className="py-2 px-2 text-right tabular-nums">
-                                            <span className={cn(ag.cvr < 2 ? "text-red-400" : ag.cvr >= 5 ? "text-emerald-400" : "text-foreground")}>
-                                              {ag.cvr.toFixed(1)}%
-                                            </span>
-                                          </td>
-                                          <td className="py-2 px-2 text-right tabular-nums">{formatINR(ag.cpc, 2)}</td>
-                                          <td className="py-2 px-2 text-right tabular-nums text-muted-foreground">
-                                            {ag.target_cpa ? formatINR(ag.target_cpa, 0) : "₹850"}
-                                          </td>
-                                          <td className="py-2 px-2 text-right tabular-nums font-medium">
-                                            {formatINR(ag.recommended_max_cpc || ag.computed_max_cpc || 0, 2)}
-                                          </td>
-                                          <td className="py-2 px-2">
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <span className="text-[10px] text-muted-foreground cursor-help">
-                                                  {ag.target_cpa || 850} × {(ag.cvr / 100).toFixed(3)} = {formatINR((ag.target_cpa || 850) * (ag.cvr / 100), 2)}
-                                                </span>
-                                              </TooltipTrigger>
-                                              <TooltipContent side="top" className="max-w-xs">
-                                                <p className="text-xs">Max CPC = Target CPA × Observed CVR</p>
-                                                <p className="text-xs text-muted-foreground mt-1">= ₹{ag.target_cpa || 850} × {(ag.cvr / 100).toFixed(3)} = {formatINR((ag.target_cpa || 850) * (ag.cvr / 100), 2)}</p>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          </td>
-                                          <td className="py-2 px-2">
-                                            <span className={cn("inline-flex items-center gap-1 text-[10px] font-medium", adj.cls)}>
-                                              {adj.icon} {adj.label}
-                                            </span>
-                                          </td>
-                                          <td className="py-2 px-2 text-right tabular-nums">
-                                            {ag.adjustment_pct != null && ag.adjustment_pct !== 0 ? (
-                                              <span className={cn(ag.adjustment === "decrease" ? "text-red-400" : "text-emerald-400")}>
-                                                {ag.adjustment === "decrease" ? "-" : "+"}{Math.abs(ag.adjustment_pct).toFixed(0)}%
-                                              </span>
-                                            ) : "—"}
-                                          </td>
-                                          <td className="py-2 px-2">
-                                            <div className="text-[10px] space-y-0.5">
-                                              {(ag as any).is_lost_rank != null && (
-                                                <div className="flex items-center gap-1">
-                                                  <span className="text-muted-foreground">Rank:</span>
-                                                  <span className={cn("tabular-nums", (ag as any).is_lost_rank > 10 ? "text-red-400" : "text-emerald-400")}>
-                                                    {((ag as any).is_lost_rank).toFixed(1)}%
-                                                  </span>
-                                                  {(ag as any).is_lost_rank > 10 && <span className="text-amber-400">↑ bid</span>}
-                                                </div>
-                                              )}
-                                              {(ag as any).is_lost_budget != null && (
-                                                <div className="flex items-center gap-1">
-                                                  <span className="text-muted-foreground">Budget:</span>
-                                                  <span className={cn("tabular-nums", (ag as any).is_lost_budget > 10 ? "text-red-400" : "text-emerald-400")}>
-                                                    {((ag as any).is_lost_budget).toFixed(1)}%
-                                                  </span>
-                                                  {(ag as any).is_lost_budget > 10 && <span className="text-amber-400">↑ budget</span>}
-                                                </div>
-                                              )}
-                                              {(ag as any).is_lost_rank == null && (ag as any).is_lost_budget == null && (
-                                                <span className="text-muted-foreground">—</span>
-                                              )}
-                                            </div>
-                                          </td>
-                                          <td className="py-2 pl-2 text-center">
-                                            <div className="flex items-center gap-1 justify-center">
-                                              <ExecutionButton
-                                                action="ADJUST_BID"
-                                                entityId={ag.ad_group_id}
-                                                entityName={ag.ad_group_name}
-                                                entityType="ad_group"
-                                                label=""
-                                                variant="ghost"
-                                                size="icon"
-                                                icon={<TrendingUp className="w-3 h-3 text-emerald-400" />}
-                                                confirmMessage={`Increase bid by 10% on "${ag.ad_group_name}"?\nCurrent CPC: ${formatINR(ag.cpc, 2)}`}
-                                                params={{ adjustment: "increase", adjustmentPct: 10, reason: "Manual bid increase from Bidding page" }}
-                                                className="h-6 w-6"
-                                                data-testid={`button-bid-up-${ag.ad_group_id}`}
-                                              />
-                                              <ExecutionButton
-                                                action="ADJUST_BID"
-                                                entityId={ag.ad_group_id}
-                                                entityName={ag.ad_group_name}
-                                                entityType="ad_group"
-                                                label=""
-                                                variant="ghost"
-                                                size="icon"
-                                                icon={<TrendingDown className="w-3 h-3 text-red-400" />}
-                                                confirmMessage={`Decrease bid by 10% on "${ag.ad_group_name}"?\nCurrent CPC: ${formatINR(ag.cpc, 2)}`}
-                                                params={{ adjustment: "decrease", adjustmentPct: -10, reason: "Manual bid decrease from Bidding page" }}
-                                                className="h-6 w-6"
-                                                data-testid={`button-bid-down-${ag.ad_group_id}`}
-                                              />
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    );
-                  })}
-                  {campaignGroups.size === 0 && (
-                    <tr>
-                      <td colSpan={11} className="p-8 text-center text-xs text-muted-foreground">
-                        No bidding data available.
+                          {entry.action.replace("_", " ")}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-muted-foreground">{getRecommendationConfig(entry.recommendation).label}</td>
+                      <td className="p-3 text-muted-foreground max-w-[250px]">
+                        <span className="truncate block" title={entry.rationale}>{truncate(entry.rationale, 60)}</span>
                       </td>
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ─── Filters ─────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg border border-border/50">
+          {[
+            { key: "all", label: "All Campaigns" },
+            { key: "switch_tcpa", label: `→ tCPA (${tcpaSwitchCandidates})` },
+            { key: "stay_max_clicks", label: "Max Clicks" },
+            { key: "hold", label: `Hold (${holdCandidates})` },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilterRec(f.key)}
+              className={cn(
+                "px-3 py-1.5 text-[11px] font-bold rounded-md transition-all",
+                filterRec === f.key
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg border border-border/50 ml-auto">
+          <span className="text-[10px] text-muted-foreground px-2">Sort:</span>
+          {[
+            { key: "alerts" as const, label: "Alerts" },
+            { key: "confidence" as const, label: "Confidence" },
+            { key: "conversions" as const, label: "Conversions" },
+          ].map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSortBy(s.key)}
+              className={cn(
+                "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all",
+                sortBy === s.key
+                  ? "bg-background text-foreground shadow-sm border border-border/50"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <Input
+          placeholder="Search campaigns..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-48 h-9 text-xs border-border/50"
+        />
       </div>
 
-      {/* ─── Section 3: Smart Bidding Readiness ───────────────────── */}
-      {smartBidding.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-semibold text-foreground">Smart Bidding Readiness</h2>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs">
-                <p className="text-xs">Campaigns need 30+ conversions in 30 days, stable CVR, and reliable tracking to qualify for Target CPA automation.</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {smartBidding.map((sb, idx) => {
-              const badge = smartBiddingBadge(sb.recommendation);
-              const isReady = sb.recommendation === "switch_tcpa" || sb.recommendation === "test_tcpa";
-              return (
-                <Card key={idx} data-testid={`card-smart-bidding-${idx}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-foreground truncate max-w-[200px]">
-                        {truncate(sb.campaign_name, 30)}
-                      </span>
-                      <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0", badge.cls)}>
-                        {badge.label}
-                      </Badge>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground">Conversions (30d)</span>
-                        <span className={cn("tabular-nums", sb.conversions_30d >= 30 ? "text-emerald-400" : "text-amber-400")}>
-                          {sb.conversions_30d} {sb.conversions_30d >= 30 ? "✓" : "< 30"}
-                        </span>
-                      </div>
-                      {sb.cvr_variance_14d != null && (
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">CVR Variance (14d)</span>
-                          <span className={cn("tabular-nums", sb.cvr_variance_14d < 30 ? "text-emerald-400" : "text-amber-400")}>
-                            {sb.cvr_variance_14d.toFixed(1)}%
-                          </span>
-                        </div>
-                      )}
-                      {sb.tracking_stable != null && (
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">Tracking Stable</span>
-                          <span className={sb.tracking_stable ? "text-emerald-400" : "text-red-400"}>
-                            {sb.tracking_stable ? "Yes" : "No"}
-                          </span>
-                        </div>
-                      )}
-                      {sb.suggested_tcpa != null && (
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">Suggested tCPA</span>
-                          <span className="tabular-nums font-medium text-foreground">{formatINR(sb.suggested_tcpa, 0)}</span>
-                        </div>
-                      )}
-                    </div>
-                    {/* Executable actions */}
-                    {isReady && (
-                      <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-[10px] h-6 px-2 flex-1 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                          onClick={() => setActionDialog({
-                            open: true,
-                            type: "switch_tcpa",
-                            campaignId: sb.campaign_id,
-                            campaignName: sb.campaign_name,
-                            detail: `Switch "${sb.campaign_name}" to Target CPA bidding at ₹${sb.suggested_tcpa || 850}.`,
-                            params: {
-                              strategy: "TARGET_CPA",
-                              target_cpa: sb.suggested_tcpa || 850,
-                              reason: `Smart bidding readiness check passed: ${sb.conversions_30d} conv/30d, CVR variance ${sb.cvr_variance_14d?.toFixed(1)}%`,
-                            },
-                          })}
-                          data-testid={`button-switch-tcpa-${idx}`}
-                        >
-                          <Zap className="w-3 h-3 mr-1" />
-                          Switch to tCPA
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-[10px] h-6 px-2 flex-1 text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
-                          onClick={() => setActionDialog({
-                            open: true,
-                            type: "switch_max_conv",
-                            campaignId: sb.campaign_id,
-                            campaignName: sb.campaign_name,
-                            detail: `Switch "${sb.campaign_name}" to Maximize Conversions bidding strategy.`,
-                            params: {
-                              strategy: "MAXIMIZE_CONVERSIONS",
-                              reason: "Smart bidding transition — Maximize Conversions as stepping stone to tCPA",
-                            },
-                          })}
-                          data-testid={`button-switch-maxconv-${idx}`}
-                        >
-                          <TrendingUp className="w-3 h-3 mr-1" />
-                          Max Conversions
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* ─── Campaign Recommendation Cards ───────────────────────────── */}
+      <div className="space-y-3">
+        {processedCampaigns.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <CheckCircle2 className="w-10 h-10 text-emerald-400/40 mb-3" />
+              <p className="text-sm font-medium text-foreground">No campaigns match this filter</p>
+              <p className="text-xs text-muted-foreground mt-1">Try changing the filter above</p>
+            </CardContent>
+          </Card>
+        ) : (
+          processedCampaigns.map((camp) => (
+            <CampaignRecommendationRow
+              key={camp.campaign_id}
+              camp={camp}
+              onAction={(type) => handleAction(camp, type)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* ─── Footer info ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t border-border/30">
+        <span>
+          Last computed: {new Date(meta.generated_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+        </span>
+        <span className="flex items-center gap-1">
+          <ShieldCheck className="w-3 h-3 text-primary" />
+          SOP-enforced · Max Clicks → tCPA only · No unsupported strategies
+        </span>
+      </div>
     </div>
   );
 }

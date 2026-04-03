@@ -337,9 +337,19 @@ export function protectApiRoutes(req: Request, res: Response, next: NextFunction
 export async function setupAuth(app: Express) {
   // canUsePostgresSessions: true whenever DATABASE_URL is a valid postgres URL
   // (AUTH_USE_PG_SESSIONS=false can explicitly opt-out for local dev without a DB)
-  const canUsePostgresSessions =
+  let canUsePostgresSessions =
     process.env.AUTH_USE_PG_SESSIONS !== "false" &&
     isUsableDatabaseUrl(process.env.DATABASE_URL);
+
+  // Verify the database is actually reachable before committing to PG sessions
+  if (canUsePostgresSessions) {
+    try {
+      await pool.query("SELECT 1");
+    } catch (err) {
+      console.warn("[Auth] PostgreSQL unreachable, falling back to in-memory sessions:", (err as Error).message);
+      canUsePostgresSessions = false;
+    }
+  }
   const cookieSameSite = process.env.AUTH_COOKIE_SAMESITE
     ? (process.env.AUTH_COOKIE_SAMESITE as "lax" | "strict" | "none")
     : isProduction
@@ -385,12 +395,12 @@ export async function setupAuth(app: Express) {
 
   const sessionStore = canUsePostgresSessions
     ? new PostgresSessionStore({
-        pool,
-        createTableIfMissing: false, // We just created it manually ^
-      })
+      pool,
+      createTableIfMissing: false, // We just created it manually ^
+    })
     : new MemoryStore({
-        checkPeriod: 1000 * 60 * 60 * 24,
-      });
+      checkPeriod: 1000 * 60 * 60 * 24,
+    });
 
   app.use(session({
     store: sessionStore,
@@ -467,19 +477,19 @@ export async function setupAuth(app: Express) {
       return req.session.save((error) => {
         if (error) {
           console.error("[Auth] Session Save Error:", error);
-          return res.status(500).json({ 
-            error: "Session persistence failure", 
-            detail: error.message 
+          return res.status(500).json({
+            error: "Session persistence failure",
+            detail: error.message
           });
         }
         return res.json({ success: true, user: toSafeUser(user) });
       });
     } catch (err: any) {
       console.error("[Auth] Critical Login Crash:", err);
-      return res.status(500).json({ 
-        error: "Internal Server Error", 
+      return res.status(500).json({
+        error: "Internal Server Error",
         detail: err.message,
-        stack: isProduction ? undefined : err.stack 
+        stack: isProduction ? undefined : err.stack
       });
     }
   });

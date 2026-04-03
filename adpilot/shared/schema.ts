@@ -34,14 +34,27 @@ export const creativeHubs = pgTable("creative_hubs", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Action logs — every recommendation action requires a strategic_call rationale
+export const actionLogs = pgTable("action_logs", {
+  id: serial("id").primaryKey(),
+  recommendationId: text("recommendation_id").notNull(),
+  clientId: text("client_id").notNull(),
+  platform: text("platform").notNull(),
+  action: text("action").notNull(), // "approved" | "rejected" | "deferred"
+  strategicCall: text("strategic_call").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertApiConfigSchema = createInsertSchema(apiConfigs);
 export const insertClientSchema = createInsertSchema(clients);
 export const insertCreativeHubSchema = createInsertSchema(creativeHubs);
+export const insertActionLogSchema = createInsertSchema(actionLogs);
 
 export type ApiConfig = typeof apiConfigs.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type CreativeHub = typeof creativeHubs.$inferSelect;
+export type ActionLog = typeof actionLogs.$inferSelect;
 
 export interface AnalysisPeriod {
   start: string;
@@ -441,6 +454,38 @@ export interface QuickActionRequest {
   actionType: QuickActionType;
   scalePercent?: number;
 }
+// ─── Bidding Intelligence ───────────────────────────────────────
+
+export const biddingRecommendations = pgTable("bidding_recommendations", {
+  id: serial("id").primaryKey(),
+  campaignId: text("campaign_id").notNull(),
+  clientId: text("client_id").notNull(),
+  campaignName: text("campaign_name").notNull(),
+  currentStrategy: text("current_strategy").notNull(), // e.g. "MAXIMIZE_CLICKS", "TARGET_CPA"
+  recommendedStrategy: text("recommended_strategy").notNull(),
+  currentBidLimit: numeric("current_bid_limit"),
+  recommendedBidLimit: numeric("recommended_bid_limit"),
+  currentTCPA: numeric("current_tcpa"),
+  recommendedTCPA: numeric("recommended_tcpa"),
+  avgCpc: numeric("avg_cpc").notNull(),
+  ctr: numeric("ctr").notNull(),
+  cvr: numeric("cvr").notNull(),
+  costPerConversion: numeric("cost_per_conversion").notNull(),
+  searchImpressionShare: numeric("search_impression_share"),
+  lostIsRank: numeric("lost_is_rank"),
+  lostIsBudget: numeric("lost_is_budget"),
+  conversions: numeric("conversions").notNull(),
+  clicks: numeric("clicks").notNull(),
+  confidenceLevel: text("confidence_level").notNull(), // "low" | "medium" | "high"
+  reason: text("reason").notNull(),
+  status: text("status", { enum: ["pending", "applied", "rejected"] }).notNull().default("pending"),
+  strategicRationale: text("strategic_rationale"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBiddingRecommendationSchema = createInsertSchema(biddingRecommendations);
+export type BiddingRecommendation = typeof biddingRecommendations.$inferSelect;
 
 export const analysisSnapshots = pgTable("analysis_snapshots", {
   id: serial("id").primaryKey(),

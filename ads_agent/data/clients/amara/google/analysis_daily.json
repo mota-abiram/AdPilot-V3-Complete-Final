@@ -1,11 +1,11 @@
 {
   "status": "OK",
-  "timestamp": "2026-04-02 10:53:43.931501",
+  "timestamp": "2026-04-03 16:29:31.470150",
   "cadence": "daily",
   "window": {
-    "since": "2026-04-01",
-    "until": "2026-04-01",
-    "label": "Yesterday (2026-04-01)"
+    "since": "2026-04-02",
+    "until": "2026-04-02",
+    "label": "Yesterday (2026-04-02)"
   },
   "platform": "google",
   "targets": {
@@ -20,26 +20,33 @@
     "cpl_alert": 1190,
     "cpl_critical": 1360
   },
+  "dynamic_thresholds": {
+    "cpl_target": 850,
+    "cpl_alert": 1190,
+    "cpl_critical": 1360,
+    "budget": 800000,
+    "leads": 940
+  },
   "account_pulse": {
-    "total_spend": 14380.68,
-    "total_leads": 6.9954730000000005,
-    "total_impressions": 85018,
-    "total_clicks": 1649,
-    "overall_ctr": 1.94,
-    "overall_cpc": 8.72,
-    "overall_cpm": 169.15,
-    "overall_cpl": 2055.71,
-    "overall_cvr": 0.42,
+    "total_spend": 17366.04,
+    "total_leads": 6.991704,
+    "total_impressions": 120815,
+    "total_clicks": 2574,
+    "overall_ctr": 2.13,
+    "overall_cpc": 6.75,
+    "overall_cpm": 143.74,
+    "overall_cpl": 2483.81,
+    "overall_cvr": 0.27,
     "active_campaigns": 8,
     "mtd_pacing": {
-      "days_elapsed": 2,
-      "days_remaining": 28,
-      "spend_mtd": 14380.68,
-      "leads_mtd": 6.9954730000000005,
-      "projected_spend": 215710.14,
-      "projected_leads": 105.0,
-      "pacing_spend_pct": 27.0,
-      "pacing_leads_pct": 11.2,
+      "days_elapsed": 3,
+      "days_remaining": 27,
+      "spend_mtd": 17366.04,
+      "leads_mtd": 6.991704,
+      "projected_spend": 173660.44,
+      "projected_leads": 70.0,
+      "pacing_spend_pct": 21.7,
+      "pacing_leads_pct": 7.4,
       "target_budget": 800000,
       "target_leads": 940,
       "target_svs": 44,
@@ -49,7 +56,23 @@
     "not_spending_campaigns": [],
     "paused_campaigns": 0,
     "alerts": [
-      "PACING ALERT: Projected 105 leads vs 940 target (gap: 835)"
+      "Spend anomaly LOW: daily avg \u20b95,789 vs historical avg \u20b917,338",
+      "PACING ALERT: Projected 70 leads vs 940 target (gap: 870)"
+    ],
+    "daily_spends": [
+      17366.04
+    ],
+    "daily_leads": [
+      7.0
+    ],
+    "daily_ctrs": [
+      2.13
+    ],
+    "daily_clicks": [
+      2574
+    ],
+    "daily_impressions": [
+      120815
     ]
   },
   "campaigns": [
@@ -61,16 +84,16 @@
       "campaign_type": "branded",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 3600.0,
-      "impressions": 71,
-      "clicks": 10,
-      "cost": 748.045805,
-      "conversions": 0.0,
-      "all_conversions": 0.0,
+      "impressions": 58,
+      "clicks": 16,
+      "cost": 2199.198852,
+      "conversions": 1.0,
+      "all_conversions": 1.0,
       "ctr": 0.0,
       "avg_cpc": 0.0,
       "avg_cpm": 0.0,
-      "cpl": 0.0,
-      "cvr": 0.0,
+      "cpl": 2199.2,
+      "cvr": 6.25,
       "search_impression_share": null,
       "search_budget_lost_is": null,
       "search_rank_lost_is": null,
@@ -81,19 +104,19 @@
       "cost_stack": {
         "statuses": {
           "ctr": "critical",
-          "cvr": "critical",
+          "cvr": "healthy",
           "cpc": "no_data",
-          "cpl": "no_data"
+          "cpl": "critical"
         },
         "overall": "critical",
-        "diagnosis": "CTR critically low at 0.0% (benchmark: 15.0-20.0%) | CVR critically low at 0.0% (benchmark: 6.0-8.0%)"
+        "diagnosis": "CTR critically low at 0.0% (benchmark: 15.0-20.0%) | CPL critically high at \u20b92199 (critical: \u20b91360)"
       },
       "impression_share_analysis": null,
       "dg_health": null,
       "benchmark_comparison": {
-        "cpl_vs_benchmark": "below",
+        "cpl_vs_benchmark": "above",
         "ctr_vs_benchmark": "below",
-        "cvr_vs_benchmark": "below"
+        "cvr_vs_benchmark": "within"
       },
       "ad_group_count": 2,
       "ad_groups": [
@@ -104,14 +127,14 @@
           "campaign_id": "21374137829",
           "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
           "campaign_type": "branded",
-          "impressions": 43,
-          "clicks": 6,
-          "cost": 571.62,
-          "conversions": 0.0,
+          "impressions": 41,
+          "clicks": 11,
+          "cost": 1130.14,
+          "conversions": 1.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
-          "cvr": 0.0,
-          "cpl": 0.0
+          "cvr": 9.09,
+          "cpl": 1130.14
         },
         {
           "id": "181151577276",
@@ -120,9 +143,9 @@
           "campaign_id": "21374137829",
           "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
           "campaign_type": "branded",
-          "impressions": 28,
-          "clicks": 4,
-          "cost": 176.43,
+          "impressions": 17,
+          "clicks": 5,
+          "cost": 1069.06,
           "conversions": 0.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
@@ -139,9 +162,9 @@
       "campaign_type": "location",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 5040.0,
-      "impressions": 192,
-      "clicks": 11,
-      "cost": 1038.679683,
+      "impressions": 168,
+      "clicks": 18,
+      "cost": 1846.153014,
       "conversions": 0.0,
       "all_conversions": 0.0,
       "ctr": 0.0,
@@ -182,9 +205,9 @@
           "campaign_id": "22055144781",
           "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
           "campaign_type": "location",
-          "impressions": 125,
-          "clicks": 7,
-          "cost": 622.05,
+          "impressions": 88,
+          "clicks": 5,
+          "cost": 370.78,
           "conversions": 0.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
@@ -198,9 +221,9 @@
           "campaign_id": "22055144781",
           "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
           "campaign_type": "location",
-          "impressions": 67,
-          "clicks": 4,
-          "cost": 416.63,
+          "impressions": 80,
+          "clicks": 13,
+          "cost": 1475.37,
           "conversions": 0.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
@@ -217,16 +240,16 @@
       "campaign_type": "location",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 2520.0,
-      "impressions": 89,
-      "clicks": 6,
-      "cost": 355.72,
-      "conversions": 0.0,
-      "all_conversions": 0.0,
+      "impressions": 129,
+      "clicks": 15,
+      "cost": 1140.24483,
+      "conversions": 1.0,
+      "all_conversions": 1.0,
       "ctr": 0.0,
       "avg_cpc": 0.0,
       "avg_cpm": 0.0,
-      "cpl": 0.0,
-      "cvr": 0.0,
+      "cpl": 1140.24,
+      "cvr": 6.67,
       "search_impression_share": null,
       "search_budget_lost_is": null,
       "search_rank_lost_is": null,
@@ -237,19 +260,19 @@
       "cost_stack": {
         "statuses": {
           "ctr": "critical",
-          "cvr": "critical",
+          "cvr": "healthy",
           "cpc": "no_data",
-          "cpl": "no_data"
+          "cpl": "healthy"
         },
         "overall": "critical",
-        "diagnosis": "CTR critically low at 0.0% (benchmark: 5.0-10.0%) | CVR critically low at 0.0% (benchmark: 3.0-5.0%)"
+        "diagnosis": "CTR critically low at 0.0% (benchmark: 5.0-10.0%)"
       },
       "impression_share_analysis": null,
       "dg_health": null,
       "benchmark_comparison": {
-        "cpl_vs_benchmark": "below",
+        "cpl_vs_benchmark": "within",
         "ctr_vs_benchmark": "below",
-        "cvr_vs_benchmark": "below"
+        "cvr_vs_benchmark": "above"
       },
       "ad_group_count": 1,
       "ad_groups": [
@@ -260,14 +283,14 @@
           "campaign_id": "22061347628",
           "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
           "campaign_type": "location",
-          "impressions": 89,
-          "clicks": 6,
-          "cost": 355.72,
-          "conversions": 0.0,
+          "impressions": 129,
+          "clicks": 15,
+          "cost": 1140.24,
+          "conversions": 1.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
-          "cvr": 0.0,
-          "cpl": 0.0
+          "cvr": 6.67,
+          "cpl": 1140.24
         }
       ]
     },
@@ -279,16 +302,86 @@
       "campaign_type": "demand_gen_lookalike",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 1200.0,
-      "impressions": 8445,
-      "clicks": 107,
-      "cost": 1346.44623,
-      "conversions": 2.0,
-      "all_conversions": 2.0,
+      "impressions": 9160,
+      "clicks": 117,
+      "cost": 1413.773001,
+      "conversions": 0.991704,
+      "all_conversions": 0.991704,
       "ctr": 0.0,
       "avg_cpc": 0.0,
       "avg_cpm": 0.0,
-      "cpl": 673.22,
-      "cvr": 1.87,
+      "cpl": 1425.6,
+      "cvr": 0.85,
+      "search_impression_share": null,
+      "search_budget_lost_is": null,
+      "search_rank_lost_is": null,
+      "absolute_top_is": null,
+      "top_is": null,
+      "click_share": null,
+      "exact_match_is": null,
+      "cost_stack": {
+        "statuses": {
+          "ctr": "critical",
+          "cvr": "warning",
+          "cpc": "no_data",
+          "cpl": "critical",
+          "cpm": "healthy"
+        },
+        "overall": "critical",
+        "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR below benchmark at 0.85% (target: 1.0-3.0%) | CPL critically high at \u20b91426 (critical: \u20b91360)"
+      },
+      "impression_share_analysis": null,
+      "dg_health": {
+        "cpm": 0.0,
+        "cpm_baseline": 120,
+        "cpm_status": "healthy",
+        "ctr": 0.0,
+        "cpc": 0.0,
+        "frequency_note": "Frequency data requires segments.date query \u2014 check in Google Ads UI"
+      },
+      "benchmark_comparison": {
+        "cpl_vs_benchmark": "above",
+        "ctr_vs_benchmark": "below",
+        "cvr_vs_benchmark": "below"
+      },
+      "ad_group_count": 1,
+      "ad_groups": [
+        {
+          "id": "194245639678",
+          "name": "Lookalike01_Amara_SVs_22_April_2025_5%",
+          "status": "ENABLED",
+          "campaign_id": "23573541526",
+          "campaign_name": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
+          "campaign_type": "demand_gen_lookalike",
+          "impressions": 9160,
+          "clicks": 117,
+          "cost": 1413.77,
+          "conversions": 0.991704,
+          "ctr": 0.0,
+          "avg_cpc": 0.0,
+          "cvr": 0.85,
+          "cpl": 1425.6
+        }
+      ]
+    },
+    {
+      "id": "23585127305",
+      "name": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
+      "status": "ENABLED",
+      "channel_type": "DEMAND_GEN",
+      "campaign_type": "demand_gen_inmarket",
+      "bidding_strategy": "MAXIMIZE_CONVERSIONS",
+      "daily_budget": 2073.6,
+      "impressions": 16588,
+      "clicks": 187,
+      "cost": 2534.307234,
+      "conversions": 3.0,
+      "all_conversions": 5.0,
+      "ctr": 0.0,
+      "avg_cpc": 0.0,
+      "avg_cpm": 0.0,
+      "cpl": 844.77,
+      "cvr": 1.6,
       "search_impression_share": null,
       "search_budget_lost_is": null,
       "search_rank_lost_is": null,
@@ -324,90 +417,20 @@
       "ad_group_count": 1,
       "ad_groups": [
         {
-          "id": "194245639678",
-          "name": "Lookalike01_Amara_SVs_22_April_2025_5%",
-          "status": "ENABLED",
-          "campaign_id": "23573541526",
-          "campaign_name": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
-          "campaign_type": "demand_gen_lookalike",
-          "impressions": 8445,
-          "clicks": 107,
-          "cost": 1346.45,
-          "conversions": 2.0,
-          "ctr": 0.0,
-          "avg_cpc": 0.0,
-          "cvr": 1.87,
-          "cpl": 673.22
-        }
-      ]
-    },
-    {
-      "id": "23585127305",
-      "name": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
-      "status": "ENABLED",
-      "channel_type": "DEMAND_GEN",
-      "campaign_type": "demand_gen_inmarket",
-      "bidding_strategy": "MAXIMIZE_CONVERSIONS",
-      "daily_budget": 2073.6,
-      "impressions": 10966,
-      "clicks": 132,
-      "cost": 2455.517911,
-      "conversions": 2.0,
-      "all_conversions": 2.0,
-      "ctr": 0.0,
-      "avg_cpc": 0.0,
-      "avg_cpm": 0.0,
-      "cpl": 1227.76,
-      "cvr": 1.52,
-      "search_impression_share": null,
-      "search_budget_lost_is": null,
-      "search_rank_lost_is": null,
-      "absolute_top_is": null,
-      "top_is": null,
-      "click_share": null,
-      "exact_match_is": null,
-      "cost_stack": {
-        "statuses": {
-          "ctr": "critical",
-          "cvr": "healthy",
-          "cpc": "no_data",
-          "cpl": "warning",
-          "cpm": "healthy"
-        },
-        "overall": "critical",
-        "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CPL above alert at \u20b91228 (alert: \u20b91190)"
-      },
-      "impression_share_analysis": null,
-      "dg_health": {
-        "cpm": 0.0,
-        "cpm_baseline": 120,
-        "cpm_status": "healthy",
-        "ctr": 0.0,
-        "cpc": 0.0,
-        "frequency_note": "Frequency data requires segments.date query \u2014 check in Google Ads UI"
-      },
-      "benchmark_comparison": {
-        "cpl_vs_benchmark": "above",
-        "ctr_vs_benchmark": "below",
-        "cvr_vs_benchmark": "within"
-      },
-      "ad_group_count": 1,
-      "ad_groups": [
-        {
           "id": "190702854622",
           "name": "20/02/2026-210-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
           "status": "ENABLED",
           "campaign_id": "23585127305",
           "campaign_name": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
           "campaign_type": "demand_gen_inmarket",
-          "impressions": 10966,
-          "clicks": 132,
-          "cost": 2455.52,
-          "conversions": 2.0,
+          "impressions": 16588,
+          "clicks": 187,
+          "cost": 2534.31,
+          "conversions": 3.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
-          "cvr": 1.52,
-          "cpl": 1227.76
+          "cvr": 1.6,
+          "cpl": 844.77
         }
       ]
     },
@@ -419,11 +442,11 @@
       "campaign_type": "demand_gen_lookalike",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 1728.0,
-      "impressions": 17438,
-      "clicks": 261,
-      "cost": 2015.987673,
+      "impressions": 30830,
+      "clicks": 445,
+      "cost": 2004.437599,
       "conversions": 0.0,
-      "all_conversions": 1.998878,
+      "all_conversions": 1.024582,
       "ctr": 0.0,
       "avg_cpc": 0.0,
       "avg_cpm": 0.0,
@@ -470,9 +493,9 @@
           "campaign_id": "23589530800",
           "campaign_name": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC",
           "campaign_type": "demand_gen_lookalike",
-          "impressions": 17438,
-          "clicks": 261,
-          "cost": 2015.99,
+          "impressions": 30830,
+          "clicks": 445,
+          "cost": 2004.44,
           "conversions": 0.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
@@ -489,16 +512,16 @@
       "campaign_type": "demand_gen_inmarket",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 2073.6,
-      "impressions": 24457,
-      "clicks": 189,
-      "cost": 2108.176284,
-      "conversions": 0.023314,
-      "all_conversions": 2.062614,
+      "impressions": 21587,
+      "clicks": 231,
+      "cost": 2196.382369,
+      "conversions": 0.0,
+      "all_conversions": 0.0,
       "ctr": 0.0,
       "avg_cpc": 0.0,
       "avg_cpm": 0.0,
-      "cpl": 90425.34,
-      "cvr": 0.01,
+      "cpl": 0.0,
+      "cvr": 0.0,
       "search_impression_share": null,
       "search_budget_lost_is": null,
       "search_rank_lost_is": null,
@@ -511,11 +534,11 @@
           "ctr": "critical",
           "cvr": "critical",
           "cpc": "no_data",
-          "cpl": "critical",
+          "cpl": "no_data",
           "cpm": "healthy"
         },
         "overall": "critical",
-        "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.01% (benchmark: 1.0-3.0%) | CPL critically high at \u20b990425 (critical: \u20b91360)"
+        "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.0% (benchmark: 1.0-3.0%)"
       },
       "impression_share_analysis": null,
       "dg_health": {
@@ -527,7 +550,7 @@
         "frequency_note": "Frequency data requires segments.date query \u2014 check in Google Ads UI"
       },
       "benchmark_comparison": {
-        "cpl_vs_benchmark": "above",
+        "cpl_vs_benchmark": "below",
         "ctr_vs_benchmark": "below",
         "cvr_vs_benchmark": "below"
       },
@@ -540,14 +563,14 @@
           "campaign_id": "23619691135",
           "campaign_name": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
           "campaign_type": "demand_gen_inmarket",
-          "impressions": 24457,
-          "clicks": 189,
-          "cost": 2108.18,
-          "conversions": 0.023314,
+          "impressions": 21587,
+          "clicks": 231,
+          "cost": 2196.38,
+          "conversions": 0.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
-          "cvr": 0.01,
-          "cpl": 90425.34
+          "cvr": 0.0,
+          "cpl": 0.0
         }
       ]
     },
@@ -559,16 +582,16 @@
       "campaign_type": "demand_gen",
       "bidding_strategy": "MAXIMIZE_CONVERSIONS",
       "daily_budget": 3600.0,
-      "impressions": 23360,
-      "clicks": 933,
-      "cost": 4312.102382,
-      "conversions": 2.972159,
-      "all_conversions": 10.915249,
+      "impressions": 42295,
+      "clicks": 1545,
+      "cost": 4031.54686,
+      "conversions": 1.0,
+      "all_conversions": 14.723435,
       "ctr": 0.0,
       "avg_cpc": 0.0,
       "avg_cpm": 0.0,
-      "cpl": 1450.83,
-      "cvr": 0.32,
+      "cpl": 4031.55,
+      "cvr": 0.06,
       "search_impression_share": null,
       "search_budget_lost_is": null,
       "search_rank_lost_is": null,
@@ -585,7 +608,7 @@
           "cpm": "healthy"
         },
         "overall": "critical",
-        "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.32% (benchmark: 1.0-3.0%) | CPL critically high at \u20b91451 (critical: \u20b91360)"
+        "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.06% (benchmark: 1.0-3.0%) | CPL critically high at \u20b94032 (critical: \u20b91360)"
       },
       "impression_share_analysis": null,
       "dg_health": {
@@ -610,26 +633,27 @@
           "campaign_id": "23644501339",
           "campaign_name": "DM-10/03/2026-Demand_Gen_Affinity02",
           "campaign_type": "demand_gen",
-          "impressions": 23360,
-          "clicks": 933,
-          "cost": 4312.1,
-          "conversions": 2.972159,
+          "impressions": 42295,
+          "clicks": 1545,
+          "cost": 4031.55,
+          "conversions": 1.0,
           "ctr": 0.0,
           "avg_cpc": 0.0,
-          "cvr": 0.32,
-          "cpl": 1450.83
+          "cvr": 0.06,
+          "cpl": 4031.55
         }
       ]
     }
   ],
+  "creative_health": [],
   "search_summary": {
     "label": "Search (Branded + Location)",
     "campaign_count": 3,
-    "spend": 2142.45,
-    "leads": 0.0,
-    "cpl": 0.0,
-    "ctr": 7.67,
-    "cvr": 0.0,
+    "spend": 5185.6,
+    "leads": 2.0,
+    "cpl": 2592.8,
+    "ctr": 13.8,
+    "cvr": 4.08,
     "campaigns": [
       {
         "id": "21374137829",
@@ -639,16 +663,16 @@
         "campaign_type": "branded",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 3600.0,
-        "impressions": 71,
-        "clicks": 10,
-        "cost": 748.045805,
-        "conversions": 0.0,
-        "all_conversions": 0.0,
+        "impressions": 58,
+        "clicks": 16,
+        "cost": 2199.198852,
+        "conversions": 1.0,
+        "all_conversions": 1.0,
         "ctr": 0.0,
         "avg_cpc": 0.0,
         "avg_cpm": 0.0,
-        "cpl": 0.0,
-        "cvr": 0.0,
+        "cpl": 2199.2,
+        "cvr": 6.25,
         "search_impression_share": null,
         "search_budget_lost_is": null,
         "search_rank_lost_is": null,
@@ -659,19 +683,19 @@
         "cost_stack": {
           "statuses": {
             "ctr": "critical",
-            "cvr": "critical",
+            "cvr": "healthy",
             "cpc": "no_data",
-            "cpl": "no_data"
+            "cpl": "critical"
           },
           "overall": "critical",
-          "diagnosis": "CTR critically low at 0.0% (benchmark: 15.0-20.0%) | CVR critically low at 0.0% (benchmark: 6.0-8.0%)"
+          "diagnosis": "CTR critically low at 0.0% (benchmark: 15.0-20.0%) | CPL critically high at \u20b92199 (critical: \u20b91360)"
         },
         "impression_share_analysis": null,
         "dg_health": null,
         "benchmark_comparison": {
-          "cpl_vs_benchmark": "below",
+          "cpl_vs_benchmark": "above",
           "ctr_vs_benchmark": "below",
-          "cvr_vs_benchmark": "below"
+          "cvr_vs_benchmark": "within"
         },
         "ad_group_count": 2,
         "ad_groups": [
@@ -682,14 +706,14 @@
             "campaign_id": "21374137829",
             "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
             "campaign_type": "branded",
-            "impressions": 43,
-            "clicks": 6,
-            "cost": 571.62,
-            "conversions": 0.0,
+            "impressions": 41,
+            "clicks": 11,
+            "cost": 1130.14,
+            "conversions": 1.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
-            "cvr": 0.0,
-            "cpl": 0.0
+            "cvr": 9.09,
+            "cpl": 1130.14
           },
           {
             "id": "181151577276",
@@ -698,9 +722,9 @@
             "campaign_id": "21374137829",
             "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
             "campaign_type": "branded",
-            "impressions": 28,
-            "clicks": 4,
-            "cost": 176.43,
+            "impressions": 17,
+            "clicks": 5,
+            "cost": 1069.06,
             "conversions": 0.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
@@ -717,9 +741,9 @@
         "campaign_type": "location",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 5040.0,
-        "impressions": 192,
-        "clicks": 11,
-        "cost": 1038.679683,
+        "impressions": 168,
+        "clicks": 18,
+        "cost": 1846.153014,
         "conversions": 0.0,
         "all_conversions": 0.0,
         "ctr": 0.0,
@@ -760,9 +784,9 @@
             "campaign_id": "22055144781",
             "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
             "campaign_type": "location",
-            "impressions": 125,
-            "clicks": 7,
-            "cost": 622.05,
+            "impressions": 88,
+            "clicks": 5,
+            "cost": 370.78,
             "conversions": 0.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
@@ -776,9 +800,9 @@
             "campaign_id": "22055144781",
             "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
             "campaign_type": "location",
-            "impressions": 67,
-            "clicks": 4,
-            "cost": 416.63,
+            "impressions": 80,
+            "clicks": 13,
+            "cost": 1475.37,
             "conversions": 0.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
@@ -795,16 +819,16 @@
         "campaign_type": "location",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 2520.0,
-        "impressions": 89,
-        "clicks": 6,
-        "cost": 355.72,
-        "conversions": 0.0,
-        "all_conversions": 0.0,
+        "impressions": 129,
+        "clicks": 15,
+        "cost": 1140.24483,
+        "conversions": 1.0,
+        "all_conversions": 1.0,
         "ctr": 0.0,
         "avg_cpc": 0.0,
         "avg_cpm": 0.0,
-        "cpl": 0.0,
-        "cvr": 0.0,
+        "cpl": 1140.24,
+        "cvr": 6.67,
         "search_impression_share": null,
         "search_budget_lost_is": null,
         "search_rank_lost_is": null,
@@ -815,19 +839,19 @@
         "cost_stack": {
           "statuses": {
             "ctr": "critical",
-            "cvr": "critical",
+            "cvr": "healthy",
             "cpc": "no_data",
-            "cpl": "no_data"
+            "cpl": "healthy"
           },
           "overall": "critical",
-          "diagnosis": "CTR critically low at 0.0% (benchmark: 5.0-10.0%) | CVR critically low at 0.0% (benchmark: 3.0-5.0%)"
+          "diagnosis": "CTR critically low at 0.0% (benchmark: 5.0-10.0%)"
         },
         "impression_share_analysis": null,
         "dg_health": null,
         "benchmark_comparison": {
-          "cpl_vs_benchmark": "below",
+          "cpl_vs_benchmark": "within",
           "ctr_vs_benchmark": "below",
-          "cvr_vs_benchmark": "below"
+          "cvr_vs_benchmark": "above"
         },
         "ad_group_count": 1,
         "ad_groups": [
@@ -838,14 +862,14 @@
             "campaign_id": "22061347628",
             "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
             "campaign_type": "location",
-            "impressions": 89,
-            "clicks": 6,
-            "cost": 355.72,
-            "conversions": 0.0,
+            "impressions": 129,
+            "clicks": 15,
+            "cost": 1140.24,
+            "conversions": 1.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
-            "cvr": 0.0,
-            "cpl": 0.0
+            "cvr": 6.67,
+            "cpl": 1140.24
           }
         ]
       }
@@ -854,11 +878,11 @@
   "dg_summary": {
     "label": "Demand Gen",
     "campaign_count": 5,
-    "spend": 12238.23,
-    "leads": 6.9954730000000005,
-    "cpl": 1749.45,
-    "ctr": 1.92,
-    "cvr": 0.43,
+    "spend": 12180.45,
+    "leads": 4.991704,
+    "cpl": 2440.14,
+    "ctr": 2.1,
+    "cvr": 0.2,
     "campaigns": [
       {
         "id": "23573541526",
@@ -868,16 +892,86 @@
         "campaign_type": "demand_gen_lookalike",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 1200.0,
-        "impressions": 8445,
-        "clicks": 107,
-        "cost": 1346.44623,
-        "conversions": 2.0,
-        "all_conversions": 2.0,
+        "impressions": 9160,
+        "clicks": 117,
+        "cost": 1413.773001,
+        "conversions": 0.991704,
+        "all_conversions": 0.991704,
         "ctr": 0.0,
         "avg_cpc": 0.0,
         "avg_cpm": 0.0,
-        "cpl": 673.22,
-        "cvr": 1.87,
+        "cpl": 1425.6,
+        "cvr": 0.85,
+        "search_impression_share": null,
+        "search_budget_lost_is": null,
+        "search_rank_lost_is": null,
+        "absolute_top_is": null,
+        "top_is": null,
+        "click_share": null,
+        "exact_match_is": null,
+        "cost_stack": {
+          "statuses": {
+            "ctr": "critical",
+            "cvr": "warning",
+            "cpc": "no_data",
+            "cpl": "critical",
+            "cpm": "healthy"
+          },
+          "overall": "critical",
+          "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR below benchmark at 0.85% (target: 1.0-3.0%) | CPL critically high at \u20b91426 (critical: \u20b91360)"
+        },
+        "impression_share_analysis": null,
+        "dg_health": {
+          "cpm": 0.0,
+          "cpm_baseline": 120,
+          "cpm_status": "healthy",
+          "ctr": 0.0,
+          "cpc": 0.0,
+          "frequency_note": "Frequency data requires segments.date query \u2014 check in Google Ads UI"
+        },
+        "benchmark_comparison": {
+          "cpl_vs_benchmark": "above",
+          "ctr_vs_benchmark": "below",
+          "cvr_vs_benchmark": "below"
+        },
+        "ad_group_count": 1,
+        "ad_groups": [
+          {
+            "id": "194245639678",
+            "name": "Lookalike01_Amara_SVs_22_April_2025_5%",
+            "status": "ENABLED",
+            "campaign_id": "23573541526",
+            "campaign_name": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
+            "campaign_type": "demand_gen_lookalike",
+            "impressions": 9160,
+            "clicks": 117,
+            "cost": 1413.77,
+            "conversions": 0.991704,
+            "ctr": 0.0,
+            "avg_cpc": 0.0,
+            "cvr": 0.85,
+            "cpl": 1425.6
+          }
+        ]
+      },
+      {
+        "id": "23585127305",
+        "name": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
+        "status": "ENABLED",
+        "channel_type": "DEMAND_GEN",
+        "campaign_type": "demand_gen_inmarket",
+        "bidding_strategy": "MAXIMIZE_CONVERSIONS",
+        "daily_budget": 2073.6,
+        "impressions": 16588,
+        "clicks": 187,
+        "cost": 2534.307234,
+        "conversions": 3.0,
+        "all_conversions": 5.0,
+        "ctr": 0.0,
+        "avg_cpc": 0.0,
+        "avg_cpm": 0.0,
+        "cpl": 844.77,
+        "cvr": 1.6,
         "search_impression_share": null,
         "search_budget_lost_is": null,
         "search_rank_lost_is": null,
@@ -913,90 +1007,20 @@
         "ad_group_count": 1,
         "ad_groups": [
           {
-            "id": "194245639678",
-            "name": "Lookalike01_Amara_SVs_22_April_2025_5%",
-            "status": "ENABLED",
-            "campaign_id": "23573541526",
-            "campaign_name": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
-            "campaign_type": "demand_gen_lookalike",
-            "impressions": 8445,
-            "clicks": 107,
-            "cost": 1346.45,
-            "conversions": 2.0,
-            "ctr": 0.0,
-            "avg_cpc": 0.0,
-            "cvr": 1.87,
-            "cpl": 673.22
-          }
-        ]
-      },
-      {
-        "id": "23585127305",
-        "name": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
-        "status": "ENABLED",
-        "channel_type": "DEMAND_GEN",
-        "campaign_type": "demand_gen_inmarket",
-        "bidding_strategy": "MAXIMIZE_CONVERSIONS",
-        "daily_budget": 2073.6,
-        "impressions": 10966,
-        "clicks": 132,
-        "cost": 2455.517911,
-        "conversions": 2.0,
-        "all_conversions": 2.0,
-        "ctr": 0.0,
-        "avg_cpc": 0.0,
-        "avg_cpm": 0.0,
-        "cpl": 1227.76,
-        "cvr": 1.52,
-        "search_impression_share": null,
-        "search_budget_lost_is": null,
-        "search_rank_lost_is": null,
-        "absolute_top_is": null,
-        "top_is": null,
-        "click_share": null,
-        "exact_match_is": null,
-        "cost_stack": {
-          "statuses": {
-            "ctr": "critical",
-            "cvr": "healthy",
-            "cpc": "no_data",
-            "cpl": "warning",
-            "cpm": "healthy"
-          },
-          "overall": "critical",
-          "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CPL above alert at \u20b91228 (alert: \u20b91190)"
-        },
-        "impression_share_analysis": null,
-        "dg_health": {
-          "cpm": 0.0,
-          "cpm_baseline": 120,
-          "cpm_status": "healthy",
-          "ctr": 0.0,
-          "cpc": 0.0,
-          "frequency_note": "Frequency data requires segments.date query \u2014 check in Google Ads UI"
-        },
-        "benchmark_comparison": {
-          "cpl_vs_benchmark": "above",
-          "ctr_vs_benchmark": "below",
-          "cvr_vs_benchmark": "within"
-        },
-        "ad_group_count": 1,
-        "ad_groups": [
-          {
             "id": "190702854622",
             "name": "20/02/2026-210-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
             "status": "ENABLED",
             "campaign_id": "23585127305",
             "campaign_name": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
             "campaign_type": "demand_gen_inmarket",
-            "impressions": 10966,
-            "clicks": 132,
-            "cost": 2455.52,
-            "conversions": 2.0,
+            "impressions": 16588,
+            "clicks": 187,
+            "cost": 2534.31,
+            "conversions": 3.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
-            "cvr": 1.52,
-            "cpl": 1227.76
+            "cvr": 1.6,
+            "cpl": 844.77
           }
         ]
       },
@@ -1008,11 +1032,11 @@
         "campaign_type": "demand_gen_lookalike",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 1728.0,
-        "impressions": 17438,
-        "clicks": 261,
-        "cost": 2015.987673,
+        "impressions": 30830,
+        "clicks": 445,
+        "cost": 2004.437599,
         "conversions": 0.0,
-        "all_conversions": 1.998878,
+        "all_conversions": 1.024582,
         "ctr": 0.0,
         "avg_cpc": 0.0,
         "avg_cpm": 0.0,
@@ -1059,9 +1083,9 @@
             "campaign_id": "23589530800",
             "campaign_name": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC",
             "campaign_type": "demand_gen_lookalike",
-            "impressions": 17438,
-            "clicks": 261,
-            "cost": 2015.99,
+            "impressions": 30830,
+            "clicks": 445,
+            "cost": 2004.44,
             "conversions": 0.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
@@ -1078,16 +1102,16 @@
         "campaign_type": "demand_gen_inmarket",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 2073.6,
-        "impressions": 24457,
-        "clicks": 189,
-        "cost": 2108.176284,
-        "conversions": 0.023314,
-        "all_conversions": 2.062614,
+        "impressions": 21587,
+        "clicks": 231,
+        "cost": 2196.382369,
+        "conversions": 0.0,
+        "all_conversions": 0.0,
         "ctr": 0.0,
         "avg_cpc": 0.0,
         "avg_cpm": 0.0,
-        "cpl": 90425.34,
-        "cvr": 0.01,
+        "cpl": 0.0,
+        "cvr": 0.0,
         "search_impression_share": null,
         "search_budget_lost_is": null,
         "search_rank_lost_is": null,
@@ -1100,11 +1124,11 @@
             "ctr": "critical",
             "cvr": "critical",
             "cpc": "no_data",
-            "cpl": "critical",
+            "cpl": "no_data",
             "cpm": "healthy"
           },
           "overall": "critical",
-          "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.01% (benchmark: 1.0-3.0%) | CPL critically high at \u20b990425 (critical: \u20b91360)"
+          "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.0% (benchmark: 1.0-3.0%)"
         },
         "impression_share_analysis": null,
         "dg_health": {
@@ -1116,7 +1140,7 @@
           "frequency_note": "Frequency data requires segments.date query \u2014 check in Google Ads UI"
         },
         "benchmark_comparison": {
-          "cpl_vs_benchmark": "above",
+          "cpl_vs_benchmark": "below",
           "ctr_vs_benchmark": "below",
           "cvr_vs_benchmark": "below"
         },
@@ -1129,14 +1153,14 @@
             "campaign_id": "23619691135",
             "campaign_name": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
             "campaign_type": "demand_gen_inmarket",
-            "impressions": 24457,
-            "clicks": 189,
-            "cost": 2108.18,
-            "conversions": 0.023314,
+            "impressions": 21587,
+            "clicks": 231,
+            "cost": 2196.38,
+            "conversions": 0.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
-            "cvr": 0.01,
-            "cpl": 90425.34
+            "cvr": 0.0,
+            "cpl": 0.0
           }
         ]
       },
@@ -1148,16 +1172,16 @@
         "campaign_type": "demand_gen",
         "bidding_strategy": "MAXIMIZE_CONVERSIONS",
         "daily_budget": 3600.0,
-        "impressions": 23360,
-        "clicks": 933,
-        "cost": 4312.102382,
-        "conversions": 2.972159,
-        "all_conversions": 10.915249,
+        "impressions": 42295,
+        "clicks": 1545,
+        "cost": 4031.54686,
+        "conversions": 1.0,
+        "all_conversions": 14.723435,
         "ctr": 0.0,
         "avg_cpc": 0.0,
         "avg_cpm": 0.0,
-        "cpl": 1450.83,
-        "cvr": 0.32,
+        "cpl": 4031.55,
+        "cvr": 0.06,
         "search_impression_share": null,
         "search_budget_lost_is": null,
         "search_rank_lost_is": null,
@@ -1174,7 +1198,7 @@
             "cpm": "healthy"
           },
           "overall": "critical",
-          "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.32% (benchmark: 1.0-3.0%) | CPL critically high at \u20b91451 (critical: \u20b91360)"
+          "diagnosis": "CTR critically low at 0.0% (benchmark: 0.5-1.0%) | CVR critically low at 0.06% (benchmark: 1.0-3.0%) | CPL critically high at \u20b94032 (critical: \u20b91360)"
         },
         "impression_share_analysis": null,
         "dg_health": {
@@ -1199,14 +1223,14 @@
             "campaign_id": "23644501339",
             "campaign_name": "DM-10/03/2026-Demand_Gen_Affinity02",
             "campaign_type": "demand_gen",
-            "impressions": 23360,
-            "clicks": 933,
-            "cost": 4312.1,
-            "conversions": 2.972159,
+            "impressions": 42295,
+            "clicks": 1545,
+            "cost": 4031.55,
+            "conversions": 1.0,
             "ctr": 0.0,
             "avg_cpc": 0.0,
-            "cvr": 0.32,
-            "cpl": 1450.83
+            "cvr": 0.06,
+            "cpl": 4031.55
           }
         ]
       }
@@ -1217,34 +1241,34 @@
     "smart_bidding_readiness": []
   },
   "cvr_analysis": {
-    "overall_cvr": 0.42,
+    "overall_cvr": 0.27,
     "per_campaign_type": {
       "branded": {
-        "cvr": 0.0,
+        "cvr": 6.25,
         "benchmark_low": 6.0,
         "benchmark_high": 8.0,
-        "status": "critical",
+        "status": "within_benchmark",
         "campaigns_count": 1,
-        "total_clicks": 10,
-        "total_conversions": 0.0
+        "total_clicks": 16,
+        "total_conversions": 1.0
       },
       "location": {
-        "cvr": 0.0,
+        "cvr": 3.03,
         "benchmark_low": 3.0,
         "benchmark_high": 5.0,
-        "status": "critical",
+        "status": "within_benchmark",
         "campaigns_count": 2,
-        "total_clicks": 17,
-        "total_conversions": 0.0
+        "total_clicks": 33,
+        "total_conversions": 1.0
       },
       "demand_gen": {
-        "cvr": 0.43,
+        "cvr": 0.2,
         "benchmark_low": 1.0,
         "benchmark_high": 3.0,
         "status": "critical",
         "campaigns_count": 5,
-        "total_clicks": 1622,
-        "total_conversions": 6.9954730000000005
+        "total_clicks": 2525,
+        "total_conversions": 4.991704
       }
     },
     "per_campaign": [],
@@ -1257,14 +1281,20 @@
     "landing_page_verdict": null
   },
   "conversion_sanity": {
-    "total_conversions": 6.9954730000000005,
-    "total_clicks": 1649,
-    "overall_cvr": 0.42,
+    "total_conversions": 6.991704,
+    "total_clicks": 2574,
+    "overall_cvr": 0.27,
     "anomalies": [
       {
         "type": "zero_conversions",
         "campaign": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC",
-        "detail": "261 clicks but 0 conversions \u2014 check tracking",
+        "detail": "445 clicks but 0 conversions \u2014 check tracking",
+        "severity": "critical"
+      },
+      {
+        "type": "zero_conversions",
+        "campaign": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
+        "detail": "231 clicks but 0 conversions \u2014 check tracking",
         "severity": "critical"
       }
     ],
@@ -1277,7 +1307,13 @@
       },
       {
         "campaign": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
-        "current_cvr": 0.01,
+        "current_cvr": 0.0,
+        "benchmark_cvr": 1.0,
+        "severity": "critical"
+      },
+      {
+        "campaign": "DM-10/03/2026-Demand_Gen_Affinity02",
+        "current_cvr": 0.06,
         "benchmark_cvr": 1.0,
         "severity": "warning"
       }
@@ -1336,29 +1372,56 @@
     ],
     "country_breakdown": {
       "2356": {
-        "spend": 14380.68,
-        "impressions": 85018,
-        "clicks": 1649,
-        "conversions": 7.0,
+        "spend": 17366.04,
+        "impressions": 120815,
+        "clicks": 2574,
+        "conversions": 6.99,
         "is_india": true
       }
     },
     "location_type_breakdown": {
       "AREA_OF_INTEREST": {
-        "spend": 1739.81,
-        "impressions": 282
+        "spend": 3955.65,
+        "impressions": 294
       },
       "LOCATION_OF_PRESENCE": {
-        "spend": 12640.87,
-        "impressions": 84736
+        "spend": 13410.39,
+        "impressions": 120521
       }
     },
-    "total_spend": 14380.68,
-    "india_spend": 14380.68,
+    "total_spend": 17366.04,
+    "india_spend": 17366.04,
     "non_india_spend": 0.0,
     "alerts": []
   },
+  "daily_trends": [
+    {
+      "date": "2026-04-02",
+      "spend": 17366.04,
+      "leads": 7.0,
+      "impressions": 120815,
+      "clicks": 2574,
+      "ctr": 2.13,
+      "cpl": 2483.81
+    }
+  ],
   "auto_pause_candidates": [
+    {
+      "rule": "CPL_EXCEED",
+      "level": "campaign",
+      "entity": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+      "metric": "CPL \u20b92199 > \u20b91190 (1.4x target)",
+      "action": "pause_campaign",
+      "severity": "high"
+    },
+    {
+      "rule": "CPL_EXCEED",
+      "level": "campaign",
+      "entity": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
+      "metric": "CPL \u20b91426 > \u20b91190 (1.4x target)",
+      "action": "pause_campaign",
+      "severity": "high"
+    },
     {
       "rule": "CTR_CRASH",
       "level": "campaign",
@@ -1368,14 +1431,6 @@
       "severity": "high"
     },
     {
-      "rule": "CPL_EXCEED",
-      "level": "campaign",
-      "entity": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
-      "metric": "CPL \u20b91228 > \u20b91190 (1.4x target)",
-      "action": "pause_campaign",
-      "severity": "high"
-    },
-    {
       "rule": "CTR_CRASH",
       "level": "campaign",
       "entity": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
@@ -1387,7 +1442,7 @@
       "rule": "ZERO_LEADS_HIGH_IMPRESSIONS",
       "level": "campaign",
       "entity": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC",
-      "metric": "17,438 impressions, 0 leads",
+      "metric": "30,830 impressions, 0 leads",
       "action": "pause_campaign",
       "severity": "high"
     },
@@ -1400,10 +1455,10 @@
       "severity": "high"
     },
     {
-      "rule": "CPL_EXCEED",
+      "rule": "ZERO_LEADS_HIGH_IMPRESSIONS",
       "level": "campaign",
       "entity": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
-      "metric": "CPL \u20b990425 > \u20b91190 (1.4x target)",
+      "metric": "21,587 impressions, 0 leads",
       "action": "pause_campaign",
       "severity": "high"
     },
@@ -1419,7 +1474,7 @@
       "rule": "CPL_EXCEED",
       "level": "campaign",
       "entity": "DM-10/03/2026-Demand_Gen_Affinity02",
-      "metric": "CPL \u20b91451 > \u20b91190 (1.4x target)",
+      "metric": "CPL \u20b94032 > \u20b91190 (1.4x target)",
       "action": "pause_campaign",
       "severity": "high"
     },
@@ -1429,30 +1484,6 @@
       "entity": "DM-10/03/2026-Demand_Gen_Affinity02",
       "metric": "CTR 0.0% < 0.2% (50% of 0.5% benchmark)",
       "action": "refresh_ad_copy",
-      "severity": "high"
-    },
-    {
-      "rule": "CPL_EXCEED",
-      "level": "ad",
-      "entity": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes > 02/03/2026-210-InMarket-OT-(Retirement_planning&Estate_planning)-Pincodes > Ad 79884151",
-      "metric": "CPL \u20b990425 > \u20b91190",
-      "action": "pause_ad",
-      "severity": "high"
-    },
-    {
-      "rule": "CPL_EXCEED",
-      "level": "ad",
-      "entity": "DM-10/03/2026-Demand_Gen_Affinity02 > Affinity02 > Ad 79981906",
-      "metric": "CPL \u20b91915 > \u20b91190",
-      "action": "pause_ad",
-      "severity": "high"
-    },
-    {
-      "rule": "ZERO_LEADS_HIGH_IMPRESSIONS",
-      "level": "ad",
-      "entity": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC > 20/02/2026-110-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC > Ad 79789354",
-      "metric": "11,354 impressions, 0 leads",
-      "action": "pause_ad",
       "severity": "high"
     }
   ],
@@ -1460,8 +1491,8 @@
     {
       "playbook": "PB-G1",
       "name": "CPL Rising + CVR Dropping",
-      "campaign": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
-      "evidence": "CPL \u20b990425 > \u20b91190 AND CVR 0.01% < 1.0%",
+      "campaign": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
+      "evidence": "CPL \u20b91426 > \u20b91190 AND CVR 0.85% < 1.0%",
       "actions": [
         "CRO sprint (Clarity + GA4 data)",
         "Check audience split: yours vs optimized targeting vs good months",
@@ -1473,7 +1504,7 @@
       "playbook": "PB-G1",
       "name": "CPL Rising + CVR Dropping",
       "campaign": "DM-10/03/2026-Demand_Gen_Affinity02",
-      "evidence": "CPL \u20b91451 > \u20b91190 AND CVR 0.32% < 1.0%",
+      "evidence": "CPL \u20b94032 > \u20b91190 AND CVR 0.06% < 1.0%",
       "actions": [
         "CRO sprint (Clarity + GA4 data)",
         "Check audience split: yours vs optimized targeting vs good months",
@@ -1486,9 +1517,16 @@
     {
       "type": "pattern",
       "title": "CPL Exceeds Alert Threshold \u2014 Check Day-Parting",
-      "observation": "Overall CPL \u20b92056 exceeds alert level \u20b91190",
+      "observation": "Overall CPL \u20b92484 exceeds alert level \u20b91190",
       "recommendation": "Pull hourly/day-of-week report from Google Ads UI. Reduce bids or pause ad schedule during high-CPL hours (typically weekends for B2B).",
       "confidence": "medium"
+    },
+    {
+      "type": "risk",
+      "title": "DG Conversion Rate Critically Low",
+      "observation": "DG CVR 0.2% is less than half of Search CVR 4.1%",
+      "recommendation": "Audit DG landing pages. Consider DG-specific landing pages with softer CTAs (webinar, guide) vs hard lead form.",
+      "confidence": "high"
     }
   ],
   "ad_group_restructuring": {
@@ -1514,21 +1552,21 @@
           "Branded_Keywords_Top_Performing",
           "Branded_Keywords_Under_Perfoming_High_Potential"
         ],
-        "detail": "2 ad groups in 'DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024' with <50 weekly impressions each. Combined: 71 impressions, 0.0 conversions, \u20b9748.05 spend. Too fragmented for smart bidding to optimize.",
+        "detail": "2 ad groups in 'DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024' with <50 weekly impressions each. Combined: 58 impressions, 1.0 conversions, \u20b92,199 spend. Too fragmented for smart bidding to optimize.",
         "data": {
           "fragmented_count": 2,
-          "total_impressions": 71,
-          "total_conversions": 0.0,
-          "total_spend": 748,
+          "total_impressions": 58,
+          "total_conversions": 1.0,
+          "total_spend": 2199,
           "ad_groups": [
             {
               "name": "Branded_Keywords_Top_Performing",
-              "impressions": 43,
-              "conversions": 0.0
+              "impressions": 41,
+              "conversions": 1.0
             },
             {
               "name": "Branded_Keywords_Under_Perfoming_High_Potential",
-              "impressions": 28,
+              "impressions": 17,
               "conversions": 0.0
             }
           ]
@@ -1553,21 +1591,21 @@
           "rajendranagar_location",
           "shamshabad_location"
         ],
-        "detail": "2 ad groups in 'DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024' with <50 weekly impressions each. Combined: 192 impressions, 0.0 conversions, \u20b91,039 spend. Too fragmented for smart bidding to optimize.",
+        "detail": "2 ad groups in 'DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024' with <50 weekly impressions each. Combined: 168 impressions, 0.0 conversions, \u20b91,846 spend. Too fragmented for smart bidding to optimize.",
         "data": {
           "fragmented_count": 2,
-          "total_impressions": 192,
+          "total_impressions": 168,
           "total_conversions": 0.0,
-          "total_spend": 1039,
+          "total_spend": 1846,
           "ad_groups": [
             {
               "name": "rajendranagar_location",
-              "impressions": 125,
+              "impressions": 88,
               "conversions": 0.0
             },
             {
               "name": "shamshabad_location",
-              "impressions": 67,
+              "impressions": 80,
               "conversions": 0.0
             }
           ]
@@ -1737,7 +1775,7 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 3,
+        "impressions": 2,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -1759,10 +1797,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 104,
+        "impressions": 62,
         "clicks": 5,
         "conversions": 0.0,
-        "cost": 533.16,
+        "cost": 370.78,
         "cpl": 0,
         "optimization_actions": [
           "CRITICAL: QS < 4 \u2014 review ad relevance, LP, and expected CTR",
@@ -1803,10 +1841,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 8,
-        "clicks": 2,
+        "impressions": 10,
+        "clicks": 0,
         "conversions": 0.0,
-        "cost": 88.89,
+        "cost": 0.0,
         "cpl": 0,
         "optimization_actions": [
           "CRITICAL: QS < 4 \u2014 review ad relevance, LP, and expected CTR",
@@ -1847,7 +1885,7 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 1,
+        "impressions": 3,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -1891,7 +1929,7 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 2,
+        "impressions": 3,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -1913,10 +1951,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 8,
-        "clicks": 2,
+        "impressions": 4,
+        "clicks": 1,
         "conversions": 0.0,
-        "cost": 80.49,
+        "cost": 53.58,
         "cpl": 0,
         "optimization_actions": [
           "CRITICAL: QS < 4 \u2014 review ad relevance, LP, and expected CTR",
@@ -1935,10 +1973,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 0,
-        "clicks": 0,
+        "impressions": 1,
+        "clicks": 1,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 82.27,
         "cpl": 0,
         "optimization_actions": [
           "CRITICAL: QS < 4 \u2014 review ad relevance, LP, and expected CTR",
@@ -1957,7 +1995,7 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 1,
+        "impressions": 3,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -1979,10 +2017,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 6,
-        "clicks": 0,
+        "impressions": 9,
+        "clicks": 2,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 110.64,
         "cpl": 0,
         "optimization_actions": [
           "CRITICAL: QS < 4 \u2014 review ad relevance, LP, and expected CTR",
@@ -2086,7 +2124,7 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 3,
+        "impressions": 6,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -2107,10 +2145,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 3,
-        "clicks": 0,
+        "impressions": 4,
+        "clicks": 1,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 80.4,
         "cpl": 0,
         "optimization_actions": [
           "QS 4 needs improvement \u2014 focus on weakest sub-factor",
@@ -2128,10 +2166,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 10,
-        "clicks": 0,
+        "impressions": 22,
+        "clicks": 3,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 412.13,
         "cpl": 0,
         "optimization_actions": [
           "QS 4 needs improvement \u2014 focus on weakest sub-factor",
@@ -2149,11 +2187,11 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 35,
-        "clicks": 1,
-        "conversions": 0.0,
-        "cost": 61.8,
-        "cpl": 0,
+        "impressions": 57,
+        "clicks": 5,
+        "conversions": 1.0,
+        "cost": 155.21,
+        "cpl": 155.21,
         "optimization_actions": [
           "QS 4 needs improvement \u2014 focus on weakest sub-factor",
           "Improve LP experience: faster load, better content match, mobile UX"
@@ -2170,10 +2208,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 34,
+        "impressions": 23,
         "clicks": 2,
         "conversions": 0.0,
-        "cost": 203.67,
+        "cost": 122.65,
         "cpl": 0,
         "optimization_actions": [
           "QS 4 needs improvement \u2014 focus on weakest sub-factor",
@@ -2212,10 +2250,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 0,
-        "clicks": 0,
+        "impressions": 3,
+        "clicks": 3,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 741.94,
         "cpl": 0,
         "optimization_actions": [
           "QS 4 needs improvement \u2014 focus on weakest sub-factor",
@@ -2233,10 +2271,10 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "BELOW_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 7,
-        "clicks": 2,
+        "impressions": 5,
+        "clicks": 0,
         "conversions": 0.0,
-        "cost": 148.53,
+        "cost": 0.0,
         "cpl": 0,
         "optimization_actions": [
           "QS 5 needs improvement \u2014 focus on weakest sub-factor",
@@ -2255,10 +2293,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "ABOVE_AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 19,
-        "clicks": 1,
+        "impressions": 24,
+        "clicks": 4,
         "conversions": 0.0,
-        "cost": 64.9,
+        "cost": 356.65,
         "cpl": 0,
         "optimization_actions": [
           "QS 5 needs improvement \u2014 focus on weakest sub-factor",
@@ -2336,7 +2374,7 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 2,
+        "impressions": 3,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -2356,7 +2394,7 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 0,
+        "impressions": 2,
         "clicks": 0,
         "conversions": 0.0,
         "cost": 0.0,
@@ -2376,10 +2414,10 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "BELOW_AVERAGE",
-        "impressions": 21,
-        "clicks": 2,
+        "impressions": 37,
+        "clicks": 6,
         "conversions": 0.0,
-        "cost": 212.96,
+        "cost": 500.15,
         "cpl": 0,
         "optimization_actions": [
           "Improve LP experience: faster load, better content match, mobile UX"
@@ -2414,10 +2452,10 @@
         "expected_ctr": "AVERAGE",
         "ad_relevance": "ABOVE_AVERAGE",
         "landing_page_experience": "AVERAGE",
-        "impressions": 14,
-        "clicks": 1,
+        "impressions": 5,
+        "clicks": 0,
         "conversions": 0.0,
-        "cost": 5.82,
+        "cost": 0.0,
         "cpl": 0,
         "optimization_actions": []
       },
@@ -2432,10 +2470,10 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "ABOVE_AVERAGE",
         "landing_page_experience": "AVERAGE",
-        "impressions": 8,
-        "clicks": 3,
+        "impressions": 4,
+        "clicks": 1,
         "conversions": 0.0,
-        "cost": 170.61,
+        "cost": 55.57,
         "cpl": 0,
         "optimization_actions": []
       },
@@ -2486,10 +2524,10 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "AVERAGE",
         "landing_page_experience": "ABOVE_AVERAGE",
-        "impressions": 6,
-        "clicks": 0,
+        "impressions": 8,
+        "clicks": 4,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 1013.49,
         "cpl": 0,
         "optimization_actions": []
       },
@@ -2522,10 +2560,10 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "ABOVE_AVERAGE",
         "landing_page_experience": "ABOVE_AVERAGE",
-        "impressions": 4,
-        "clicks": 0,
+        "impressions": 2,
+        "clicks": 1,
         "conversions": 0.0,
-        "cost": 0.0,
+        "cost": 64.39,
         "cpl": 0,
         "optimization_actions": []
       },
@@ -2540,10 +2578,10 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "ABOVE_AVERAGE",
         "landing_page_experience": "ABOVE_AVERAGE",
-        "impressions": 7,
+        "impressions": 5,
         "clicks": 1,
         "conversions": 0.0,
-        "cost": 312.08,
+        "cost": 439.71,
         "cpl": 0,
         "optimization_actions": []
       },
@@ -2558,11 +2596,11 @@
         "expected_ctr": "ABOVE_AVERAGE",
         "ad_relevance": "ABOVE_AVERAGE",
         "landing_page_experience": "ABOVE_AVERAGE",
-        "impressions": 32,
-        "clicks": 5,
-        "conversions": 0.0,
-        "cost": 259.54,
-        "cpl": 0,
+        "impressions": 34,
+        "clicks": 9,
+        "conversions": 1.0,
+        "cost": 626.04,
+        "cpl": 626.04,
         "optimization_actions": []
       },
       {
@@ -2640,18 +2678,31 @@
   },
   "search_terms_analysis": {
     "status": "ok",
-    "terms_reviewed": 66,
-    "total_cost": 774.57,
+    "terms_reviewed": 60,
+    "total_cost": 2312.55,
     "junk_cost": 0,
     "junk_pct": 0.0,
     "all_terms": [
       {
         "term": "amara divyashakti",
         "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
+        "impressions": 2,
+        "clicks": 2,
+        "cost": 784.58,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 100.0,
+        "cvr": 0.0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "amara rajendra nagar",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
         "ad_group_name": "Branded_Keywords_Top_Performing",
         "impressions": 2,
         "clicks": 1,
-        "cost": 312.08,
+        "cost": 439.71,
         "conversions": 0.0,
         "cpl": 0,
         "ctr": 50.0,
@@ -2662,35 +2713,22 @@
         "term": "deevyashakti amara",
         "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
         "ad_group_name": "Branded_Keywords_Top_Performing",
-        "impressions": 19,
-        "clicks": 3,
-        "cost": 216.32,
+        "impressions": 14,
+        "clicks": 4,
+        "cost": 371.88,
         "conversions": 0.0,
         "cpl": 0,
-        "ctr": 15.79,
+        "ctr": 28.57,
         "cvr": 0.0,
         "classification": "non_converting"
       },
       {
-        "term": "deevyashakti realty",
+        "term": "divya shakti amara rajendra nagar",
         "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
         "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
-        "impressions": 2,
+        "impressions": 4,
         "clicks": 2,
-        "cost": 123.16,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 100.0,
-        "cvr": 0.0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "gated community attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 2,
-        "clicks": 1,
-        "cost": 64.9,
+        "cost": 228.91,
         "conversions": 0.0,
         "cpl": 0,
         "ctr": 50.0,
@@ -2698,12 +2736,25 @@
         "classification": "non_converting"
       },
       {
-        "term": "shamshabad apartments for sale",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
+        "term": "gated community in attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 3,
+        "clicks": 1,
+        "cost": 82.42,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 33.33,
+        "cvr": 0.0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "gated community flats for sale in attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
         "impressions": 1,
         "clicks": 1,
-        "cost": 58.11,
+        "cost": 82.27,
         "conversions": 0.0,
         "cpl": 0,
         "ctr": 100.0,
@@ -2711,7 +2762,87 @@
         "classification": "non_converting"
       },
       {
+        "term": "amara deevyashakti",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Top_Performing",
+        "impressions": 2,
+        "clicks": 1,
+        "cost": 64.39,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 50.0,
+        "cvr": 0.0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "deevyashakti realty",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
+        "impressions": 1,
+        "clicks": 1,
+        "cost": 55.57,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 100.0,
+        "cvr": 0.0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "apartments near shamshabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 3,
+        "clicks": 1,
+        "cost": 53.42,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 33.33,
+        "cvr": 0.0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "attapur gated community flats",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 3,
+        "clicks": 1,
+        "cost": 53.01,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 33.33,
+        "cvr": 0.0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "aparna rajendra nagar",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "rajendranagar_location",
+        "impressions": 2,
+        "clicks": 1,
+        "cost": 52.9,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 50.0,
+        "cvr": 0.0,
+        "classification": "competitor",
+        "competitor_name": "aparna",
+        "worth_keeping": false
+      },
+      {
         "term": "amara by deevyashakti",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Top_Performing",
+        "impressions": 8,
+        "clicks": 1,
+        "cost": 43.49,
+        "conversions": 1.0,
+        "cpl": 43.49,
+        "ctr": 12.5,
+        "cvr": 100.0,
+        "classification": "converting"
+      },
+      {
+        "term": "amara by deevyashakti photos",
         "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
         "ad_group_name": "Branded_Keywords_Top_Performing",
         "impressions": 2,
@@ -2724,20 +2855,7 @@
         "classification": "non_converting"
       },
       {
-        "term": "amara deevyashakti",
-        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
-        "ad_group_name": "Branded_Keywords_Top_Performing",
-        "impressions": 4,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "divya shakti amara rajendra nagar",
+        "term": "amara divyashakti",
         "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
         "ad_group_name": "Branded_Keywords_Top_Performing",
         "impressions": 2,
@@ -2753,7 +2871,7 @@
         "term": "divyashakti amara",
         "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
         "ad_group_name": "Branded_Keywords_Top_Performing",
-        "impressions": 4,
+        "impressions": 5,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -2763,85 +2881,7 @@
         "classification": "non_converting"
       },
       {
-        "term": "amara divyashakti",
-        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
-        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "divya shakti amara rajendra nagar",
-        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
-        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
-        "impressions": 3,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "2 bhk flats for sale in begumpet hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "3 bhk flats for sale in rajendra nagar hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "apartments in rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "apartments in rajendra nagar hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "apartments rajendra nagar",
+        "term": "a1 township rajendra nagar",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
         "impressions": 1,
@@ -2857,19 +2897,6 @@
         "term": "casagrand rajendra nagar",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
-        "impressions": 3,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "flat for sale in rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
         "impressions": 2,
         "clicks": 0,
         "cost": 0.0,
@@ -2880,63 +2907,7 @@
         "classification": "non_converting"
       },
       {
-        "term": "flats in rajendra nagar hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 4,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "gated community in rajendra nagar hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "godrej project rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "godrej",
-        "worth_keeping": false
-      },
-      {
-        "term": "godrej properties hyderabad rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "godrej",
-        "worth_keeping": false
-      },
-      {
-        "term": "niharika manikonda",
+        "term": "flats for sale in rajeev nagar hyderabad",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
         "impressions": 1,
@@ -2949,37 +2920,7 @@
         "classification": "non_converting"
       },
       {
-        "term": "prestige city hyderabad rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "prestige",
-        "worth_keeping": false
-      },
-      {
-        "term": "prestige rajendra nagar hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "prestige",
-        "worth_keeping": false
-      },
-      {
-        "term": "provident kenworth flats for sale",
+        "term": "green walkways rajendra nagar hyderabad",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
         "impressions": 1,
@@ -2995,7 +2936,7 @@
         "term": "provident kenworth hyderabad",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
+        "impressions": 2,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3005,25 +2946,10 @@
         "classification": "non_converting"
       },
       {
-        "term": "puravankara rajendra nagar hyderabad",
+        "term": "provident space rajendra nagar hyderabad",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
         "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "puravankara",
-        "worth_keeping": false
-      },
-      {
-        "term": "rajendra nagar apartments",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3036,34 +2962,6 @@
         "term": "rajendra nagar flats for sale",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
-        "impressions": 5,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "aparna apartments shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "aparna",
-        "worth_keeping": false
-      },
-      {
-        "term": "apartments for sale in shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
         "impressions": 2,
         "clicks": 0,
         "cost": 0.0,
@@ -3074,22 +2972,9 @@
         "classification": "non_converting"
       },
       {
-        "term": "apartments near shamshabad airport",
+        "term": "the meadow dance hyderabad",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 4,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "flats for sale in shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
+        "ad_group_name": "rajendranagar_location",
         "impressions": 1,
         "clicks": 0,
         "cost": 0.0,
@@ -3100,183 +2985,10 @@
         "classification": "non_converting"
       },
       {
-        "term": "flats in shamshabad",
+        "term": "twin towers santosh nagar",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "flats near hyderabad airport",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 3,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "godrej shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
+        "ad_group_name": "rajendranagar_location",
         "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "godrej",
-        "worth_keeping": false
-      },
-      {
-        "term": "jain construction shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 5,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "nakshatra apartment shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "nakshatra shamshabd hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 4,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "prestige shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 3,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "prestige",
-        "worth_keeping": false
-      },
-      {
-        "term": "suchirindia satamrai",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "the cocoon shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "urbanrise dwelling shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "2 bhk apartments in attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "2 bhk flat for sale in attapur hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "2 bhk flats for sale in attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "2 bhk flats for sale in attapur hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 2,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3287,6 +2999,19 @@
       },
       {
         "term": "3 bhk flats for sale in attapur hyderabad",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "apartment in attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 2,
@@ -3312,7 +3037,72 @@
         "classification": "non_converting"
       },
       {
+        "term": "apartments in attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "apartments in attapur hyderabad",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 4,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
         "term": "attapur flats for sale",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 4,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "casagrand attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "casagrand attapur location",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "flats at attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 2,
@@ -3328,7 +3118,7 @@
         "term": "flats for sale in attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
-        "impressions": 3,
+        "impressions": 2,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3338,7 +3128,20 @@
         "classification": "non_converting"
       },
       {
-        "term": "flats for sale in hyderabad attapur",
+        "term": "gated communities in attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 4,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "gated community apartments in attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 2,
@@ -3351,7 +3154,7 @@
         "classification": "non_converting"
       },
       {
-        "term": "flats in attapur",
+        "term": "gated community attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 2,
@@ -3364,7 +3167,20 @@
         "classification": "non_converting"
       },
       {
-        "term": "flats in attapur hyderabad",
+        "term": "gated community in attapur hyderabad",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "godrej attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 1,
@@ -3374,49 +3190,12 @@
         "cpl": 0,
         "ctr": 0.0,
         "cvr": 0,
-        "classification": "non_converting"
+        "classification": "competitor",
+        "competitor_name": "godrej",
+        "worth_keeping": false
       },
       {
-        "term": "gated community in attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 5,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "gnr's vasavi nirvana ambience fort road attapur radha krishna nagar hyderabad telangana",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "hima sai apartments attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "imperial attapur",
+        "term": "happy homes attapur flats for sale",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 1,
@@ -3442,36 +3221,10 @@
         "classification": "non_converting"
       },
       {
-        "term": "laxmi ram trident attapur",
+        "term": "new projects in attapur hyderabad",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "levonor attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "non_converting"
-      },
-      {
-        "term": "mahaveer apartment attapur",
-        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
-        "ad_group_name": "attapur_location",
-        "impressions": 2,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3494,7 +3247,7 @@
         "classification": "non_converting"
       },
       {
-        "term": "rajapushpa apartment attapur",
+        "term": "rnr tranquil tower attapur",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
         "impressions": 1,
@@ -3507,10 +3260,209 @@
         "classification": "non_converting"
       },
       {
-        "term": "riddhi elite attapur",
+        "term": "shikara one",
         "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
         "ad_group_name": "attapur_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "silicon ridge apartments attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "vasavi attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
+        "impressions": 3,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "2 bhk flats for sale in shamshabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
         "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "apartments near shamshabad airport",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "flat for sale in shamshabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "flats for sale near shamshabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "flats near shamshabad airport",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "jalsa residency shamshabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "nakshatra shamshabd hyderabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "shamshabad flats for sale",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 2,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "sumadhura gardens shamshabad",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "competitor",
+        "competitor_name": "sumadhura",
+        "worth_keeping": false
+      },
+      {
+        "term": "sumadhuras gardens by the brook",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "competitor",
+        "competitor_name": "sumadhura",
+        "worth_keeping": false
+      },
+      {
+        "term": "amara by deevyashakti",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "deevyashakti realty llp",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
+        "impressions": 3,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "non_converting"
+      },
+      {
+        "term": "divyashakti amara",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Under_Perfoming_High_Potential",
+        "impressions": 1,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3520,103 +3472,42 @@
         "classification": "non_converting"
       }
     ],
-    "high_value_terms": [],
+    "high_value_terms": [
+      {
+        "term": "amara by deevyashakti",
+        "campaign_name": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
+        "ad_group_name": "Branded_Keywords_Top_Performing",
+        "impressions": 8,
+        "clicks": 1,
+        "cost": 43.49,
+        "conversions": 1.0,
+        "cpl": 43.49,
+        "ctr": 12.5,
+        "cvr": 100.0,
+        "classification": "converting"
+      }
+    ],
     "junk_terms": [],
     "competitor_terms": [
       {
-        "term": "godrej project rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "godrej",
-        "worth_keeping": false
-      },
-      {
-        "term": "godrej properties hyderabad rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "godrej",
-        "worth_keeping": false
-      },
-      {
-        "term": "prestige city hyderabad rajendra nagar",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 1,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "prestige",
-        "worth_keeping": false
-      },
-      {
-        "term": "prestige rajendra nagar hyderabad",
+        "term": "aparna rajendra nagar",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "rajendranagar_location",
         "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
+        "clicks": 1,
+        "cost": 52.9,
         "conversions": 0.0,
         "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "prestige",
-        "worth_keeping": false
-      },
-      {
-        "term": "puravankara rajendra nagar hyderabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "rajendranagar_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
-        "classification": "competitor",
-        "competitor_name": "puravankara",
-        "worth_keeping": false
-      },
-      {
-        "term": "aparna apartments shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
-        "impressions": 2,
-        "clicks": 0,
-        "cost": 0.0,
-        "conversions": 0.0,
-        "cpl": 0,
-        "ctr": 0.0,
-        "cvr": 0,
+        "ctr": 50.0,
+        "cvr": 0.0,
         "classification": "competitor",
         "competitor_name": "aparna",
         "worth_keeping": false
       },
       {
-        "term": "godrej shamshabad",
-        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
-        "ad_group_name": "shamshabad_location",
+        "term": "godrej attapur",
+        "campaign_name": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+        "ad_group_name": "attapur_location",
         "impressions": 1,
         "clicks": 0,
         "cost": 0.0,
@@ -3629,10 +3520,10 @@
         "worth_keeping": false
       },
       {
-        "term": "prestige shamshabad",
+        "term": "sumadhura gardens shamshabad",
         "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
         "ad_group_name": "shamshabad_location",
-        "impressions": 3,
+        "impressions": 1,
         "clicks": 0,
         "cost": 0.0,
         "conversions": 0.0,
@@ -3640,7 +3531,22 @@
         "ctr": 0.0,
         "cvr": 0,
         "classification": "competitor",
-        "competitor_name": "prestige",
+        "competitor_name": "sumadhura",
+        "worth_keeping": false
+      },
+      {
+        "term": "sumadhuras gardens by the brook",
+        "campaign_name": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+        "ad_group_name": "shamshabad_location",
+        "impressions": 1,
+        "clicks": 0,
+        "cost": 0.0,
+        "conversions": 0.0,
+        "cpl": 0,
+        "ctr": 0.0,
+        "cvr": 0,
+        "classification": "competitor",
+        "competitor_name": "sumadhura",
         "worth_keeping": false
       }
     ],
@@ -3649,15 +3555,47 @@
       {
         "ngram": "attapur",
         "type": "1-gram",
-        "frequency": 23,
-        "total_cost": 64.9,
+        "frequency": 25,
+        "total_cost": 217.7,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
+        "ngram": "flats",
+        "type": "1-gram",
+        "frequency": 14,
+        "total_cost": 135.28,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "for",
+        "type": "1-gram",
+        "frequency": 13,
+        "total_cost": 82.27,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "sale",
+        "type": "1-gram",
+        "frequency": 13,
+        "total_cost": 82.27,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "amara",
+        "type": "1-gram",
+        "frequency": 11,
+        "total_cost": 1932.96,
+        "total_conversions": 1.0,
+        "cpl": 1932.96
+      },
+      {
         "ngram": "hyderabad",
         "type": "1-gram",
-        "frequency": 19,
+        "frequency": 11,
         "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
@@ -3665,109 +3603,77 @@
       {
         "ngram": "nagar",
         "type": "1-gram",
-        "frequency": 18,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "rajendra",
-        "type": "1-gram",
-        "frequency": 17,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "flats",
-        "type": "1-gram",
-        "frequency": 17,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "for",
-        "type": "1-gram",
-        "frequency": 17,
-        "total_cost": 58.11,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "sale",
-        "type": "1-gram",
-        "frequency": 17,
-        "total_cost": 58.11,
+        "frequency": 10,
+        "total_cost": 721.52,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
         "ngram": "shamshabad",
         "type": "1-gram",
-        "frequency": 12,
-        "total_cost": 58.11,
+        "frequency": 9,
+        "total_cost": 53.42,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "apartments",
-        "type": "1-gram",
-        "frequency": 11,
-        "total_cost": 58.11,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "amara",
+        "ngram": "rajendra",
         "type": "1-gram",
         "frequency": 8,
-        "total_cost": 528.4,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "bhk",
-        "type": "1-gram",
-        "frequency": 7,
-        "total_cost": 0.0,
+        "total_cost": 721.52,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
         "ngram": "deevyashakti",
         "type": "1-gram",
-        "frequency": 4,
-        "total_cost": 339.48,
-        "total_conversions": 0.0,
-        "cpl": 0.0
+        "frequency": 7,
+        "total_cost": 535.33,
+        "total_conversions": 1.0,
+        "cpl": 535.33
       },
       {
-        "ngram": "divyashakti",
+        "ngram": "apartments",
         "type": "1-gram",
-        "frequency": 3,
-        "total_cost": 312.08,
+        "frequency": 7,
+        "total_cost": 53.42,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
         "ngram": "gated",
         "type": "1-gram",
-        "frequency": 3,
-        "total_cost": 64.9,
+        "frequency": 7,
+        "total_cost": 217.7,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
         "ngram": "community",
         "type": "1-gram",
-        "frequency": 3,
-        "total_cost": 64.9,
+        "frequency": 6,
+        "total_cost": 217.7,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "godrej",
+        "ngram": "divyashakti",
+        "type": "1-gram",
+        "frequency": 4,
+        "total_cost": 784.58,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "near",
+        "type": "1-gram",
+        "frequency": 4,
+        "total_cost": 53.42,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "casagrand",
         "type": "1-gram",
         "frequency": 3,
         "total_cost": 0.0,
@@ -3775,41 +3681,33 @@
         "cpl": 0.0
       },
       {
-        "ngram": "prestige",
+        "ngram": "provident",
         "type": "1-gram",
-        "frequency": 3,
+        "frequency": 2,
         "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "apartment",
-        "type": "1-gram",
-        "frequency": 3,
-        "total_cost": 58.11,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "divya",
+        "ngram": "the",
         "type": "1-gram",
         "frequency": 2,
-        "total_cost": 312.08,
+        "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "shakti",
+        "ngram": "bhk",
         "type": "1-gram",
         "frequency": 2,
-        "total_cost": 651.56,
+        "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "rajendra nagar",
-        "type": "2-gram",
-        "frequency": 17,
+        "ngram": "airport",
+        "type": "1-gram",
+        "frequency": 2,
         "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
@@ -3817,64 +3715,48 @@
       {
         "ngram": "for sale",
         "type": "2-gram",
-        "frequency": 17,
-        "total_cost": 58.11,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "sale in",
-        "type": "2-gram",
         "frequency": 13,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "flats for",
-        "type": "2-gram",
-        "frequency": 12,
-        "total_cost": 0.0,
+        "total_cost": 82.27,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
         "ngram": "in attapur",
         "type": "2-gram",
-        "frequency": 11,
-        "total_cost": 0.0,
+        "frequency": 13,
+        "total_cost": 164.69,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "nagar hyderabad",
+        "ngram": "flats for",
         "type": "2-gram",
-        "frequency": 7,
-        "total_cost": 0.0,
+        "frequency": 11,
+        "total_cost": 82.27,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "in rajendra",
+        "ngram": "rajendra nagar",
+        "type": "2-gram",
+        "frequency": 8,
+        "total_cost": 721.52,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "sale in",
+        "type": "2-gram",
+        "frequency": 8,
+        "total_cost": 82.27,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "gated community",
         "type": "2-gram",
         "frequency": 6,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "2 bhk",
-        "type": "2-gram",
-        "frequency": 5,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "bhk flats",
-        "type": "2-gram",
-        "frequency": 5,
-        "total_cost": 0.0,
+        "total_cost": 217.7,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
@@ -3887,9 +3769,33 @@
         "cpl": 0.0
       },
       {
-        "ngram": "flats in",
+        "ngram": "near shamshabad",
         "type": "2-gram",
         "frequency": 4,
+        "total_cost": 53.42,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "amara by",
+        "type": "2-gram",
+        "frequency": 3,
+        "total_cost": 43.49,
+        "total_conversions": 1.0,
+        "cpl": 43.49
+      },
+      {
+        "ngram": "by deevyashakti",
+        "type": "2-gram",
+        "frequency": 3,
+        "total_cost": 43.49,
+        "total_conversions": 1.0,
+        "cpl": 43.49
+      },
+      {
+        "ngram": "nagar hyderabad",
+        "type": "2-gram",
+        "frequency": 3,
         "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
@@ -3903,33 +3809,25 @@
         "cpl": 0.0
       },
       {
-        "ngram": "gated community",
+        "ngram": "amara divyashakti",
         "type": "2-gram",
-        "frequency": 3,
-        "total_cost": 64.9,
+        "frequency": 2,
+        "total_cost": 784.58,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "apartments for",
+        "ngram": "amara rajendra",
         "type": "2-gram",
-        "frequency": 3,
-        "total_cost": 58.11,
+        "frequency": 2,
+        "total_cost": 668.62,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "in shamshabad",
+        "ngram": "divyashakti amara",
         "type": "2-gram",
-        "frequency": 3,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "for sale in",
-        "type": "3-gram",
-        "frequency": 13,
+        "frequency": 2,
         "total_cost": 0.0,
         "total_conversions": 0.0,
         "cpl": 0.0
@@ -3937,40 +3835,24 @@
       {
         "ngram": "flats for sale",
         "type": "3-gram",
-        "frequency": 12,
-        "total_cost": 0.0,
+        "frequency": 11,
+        "total_cost": 82.27,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "for sale in",
+        "type": "3-gram",
+        "frequency": 8,
+        "total_cost": 82.27,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
         "ngram": "sale in attapur",
         "type": "3-gram",
-        "frequency": 7,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "in rajendra nagar",
-        "type": "3-gram",
-        "frequency": 6,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "rajendra nagar hyderabad",
-        "type": "3-gram",
-        "frequency": 6,
-        "total_cost": 0.0,
-        "total_conversions": 0.0,
-        "cpl": 0.0
-      },
-      {
-        "ngram": "bhk flats for",
-        "type": "3-gram",
         "frequency": 5,
-        "total_cost": 0.0,
+        "total_cost": 82.27,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
@@ -3983,7 +3865,15 @@
         "cpl": 0.0
       },
       {
-        "ngram": "2 bhk flats",
+        "ngram": "amara by deevyashakti",
+        "type": "3-gram",
+        "frequency": 3,
+        "total_cost": 43.49,
+        "total_conversions": 1.0,
+        "cpl": 43.49
+      },
+      {
+        "ngram": "apartments in attapur",
         "type": "3-gram",
         "frequency": 3,
         "total_cost": 0.0,
@@ -3991,15 +3881,31 @@
         "cpl": 0.0
       },
       {
-        "ngram": "apartments for sale",
+        "ngram": "amara rajendra nagar",
         "type": "3-gram",
-        "frequency": 3,
-        "total_cost": 58.11,
+        "frequency": 2,
+        "total_cost": 668.62,
         "total_conversions": 0.0,
         "cpl": 0.0
       },
       {
-        "ngram": "divya shakti amara",
+        "ngram": "rajendra nagar hyderabad",
+        "type": "3-gram",
+        "frequency": 2,
+        "total_cost": 0.0,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "bhk flats for",
+        "type": "3-gram",
+        "frequency": 2,
+        "total_cost": 0.0,
+        "total_conversions": 0.0,
+        "cpl": 0.0
+      },
+      {
+        "ngram": "attapur flats for",
         "type": "3-gram",
         "frequency": 2,
         "total_cost": 0.0,
@@ -4017,11 +3923,11 @@
   },
   "recommendations": [
     {
-      "id": "R-002",
+      "id": "R-001",
       "title": "Auto-pause: CPL_EXCEED",
-      "description": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC: CPL \u20b91228 > \u20b91190 (1.4x target)",
+      "description": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024: CPL \u20b92199 > \u20b91190 (1.4x target)",
       "category": "auto_pause",
-      "campaign": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC",
+      "campaign": "DM_Branded_Search_11th_June_2024 #d2r|dt7-dm_branded_search_11th_june_2024",
       "ice_score": 8.7,
       "impact": 8,
       "confidence": 9,
@@ -4031,9 +3937,23 @@
       "sop_reference": "CPL_EXCEED"
     },
     {
-      "id": "R-004",
+      "id": "R-002",
+      "title": "Auto-pause: CPL_EXCEED",
+      "description": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025: CPL \u20b91426 > \u20b91190 (1.4x target)",
+      "category": "auto_pause",
+      "campaign": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
+      "ice_score": 8.7,
+      "impact": 8,
+      "confidence": 9,
+      "ease": 9,
+      "action_type": "pause_campaign",
+      "auto_executable": true,
+      "sop_reference": "CPL_EXCEED"
+    },
+    {
+      "id": "R-005",
       "title": "Auto-pause: ZERO_LEADS_HIGH_IMPRESSIONS",
-      "description": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC: 17,438 impressions, 0 leads",
+      "description": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC: 30,830 impressions, 0 leads",
       "category": "auto_pause",
       "campaign": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC",
       "ice_score": 8.7,
@@ -4045,9 +3965,9 @@
       "sop_reference": "ZERO_LEADS_HIGH_IMPRESSIONS"
     },
     {
-      "id": "R-006",
-      "title": "Auto-pause: CPL_EXCEED",
-      "description": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes: CPL \u20b990425 > \u20b91190 (1.4x target)",
+      "id": "R-007",
+      "title": "Auto-pause: ZERO_LEADS_HIGH_IMPRESSIONS",
+      "description": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes: 21,587 impressions, 0 leads",
       "category": "auto_pause",
       "campaign": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
       "ice_score": 8.7,
@@ -4056,12 +3976,12 @@
       "ease": 9,
       "action_type": "pause_campaign",
       "auto_executable": true,
-      "sop_reference": "CPL_EXCEED"
+      "sop_reference": "ZERO_LEADS_HIGH_IMPRESSIONS"
     },
     {
-      "id": "R-008",
+      "id": "R-009",
       "title": "Auto-pause: CPL_EXCEED",
-      "description": "DM-10/03/2026-Demand_Gen_Affinity02: CPL \u20b91451 > \u20b91190 (1.4x target)",
+      "description": "DM-10/03/2026-Demand_Gen_Affinity02: CPL \u20b94032 > \u20b91190 (1.4x target)",
       "category": "auto_pause",
       "campaign": "DM-10/03/2026-Demand_Gen_Affinity02",
       "ice_score": 8.7,
@@ -4073,49 +3993,7 @@
       "sop_reference": "CPL_EXCEED"
     },
     {
-      "id": "R-010",
-      "title": "Auto-pause: CPL_EXCEED",
-      "description": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes > 02/03/2026-210-InMarket-OT-(Retirement_planning&Estate_planning)-Pincodes > Ad 79884151: CPL \u20b990425 > \u20b91190",
-      "category": "auto_pause",
-      "campaign": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes > 02/03/2026-210-InMarket-OT-(Retirement_planning&Estate_planning)-Pincodes > Ad 79884151",
-      "ice_score": 8.7,
-      "impact": 8,
-      "confidence": 9,
-      "ease": 9,
-      "action_type": "pause_ad",
-      "auto_executable": true,
-      "sop_reference": "CPL_EXCEED"
-    },
-    {
-      "id": "R-011",
-      "title": "Auto-pause: CPL_EXCEED",
-      "description": "DM-10/03/2026-Demand_Gen_Affinity02 > Affinity02 > Ad 79981906: CPL \u20b91915 > \u20b91190",
-      "category": "auto_pause",
-      "campaign": "DM-10/03/2026-Demand_Gen_Affinity02 > Affinity02 > Ad 79981906",
-      "ice_score": 8.7,
-      "impact": 8,
-      "confidence": 9,
-      "ease": 9,
-      "action_type": "pause_ad",
-      "auto_executable": true,
-      "sop_reference": "CPL_EXCEED"
-    },
-    {
-      "id": "R-012",
-      "title": "Auto-pause: ZERO_LEADS_HIGH_IMPRESSIONS",
-      "description": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC > 20/02/2026-110-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC > Ad 79789354: 11,354 impressions, 0 leads",
-      "category": "auto_pause",
-      "campaign": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC > 20/02/2026-110-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC > Ad 79789354",
-      "ice_score": 8.7,
-      "impact": 8,
-      "confidence": 9,
-      "ease": 9,
-      "action_type": "pause_ad",
-      "auto_executable": true,
-      "sop_reference": "ZERO_LEADS_HIGH_IMPRESSIONS"
-    },
-    {
-      "id": "R-001",
+      "id": "R-003",
       "title": "Auto-pause: CTR_CRASH",
       "description": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025: CTR 0.0% < 0.2% (50% of 0.5% benchmark)",
       "category": "auto_pause",
@@ -4129,7 +4007,7 @@
       "sop_reference": "CTR_CRASH"
     },
     {
-      "id": "R-003",
+      "id": "R-004",
       "title": "Auto-pause: CTR_CRASH",
       "description": "DM-20/02/2026-200-DemandGen-MaxConv-PR-InMarket-OT-(ResidentialProperties-NewHousesforsale-NewApartmentsforsale-ResidentialPropertiesforsale)-HYD-SEC: CTR 0.0% < 0.2% (50% of 0.5% benchmark)",
       "category": "auto_pause",
@@ -4143,7 +4021,7 @@
       "sop_reference": "CTR_CRASH"
     },
     {
-      "id": "R-005",
+      "id": "R-006",
       "title": "Auto-pause: CTR_CRASH",
       "description": "DM-20/02/2026-100-DemandGen-MaxConv-PR-Lookalike-OT-(Lookalike_Amara_SVs_22_April_2025_5%)-HYD-SEC: CTR 0.0% < 0.2% (50% of 0.5% benchmark)",
       "category": "auto_pause",
@@ -4157,7 +4035,7 @@
       "sop_reference": "CTR_CRASH"
     },
     {
-      "id": "R-007",
+      "id": "R-008",
       "title": "Auto-pause: CTR_CRASH",
       "description": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes: CTR 0.0% < 0.2% (50% of 0.5% benchmark)",
       "category": "auto_pause",
@@ -4171,7 +4049,7 @@
       "sop_reference": "CTR_CRASH"
     },
     {
-      "id": "R-009",
+      "id": "R-010",
       "title": "Auto-pause: CTR_CRASH",
       "description": "DM-10/03/2026-Demand_Gen_Affinity02: CTR 0.0% < 0.2% (50% of 0.5% benchmark)",
       "category": "auto_pause",
@@ -4185,11 +4063,31 @@
       "sop_reference": "CTR_CRASH"
     },
     {
-      "id": "R-013",
+      "id": "R-011",
       "title": "[PB-G1] CPL Rising + CVR Dropping",
-      "description": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes: CPL \u20b990425 > \u20b91190 AND CVR 0.01% < 1.0%",
+      "description": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025: CPL \u20b91426 > \u20b91190 AND CVR 0.85% < 1.0%",
       "category": "playbook",
-      "campaign": "DM-02/03/2026-200-DemandGen-MaxConv-PR-InMarket-(Retirement_planning&Estate_planning)-Pincodes",
+      "campaign": "DM_Demand_Gen_Lookalike01_16_February_2026#e15|etk-dm_demand_gen_lookalike01_18_june_2025",
+      "ice_score": 6.7,
+      "impact": 7,
+      "confidence": 8,
+      "ease": 5,
+      "action_type": "manual_review",
+      "auto_executable": false,
+      "sop_reference": "PB-G1",
+      "actions": [
+        "CRO sprint (Clarity + GA4 data)",
+        "Check audience split: yours vs optimized targeting vs good months",
+        "Verify search terms driving traffic vs good months",
+        "Check LP form completion rate"
+      ]
+    },
+    {
+      "id": "R-012",
+      "title": "[PB-G1] CPL Rising + CVR Dropping",
+      "description": "DM-10/03/2026-Demand_Gen_Affinity02: CPL \u20b94032 > \u20b91190 AND CVR 0.06% < 1.0%",
+      "category": "playbook",
+      "campaign": "DM-10/03/2026-Demand_Gen_Affinity02",
       "ice_score": 6.7,
       "impact": 7,
       "confidence": 8,
@@ -4206,28 +4104,22 @@
     },
     {
       "id": "R-014",
-      "title": "[PB-G1] CPL Rising + CVR Dropping",
-      "description": "DM-10/03/2026-Demand_Gen_Affinity02: CPL \u20b91451 > \u20b91190 AND CVR 0.32% < 1.0%",
-      "category": "playbook",
-      "campaign": "DM-10/03/2026-Demand_Gen_Affinity02",
+      "title": "DG Conversion Rate Critically Low",
+      "description": "DG CVR 0.2% is less than half of Search CVR 4.1% \u2192 Audit DG landing pages. Consider DG-specific landing pages with softer CTAs (webinar, guide) vs hard lead form.",
+      "category": "intellect",
+      "campaign": "Account-level",
       "ice_score": 6.7,
       "impact": 7,
       "confidence": 8,
       "ease": 5,
       "action_type": "manual_review",
       "auto_executable": false,
-      "sop_reference": "PB-G1",
-      "actions": [
-        "CRO sprint (Clarity + GA4 data)",
-        "Check audience split: yours vs optimized targeting vs good months",
-        "Verify search terms driving traffic vs good months",
-        "Check LP form completion rate"
-      ]
+      "sop_reference": "Performance Marketer Intellect"
     },
     {
-      "id": "R-015",
+      "id": "R-013",
       "title": "CPL Exceeds Alert Threshold \u2014 Check Day-Parting",
-      "description": "Overall CPL \u20b92056 exceeds alert level \u20b91190 \u2192 Pull hourly/day-of-week report from Google Ads UI. Reduce bids or pause ad schedule during high-CPL hours (typically weekends for B2B).",
+      "description": "Overall CPL \u20b92484 exceeds alert level \u20b91190 \u2192 Pull hourly/day-of-week report from Google Ads UI. Reduce bids or pause ad schedule during high-CPL hours (typically weekends for B2B).",
       "category": "intellect",
       "campaign": "Account-level",
       "ice_score": 6.0,
@@ -4285,7 +4177,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-02 10:53:43.931501",
+    "verified_at": "2026-04-03 16:29:31.470150",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 8,
     "verification_status": "MATCH"

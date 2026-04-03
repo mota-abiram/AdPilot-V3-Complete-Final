@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useExecution } from "@/hooks/use-execution";
 import { useClient } from "@/lib/client-context";
-import { Loader2, Zap, Check, X, Clock, Brain } from "lucide-react";
+import { Loader2, Zap, Check, X, Brain } from "lucide-react";
 import { formatINR } from "@/lib/format";
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -143,22 +143,6 @@ export function UnifiedActions(props: UnifiedActionProps) {
     setRationale("");
   }
 
-  async function handleDefer() {
-    await execute({
-      action: "DEFER_ACTION",
-      entityId,
-      entityName,
-      entityType: entityType as "campaign" | "adset" | "ad" | "ad_group",
-      params: {
-        originalAction: actionType,
-        reason: "Deferred to next review cycle",
-        recommendation,
-      },
-      strategicCall: "Deferred to next review cycle",
-    });
-    handleActionComplete();
-  }
-
   function handleOpenChange(open: boolean) {
     if (!open) {
       setDialogMode(null);
@@ -261,25 +245,6 @@ export function UnifiedActions(props: UnifiedActionProps) {
           )}
         </Tooltip>
 
-        {/* Defer */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`${btnSize} text-muted-foreground hover:text-foreground gap-1`}
-              onClick={(e) => { e.stopPropagation(); handleDefer(); }}
-              disabled={isExecuting}
-              data-testid={`ua-defer-${entityId}`}
-            >
-              {isExecuting ? <Loader2 className={`${iconSize} animate-spin`} /> : <Clock className={iconSize} />}
-              {!compact && "Defer"}
-            </Button>
-          </TooltipTrigger>
-          {compact && (
-            <TooltipContent><p className="text-xs">Defer to next review</p></TooltipContent>
-          )}
-        </Tooltip>
       </div>
 
       {/* Strategic Call Dialog */}

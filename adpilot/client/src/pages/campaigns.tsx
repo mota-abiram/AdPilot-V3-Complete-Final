@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, ChevronDown, ChevronUp, Pause, Play, TrendingUp, TrendingDown, Loader2, AlertTriangle, Info } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Pause, Play, TrendingUp, TrendingDown, Loader2, AlertTriangle, Info, SlidersHorizontal } from "lucide-react";
 import {
   formatINR,
   formatPct,
@@ -41,6 +41,7 @@ import { useExecution } from "@/hooks/use-execution";
 import { ExecutionButton } from "@/components/execution-button";
 import { UnifiedActions } from "@/components/unified-actions";
 import { usePausedEntities } from "@/hooks/use-paused-entities";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type SortKey = keyof CampaignAudit;
 type SortDir = "asc" | "desc";
@@ -73,8 +74,27 @@ function HealthMethodology() {
   );
 }
 
+// ─── Benchmark comparison badge ─────────────────────────────────────
+function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark: number; label?: string }) {
+  if (!benchmark || !value) return null;
+  const pct = ((value - benchmark) / benchmark) * 100;
+  const isAbove = value > benchmark;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={`inline-flex items-center text-[9px] font-medium px-1 py-0 rounded ml-1 cursor-default ${isAbove ? "text-red-400 bg-red-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
+          {isAbove ? "▲" : "▼"} {Math.abs(Math.round(pct))}%
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {label || "Benchmark"}: {formatINR(benchmark, 0)} — {isAbove ? "Above" : "Within"} benchmark
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export default function CampaignsPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform } = useClient();
+  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, benchmarks } = useClient();
   const { executeBatch, isExecuting } = useExecution();
   const { isPaused: isEntityPaused } = usePausedEntities();
   const isGoogle = activePlatform === "google";
@@ -86,7 +106,8 @@ export default function CampaignsPage() {
   const [filterClassification, setFilterClassification] = useState<string>("ALL");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState<{ open: boolean; action: "pause" | "activate" }>({ open: false, action: "pause" });
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [columnSize, setColumnSize] = useState<"compact" | "normal" | "wide">("normal");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [searchPage, setSearchPage] = useState(1);
@@ -260,7 +281,7 @@ export default function CampaignsPage() {
     const typeBadge = getCampaignTypeBadge(c.theme || c.layer || c.campaign_type);
     const isPaused = c.status === "PAUSED" || c.delivery_status === "NOT_DELIVERING" || isEntityPaused(c.campaign_id);
     const isSelected = selectedIds.has(c.campaign_id);
-    const isExpanded = expandedId === c.campaign_id;
+    const isExpanded = expandedIds.has(c.campaign_id);
 
     return (
       <>
@@ -269,7 +290,14 @@ export default function CampaignsPage() {
           className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
             isSelected ? "bg-primary/5" : ""
           } ${isPaused ? "opacity-50" : ""} ${c.should_pause || c.classification === "LOSER" ? "border-l-2 border-l-red-500" : ""}`}
-          onClick={() => setExpandedId(isExpanded ? null : c.campaign_id)}
+          onClick={() => {
+            setExpandedIds(prev => {
+              const next = new Set(prev);
+              if (next.has(c.campaign_id)) next.delete(c.campaign_id);
+              else next.add(c.campaign_id);
+              return next;
+            });
+          }}
           data-testid={`row-campaign-${c.campaign_id}`}
         >
           <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -347,6 +375,9 @@ export default function CampaignsPage() {
           <td className="p-3 text-right tabular-nums">{c.leads ?? c.conversions ?? 0}</td>
           <td className={`p-3 text-right tabular-nums ${(c.cpl || 0) > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
             {(c.cpl || 0) > 0 ? formatINR(c.cpl, 0) : "—"}
+            {(c.cpl || 0) > 0 && benchmarks?.cpl && (
+              <BenchmarkBadge value={c.cpl} benchmark={benchmarks.cpl} label="CPL Target" />
+            )}
           </td>
           <td className={`p-3 text-right tabular-nums ${getCtrColor(c.ctr || 0)}`}>
             {formatPct(c.ctr || 0)}
@@ -532,18 +563,32 @@ export default function CampaignsPage() {
               <thead>
                 <tr className="border-b border-border/50">
                   <th className="p-3 w-8">
-                    <Checkbox
-                      checked={rows.length > 0 && rows.every((c: any) => selectedIds.has(c.campaign_id || c.id))}
-                      onCheckedChange={() => {
-                        const ids = rows.map((c: any) => c.campaign_id || c.id);
-                        const allSelected = ids.every((id) => selectedIds.has(id));
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev);
-                          ids.forEach((id) => allSelected ? next.delete(id) : next.add(id));
-                          return next;
-                        });
-                      }}
-                    />
+                    <div className="flex flex-col gap-2">
+                       <Checkbox
+                        checked={rows.length > 0 && rows.every((c: any) => selectedIds.has(c.campaign_id || c.id))}
+                        onCheckedChange={() => {
+                          const ids = rows.map((c: any) => c.campaign_id || c.id);
+                          const allSelected = ids.every((id) => selectedIds.has(id));
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            ids.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+                            return next;
+                          });
+                        }}
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 hover:opacity-100">
+                             <SlidersHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setColumnSize("normal")}>Normal Width</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide Width</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </th>
                   {googleColumns.map((col) => (
                     <th
@@ -775,11 +820,25 @@ export default function CampaignsPage() {
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="p-3 w-8">
-                      <Checkbox
-                        checked={campaigns.length > 0 && selectedIds.size === campaigns.length}
-                        onCheckedChange={toggleSelectAll}
-                        data-testid="checkbox-select-all"
-                      />
+                      <div className="flex flex-col gap-2">
+                        <Checkbox
+                          checked={campaigns.length > 0 && selectedIds.size === campaigns.length}
+                          onCheckedChange={toggleSelectAll}
+                          data-testid="checkbox-select-all"
+                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 hover:opacity-100">
+                               <SlidersHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setColumnSize("normal")}>Normal Width</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide Width</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </th>
                     {metaColumns.map((col) => (
                       <th
@@ -805,7 +864,7 @@ export default function CampaignsPage() {
                     const classColor = getClassificationColor(c.classification);
                     const isPaused = c.status === "PAUSED" || c.delivery_status === "NOT_DELIVERING" || isEntityPaused(c.campaign_id);
                     const isSelected = selectedIds.has(c.campaign_id);
-                    const isExpanded = expandedId === c.campaign_id;
+                    const isExpanded = expandedIds.has(c.campaign_id);
                     const activateAction = "UNPAUSE_CAMPAIGN";
 
                     return (
@@ -815,7 +874,14 @@ export default function CampaignsPage() {
                           className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
                             isSelected ? "bg-primary/5" : ""
                           } ${isPaused ? "opacity-50" : ""}`}
-                          onClick={() => setExpandedId(isExpanded ? null : c.campaign_id)}
+                          onClick={() => {
+                            setExpandedIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(c.campaign_id)) next.delete(c.campaign_id);
+                              else next.add(c.campaign_id);
+                              return next;
+                            });
+                          }}
                           data-testid={`row-campaign-${c.campaign_id}`}
                         >
                           <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -825,7 +891,10 @@ export default function CampaignsPage() {
                               data-testid={`checkbox-campaign-${c.campaign_id}`}
                             />
                           </td>
-                          <td className="p-3 max-w-[200px]">
+                          <td className={`p-3 transition-all duration-200 ${
+                            columnSize === "compact" ? "max-w-[120px]" : 
+                            columnSize === "normal" ? "max-w-[200px]" : "max-w-[400px]"
+                          }`}>
                             <div className="flex items-center gap-1.5">
                               <Tooltip>
                                 <TooltipTrigger asChild>

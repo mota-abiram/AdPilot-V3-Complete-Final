@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
+import logo from "../assets/logo.png";
+
 
 export default function LoginPage() {
   const { login, isLoading, bootstrapEmail, bootstrapPasswordIsDefault } = useAuth();
@@ -30,12 +32,14 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_35%),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted))/0.55)] flex items-center justify-center p-6">
       <Card className="w-full max-w-md border-border/60 shadow-2xl">
         <CardHeader className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
+          <div className="flex items-center gap-4">
+            <img 
+              src={logo} 
+              alt="Mojo Logo" 
+              className="h-12 w-12 rounded-xl shadow-lg border border-border/40" 
+            />
             <div>
-              <CardTitle>Access Management</CardTitle>
+              <CardTitle>Mojo Performance Agent</CardTitle>
               <CardDescription>Sign in with an approved account to open the workspace.</CardDescription>
             </div>
           </div>

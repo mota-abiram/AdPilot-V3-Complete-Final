@@ -40,6 +40,11 @@ import {
   CalendarCheck,
   CalendarClock,
   Filter,
+  Eye,
+  MousePointer2,
+  UserCheck,
+  Home,
+  Star,
 } from "lucide-react";
 import {
   formatINR,
@@ -134,12 +139,12 @@ function KpiCard({
 }
 
 const CHART_COLORS = {
-  gold: "hsl(47, 100%, 50%)",
-  purple: "hsl(220, 68%, 45%)",
-  blue: "hsl(220, 68%, 45%)",
-  green: "hsl(146, 52%, 42%)",
-  red: "hsl(0, 73%, 55%)",
-  amber: "hsl(38, 92%, 50%)",
+  gold: "hsl(47, 85%, 65%)",
+  purple: "hsl(220, 50%, 65%)",
+  blue: "hsl(215, 60%, 60%)",
+  green: "hsl(146, 40%, 60%)",
+  red: "hsl(0, 50%, 65%)",
+  amber: "hsl(35, 70%, 60%)",
 };
 
 const FUNNEL_COLORS: Record<string, string> = {
@@ -153,11 +158,16 @@ function CustomTooltipContent({ active, payload, label }: any) {
   return (
     <div className="rounded-md border border-border/50 bg-card p-2 shadow-md">
       <p className="text-[11px] text-muted-foreground mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
-        <p key={i} className="text-xs tabular-nums" style={{ color: entry.color }}>
-          {entry.name}: {typeof entry.value === "number" ? entry.value.toLocaleString("en-IN") : entry.value}
-        </p>
-      ))}
+      {payload.map((entry: any, i: number) => {
+        const isVideoMetric = entry.name.toLowerCase().includes("tsr") || entry.name.toLowerCase().includes("vhr");
+        const hasPct = entry.name.includes("%");
+        return (
+          <p key={i} className="text-xs tabular-nums" style={{ color: entry.color }}>
+            {entry.name}{isVideoMetric ? " (Video Only)" : ""}: {typeof entry.value === "number" ? entry.value.toLocaleString("en-IN") : entry.value}
+            {(hasPct || isVideoMetric) && !entry.name.includes("%") ? "%" : ""}
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -185,17 +195,9 @@ export default function DashboardPage() {
     activePlatform,
     activeCadence,
     syncState,
+    benchmarks, // global context — auto-refreshes when benchmarks are saved
   } = useClient();
   const now = useNow();
-
-  const { data: benchmarks } = useQuery<Record<string, any>>({
-    queryKey: ["/api/clients", activeClientId, "benchmarks"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks`);
-      return res.json();
-    },
-    enabled: !!activeClientId,
-  });
 
   const { data: verifyData } = useQuery<{
     verified: boolean;
@@ -250,6 +252,32 @@ export default function DashboardPage() {
       return res.json();
     },
     staleTime: 2 * 60 * 1000,
+  });
+
+  // MTD Deliverables — authoritative source for SVs, Qualified Leads, Closures
+  const { data: mtdData } = useQuery<{
+    client_id: string;
+    month: string;
+    mtd: {
+      spend: number;
+      leads: number;
+      qualified_leads: number;
+      svs: number;
+      cpl: number;
+      cpql: number;
+      cpsv: number;
+      positive_pct: number;
+    };
+    status: { data_complete: boolean; manual_input_missing: boolean; tracking_issue_flag: boolean };
+    last_updated: string;
+  }>({
+    queryKey: ["/api/mtd-deliverables", activeClientId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/mtd-deliverables?client_id=${activeClientId}`);
+      return res.json();
+    },
+    enabled: !!activeClientId,
+    staleTime: 0,
   });
 
   if (analysisError) {
@@ -516,16 +544,14 @@ export default function DashboardPage() {
   const totalSpendAll = adsWithMetrics.reduce((s: number, c: any) => s + c.spend, 0);
   const budgetEfficiencyPct = totalSpendAll > 0 ? Math.round((spendOnHighCpl / totalSpendAll) * 100) : 0;
 
-  // ─── Account Health Score (composite) ──────────────────────────
+  // ─── Account Health Score (composite — Revised Parameters) ────
   const healthScoreComponents = {
     cpl: (() => {
       const target = targetCpl || thresholds?.cpl_target || 800;
       if (ap.overall_cpl <= 0) return 70;
       const ratio = ap.overall_cpl / target;
-      if (ratio <= 1) return 100;
-      if (ratio <= 1.2) return 80;
-      if (ratio <= 1.5) return 50;
-      return 20;
+      // Linear scoring: 100 at ratio 1.0, drops to 0 at ratio 2.0
+      return Math.round(Math.max(0, Math.min(100, 100 - (ratio - 1) * 100)));
     })(),
     creative: (() => {
       if (creativeHealth.length === 0) return 70;
@@ -537,43 +563,42 @@ export default function DashboardPage() {
       const pctThrough = mp.pct_through_month || 1;
       const targetSpendAtPoint = mp.targets.budget * (pctThrough / 100);
       const ratio = mp.mtd.spend / (targetSpendAtPoint || 1);
-      if (ratio >= 0.85 && ratio <= 1.15) return 100;
-      if (ratio >= 0.70 && ratio <= 1.30) return 75;
-      return 40;
+      const deviation = Math.abs(ratio - 1);
+      // Perfect (100) at 1.0 ratio, drops to 0 at 50% deviation (0.5 or 1.5)
+      return Math.round(Math.max(0, 100 - (deviation * 200)));
     })(),
-    pacing_leads: (() => {
-      if (!mp) return 50;
-      const leadsPct = mp.pacing?.leads_pct || 0;
-      if (leadsPct >= 95) return 100;
-      if (leadsPct >= 80) return 80;
-      if (leadsPct >= 60) return 50;
-      return 20;
-    })(),
-    svs: (() => {
-      const svsMtd = benchmarks?.svs_mtd || 0;
-      const targetSvs = mp?.targets?.svs?.low || 10;
-      if (svsMtd >= targetSvs) return 100;
-      const pctThrough = mp?.pct_through_month || 50;
-      const mtdTargetSvs = targetSvs * (pctThrough / 100);
-      return svsMtd >= mtdTargetSvs ? 100 : Math.min(100, (svsMtd / mtdTargetSvs) * 100);
+    cpql: (() => {
+      const qLeads = benchmarks?.positive_leads_mtd || benchmarks?.svs_mtd || 0;
+      const spend = mp?.mtd?.spend || 0;
+      const targetCpsv = mp?.targets?.cpsv?.high || 20000;
+      // CPQL Target (weighted slightly higher than CPSV if using PosLeads)
+      const targetCpql = benchmarks?.positive_leads_mtd ? targetCpsv * 1.5 : targetCpsv;
+
+      if (qLeads === 0) return 70;
+      const actualCpql = spend / qLeads;
+      const ratio = actualCpql / targetCpql;
+      return Math.round(Math.max(0, Math.min(100, 100 - (ratio - 1) * 100)));
     })(),
     cpsv: (() => {
       const svsMtd = benchmarks?.svs_mtd || 0;
-      const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
+      const spend = mp?.mtd?.spend || 0;
+      if (svsMtd === 0) return 70;
+      const cpsvMtd = spend / svsMtd;
       const targetCpsv = mp?.targets?.cpsv?.high || 20000;
-      if (cpsvMtd === 0) return 70;
-      if (cpsvMtd <= targetCpsv) return 100;
-      if (cpsvMtd <= targetCpsv * 1.3) return 60;
-      return 30;
+      const ratio = cpsvMtd / targetCpsv;
+      return Math.round(Math.max(0, Math.min(100, 100 - (ratio - 1) * 100)));
     })(),
   };
 
+  const svsMtd = benchmarks?.svs_mtd || 0;
+  const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
+  const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
+
   const accountHealthScore = Math.round(
     healthScoreComponents.cpsv * 0.25 +
-    healthScoreComponents.svs * 0.20 +
-    healthScoreComponents.pacing_budget * 0.20 +
-    healthScoreComponents.pacing_leads * 0.10 +
-    healthScoreComponents.cpl * 0.15 +
+    healthScoreComponents.pacing_budget * 0.25 +
+    healthScoreComponents.cpql * 0.20 +
+    healthScoreComponents.cpl * 0.20 +
     healthScoreComponents.creative * 0.10
   );
   const healthScoreColor = accountHealthScore >= 75 ? "hsl(142, 70%, 45%)" : accountHealthScore >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
@@ -747,12 +772,20 @@ export default function DashboardPage() {
             }
           />
           <KpiCard
-            title="CTR"
-            value={formatPct(ap.overall_ctr)}
-            trend={ap.ctr_trend}
-            trendValue={`${Math.abs(ap.ctr_change_pct).toFixed(1)}%`}
-            icon={MousePointerClick}
-            subtitle="vs prior"
+            title="Avg CPSV"
+            value={formatINR(cpsvMtd, 0)}
+            icon={Zap}
+            isInverse
+            status={
+              cpsvMtd > 0
+                ? cpsvMtd <= targetCpsvValue
+                  ? { label: "On Target", variant: "success" }
+                  : cpsvMtd <= targetCpsvValue * 1.3
+                    ? { label: "Watch", variant: "warning" }
+                    : { label: "Alert", variant: "destructive" }
+                : { label: "Awaiting Data", variant: "secondary" }
+            }
+            subtitle="vs target"
           />
           <KpiCard
             title="Monthly Pacing"
@@ -852,10 +885,9 @@ export default function DashboardPage() {
                   <p className="font-semibold">Performance Intelligence Score</p>
                   <div className="space-y-1">
                     <p>• 25% CPSV (Cost Per Site Visit)</p>
-                    <p>• 20% SVs (Site Visits vs Target)</p>
-                    <p>• 20% MTD Budget Alignment</p>
-                    <p>• 10% MTD Lead Velocity</p>
-                    <p>• 15% CPL Performance</p>
+                    <p>• 25% Budget (MTD Alignment)</p>
+                    <p>• 20% CPQL (Cost Per Quality Lead)</p>
+                    <p>• 20% CPL (Cost Per Lead)</p>
                     <p>• 10% Creative Health (Avg TSR/VHR)</p>
                   </div>
                 </TooltipContent>
@@ -883,10 +915,9 @@ export default function DashboardPage() {
             <div className="grid grid-cols-5 gap-3">
               {([
                 { label: "CPSV", score: healthScoreComponents.cpsv, weight: "25%" },
-                { label: "SVs", score: healthScoreComponents.svs, weight: "20%" },
-                { label: "Budget", score: healthScoreComponents.pacing_budget, weight: "20%" },
-                { label: "Leads", score: healthScoreComponents.pacing_leads, weight: "10%" },
-                { label: "CPL", score: healthScoreComponents.cpl, weight: "15%" },
+                { label: "Budget", score: healthScoreComponents.pacing_budget, weight: "25%" },
+                { label: "CPQL", score: healthScoreComponents.cpql, weight: "20%" },
+                { label: "CPL", score: healthScoreComponents.cpl, weight: "20%" },
                 { label: "Creative", score: healthScoreComponents.creative, weight: "10%" },
               ]).map((item) => (
                 <div key={item.label} className="text-center">
@@ -979,6 +1010,454 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Monthly Pacing — Full Table */}
+        {(() => {
+          // ─── Pacing calculations (all backend-spec formulas) ─────────
+          const daysElapsed = mp?.days_elapsed || 0;
+          const daysRemaining = mp?.days_remaining ?? 1;
+          const totalDays = daysElapsed + daysRemaining;
+
+          // Helper: safe divide
+          function div(a: number, b: number) { return b > 0 ? a / b : 0; }
+
+          // MTD Target = (Monthly Target / totalDays) × daysElapsed
+          function mtdTarget(monthlyTarget: number) {
+            return totalDays > 0 ? (monthlyTarget / totalDays) * daysElapsed : 0;
+          }
+          // Projected = (MTD Delivered / daysElapsed) × totalDays
+          function projected(delivered: number) {
+            return daysElapsed > 0 ? (delivered / daysElapsed) * totalDays : 0;
+          }
+          // Daily Needed = (Monthly Target - MTD Delivered) / daysRemaining
+          function dailyNeeded(monthlyTarget: number, delivered: number) {
+            return daysRemaining > 0 ? (monthlyTarget - delivered) / daysRemaining : 0;
+          }
+
+          // Status logic — volume metrics (higher is better)
+          function pacingStatus(delivered: number, target: number): { label: string; cls: string } {
+            if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
+            const ratio = div(delivered, target);
+            if (ratio >= 1.0) return { label: "ON TRACK", cls: "text-emerald-400" };
+            if (ratio >= 0.9) return { label: "SLIGHTLY BEHIND", cls: "text-amber-400" };
+            return { label: "OFF TRACK", cls: "text-red-400" };
+          }
+          // Status logic — cost metrics (lower is better)
+          function costStatus(delivered: number, target: number): { label: string; cls: string } {
+            if (target <= 0 || delivered <= 0) return { label: "—", cls: "text-muted-foreground" };
+            const ratio = div(delivered, target);
+            if (ratio <= 1.0) return { label: "ON TARGET", cls: "text-emerald-400" };
+            if (ratio <= 1.1) return { label: "SLIGHTLY HIGH", cls: "text-amber-400" };
+            return { label: "OFF TARGET", cls: "text-red-400" };
+          }
+          // Budget status — on track when within ±10%
+          function budgetStatus(delivered: number, target: number): { label: string; cls: string } {
+            if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
+            const ratio = div(delivered, target);
+            if (ratio >= 0.9 && ratio <= 1.1) return { label: "ON TRACK", cls: "text-emerald-400" };
+            if (ratio > 1.1) return { label: "OVERSPENT", cls: "text-red-400" };
+            if (ratio >= 0.8) return { label: "SLIGHTLY UNDER", cls: "text-amber-400" };
+            return { label: "UNDERSPENT", cls: "text-red-400" };
+          }
+
+          // ─── Data from MTD Deliverables API (authoritative source) ──
+          const mtdSpend = mtdData?.mtd?.spend ?? mp?.mtd?.spend ?? 0;
+          const mtdLeads = mtdData?.mtd?.leads ?? mp?.mtd?.leads ?? 0;
+          const mtdQLeads = mtdData?.mtd?.qualified_leads ?? 0;
+          const mtdSvs = mtdData?.mtd?.svs ?? 0;
+          const mtdCpl = mtdLeads > 0 ? div(mtdSpend, mtdLeads) : 0;
+          const mtdCpql = mtdQLeads > 0 ? div(mtdSpend, mtdQLeads) : 0;
+          const mtdCpsv = mtdSvs > 0 ? div(mtdSpend, mtdSvs) : 0;
+          const mtdClosures = benchmarks?.closures_mtd ?? 0;
+
+          // ─── Targets ─────────────────────────────────────────────────
+          const budgetTargetMonthly = benchmarks?.budget ?? mp?.targets?.budget ?? 0;
+          const leadsTargetMonthly = benchmarks?.leads ?? mp?.targets?.leads ?? 0;
+          const cplTargetVal = benchmarks?.cpl ?? mp?.targets?.cpl ?? 0;
+          const cpqlTargetVal = benchmarks?.cpql_target ?? 0;
+          const svsTargetLow = benchmarks?.svs_low ?? mp?.targets?.svs?.low ?? 0;
+          const svsTargetHigh = benchmarks?.svs_high ?? mp?.targets?.svs?.high ?? 0;
+          const cpsvTargetLow = benchmarks?.cpsv_low ?? mp?.targets?.cpsv?.low ?? 0;
+          const cpsvTargetHigh = benchmarks?.cpsv_high ?? mp?.targets?.cpsv?.high ?? 0;
+          const qLeadTargetMonthly = benchmarks?.positive_lead_target ?? 0;
+
+          // ─── Row computations ─────────────────────────────────────────
+          const budget = {
+            target: budgetTargetMonthly,
+            mtdTarget: mtdTarget(budgetTargetMonthly),
+            delivered: mtdSpend,
+            projected: projected(mtdSpend),
+            dailyNeeded: dailyNeeded(budgetTargetMonthly, mtdSpend),
+            status: budgetStatus(mtdSpend, mtdTarget(budgetTargetMonthly)),
+          };
+          const leads = {
+            target: leadsTargetMonthly,
+            mtdTarget: mtdTarget(leadsTargetMonthly),
+            delivered: mtdLeads,
+            projected: projected(mtdLeads),
+            dailyNeeded: dailyNeeded(leadsTargetMonthly, mtdLeads),
+            status: pacingStatus(mtdLeads, mtdTarget(leadsTargetMonthly)),
+          };
+          const cpl = {
+            target: cplTargetVal,
+            delivered: mtdCpl,
+            projected: mp?.projected_eom?.cpl ?? 0,
+            status: costStatus(mtdCpl, cplTargetVal),
+          };
+          const qleads = {
+            target: qLeadTargetMonthly,
+            mtdTarget: mtdTarget(qLeadTargetMonthly),
+            delivered: mtdQLeads,
+            projected: projected(mtdQLeads),
+            dailyNeeded: dailyNeeded(qLeadTargetMonthly, mtdQLeads),
+            status: pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)),
+          };
+          const cpql = {
+            target: cpqlTargetVal,
+            delivered: mtdCpql,
+            projected: qLeadTargetMonthly > 0 ? div(budgetTargetMonthly, qLeadTargetMonthly) : 0,
+            status: costStatus(mtdCpql, cpqlTargetVal),
+          };
+          const svs = {
+            targetLow: svsTargetLow,
+            targetHigh: svsTargetHigh,
+            mtdTarget: mtdTarget(svsTargetLow),
+            delivered: mtdSvs,
+            projected: projected(mtdSvs),
+            dailyNeeded: dailyNeeded(svsTargetLow, mtdSvs),
+            status: pacingStatus(mtdSvs, mtdTarget(svsTargetLow)),
+          };
+          const cpsv = {
+            targetLow: cpsvTargetLow,
+            targetHigh: cpsvTargetHigh,
+            delivered: mtdCpsv,
+            status: costStatus(mtdCpsv, cpsvTargetHigh),
+          };
+
+          const Dash = () => <span className="text-muted-foreground">—</span>;
+
+          type RowDef = {
+            label: string;
+            target: React.ReactNode;
+            mtdTarget: React.ReactNode;
+            delivered: React.ReactNode;
+            projectedNode: React.ReactNode;
+            status: { label: string; cls: string };
+            daily: React.ReactNode;
+            highlight?: boolean;
+          };
+
+          const rows: RowDef[] = [
+            {
+              label: "Spend",
+              target: formatINR(budget.target, 0),
+              mtdTarget: formatINR(budget.mtdTarget, 0),
+              delivered: <span className="font-semibold">{formatINR(budget.delivered, 0)}</span>,
+              projectedNode: formatINR(budget.projected, 0),
+              status: budget.status,
+              daily: formatINR(budget.dailyNeeded, 0),
+            },
+            {
+              label: "Leads",
+              target: Math.round(leads.target),
+              mtdTarget: Math.round(leads.mtdTarget),
+              delivered: <span className="font-semibold">{Math.round(leads.delivered)}</span>,
+              projectedNode: Math.round(leads.projected),
+              status: leads.status,
+              daily: leads.dailyNeeded.toFixed(1),
+            },
+            {
+              label: "CPL",
+              target: formatINR(cpl.target, 0),
+              mtdTarget: formatINR(cpl.target, 0),
+              delivered: <span className="font-semibold">{cpl.delivered > 0 ? formatINR(cpl.delivered, 0) : <Dash />}</span>,
+              projectedNode: cpl.projected > 0 ? formatINR(cpl.projected, 0) : <Dash />,
+              status: cpl.status,
+              daily: <Dash />,
+            },
+            {
+              label: "Qualified Leads",
+              target: qleads.target > 0 ? Math.round(qleads.target) : <Dash />,
+              mtdTarget: qleads.target > 0 ? Math.round(qleads.mtdTarget) : <Dash />,
+              delivered: <span className="font-semibold">{mtdQLeads > 0 ? mtdQLeads : <Dash />}</span>,
+              projectedNode: qleads.projected > 0 ? Math.round(qleads.projected) : <Dash />,
+              status: qleads.target > 0 ? qleads.status : { label: "Awaiting", cls: "text-muted-foreground" },
+              daily: qleads.target > 0 && daysRemaining > 0 ? qleads.dailyNeeded.toFixed(1) : <Dash />,
+            },
+            {
+              label: "CPQL",
+              target: cpql.target > 0 ? formatINR(cpql.target, 0) : <Dash />,
+              mtdTarget: cpql.target > 0 ? formatINR(cpql.target, 0) : <Dash />,
+              delivered: <span className="font-semibold">{mtdCpql > 0 ? formatINR(mtdCpql, 0) : <Dash />}</span>,
+              projectedNode: cpql.projected > 0 ? formatINR(cpql.projected, 0) : <Dash />,
+              status: cpql.target > 0 ? cpql.status : { label: "Awaiting", cls: "text-muted-foreground" },
+              daily: <Dash />,
+            },
+            {
+              label: "SVs",
+              target: svs.targetLow > 0 ? `${svs.targetLow}–${svs.targetHigh}` : <Dash />,
+              mtdTarget: svs.targetLow > 0 ? Math.round(svs.mtdTarget) : <Dash />,
+              delivered: <span className="font-semibold">{mtdSvs > 0 ? mtdSvs : <Dash />}</span>,
+              projectedNode: svs.projected > 0 ? Math.round(svs.projected) : <Dash />,
+              status: mtdSvs > 0 ? svs.status : { label: "Awaiting data", cls: "text-muted-foreground" },
+              daily: svs.targetLow > 0 && daysRemaining > 0 ? svs.dailyNeeded.toFixed(1) : <Dash />,
+              highlight: true,
+            },
+            {
+              label: "CPSV",
+              target: cpsv.targetHigh > 0 ? `${formatINR(cpsv.targetLow, 0)}–${formatINR(cpsv.targetHigh, 0)}` : <Dash />,
+              mtdTarget: cpsv.targetHigh > 0 ? formatINR(cpsv.targetHigh, 0) : <Dash />,
+              delivered: <span className="font-semibold">{mtdCpsv > 0 ? formatINR(mtdCpsv, 0) : <Dash />}</span>,
+              projectedNode: <Dash />,
+              status: mtdCpsv > 0 ? cpsv.status : { label: "Awaiting data", cls: "text-muted-foreground" },
+              daily: <Dash />,
+            },
+            {
+              label: "Closures",
+              target: <Dash />,
+              mtdTarget: <Dash />,
+              delivered: <span className="font-semibold">{mtdClosures > 0 ? mtdClosures : <Dash />}</span>,
+              projectedNode: <Dash />,
+              status: mtdClosures > 0 ? { label: "TRACKING", cls: "text-emerald-400" } : { label: "Awaiting data", cls: "text-muted-foreground" },
+              daily: <Dash />,
+            },
+          ];
+
+          const hasMtdMismatch = mtdData?.status?.tracking_issue_flag;
+          const hasManualMissing = mtdData?.status?.manual_input_missing;
+
+          return (
+            <Card className="lg:col-span-2 h-full flex flex-col">
+              <CardHeader className="pb-2 px-4 pt-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <CardTitle className="text-sm font-medium">
+                      Monthly Pacing — {mp?.month || new Date().toISOString().slice(0, 7)}
+                    </CardTitle>
+                    <p className="text-[10px] text-muted-foreground">
+                      {daysElapsed} days elapsed · {daysRemaining} remaining · {((mp?.pct_through_month || 0)).toFixed(0)}% through month
+                      {mtdData?.last_updated && (
+                        <span className="ml-2 text-muted-foreground/60">· updated {new Date(mtdData.last_updated).toLocaleDateString()}</span>
+                      )}
+                    </p>
+                  </div>
+                  <a href="/#/mtd-deliverables" className="text-[10px] text-primary flex items-center gap-0.5 hover:underline">
+                    Update MTD Deliverables <ArrowRight className="w-2.5 h-2.5" />
+                  </a>
+                </div>
+                {/* Data integrity flags */}
+                {hasMtdMismatch && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-red-400 mt-1 rounded bg-red-500/8 px-2 py-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    Tracking issue detected — spend recorded but 0 leads. MTD data may be incomplete.
+                  </div>
+                )}
+                {hasManualMissing && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-amber-400 mt-1 rounded bg-amber-500/8 px-2 py-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    SVs and Qualified Leads not entered yet — update MTD Deliverables for full pacing view.
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border/50">
+                        <th className="p-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground sticky left-0 bg-card">Metric</th>
+                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">MTD Target</th>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-[200px]">
+                            (Monthly Target ÷ Total Days) × Days Elapsed
+                          </TooltipContent>
+                        </Tooltip>
+                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">Projected</th>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-[200px]">
+                            (MTD Delivered ÷ Days Elapsed) × Total Days
+                          </TooltipContent>
+                        </Tooltip>
+                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">Daily Needed</th>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-[200px]">
+                            (Monthly Target − MTD Delivered) ÷ Remaining Days
+                          </TooltipContent>
+                        </Tooltip>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, i) => (
+                        <tr key={row.label} className={`border-b border-border/30 ${row.highlight ? "bg-primary/3" : ""} hover:bg-muted/20 transition-colors`}>
+                          <td className="p-2 text-foreground font-medium sticky left-0 bg-card">{row.label}</td>
+                          <td className="p-2 text-right tabular-nums text-muted-foreground">{row.target}</td>
+                          <td className="p-2 text-right tabular-nums text-primary/80">{row.mtdTarget}</td>
+                          <td className="p-2 text-right tabular-nums">{row.delivered}</td>
+                          <td className="p-2 text-right tabular-nums">{row.projectedNode}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant="secondary" className={`text-[10px] ${row.status.cls}`}>
+                              {row.status.label}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right tabular-nums text-foreground/80">{row.daily}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {(mp?.alerts?.length || 0) > 0 && (
+                  <div className="space-y-1 pt-2 mt-2 border-t border-border/30">
+                    {(mp?.alerts || []).map((alert: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2 text-[11px] text-amber-400">
+                        <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                        <span>{alert}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+      </div>
+
+      {/* ─── Adset/Ad Group Scoring ─────────────────────────────── */}
+      {scoringSummary && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <Link href="/adsets" className="group flex items-center gap-1.5 cursor-pointer">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">
+                  {isGoogle ? "Ad Group Scoring" : "Adset Scoring"}
+                </h3>
+                <ArrowRight className="w-3 h-3 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </Link>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {scoringSummary.total_adsets} total {isGoogle ? "ad groups" : "adsets"}
+                </span>
+
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors">
+                  {scoringSummary.winners} Winners →
+                </Badge>
+
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+                  {scoringSummary.watch} Watch →
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors">
+                  {scoringSummary.underperformers} Underperformers →
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* CTR Trend + Multi-Metric Chart & Monthly Pacing Table */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {/* CTR / TSR / VHR / CPM Multi-Metric Chart */}
+        <Card className="h-full flex flex-col">
+          <CardHeader className="pb-2 px-4 pt-4">
+            <CardTitle className="text-sm font-medium">{isGoogle ? `Key Metrics (${periodLabel})` : `CTR · TSR · VHR · CPM (${periodLabel})`}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 pb-4">
+            <div className="h-56">
+              {!isGoogle && multiMetricChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={multiMetricChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
+                    <YAxis
+                      yAxisId="pct"
+                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
+                      tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                      domain={["auto", "auto"]}
+                    />
+                    <YAxis
+                      yAxisId="rupee"
+                      orientation="right"
+                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
+                      tickFormatter={(v: number) => `₹${v.toFixed(0)}`}
+                    />
+                    <RechartsTooltip content={<CustomTooltipContent />} />
+                    <Legend wrapperStyle={{ fontSize: "10px" }} />
+                    <Line yAxisId="pct" type="monotone" dataKey="ctr" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 2 }} name="CTR %" />
+                    <Line yAxisId="pct" type="monotone" dataKey="tsr" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 2 }} name="TSR %" />
+                    <Line yAxisId="pct" type="monotone" dataKey="vhr" stroke={CHART_COLORS.green} strokeWidth={2} dot={{ r: 2 }} name="VHR %" />
+                    <Line yAxisId="rupee" type="monotone" dataKey="cpm" stroke={CHART_COLORS.red} strokeWidth={2} strokeDasharray="5 3" dot={false} name="CPM (₹)" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : isGoogle ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={multiMetricChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
+                    <YAxis
+                      yAxisId="pct"
+                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
+                      tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                      domain={["auto", "auto"]}
+                    />
+                    <YAxis
+                      yAxisId="rupee"
+                      orientation="right"
+                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
+                      tickFormatter={(v: number) => `₹${v.toFixed(0)}`}
+                    />
+                    <RechartsTooltip content={<CustomTooltipContent />} />
+                    <Legend wrapperStyle={{ fontSize: "10px" }} />
+                    <Line yAxisId="pct" type="monotone" dataKey="ctr" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.blue }} name="CTR %" />
+                    <Line yAxisId="pct" type="monotone" dataKey="tsr" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.amber }} name="TSR %" />
+                    <Line yAxisId="pct" type="monotone" dataKey="vhr" stroke={CHART_COLORS.green} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.green }} name="VHR %" />
+                    <Line yAxisId="rupee" type="monotone" dataKey="cpm" stroke={CHART_COLORS.red} strokeWidth={2} strokeDasharray="5 3" dot={false} name="CPM (₹)" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No daily data available</div>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2 px-2 pt-2">
+              {isGoogle ? (
+                <>
+                  <div className="rounded-md bg-muted/30 p-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPC</p>
+                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpc, 1)}</p>
+                  </div>
+                  <div className="rounded-md bg-muted/30 p-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPM</p>
+                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
+                  </div>
+                  <div className="rounded-md bg-muted/30 p-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">CVR</p>
+                    <p className="text-xs font-medium tabular-nums">{formatPct(ap.overall_cvr || 0)}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-md bg-muted/30 p-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPM</p>
+                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
+                  </div>
+                  <div className="rounded-md bg-muted/30 p-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Blended TSR</p>
+                    <p className="text-xs font-medium tabular-nums">{blendedTSR !== null ? `${blendedTSR.toFixed(1)}%` : "—"}</p>
+                  </div>
+                  <div className="rounded-md bg-muted/30 p-2 text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Blended VHR</p>
+                    <p className="text-xs font-medium tabular-nums">{blendedVHR !== null ? `${blendedVHR.toFixed(1)}%` : "—"}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
         {/* Daily Spend + Leads — ComposedChart */}
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardHeader className="pb-2 px-4 pt-4">
@@ -1042,299 +1521,6 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No daily data available</div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ─── Adset/Ad Group Scoring ─────────────────────────────── */}
-      {scoringSummary && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{isGoogle ? "Ad Group Scoring" : "Adset Scoring"}</h3>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {scoringSummary.total_adsets} total {isGoogle ? "ad groups" : "adsets"}
-                </span>
-                <a
-                  href="/#/adsets?filter=WINNER"
-                  className="cursor-pointer"
-                  data-testid="badge-winners"
-                >
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors">
-                    {scoringSummary.winners} Winners →
-                  </Badge>
-                </a>
-                <a
-                  href="/#/adsets?filter=WATCH"
-                  className="cursor-pointer"
-                  data-testid="badge-watch"
-                >
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
-                    {scoringSummary.watch} Watch →
-                  </Badge>
-                </a>
-                <a
-                  href="/#/adsets?filter=UNDERPERFORMER"
-                  className="cursor-pointer"
-                  data-testid="badge-underperformers"
-                >
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors">
-                    {scoringSummary.underperformers} Underperformers →
-                  </Badge>
-                </a>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* CTR Trend + Multi-Metric Chart & Monthly Pacing Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* CTR / TSR / VHR / CPM Multi-Metric Chart */}
-        <Card className="h-full flex flex-col">
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">{isGoogle ? `Key Metrics (${periodLabel})` : `CTR · TSR · VHR · CPM (${periodLabel})`}</CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 pb-4">
-            <div className="h-56">
-              {!isGoogle && multiMetricChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={multiMetricChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
-                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
-                    <YAxis
-                      yAxisId="pct"
-                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                      domain={["auto", "auto"]}
-                    />
-                    <YAxis
-                      yAxisId="rupee"
-                      orientation="right"
-                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `₹${v.toFixed(0)}`}
-                    />
-                    <RechartsTooltip content={<CustomTooltipContent />} />
-                    <Legend wrapperStyle={{ fontSize: "10px" }} />
-                    <Line yAxisId="pct" type="monotone" dataKey="ctr" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 2 }} name="CTR %" />
-                    <Line yAxisId="pct" type="monotone" dataKey="tsr" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 2 }} name="TSR %" />
-                    <Line yAxisId="pct" type="monotone" dataKey="vhr" stroke={CHART_COLORS.green} strokeWidth={2} dot={{ r: 2 }} name="VHR %" />
-                    <Line yAxisId="rupee" type="monotone" dataKey="cpm" stroke={CHART_COLORS.red} strokeWidth={2} strokeDasharray="5 3" dot={false} name="CPM (₹)" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              ) : isGoogle ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={multiMetricChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
-                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} domain={["auto", "auto"]} tickFormatter={(v: number) => `${v.toFixed(1)}%`} />
-                    <RechartsTooltip content={<CustomTooltipContent />} />
-                    <Line type="monotone" dataKey="ctr" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.blue }} name="CTR" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No daily data available</div>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-2 pt-2">
-              {isGoogle ? (
-                <>
-                  <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPC</p>
-                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpc, 1)}</p>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPM</p>
-                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">CVR</p>
-                    <p className="text-xs font-medium tabular-nums">{formatPct(ap.overall_cvr || 0)}</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPM</p>
-                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Blended TSR</p>
-                    <p className="text-xs font-medium tabular-nums">{blendedTSR !== null ? `${blendedTSR.toFixed(1)}%` : "—"}</p>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Blended VHR</p>
-                    <p className="text-xs font-medium tabular-nums">{blendedVHR !== null ? `${blendedVHR.toFixed(1)}%` : "—"}</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        {/* Monthly Pacing — Full Table */}
-        <Card className="lg:col-span-2 h-full flex flex-col">
-          <CardHeader className="pb-2 px-4 pt-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <CardTitle className="text-sm font-medium">Monthly Pacing — {mp?.month || new Date().toISOString().slice(0, 7)}</CardTitle>
-                <p className="text-[10px] text-muted-foreground">
-                  {mp?.days_elapsed || 0} days elapsed · {mp?.days_remaining || 0} remaining · {(mp?.pct_through_month || 0).toFixed(0)}% through month
-                </p>
-              </div>
-              <a href="/#/benchmarks" className="text-[10px] text-primary flex items-center gap-0.5 hover:underline">
-                Enter SVs, Positive Leads in MTD Deliverables → <ArrowRight className="w-2.5 h-2.5" />
-              </a>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="p-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Metric</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Target</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Projected</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                    <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily Required</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const pctThrough = mp?.pct_through_month || 0;
-                    const daysRemaining = mp?.days_remaining || 1;
-                    
-                    const budgetTarget = mp?.targets?.budget || 0;
-                    const budgetMtdTarget = budgetTarget * (pctThrough / 100);
-                    const budgetDelivered = mp?.mtd?.spend || 0;
-                    const budgetProjected = mp?.projected_eom?.spend || 0;
-                    const budgetDailyNeeded = daysRemaining > 0 ? (budgetTarget - budgetDelivered) / daysRemaining : 0;
-                    
-                    const leadsTarget = mp?.targets?.leads || 0;
-                    const leadsMtdTarget = leadsTarget * (pctThrough / 100);
-                    const leadsDelivered = mp?.mtd?.leads || 0;
-                    const leadsProjected = mp?.projected_eom?.leads || 0;
-                    const leadsDailyNeeded = daysRemaining > 0 ? (leadsTarget - leadsDelivered) / daysRemaining : 0;
-                    
-                    const cplTarget = mp?.targets?.cpl || 0;
-                    const cplDelivered = mp?.mtd?.cpl || 0;
-                    const cplProjected = mp?.projected_eom?.cpl || 0;
-
-                    return (
-                      <>
-                        <tr className="border-b border-border/30">
-                          <td className="p-2 text-foreground font-medium">Budget</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">{formatINR(budgetTarget, 0)}</td>
-                          <td className="p-2 text-right tabular-nums text-primary/80">{formatINR(budgetMtdTarget, 0)}</td>
-                          <td className="p-2 text-right tabular-nums font-semibold">{formatINR(budgetDelivered, 0)}</td>
-                          <td className="p-2 text-right tabular-nums">{formatINR(budgetProjected, 0)}</td>
-                          <td className="p-2 text-right">
-                            <Badge variant="secondary" className={`text-[10px] ${budgetDelivered >= budgetMtdTarget * 0.9 && budgetDelivered <= budgetMtdTarget * 1.1 ? "text-emerald-400" : "text-amber-400"}`}>
-                              {budgetDelivered >= budgetMtdTarget * 0.9 && budgetDelivered <= budgetMtdTarget * 1.1 ? "ON TRACK" : budgetDelivered > budgetMtdTarget * 1.1 ? "OVERSPENT" : "UNDERSPENT"}
-                            </Badge>
-                          </td>
-                          <td className="p-2 text-right tabular-nums font-medium text-emerald-400">{formatINR(budgetDailyNeeded, 0)}</td>
-                        </tr>
-                        <tr className="border-b border-border/30">
-                          <td className="p-2 text-foreground font-medium">Leads</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">{Math.round(leadsTarget)}</td>
-                          <td className="p-2 text-right tabular-nums text-primary/80">{Math.round(leadsMtdTarget)}</td>
-                          <td className="p-2 text-right tabular-nums font-semibold">{Math.round(leadsDelivered)}</td>
-                          <td className="p-2 text-right tabular-nums">{Math.round(leadsProjected)}</td>
-                          <td className="p-2 text-right">
-                            <Badge variant="secondary" className={`text-[10px] ${leadsDelivered >= leadsMtdTarget * 0.9 ? "text-emerald-400" : "text-red-400"}`}>
-                              {leadsDelivered >= leadsMtdTarget ? "AHEAD" : leadsDelivered >= leadsMtdTarget * 0.9 ? "ON TRACK" : "BEHIND"}
-                            </Badge>
-                          </td>
-                          <td className="p-2 text-right tabular-nums font-medium text-emerald-400">{leadsDailyNeeded.toFixed(1)}</td>
-                        </tr>
-                        <tr className="border-b border-border/30">
-                          <td className="p-2 text-foreground font-medium">CPL</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">{formatINR(cplTarget, 0)}</td>
-                          <td className="p-2 text-right tabular-nums text-primary/80">{formatINR(cplTarget, 0)}</td>
-                          <td className="p-2 text-right tabular-nums font-semibold">{formatINR(cplDelivered, 0)}</td>
-                          <td className="p-2 text-right tabular-nums">{formatINR(cplProjected, 0)}</td>
-                          <td className="p-2 text-right">
-                            <Badge variant="secondary" className={`text-[10px] ${cplDelivered <= cplTarget ? "text-emerald-400" : "text-red-400"}`}>
-                              {cplDelivered <= cplTarget ? "ON TARGET" : "HIGH"}
-                            </Badge>
-                          </td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                        </tr>
-                      </>
-                    );
-                  })()}
-                  {(() => {
-                    const svsMtd = benchmarks?.svs_mtd ?? 0;
-                    const projectedSvs = (mp?.pct_through_month || 0) > 0 ? Math.round(svsMtd / ((mp?.pct_through_month || 1) / 100)) : 0;
-                    const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
-                    const closuresMtd = benchmarks?.closures_mtd ?? 0;
-                    return (
-                      <>
-                        <tr className="border-b border-border/30">
-                          <td className="p-2 text-foreground">SVs</td>
-                          <td className="p-2 text-right tabular-nums">{mp?.targets?.svs?.low || 0}–{mp?.targets?.svs?.high || 0}</td>
-                          <td className="p-2 text-right tabular-nums">{svsMtd > 0 ? svsMtd : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="p-2 text-right tabular-nums">{projectedSvs > 0 ? projectedSvs : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="p-2 text-right">
-                            {svsMtd > 0 ? (
-                              <Badge variant="secondary" className={`text-[10px] ${projectedSvs >= (mp?.targets?.svs?.low || 0) ? "text-emerald-400" : "text-red-400"}`}>
-                                {projectedSvs >= (mp?.targets?.svs?.low || 0) ? "ON TRACK" : "BEHIND"}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] text-muted-foreground">Awaiting data</Badge>
-                            )}
-                          </td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                        </tr>
-                        <tr className="border-b border-border/30">
-                          <td className="p-2 text-foreground">CPSV</td>
-                          <td className="p-2 text-right tabular-nums">{formatINR((mp?.targets?.cpsv?.low || 0) / 1000, 0)}K–{formatINR((mp?.targets?.cpsv?.high || 0) / 1000, 0)}K</td>
-                          <td className="p-2 text-right tabular-nums">{cpsvMtd > 0 ? formatINR(cpsvMtd, 0) : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                          <td className="p-2 text-right">
-                            {cpsvMtd > 0 ? (
-                              <Badge variant="secondary" className={`text-[10px] ${cpsvMtd <= (mp?.targets?.cpsv?.high || 0) ? "text-emerald-400" : "text-red-400"}`}>
-                                {cpsvMtd <= (mp?.targets?.cpsv?.high || 0) ? "ON TARGET" : "HIGH"}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] text-muted-foreground">Awaiting data</Badge>
-                            )}
-                          </td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                        </tr>
-                        <tr>
-                          <td className="p-2 text-foreground">Closures</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                          <td className="p-2 text-right tabular-nums">{closuresMtd > 0 ? closuresMtd : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                          <td className="p-2 text-right">
-                            {closuresMtd > 0 ? (
-                              <Badge variant="secondary" className="text-[10px] text-emerald-400">TRACKING</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] text-muted-foreground">Awaiting data</Badge>
-                            )}
-                          </td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">—</td>
-                        </tr>
-                      </>
-                    );
-                  })()}
-                </tbody>
-              </table>
-            </div>
-            {(mp?.alerts?.length || 0) > 0 && (
-              <div className="space-y-1 pt-2 mt-2 border-t border-border/30">
-                {(mp?.alerts || []).map((alert: string, i: number) => (
-                  <div key={i} className="flex items-start gap-2 text-[11px] text-amber-400">
-                    <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                    <span>{alert}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -1428,20 +1614,20 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Target</p>
-                      <p className="text-sm font-semibold tabular-nums text-foreground">{Math.round(mtdLeadsTarget)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Delivered</p>
-                      <p className="text-sm font-semibold tabular-nums text-foreground">{mtdLeads}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Yesterday's Delivered</p>
-                      <p className="text-sm font-semibold tabular-nums text-foreground">{prevDayLeads || 0}</p>
-                    </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Target</p>
+                    <p className="text-sm font-semibold tabular-nums text-foreground">{Math.round(mtdLeadsTarget)}</p>
                   </div>
+                  <div>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Delivered</p>
+                    <p className="text-sm font-semibold tabular-nums text-foreground">{mtdLeads}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Yesterday's Delivered</p>
+                    <p className="text-sm font-semibold tabular-nums text-foreground">{prevDayLeads || 0}</p>
+                  </div>
+                </div>
               </div>
               {isGoogle && conversionSanity && (
                 <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/30">
@@ -1948,7 +2134,7 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* ─── MV2-N04: Acquisition Funnel visualization ──────────── */}
+      {/* ─── MV2-N04: Acquisition Funnel visualization (Enhanced) ─────── */}
       {(() => {
         const impressions: number = (ap as any).total_impressions ?? (ap as any).impressions ?? 0;
         const clicks: number = (ap as any).total_clicks ?? (ap as any).clicks ?? Math.round(impressions * (ap.overall_ctr / 100));
@@ -1957,17 +2143,47 @@ export default function DashboardPage() {
         const posLeads: number = benchmarks?.positive_leads_mtd ?? 0;
 
         const steps = [
-          { label: "Impressions", value: impressions, color: "hsl(220, 70%, 55%)" },
-          { label: "Clicks", value: clicks, color: "hsl(262, 60%, 55%)" },
-          { label: "Leads", value: leads, color: "hsl(35, 90%, 55%)" },
-          ...(svsMtd > 0 ? [{ label: "SVs", value: svsMtd, color: "hsl(142, 70%, 45%)" }] : []),
-          ...(posLeads > 0 ? [{ label: "Positive Leads", value: posLeads, color: "hsl(47, 100%, 50%)" }] : []),
+          {
+            label: "Impressions",
+            value: impressions,
+            color: "from-blue-500/50 to-blue-300/50",
+            sub: "Awareness",
+            icon: Eye
+          },
+          {
+            label: "Clicks",
+            value: clicks,
+            color: "from-indigo-500/50 to-indigo-300/50",
+            sub: "Consideration",
+            icon: MousePointer2
+          },
+          {
+            label: "Leads",
+            value: leads,
+            color: "from-purple-500/50 to-purple-300/50",
+            sub: "Intent",
+            icon: UserCheck
+          },
+          ...(svsMtd > 0 ? [{
+            label: "SVs",
+            value: svsMtd,
+            color: "from-emerald-500/50 to-emerald-300/50",
+            sub: "Conversion",
+            icon: Home
+          }] : []),
+          ...(posLeads > 0 ? [{
+            label: "Positive Leads",
+            value: posLeads,
+            color: "from-amber-500/50 to-amber-300/50",
+            sub: "Quality",
+            icon: Star
+          }] : []),
         ];
 
         const maxVal = steps[0]?.value || 1;
 
         const getConvRate = (from: number, to: number) =>
-          from > 0 ? `${((to / from) * 100).toFixed(2)}%` : "—";
+          from > 0 ? ((to / from) * 100).toFixed(2) : "0.00";
 
         const convRateLabels = steps.map((step, i) => {
           if (i === 0) return null;
@@ -1979,46 +2195,108 @@ export default function DashboardPage() {
         if (impressions === 0 && leads === 0) return null;
 
         return (
-          <Card>
-            <CardHeader className="pb-2 px-4 pt-4">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Filter className="w-4 h-4 text-primary" />
-                Acquisition Funnel
-              </CardTitle>
+          <Card className="overflow-hidden border-border/40 bg-muted/5">
+            <CardHeader className="pb-4 px-5 pt-5 border-b border-border/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-primary" />
+                  Acquisition Funnel
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] font-medium border-primary/20 text-primary/80">
+                  Performance Layer
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="space-y-2">
+            <CardContent className="p-5">
+              <div className="space-y-0 text-center relative">
+                {/* Connector line behind */}
+                <div className="absolute left-[3.25rem] md:left-[5.25rem] top-8 bottom-8 w-px bg-gradient-to-b from-blue-500/20 via-purple-500/20 to-emerald-500/20 z-0 hidden sm:block" />
+
                 {steps.map((step, i) => {
-                  const widthPct = maxVal > 0 ? Math.max(4, (step.value / maxVal) * 100) : 4;
+                  const widthPct = maxVal > 0 ? Math.max(15, (step.value / maxVal) * 100) : 15;
                   const conv = convRateLabels[i];
+                  const Icon = step.icon;
+
                   return (
-                    <div key={step.label} className="space-y-0.5">
+                    <div key={step.label} className="relative z-10 group">
+                      {/* Conversion Gate Badge */}
                       {conv && (
-                        <div className="flex items-center gap-1 pl-1">
-                          <TrendingDown className="w-2.5 h-2.5 text-muted-foreground" />
-                          <span className="text-[9px] text-muted-foreground">{conv.label}: {conv.rate}</span>
+                        <div className="flex justify-center -my-1 py-1 relative z-20">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="bg-background/80 backdrop-blur-md border border-border/60 rounded-full px-2.5 py-0.5 flex items-center gap-1.5 shadow-sm group-hover:border-primary/40 transition-colors cursor-help">
+                                <TrendingDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                <span className="text-[10px] font-bold text-foreground">
+                                  {conv.label}: <span className="text-primary">{conv.rate}%</span>
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="text-xs max-w-[200px]">
+                              {conv.label === "CTR" ? "Click-Through Rate: Performance of creatives in driving traffic." :
+                                conv.label === "CVR" ? "Conversion Rate: Effectiveness of your landing page in generating leads." :
+                                  conv.label === "Lead→SV" ? "Lead-to-Site Visit: Quality of leads becoming qualified prospects." :
+                                    "Progression rate between funnel stages."}
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       )}
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-muted-foreground w-24 shrink-0 text-right">{step.label}</span>
-                        <div className="flex-1 h-6 bg-muted/30 rounded-sm overflow-hidden">
-                          <div
-                            className="h-full rounded-sm flex items-center justify-end pr-2 transition-all"
-                            style={{ width: `${widthPct}%`, backgroundColor: step.color + "cc" }}
-                          >
-                            <span className="text-[9px] font-bold text-black tabular-nums">
-                              {step.value > 0 ? formatNumber(step.value) : "—"}
-                            </span>
-                          </div>
+
+                      <div className="flex items-center gap-4 py-2">
+                        {/* Label Layer */}
+                        <div className="w-20 md:w-28 shrink-0 text-left">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 group-hover:text-primary/70 transition-colors">
+                            {step.label}
+                          </p>
+                          <p className="text-[9px] font-medium text-muted-foreground/40 italic">
+                            {step.sub}
+                          </p>
+                        </div>
+
+                        {/* Bar Container */}
+                        <div className="flex-1 relative">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="h-9 w-full bg-muted/10 rounded-lg overflow-hidden border border-border/5 group-hover:border-border/20 transition-all cursor-help backdrop-blur-[2px]">
+                                <div
+                                  className={`h-full bg-gradient-to-r ${step.color} rounded-r-md flex items-center justify-between px-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] transition-all`}
+                                  style={{ width: `${widthPct}%` }}
+                                >
+                                  <Icon className="w-3.5 h-3.5 text-white/40 group-hover:text-white/70 transition-colors" />
+                                  <span className="text-xs font-black text-white drop-shadow-md tabular-nums">
+                                    {step.value > 0 ? formatNumber(step.value) : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              {step.label}: {formatNumber(step.value)} total {step.sub.toLowerCase()} actions
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-3">
-                Spend context: {formatINR(ap.total_spend_30d, 0)} ({periodLabel})
-              </p>
+
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/20 border border-border/40">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <p className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                    Spend context
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-primary">
+                      {formatINR(ap.total_spend_30d, 0)}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground uppercase">
+                      {periodLabel} Window
+                    </p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         );

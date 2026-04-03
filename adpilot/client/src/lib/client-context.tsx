@@ -16,6 +16,8 @@ function recalcMetricsFromDailyArrays(data: any): any {
   let dailySpends: number[] = ap.daily_spends || [];
   let dailyLeads: number[] = ap.daily_leads || [];
   let dailyCtrs: number[] = ap.daily_ctrs || [];
+  let dailyClicks: number[] = ap.daily_clicks || [];
+  let dailyImpressions: number[] = ap.daily_impressions || [];
 
   // Fallback: extract from daily_trends array (Google format)
   if (dailySpends.length === 0 && (ap.daily_trends?.length > 0 || data.daily_trends?.length > 0)) {
@@ -23,15 +25,22 @@ function recalcMetricsFromDailyArrays(data: any): any {
     dailySpends = trends.map((d: any) => d.spend || d.cost || 0);
     dailyLeads = trends.map((d: any) => d.leads || d.conversions || 0);
     dailyCtrs = trends.map((d: any) => d.ctr || 0);
+    dailyClicks = trends.map((d: any) => d.clicks || 0);
+    dailyImpressions = trends.map((d: any) => d.impressions || 0);
   }
 
   if (dailySpends.length === 0) return data;
 
   const totalSpend = dailySpends.reduce((s, v) => s + v, 0);
   const totalLeads = dailyLeads.reduce((s, v) => s + v, 0);
-  const avgCtr = dailyCtrs.length > 0
-    ? dailyCtrs.reduce((s, v) => s + v, 0) / dailyCtrs.length
-    : ap.overall_ctr || 0;
+  const totalClicks = dailyClicks.reduce((s, v) => s + v, 0);
+  const totalImpressions = dailyImpressions.reduce((s, v) => s + v, 0);
+  
+  // Weighted CTR: (Total Clicks / Total Impressions) * 100
+  const weightedCtr = totalImpressions > 0 
+    ? (totalClicks / totalImpressions) * 100 
+    : (dailyCtrs.length > 0 ? dailyCtrs.reduce((s, v) => s + v, 0) / dailyCtrs.length : ap.overall_ctr || 0);
+    
   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
   // Build updated account_pulse with recalculated totals
@@ -42,7 +51,7 @@ function recalcMetricsFromDailyArrays(data: any): any {
     total_leads_30d: Math.round(totalLeads),
     total_leads: Math.round(totalLeads),
     overall_cpl: Math.round(cpl),
-    overall_ctr: avgCtr,
+    overall_ctr: Number(weightedCtr.toFixed(2)),
     daily_avg_spend: dailySpends.length > 0 ? totalSpend / dailySpends.length : 0,
     avg_daily_leads: dailyLeads.length > 0 ? totalLeads / dailyLeads.length : 0,
     latest_daily_spend: dailySpends.length > 0 ? dailySpends[dailySpends.length - 1] : 0,
@@ -56,7 +65,7 @@ function recalcMetricsFromDailyArrays(data: any): any {
     total_spend: totalSpend,
     total_leads: Math.round(totalLeads),
     avg_cpl: Math.round(cpl),
-    overall_ctr: avgCtr,
+    overall_ctr: Number(weightedCtr.toFixed(2)),
   } : data.summary;
 
   return {
@@ -91,6 +100,11 @@ export interface ClientInfo {
   }>;
 }
 
+// Canonical query key for benchmarks — use this everywhere for consistent invalidation
+export function benchmarksQueryKey(clientId: string) {
+  return ["/api/clients", clientId, "benchmarks"] as const;
+}
+
 interface ClientContextValue {
   // Registry
   clients: ClientInfo[];
@@ -114,6 +128,10 @@ interface ClientContextValue {
   analysisError: Error | null;
   syncState: PlatformSyncState | undefined;
   isLoadingSyncState: boolean;
+
+  // Benchmarks — global dynamic config layer (single source of truth)
+  benchmarks: Record<string, any> | undefined;
+  isLoadingBenchmarks: boolean;
 
   // Helpers
   apiBase: string; // e.g. "/api/clients/amara/meta"
@@ -166,6 +184,21 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
+  // Benchmarks — single global fetch; all modules share this query key
+  const {
+    data: benchmarks,
+    isLoading: isLoadingBenchmarks,
+  } = useQuery<Record<string, any>>({
+    queryKey: benchmarksQueryKey(activeClientId),
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks`);
+      return res.json();
+    },
+    enabled: !!activeClientId,
+    staleTime: 0, // Always re-fetch after invalidation — no stale caching
+    retry: false,
+  });
+
   // Recalculate aggregate metrics from daily arrays so they reflect the cadence window
   const analysisData = useMemo(() => {
     if (!rawAnalysisData) return undefined;
@@ -205,6 +238,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         analysisError: analysisError as Error | null,
         syncState,
         isLoadingSyncState,
+        benchmarks,
+        isLoadingBenchmarks,
         apiBase,
       }}
     >
