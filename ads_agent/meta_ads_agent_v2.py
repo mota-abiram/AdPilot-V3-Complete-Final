@@ -32,6 +32,7 @@ from collections import defaultdict
 from urllib.request import urlopen, Request
 from urllib.parse import urlencode, quote
 from urllib.error import URLError, HTTPError
+import ads_agent.scoring_engine as scoring_engine
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CONFIG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -960,206 +961,46 @@ def _score_metric_vs_target(actual, target, weight, lower_is_better=True):
             return weight * 0.10, "poor"
 
 
+    return result
+
 def score_meta_ad(ad_data, cpl_target):
-    is_video = ad_data.get("is_video", False)
-    w = SOP["ad_score_weights_video"] if is_video else SOP["ad_score_weights_static"]
-    scores = {}
-    bands = {}
-    leads = ad_data.get("leads", 0)
-    cpl = ad_data.get("cpl", 0)
-    impressions = ad_data.get("impressions", 0)
-    spend = ad_data.get("spend", 0)
-    age_days = ad_data.get("age_days", 0)
-
-    # 1. Performance-based scoring (Same as before)
-    if leads > 0 and cpl > 0 and cpl_target > 0:
-        s, b = _score_metric_vs_target(cpl, cpl_target, w["cpl_vs_target"], lower_is_better=True)
-        scores["cpl_vs_target"] = s
-        bands["cpl_vs_target"] = b
-    elif leads == 0 and impressions >= SOP["auto_pause_zero_leads_impressions"]:
-        scores["cpl_vs_target"] = 0
-        bands["cpl_vs_target"] = "poor"
-    elif leads == 0 and impressions > 0:
-        pct_to_threshold = min(impressions / SOP["auto_pause_zero_leads_impressions"], 1.0)
-        scores["cpl_vs_target"] = w["cpl_vs_target"] * max(0.1, 0.5 - 0.4 * pct_to_threshold)
-        bands["cpl_vs_target"] = "watch" if pct_to_threshold < 0.75 else "poor"
-    else:
-        scores["cpl_vs_target"] = w["cpl_vs_target"] * 0.5
-        bands["cpl_vs_target"] = "no_data"
-
-    cpm = ad_data.get("cpm", 0)
-    if cpm > 0:
-        s, b = _score_metric_vs_target(cpm, SOP["cpm_ideal_high"], w["cpm"], lower_is_better=True)
-        scores["cpm"] = s
-        bands["cpm"] = b
-    else:
-        scores["cpm"] = w["cpm"] * 0.5
-        bands["cpm"] = "no_data"
-
-    ctr = ad_data.get("ctr", 0)
-    if ctr > 0:
-        s, b = _score_metric_vs_target(ctr, SOP["ctr_ideal_low"], w["ctr"], lower_is_better=False)
-        scores["ctr"] = s
-        bands["ctr"] = b
-    else:
-        scores["ctr"] = 0
-        bands["ctr"] = "poor"
-
-    if is_video:
-        thumb_stop = ad_data.get("thumb_stop_pct", 0)
-        if thumb_stop > 0:
-            s, b = _score_metric_vs_target(thumb_stop, SOP["thumb_stop_alert"], w["thumb_stop"], lower_is_better=False)
-            scores["thumb_stop"] = s
-            bands["thumb_stop"] = b
-        else:
-            scores["thumb_stop"] = 0
-            bands["thumb_stop"] = "poor"
-        hold_rate = ad_data.get("hold_rate_pct", 0)
-        if hold_rate > 0:
-            s, b = _score_metric_vs_target(hold_rate, SOP["hold_rate_alert"], w["video_hold"], lower_is_better=False)
-            scores["video_hold"] = s
-            bands["video_hold"] = b
-        else:
-            scores["video_hold"] = 0
-            bands["video_hold"] = "poor"
-
-    perf_score = round(sum(scores.values()), 1)
-    perf_score = max(0, min(100, perf_score))
-
-    # 2. Age-based scoring (40% weight relative to performance)
-    # Age score: 100 if <21 days, linear decay to 0 at 60 days
-    if age_days <= 21:
-        age_score = 100
-    else:
-        age_score = max(0, 100 - (age_days - 21) * (100 / (60 - 21)))
+    # Standardize weights and use centralized engine
+    result = scoring_engine.score_meta_creative_module(ad_data, cpl_target)
     
-    # 3. Combined Weighted Score: 60% Perf + 40% Age
-    total_score = round((0.6 * perf_score) + (0.4 * age_score), 1)
-
-    if total_score >= SOP["winner_threshold"]:
+    # Maintain existing metadata for backwards compatibility/internal logic
+    result["total_score"] = result["score"]
+    result["performance_score"] = result["score"] # In new system, they are same
+    result["age_score"] = ad_data.get("age_score", 100) # Keep age separate if needed
+    
+    score = result["score"]
+    if score >= SOP["winner_threshold"]:
         classification = "WINNER"
-    elif total_score <= SOP["loser_threshold"]:
+    elif score <= SOP["loser_threshold"]:
         classification = "LOSER"
     else:
         classification = "WATCH"
-
+        
+    result["classification"] = classification
+    
+    # Auto-pause logic
+    leads = ad_data.get("leads", 0)
+    impressions = ad_data.get("impressions", 0)
+    cpl = ad_data.get("cpl", 0)
     auto_pause_reasons = []
     if leads == 0 and impressions >= SOP["auto_pause_zero_leads_impressions"]:
-        auto_pause_reasons.append(f"Zero leads after {impressions:,} impressions (threshold: {SOP['auto_pause_zero_leads_impressions']:,})")
-    if leads > 0 and cpl > 0 and cpl_target > 0:
-        if cpl > cpl_target * SOP["auto_pause_cpl_multiplier"]:
-            pct_above = ((cpl / cpl_target) - 1) * 100
-            auto_pause_reasons.append(f"CPL ₹{cpl:,.0f} is {pct_above:.0f}% above target ₹{cpl_target:,.0f} (threshold: 30%)")
-
-    return {
-        "total_score": total_score,
-        "performance_score": perf_score,
-        "age_score": round(age_score, 1),
-        "scoring_type": "video" if is_video else "static",
-        "weights_used": w, "scores": scores, "bands": bands,
-        "classification": classification, "should_pause": len(auto_pause_reasons) > 0,
-        "auto_pause_reasons": auto_pause_reasons,
-    }
-
+        auto_pause_reasons.append(f"Zero leads after {impressions:,} impressions")
+    if leads > 0 and cpl > cpl_target * SOP["auto_pause_cpl_multiplier"]:
+        auto_pause_reasons.append(f"CPL ₹{cpl:,.0f} is >30% above target ₹{cpl_target:,.0f}")
+        
+    result["should_pause"] = len(auto_pause_reasons) > 0
+    result["auto_pause_reasons"] = auto_pause_reasons
+    
+    return result
 
 def score_meta_campaign(campaign_data, cpl_target):
-    w = SOP["campaign_score_weights"]
-    scores = {}
-    bands = {}
-    leads = campaign_data.get("leads", 0)
-    cpl = campaign_data.get("cpl", 0)
-    impressions = campaign_data.get("impressions", 0)
-    spend = campaign_data.get("spend", 0)
-
-    if leads > 0 and cpl > 0 and cpl_target > 0:
-        s, b = _score_metric_vs_target(cpl, cpl_target, w["cpl_vs_target"], lower_is_better=True)
-        scores["cpl_vs_target"] = s
-        bands["cpl_vs_target"] = b
-    elif leads == 0 and impressions > 5000:
-        scores["cpl_vs_target"] = 0
-        bands["cpl_vs_target"] = "poor"
-    else:
-        scores["cpl_vs_target"] = w["cpl_vs_target"] * 0.5
-        bands["cpl_vs_target"] = "no_data"
-
-    cpm = campaign_data.get("cpm", 0)
-    if cpm > 0:
-        s, b = _score_metric_vs_target(cpm, SOP["cpm_ideal_high"], w["cpm"], lower_is_better=True)
-        scores["cpm"] = s
-        bands["cpm"] = b
-    else:
-        scores["cpm"] = w["cpm"] * 0.5
-        bands["cpm"] = "no_data"
-
-    ctr = campaign_data.get("ctr", 0)
-    if ctr > 0:
-        s, b = _score_metric_vs_target(ctr, SOP["ctr_ideal_low"], w["ctr"], lower_is_better=False)
-        scores["ctr"] = s
-        bands["ctr"] = b
-    else:
-        scores["ctr"] = 0
-        bands["ctr"] = "poor"
-
-    frequency = campaign_data.get("frequency", 0)
-    layer = campaign_data.get("layer", "TOFU")
-    freq_target = SOP["freq_bofu_warn"] if layer == "BOFU" else SOP["freq_tofu_mofu_warn"]
-    if frequency > 0:
-        s, b = _score_metric_vs_target(frequency, freq_target, w["frequency"], lower_is_better=True)
-        scores["frequency"] = s
-        bands["frequency"] = b
-    else:
-        scores["frequency"] = w["frequency"]
-        bands["frequency"] = "excellent"
-
-    daily_budget = campaign_data.get("daily_budget", 0)
-    if leads > 0 and daily_budget > 0 and cpl_target > 0:
-        expected_leads = (spend / cpl_target) if cpl_target > 0 else 0
-        if expected_leads > 0:
-            volume_ratio = leads / expected_leads
-            if volume_ratio >= 0.8:
-                scores["lead_volume"] = w["lead_volume"]
-                bands["lead_volume"] = "excellent"
-            elif volume_ratio >= 0.5:
-                scores["lead_volume"] = w["lead_volume"] * 0.6
-                bands["lead_volume"] = "watch"
-            else:
-                scores["lead_volume"] = w["lead_volume"] * 0.2
-                bands["lead_volume"] = "poor"
-        else:
-            scores["lead_volume"] = w["lead_volume"] * 0.5
-            bands["lead_volume"] = "no_data"
-    else:
-        scores["lead_volume"] = w["lead_volume"] * 0.3
-        bands["lead_volume"] = "no_data"
-
-    budget_util = campaign_data.get("budget_utilization_pct", 0)
-    if budget_util > 0:
-        if 60 <= budget_util <= 110:
-            scores["budget_util"] = w["budget_util"]
-            bands["budget_util"] = "excellent"
-        elif 40 <= budget_util <= 130:
-            scores["budget_util"] = w["budget_util"] * 0.7
-            bands["budget_util"] = "good"
-        elif budget_util < 40:
-            scores["budget_util"] = w["budget_util"] * 0.3
-            bands["budget_util"] = "poor"
-        else:
-            scores["budget_util"] = w["budget_util"] * 0.5
-            bands["budget_util"] = "watch"
-    else:
-        scores["budget_util"] = w["budget_util"] * 0.5
-        bands["budget_util"] = "no_data"
-
-    total_score = round(sum(scores.values()), 1)
-    total_score = max(0, min(100, total_score))
-    if total_score >= SOP["winner_threshold"]:
-        classification = "WINNER"
-    elif total_score <= SOP["loser_threshold"]:
-        classification = "LOSER"
-    else:
-        classification = "WATCH"
-
-    return {"total_score": total_score, "scores": scores, "bands": bands, "classification": classification}
+    result = scoring_engine.score_meta_campaign_module(campaign_data, cpl_target)
+    result["total_score"] = result["score"]
+    return result
 
 
 # ━━━━━━━━━━━━━━━━━━━━ MODULE 3.3: CREATIVE HEALTH ━━━━━━━━━━━━━━━━
@@ -3089,9 +2930,49 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
         pulse, cost_stack, creative_health, campaign_audit, adset_analysis,
         monthly_pacing, patterns, learning_history)
 
-    # Build analysis JSON (same structure as before)
+    # ─── Overall Health Score (Meta) ───
+    # Weights: CPSV (25), Budget (25), CPQL (20), CPL (20), Creative (10)
+    mtd_spend = sum(sf(c.get("spend")) for c in mtd_campaign_insights)
+    mtd_leads = sum(get_action_value(c.get("actions"), LEAD_ACTION_TYPES) for c in mtd_campaign_insights)
+    
+    # Heuristic for CPSV and CPQL (site_visit, qualified_lead)
+    mtd_svs = sum(get_action_value(c.get("actions"), ["onsite_conversion.post_save", "post_save", "website_page_view"]) for c in mtd_campaign_insights)
+    mtd_q_leads = sum(get_action_value(c.get("actions"), ["qualified_lead", "contact"]) for c in mtd_campaign_insights)
+    
+    # Calculate CPSV and CPQL
+    mtd_cpsv = mtd_spend / mtd_svs if mtd_svs > 0 else 0
+    mtd_cpql = mtd_spend / mtd_q_leads if mtd_q_leads > 0 else 0
+    mtd_cpl = mtd_spend / mtd_leads if mtd_leads > 0 else 0
+    
+    # Budget Pacing: Expected spend at this date in month
+    today_day = TODAY.day
+    days_in_month = calendar.monthrange(TODAY.year, TODAY.month)[1]
+    expected_pacing_ratio = today_day / days_in_month
+    target_budget = MONTHLY_TARGETS["meta"]["budget"]
+    pacing_ratio = mtd_spend / (target_budget * expected_pacing_ratio) if target_budget > 0 else 1.0
+    
+    creative_avg_score = sum(a.get("score", a.get("total_score", 0)) for a in creative_health) / len(creative_health) if creative_health else 50
+    
+    health_input = {
+        "mtd": {"spend": mtd_spend, "leads": mtd_leads, "cpsv": mtd_cpsv, "cpql": mtd_cpql, "cpl": mtd_cpl},
+        "targets": {
+            "cpsv": MONTHLY_TARGETS["meta"].get("cpsv", {}).get("high", 20000),
+            "cpql": 1500, # Default if not matched
+            "cpl": MONTHLY_TARGETS["meta"]["cpl"]
+        },
+        "pacing_ratio": pacing_ratio,
+        "cpsv": mtd_cpsv,
+        "cpql": mtd_cpql,
+        "cpl": mtd_cpl
+    }
+    
+    account_health = scoring_engine.calculate_meta_health(health_input, creative_avg_score)
+
+    # Build analysis JSON
     analysis = {
         "generated_at": NOW.isoformat(),
+        "account_health_score": account_health["score"],
+        "account_health_breakdown": account_health["breakdown"],
         "agent_version": "3.0",
         "cadence": cadence_name,
         "date_range": {"since": date_since, "until": date_until},

@@ -499,8 +499,6 @@ export default function DashboardPage() {
   };
   const activeFunnelColors = isGoogle ? { ...FUNNEL_COLORS, ...GOOGLE_FUNNEL_COLORS } : FUNNEL_COLORS;
 
-  const pacingSpendStatus = mp?.pacing?.spend_status || "N/A";
-
   // Critical alerts for banner
   const criticalAlerts: string[] = [];
   const cplCritical = thresholds?.cpl_critical ?? (isGoogle ? 1360 : 0);
@@ -544,63 +542,32 @@ export default function DashboardPage() {
   const totalSpendAll = adsWithMetrics.reduce((s: number, c: any) => s + c.spend, 0);
   const budgetEfficiencyPct = totalSpendAll > 0 ? Math.round((spendOnHighCpl / totalSpendAll) * 100) : 0;
 
-  // ─── Account Health Score (composite — Revised Parameters) ────
-  const healthScoreComponents = {
-    cpl: (() => {
-      const target = targetCpl || thresholds?.cpl_target || 800;
-      if (ap.overall_cpl <= 0) return 70;
-      const ratio = ap.overall_cpl / target;
-      // Linear scoring: 100 at ratio 1.0, drops to 0 at ratio 2.0
-      return Math.round(Math.max(0, Math.min(100, 100 - (ratio - 1) * 100)));
-    })(),
-    creative: (() => {
-      if (creativeHealth.length === 0) return 70;
-      const avgScore = creativeHealth.reduce((s: number, c: any) => s + (c.creative_score || 50), 0) / creativeHealth.length;
-      return Math.min(100, Math.max(0, avgScore));
-    })(),
-    pacing_budget: (() => {
-      if (!mp?.mtd?.spend || !mp?.targets?.budget) return 50;
-      const pctThrough = mp.pct_through_month || 1;
-      const targetSpendAtPoint = mp.targets.budget * (pctThrough / 100);
-      const ratio = mp.mtd.spend / (targetSpendAtPoint || 1);
-      const deviation = Math.abs(ratio - 1);
-      // Perfect (100) at 1.0 ratio, drops to 0 at 50% deviation (0.5 or 1.5)
-      return Math.round(Math.max(0, 100 - (deviation * 200)));
-    })(),
-    cpql: (() => {
-      const qLeads = benchmarks?.positive_leads_mtd || benchmarks?.svs_mtd || 0;
-      const spend = mp?.mtd?.spend || 0;
-      const targetCpsv = mp?.targets?.cpsv?.high || 20000;
-      // CPQL Target (weighted slightly higher than CPSV if using PosLeads)
-      const targetCpql = benchmarks?.positive_leads_mtd ? targetCpsv * 1.5 : targetCpsv;
+  // ─── Account Health Score (Powered by Centralized Backend Engine) ────
+  const backendHealthScore = (data as any)?.account_health_score;
+  const backendBreakdown = (data as any)?.account_health_breakdown;
 
-      if (qLeads === 0) return 70;
-      const actualCpql = spend / qLeads;
-      const ratio = actualCpql / targetCpql;
-      return Math.round(Math.max(0, Math.min(100, 100 - (ratio - 1) * 100)));
-    })(),
-    cpsv: (() => {
-      const svsMtd = benchmarks?.svs_mtd || 0;
-      const spend = mp?.mtd?.spend || 0;
-      if (svsMtd === 0) return 70;
-      const cpsvMtd = spend / svsMtd;
-      const targetCpsv = mp?.targets?.cpsv?.high || 20000;
-      const ratio = cpsvMtd / targetCpsv;
-      return Math.round(Math.max(0, Math.min(100, 100 - (ratio - 1) * 100)));
-    })(),
+  const healthScoreComponents = {
+    cpsv: backendBreakdown?.cpsv ?? 70,
+    pacing_budget: backendBreakdown?.budget ?? 70,
+    cpql: backendBreakdown?.cpql ?? 70,
+    cpl: backendBreakdown?.cpl ?? 70,
+    creative: backendBreakdown?.creative ?? 70,
+    campaign: backendBreakdown?.campaign ?? 70,
   };
 
-  const svsMtd = benchmarks?.svs_mtd || 0;
-  const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
-  const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
-
-  const accountHealthScore = Math.round(
+  const accountHealthScore = backendHealthScore ?? Math.round(
     healthScoreComponents.cpsv * 0.25 +
     healthScoreComponents.pacing_budget * 0.25 +
     healthScoreComponents.cpql * 0.20 +
     healthScoreComponents.cpl * 0.20 +
     healthScoreComponents.creative * 0.10
   );
+
+  // Derive KPI variables from monthly_pacing and benchmarks
+  const svsMtd = benchmarks?.svs_mtd || 0;
+  const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
+  const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
+  const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthScoreColor = accountHealthScore >= 75 ? "hsl(142, 70%, 45%)" : accountHealthScore >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
   const healthScoreData = [
     { name: "Score", value: accountHealthScore },
@@ -884,11 +851,24 @@ export default function DashboardPage() {
                 <TooltipContent side="top" className="max-w-xs text-xs space-y-1.5">
                   <p className="font-semibold">Performance Intelligence Score</p>
                   <div className="space-y-1">
-                    <p>• 25% CPSV (Cost Per Site Visit)</p>
-                    <p>• 25% Budget (MTD Alignment)</p>
-                    <p>• 20% CPQL (Cost Per Quality Lead)</p>
-                    <p>• 20% CPL (Cost Per Lead)</p>
-                    <p>• 10% Creative Health (Avg TSR/VHR)</p>
+                    {isGoogle ? (
+                      <>
+                        <p>• 25% CPSV (Cost Per Site Visit)</p>
+                        <p>• 20% Budget (MTD Pacing)</p>
+                        <p>• 20% CPQL (Cost Per Quality Lead)</p>
+                        <p>• 10% CPL (Cost Per Lead)</p>
+                        <p>• 15% Campaign Health (Avg)</p>
+                        <p>• 10% Creative Health (Avg)</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>• 25% CPSV (Cost Per Site Visit)</p>
+                        <p>• 25% Budget (MTD Pacing)</p>
+                        <p>• 20% CPQL (Cost Per Quality Lead)</p>
+                        <p>• 20% CPL (Cost Per Lead)</p>
+                        <p>• 10% Creative Health (Avg)</p>
+                      </>
+                    )}
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -912,8 +892,15 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardContent className="p-4">
             <h3 className="text-[13px] font-large text-black uppercase tracking-wider text-muted-foreground mb-3">Health Score Breakdown</h3>
-            <div className="grid grid-cols-5 gap-3">
-              {([
+            <div className={`grid ${isGoogle ? 'grid-cols-6' : 'grid-cols-5'} gap-2`}>
+              {(isGoogle ? [
+                { label: "CPSV", score: healthScoreComponents.cpsv, weight: "25%" },
+                { label: "Budget", score: healthScoreComponents.pacing_budget, weight: "20%" },
+                { label: "CPQL", score: healthScoreComponents.cpql, weight: "20%" },
+                { label: "CPL", score: healthScoreComponents.cpl, weight: "10%" },
+                { label: "Comp.", score: healthScoreComponents.campaign, weight: "15%" },
+                { label: "Creat.", score: healthScoreComponents.creative, weight: "10%" },
+              ] : [
                 { label: "CPSV", score: healthScoreComponents.cpsv, weight: "25%" },
                 { label: "Budget", score: healthScoreComponents.pacing_budget, weight: "25%" },
                 { label: "CPQL", score: healthScoreComponents.cpql, weight: "20%" },

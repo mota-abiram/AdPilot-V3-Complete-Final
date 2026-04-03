@@ -48,56 +48,56 @@ import { useClient } from "@/lib/client-context";
 import { useAuth } from "@/lib/auth-context";
 import type { PlatformSyncState } from "@/lib/sync-state";
 import { cn } from "@/lib/utils";
-import logo from "../assets/logo.png";
+import logo from "@/assets/logo.png";
 
 
 // ─── Navigation groups — grouped by workflow, not alphabetically ───────────────
 
 const coreNavItems = [
-  { title: "Dashboard", url: "/",          icon: LayoutDashboard },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
   { title: "Ads Panel", url: "/analytics/ads", icon: Clapperboard },
 ];
 
 const metaNavItems = [
-  { title: "Adsets",    url: "/adsets",    icon: Layers },
-  { title: "Ads",       url: "/ads",       icon: Sparkles },
+  { title: "Adsets", url: "/adsets", icon: Layers },
+  { title: "Ads", url: "/ads", icon: Sparkles },
 ];
 
 const googleNavItems = [
-  { title: "Bidding Intel",  url: "/google/bidding",       icon: Brain },
-  { title: "Ad Groups",     url: "/adsets",               icon: Layers },
-  { title: "Ads",           url: "/ads",                  icon: Sparkles },
+  { title: "Bidding Intel", url: "/google/bidding", icon: Brain },
+  { title: "Ad Groups", url: "/adsets", icon: Layers },
+  { title: "Ads", url: "/ads", icon: Sparkles },
   { title: "Quality Score", url: "/google/quality-score", icon: Search },
-  { title: "Search Terms",  url: "/google/search-terms",  icon: Target },
-  { title: "Demand Gen",    url: "/google/demand-gen",    icon: Users },
+  { title: "Search Terms", url: "/google/search-terms", icon: Target },
+  { title: "Demand Gen", url: "/google/demand-gen", icon: Users },
   { title: "Restructuring", url: "/google/restructuring", icon: GitBranch },
 ];
 
 const planningNavItems = [
-  { title: "Breakdowns",        url: "/breakdowns",        icon: BarChart3 },
+  { title: "Breakdowns", url: "/breakdowns", icon: BarChart3 },
   { title: "Creative Calendar", url: "/creative-calendar", icon: CalendarClock },
-  { title: "MTD Deliverables",  url: "/mtd-deliverables",  icon: FileBarChart },
+  { title: "MTD Deliverables", url: "/mtd-deliverables", icon: FileBarChart },
 ];
 
 const opsNavItems = [
-  { title: "Audit Panels",    url: "/audit",           icon: ClipboardCheck },
+  { title: "Audit Panels", url: "/audit", icon: ClipboardCheck },
   { title: "Recommendations", url: "/recommendations", icon: Lightbulb },
-  { title: "Execution Log",   url: "/execution-log",   icon: Clock },
+  { title: "Execution Log", url: "/execution-log", icon: Clock },
 ];
 
 const adminNavItems = [
   { title: "Manage Clients", url: "/manage-clients", icon: Users },
-  { title: "Benchmarks",     url: "/benchmarks",     icon: SlidersHorizontal },
-  { title: "Settings",       url: "/settings",       icon: Settings },
+  { title: "Benchmarks", url: "/benchmarks", icon: SlidersHorizontal },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 const cadenceOptions = [
-  { label: "1D",    value: "daily" },
+  { label: "1D", value: "daily" },
   { label: "2×/wk", value: "twice_weekly" },
-  { label: "Wkly",  value: "weekly" },
+  { label: "Wkly", value: "weekly" },
   { label: "Bi-wk", value: "biweekly" },
-  { label: "Mo",    value: "monthly" },
+  { label: "Mo", value: "monthly" },
 ];
 
 interface AppSidebarProps {
@@ -175,14 +175,14 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
 
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <img 
-            src={logo} 
-            alt="Mojo Logo" 
-            className="w-10 h-10 rounded-[10px] shadow-sm shrink-0 object-cover" 
+          <img
+            src={logo}
+            alt="Mojo Logo"
+            className="w-10 h-10 rounded-[10px] shadow-sm shrink-0 object-fill p-1"
           />
           <div className="grid gap-1 leading-none">
-            <p className="text-lg font-extrabold tracking-[-0.03em] leading-none">Mojo</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground leading-none">AdPilot V3</p>
+            <p className="text-lg font-extrabold tracking-[-0.03em] leading-none">Mojo AdCortex</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground leading-none">By Digital Mojo</p>
           </div>
         </div>
 
@@ -247,42 +247,42 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
         <div className="grid gap-2">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Channels</p>
           <div className="flex items-center gap-1.5">
-          {activeClient?.platforms.map((platform) => {
-            const isActive  = platform.id === activePlatform;
-            const isEnabled = platform.enabled && platform.hasData;
-            return (
-              <Tooltip key={platform.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    className={cn(
-                      "flex-1 px-3 py-2 text-[12px] font-semibold rounded-lg relative border transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isActive && isEnabled
-                        ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
-                        : isEnabled
-                          ? "text-muted-foreground border-border/60 bg-card/70 hover:bg-accent/75 hover:text-foreground"
-                          : "text-muted-foreground/40 border-border/30 bg-muted/30 cursor-not-allowed"
-                    )}
-                    onClick={() => { if (isEnabled) setActivePlatform(platform.id); }}
-                    disabled={!isEnabled}
-                    data-testid={`button-platform-${platform.id}`}
-                  >
-                    {platform.id === "meta" ? "Meta" : platform.id === "google" ? "Google" : platform.label}
-                    {!isEnabled && (
-                      <Badge variant="secondary" className="absolute -top-2 -right-1.5 text-[9px] px-1 py-0 leading-none">
-                        Soon
-                      </Badge>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                {!isEnabled && (
-                  <TooltipContent side="bottom" className="text-xs">
-                    {!platform.enabled ? "Not yet enabled" : "No data available"}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            );
-          })}
+            {activeClient?.platforms.map((platform) => {
+              const isActive = platform.id === activePlatform;
+              const isEnabled = platform.enabled && platform.hasData;
+              return (
+                <Tooltip key={platform.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex-1 px-3 py-2 text-[12px] font-semibold rounded-lg relative border transition-colors duration-150",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isActive && isEnabled
+                          ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
+                          : isEnabled
+                            ? "text-muted-foreground border-border/60 bg-card/70 hover:bg-accent/75 hover:text-foreground"
+                            : "text-muted-foreground/40 border-border/30 bg-muted/30 cursor-not-allowed"
+                      )}
+                      onClick={() => { if (isEnabled) setActivePlatform(platform.id); }}
+                      disabled={!isEnabled}
+                      data-testid={`button-platform-${platform.id}`}
+                    >
+                      {platform.id === "meta" ? "Meta" : platform.id === "google" ? "Google" : platform.label}
+                      {!isEnabled && (
+                        <Badge variant="secondary" className="absolute -top-2 -right-1.5 text-[9px] px-1 py-0 leading-none">
+                          Soon
+                        </Badge>
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  {!isEnabled && (
+                    <TooltipContent side="bottom" className="text-xs">
+                      {!platform.enabled ? "Not yet enabled" : "No data available"}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
           </div>
         </div>
 
@@ -320,10 +320,10 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <SidebarContent className="gap-0">
-          <NavSection label="Analytics"  items={[...coreNavItems, ...platformItems]} location={location} />
-          <NavSection label="Planning"   items={planningNavItems}  location={location} />
-          <NavSection label="Operations" items={opsNavItems}       location={location} />
-          <NavSection label="Admin"      items={adminItems}        location={location} />
+          <NavSection label="Analytics" items={[...coreNavItems, ...platformItems]} location={location} />
+          <NavSection label="Planning" items={planningNavItems} location={location} />
+          <NavSection label="Operations" items={opsNavItems} location={location} />
+          <NavSection label="Admin" items={adminItems} location={location} />
         </SidebarContent>
       </nav>
 

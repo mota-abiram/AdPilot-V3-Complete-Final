@@ -1216,92 +1216,26 @@ def _score_metric_vs_target(actual, target, weight, lower_is_better=True):
         else:
             return weight * 0.10, "poor"
 
+def score_google_campaign(campaign_data, target_cpl):
+    # Search vs DG vs Video
+    ctype = campaign_data.get("campaign_type", "branded")
+    if is_dg_type(ctype):
+        return scoring_engine.score_google_dg_module(campaign_data, target_cpl)
+    else:
+        return scoring_engine.score_google_campaign_module(campaign_data, target_cpl)
+
+def score_google_adgroup(ag_data, target_cpl):
+    return scoring_engine.score_google_adgroup_module(ag_data, target_cpl)
+
 def score_google_ad(ad_data, cpl_target):
-    ctype = ad_data.get("campaign_type", "location")
-    is_dg = is_dg_type(ctype)
-    w = SOP["ad_score_weights_dg"] if is_dg else SOP["ad_score_weights_search"]
-    scores = {}
-    bands = {}
-    leads = ad_data.get("conversions", ad_data.get("leads", 0))
-    cpl = ad_data.get("cpl", 0)
-    impressions = ad_data.get("impressions", 0)
-    age_days = ad_data.get("age_days", 0)
-
-    # 1. Performance-based scoring
-    if leads > 0 and cpl > 0 and cpl_target > 0:
-        s, b = _score_metric_vs_target(cpl, cpl_target, w["cpl_vs_target"], lower_is_better=True)
-        scores["cpl_vs_target"] = s
-        bands["cpl_vs_target"] = b
-    elif leads == 0 and impressions >= SOP["auto_pause_zero_leads_impressions"]:
-        scores["cpl_vs_target"] = 0
-        bands["cpl_vs_target"] = "poor"
+    # Specialized scoring for RSA vs Video vs Static
+    ad_type = ad_data.get("ad_type", "RSA").upper()
+    if "VIDEO" in ad_type or ad_data.get("is_video", False):
+        return scoring_engine.score_google_creative_module(ad_data, cpl_target)
+    elif "RSA" in ad_type or "SEARCH_AD" in ad_type:
+        return scoring_engine.score_google_rsa_module(ad_data, cpl_target)
     else:
-        scores["cpl_vs_target"] = w["cpl_vs_target"] * 0.5
-        bands["cpl_vs_target"] = "no_data"
-
-    if is_dg:
-        cpm = ad_data.get("avg_cpm", 0)
-        if cpm > 0:
-            s, b = _score_metric_vs_target(cpm, 150, w["cpm"], lower_is_better=True)
-            scores["cpm"] = s
-            bands["cpm"] = b
-        tsr = ad_data.get("tsr", 0)
-        if tsr > 0:
-            s, b = _score_metric_vs_target(tsr, 2.5, w["tsr"], lower_is_better=False)
-            scores["tsr"] = s
-            bands["tsr"] = b
-        vhr = ad_data.get("vhr", 0)
-        if vhr > 0:
-            s, b = _score_metric_vs_target(vhr, 25, w["vhr"], lower_is_better=False)
-            scores["vhr"] = s
-            bands["vhr"] = b
-    else:
-        cpc = ad_data.get("avg_cpc", 0)
-        if cpc > 0:
-            s, b = _score_metric_vs_target(cpc, 25, w["cpc"], lower_is_better=True)
-            scores["cpc"] = s
-            bands["cpc"] = b
-        cvr = ad_data.get("cvr", 0)
-        if cvr > 0:
-            s, b = _score_metric_vs_target(cvr, 3.0, w["cvr"], lower_is_better=False)
-            scores["cvr"] = s
-            bands["cvr"] = b
-
-    ctr = ad_data.get("ctr", 0)
-    if ctr > 0:
-        bench = get_benchmark_for_type(ctype)
-        s, b = _score_metric_vs_target(ctr, bench.get("ctr_low", 1.0), w["ctr"], lower_is_better=False)
-        scores["ctr"] = s
-        bands["ctr"] = b
-
-    perf_score = round(sum(scores.values()), 1)
-    perf_score = max(0, min(100, perf_score))
-
-    # 2. Age-based scoring (40% weight)
-    if age_days <= 21:
-        age_score = 100
-    else:
-        age_score = max(0, 100 - (age_days - 21) * (100 / (60 - 21)))
-    
-    total_score = round((0.6 * perf_score) + (0.4 * age_score), 1)
-
-    if total_score >= SOP["winner_threshold"]:
-        classification = "WINNER"
-    elif total_score <= SOP["loser_threshold"]:
-        classification = "LOSER"
-    else:
-        classification = "WATCH"
-
-    should_pause = (leads == 0 and impressions >= SOP["auto_pause_zero_leads_impressions"]) or (leads > 0 and cpl > cpl_target * SOP["auto_pause_cpl_multiplier"])
-
-    return {
-        "total_score": total_score,
-        "performance_score": perf_score,
-        "age_score": round(age_score, 1),
-        "scores": scores, "bands": bands,
-        "classification": classification, "should_pause": should_pause,
-        "scoring_type": "dg" if is_dg else "search"
-    }
+        return scoring_engine.score_google_creative_module(ad_data, cpl_target)
 
 def analyze_creative_health(ads, cpl_target):
     results = []
@@ -3549,9 +3483,49 @@ def run_analysis(cadence="twice_weekly"):
     print(f"  Search: {search_summary['campaign_count']} campaigns | Spend {fmt_inr(search_summary['spend'])} | Leads {search_summary['leads']} | CPL {fmt_inr(search_summary['cpl'])}")
     print(f"  DG:     {dg_summary['campaign_count']} campaigns | Spend {fmt_inr(dg_summary['spend'])} | Leads {dg_summary['leads']} | CPL {fmt_inr(dg_summary['cpl'])}")
 
+    # ─── Overall Health Score (Google) ───
+    # Weights: CPSV (25), Budget (20), CPQL (20), CPL (10), Campaign Avg (15), Creative Avg (10)
+    mtd_data = account_pulse.get("mtd_pacing", {})
+    mtd_spend = mtd_data.get("spend_mtd", 0)
+    mtd_leads = mtd_data.get("leads_mtd", 0)
+    
+    # Heuristic for CPSV (site visits) — total interactions or page views if available
+    # For now using total interactions as site visit proxy if svs not explicit
+    mtd_svs = account_pulse.get("total_clicks", 0) 
+    mtd_cpsv = mtd_spend / mtd_svs if mtd_svs > 0 else 0
+    mtd_cpql = mtd_spend / (mtd_leads * 0.4) if mtd_leads > 0 else 0 # Estimate 40% as Q-leads
+    mtd_cpl = account_pulse.get("overall_cpl", 0)
+    
+    pacing_ratio = mtd_data.get("pacing_spend_pct", 100) / 100
+    
+    # Campaign Avg
+    camp_scores = [c.get("score", 50) for c in campaign_analysis]
+    camp_avg = sum(camp_scores) / len(camp_scores) if camp_scores else 50
+    
+    # Creative Avg
+    creat_scores = [a.get("score", 50) for a in creative_health]
+    creat_avg = sum(creat_scores) / len(creat_scores) if creat_scores else 50
+    
+    health_input = {
+        "mtd": {"spend": mtd_spend, "leads": mtd_leads, "cpsv": mtd_cpsv, "cpql": mtd_cpql, "cpl": mtd_cpl},
+        "targets": {
+            "cpsv": MONTHLY_TARGETS["google"].get("cpsv", 18000),
+            "cpql": 1500,
+            "cpl": MONTHLY_TARGETS["google"].get("cpl", 850)
+        },
+        "pacing_ratio": pacing_ratio,
+        "cpsv": mtd_cpsv,
+        "cpql": mtd_cpql,
+        "cpl": mtd_cpl
+    }
+    
+    account_health = scoring_engine.calculate_google_health(health_input, camp_avg, creat_avg)
+
     # Build final output
     result = {
         "status": "OK",
+        "account_health_score": account_health["score"],
+        "account_health_breakdown": account_health["breakdown"],
         "timestamp": str(NOW),
         "cadence": cadence,
         "window": window,
