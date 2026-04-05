@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useClient } from "@/lib/client-context";
 import { DataTablePagination } from "@/components/data-table-pagination";
 import type { CampaignAudit } from "@shared/schema";
@@ -117,15 +117,18 @@ export default function CampaignsPage() {
 
   const campaigns = useMemo(() => {
     if (!data) return [];
-    const source = isGoogle ? ((data as any).campaigns || (data as any).campaign_analysis || (data as any).campaign_audit) : data.campaign_audit;
+    // Normalization layer now produces campaign_audit for both platforms
+    const source = (data as any).campaign_audit || (data as any).campaigns || [];
     if (!source) return [];
     let list = [...source];
     if (filterLayer !== "ALL") {
-      if (isGoogle) {
-        list = list.filter((c: any) => c.campaign_type === filterLayer || c.theme === filterLayer);
-      } else {
-        list = list.filter((c) => c.layer === filterLayer);
-      }
+      const fl = filterLayer.toLowerCase();
+      // After normalization, Google campaigns have both `layer` and `campaign_type`
+      list = list.filter((c: any) => {
+        const l = (c.layer || "").toLowerCase();
+        const ct = (c.campaign_type || "").toLowerCase();
+        return l.includes(fl) || ct.includes(fl);
+      });
     }
     if (filterStatus !== "ALL") {
       // Normalize "ENABLED" to "ACTIVE" for filtering purposes
@@ -153,16 +156,18 @@ export default function CampaignsPage() {
   const searchCampaigns = useMemo(() => {
     if (!isGoogle) return [];
     return campaigns.filter((c: any) => {
-      const t = c.theme || c.layer || c.campaign_type || "";
-      return t === "branded" || t === "location" || t.startsWith?.("location");
+      const t = (c.theme || c.layer || c.campaign_type || "").toLowerCase();
+      // Search includes branded, location, or direct 'search' type
+      return t.includes("branded") || t.includes("location") || t === "search";
     });
   }, [campaigns, isGoogle]);
 
   const dgCampaigns = useMemo(() => {
     if (!isGoogle) return [];
     return campaigns.filter((c: any) => {
-      const t = c.theme || c.layer || c.campaign_type || "";
-      return t === "demand_gen" || t.startsWith?.("demand_gen") || t === "DEMAND_GEN";
+      const t = (c.theme || c.layer || c.campaign_type || "").toLowerCase();
+      // DG includes demand_gen, dg, or anything else identified as demand gen
+      return t.includes("demand") || t.includes("dg") || t.includes("demand_gen");
     });
   }, [campaigns, isGoogle]);
 
@@ -238,10 +243,9 @@ export default function CampaignsPage() {
   const thresholds = data.dynamic_thresholds;
   const hasSelection = selectedIds.size > 0;
 
-  // ─── Google: sortable columns ─────────────────────────────────────
-  const googleColumns = [
+  // ─── Google: search-specific columns ────────────────────────────────
+  const googleSearchColumns = [
     { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
-    { key: "campaign_type" as SortKey, label: "Type", align: "left" },
     { key: "classification" as SortKey, label: "Class", align: "left" },
     { key: "health_score" as SortKey, label: "Health", align: "left" },
     { key: "spend" as SortKey, label: "Spend", align: "right" },
@@ -249,10 +253,25 @@ export default function CampaignsPage() {
     { key: "cpl" as SortKey, label: "CPL", align: "right" },
     { key: "ctr" as SortKey, label: "CTR", align: "right" },
     { key: "cvr" as SortKey, label: "CVR", align: "right" },
-    { key: "cpc" as SortKey, label: "CPC", align: "right" },
     { key: "search_impression_share" as SortKey, label: "IS %", align: "right" },
-    { key: "is_lost_rank" as SortKey, label: "IS Lost Rank", align: "right" },
-    { key: "is_lost_budget" as SortKey, label: "IS Lost Budget", align: "right" },
+    { key: "search_rank_lost_is" as SortKey, label: "IS Lost Rank", align: "right" },
+    { key: "search_budget_lost_is" as SortKey, label: "IS Lost Budget", align: "right" },
+    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left" },
+    { key: "daily_budget" as SortKey, label: "Budget/d", align: "right" },
+  ];
+
+  // ─── Google: DG-specific columns ────────────────────────────────────
+  const googleDgColumns = [
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
+    { key: "classification" as SortKey, label: "Class", align: "left" },
+    { key: "health_score" as SortKey, label: "Health", align: "left" },
+    { key: "spend" as SortKey, label: "Spend", align: "right" },
+    { key: "leads" as SortKey, label: "Leads", align: "right" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right" },
+    { key: "tsr" as SortKey, label: "TSR", align: "right" },
+    { key: "vhr" as SortKey, label: "VHR", align: "right" },
+    { key: "cpm" as SortKey, label: "CPM", align: "right" },
     { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left" },
     { key: "daily_budget" as SortKey, label: "Budget/d", align: "right" },
   ];
@@ -276,7 +295,7 @@ export default function CampaignsPage() {
   ];
 
   // ─── Render a campaign table (reusable for Search/DG sections) ────
-  function renderGoogleRow(c: any) {
+  function renderGoogleRow(c: any, sectionType: "search" | "dg") {
     const classColor = getClassificationColor(c.classification);
     const typeBadge = getCampaignTypeBadge(c.theme || c.layer || c.campaign_type);
     const isPaused = c.status === "PAUSED" || c.delivery_status === "NOT_DELIVERING" || isEntityPaused(c.campaign_id);
@@ -284,7 +303,7 @@ export default function CampaignsPage() {
     const isExpanded = expandedIds.has(c.campaign_id);
 
     return (
-      <>
+      <Fragment key={c.campaign_id || c.id}>
         <tr
           key={c.campaign_id}
           className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
@@ -383,38 +402,56 @@ export default function CampaignsPage() {
             {formatPct(c.ctr || 0)}
           </td>
           <td className="p-3 text-right tabular-nums">
-            {(() => {
-              const val = c.cvr;
-              if (val == null) return "—";
-              const color = val >= 5 ? "text-emerald-400" : val >= 2 ? "text-amber-400" : "text-red-400";
-              return <span className={color}>{formatPct(val)}</span>;
-            })()}
-          </td>
-          <td className="p-3 text-right tabular-nums">{formatINR(c.cpc || 0, 2)}</td>
-          <td className="p-3 text-right tabular-nums">
-            {(() => {
-              const val = c.search_impression_share;
-              if (val == null) return "—";
-              const color = val >= 70 ? "text-emerald-400" : val >= 40 ? "text-amber-400" : "text-red-400";
-              return <span className={color}>{formatPct(val)}</span>;
-            })()}
+            {sectionType === "search" ? (
+              (() => {
+                const val = c.cvr;
+                if (val == null) return "—";
+                const color = val >= 5 ? "text-emerald-400" : val >= 2 ? "text-amber-400" : "text-red-400";
+                return <span className={color}>{formatPct(val)}</span>;
+              })()
+            ) : (
+              formatPct(c.tsr || 0)
+            )}
           </td>
           <td className="p-3 text-right tabular-nums">
-            {(() => {
-              const val = c.is_lost_rank ?? c.search_is_lost_rank ?? c.is_data?.is_lost_rank;
-              if (val == null) return "—";
-              const color = val > 30 ? "text-red-400" : val > 10 ? "text-amber-400" : "text-emerald-400";
-              return <span className={color}>{formatPct(val)}</span>;
-            })()}
+            {sectionType === "search" ? (
+              formatINR(c.cpc || 0, 2)
+            ) : (
+              formatPct(c.vhr || 0)
+            )}
           </td>
           <td className="p-3 text-right tabular-nums">
-            {(() => {
-              const val = c.is_lost_budget ?? c.search_is_lost_budget ?? c.is_data?.is_lost_budget;
-              if (val == null) return "—";
-              const color = val > 30 ? "text-red-400" : val > 10 ? "text-amber-400" : "text-emerald-400";
-              return <span className={color}>{formatPct(val)}</span>;
-            })()}
+            {sectionType === "search" ? (
+              (() => {
+                const val = c.search_impression_share;
+                if (val == null) return "—";
+                const color = val >= 70 ? "text-emerald-400" : val >= 40 ? "text-amber-400" : "text-red-400";
+                return <span className={color}>{formatPct(val)}</span>;
+              })()
+            ) : (
+              formatINR(c.cpm || 0, 0)
+            )}
           </td>
+          {sectionType === "search" && (
+            <>
+              <td className="p-3 text-right tabular-nums">
+                {(() => {
+                  const val = c.search_rank_lost_is ?? c.is_lost_rank;
+                  if (val == null) return "—";
+                  const color = val > 30 ? "text-red-400" : val > 10 ? "text-amber-400" : "text-emerald-400";
+                  return <span className={color}>{formatPct(val)}</span>;
+                })()}
+              </td>
+              <td className="p-3 text-right tabular-nums">
+                {(() => {
+                  const val = c.search_budget_lost_is ?? c.is_lost_budget;
+                  if (val == null) return "—";
+                  const color = val > 30 ? "text-red-400" : val > 10 ? "text-amber-400" : "text-emerald-400";
+                  return <span className={color}>{formatPct(val)}</span>;
+                })()}
+              </td>
+            </>
+          )}
           <td className="p-3">
             <span className="text-[10px] text-muted-foreground">{c.bidding_strategy || "—"}</span>
           </td>
@@ -548,12 +585,13 @@ export default function CampaignsPage() {
             </td>
           </tr>
         )}
-      </>
+      </Fragment>
     );
   }
 
   // ─── Google campaign table (used for each section) ────────────────
-  function renderGoogleTable(rows: any[], sectionId: string, pg: number, pgSize: number, setPg: (p: number) => void, setPgSize: (s: number) => void) {
+  function renderGoogleTable(rows: any[], sectionId: string, sectionType: "search" | "dg", pg: number, pgSize: number, setPg: (p: number) => void, setPgSize: (s: number) => void) {
+    const columns = sectionType === "search" ? googleSearchColumns : googleDgColumns;
     const paginatedRows = pgSize >= rows.length ? rows : rows.slice((pg - 1) * pgSize, pg * pgSize);
     return (
       <Card>
@@ -590,7 +628,7 @@ export default function CampaignsPage() {
                       </DropdownMenu>
                     </div>
                   </th>
-                  {googleColumns.map((col) => (
+                  {columns.map((col) => (
                     <th
                       key={col.key}
                       className={`p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap ${
@@ -611,10 +649,10 @@ export default function CampaignsPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((c: any) => renderGoogleRow(c))}
+                {paginatedRows.map((c: any) => renderGoogleRow(c, sectionType))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={17} className="p-8 text-center text-xs text-muted-foreground">
+                    <td colSpan={sectionType === "search" ? 17 : 14} className="p-8 text-center text-xs text-muted-foreground">
                       No campaigns in this section.
                     </td>
                   </tr>
@@ -790,7 +828,7 @@ export default function CampaignsPage() {
                 )}
               </div>
             </div>
-            {renderGoogleTable(searchCampaigns, "search-campaigns", searchPage, searchPageSize, setSearchPage, setSearchPageSize)}
+            {renderGoogleTable(searchCampaigns, "search-campaigns", "search", searchPage, searchPageSize, setSearchPage, setSearchPageSize)}
           </div>
 
           {/* DG Campaigns Section */}
@@ -808,7 +846,7 @@ export default function CampaignsPage() {
                 )}
               </div>
             </div>
-            {renderGoogleTable(dgCampaigns, "dg-campaigns", dgPage, dgPageSize, setDgPage, setDgPageSize)}
+            {renderGoogleTable(dgCampaigns, "dg-campaigns", "dg", dgPage, dgPageSize, setDgPage, setDgPageSize)}
           </div>
         </div>
       ) : (
@@ -868,7 +906,7 @@ export default function CampaignsPage() {
                     const activateAction = "UNPAUSE_CAMPAIGN";
 
                     return (
-                      <>
+                      <Fragment key={c.campaign_id}>
                         <tr
                           key={c.campaign_id}
                           className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
@@ -1077,7 +1115,7 @@ export default function CampaignsPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>

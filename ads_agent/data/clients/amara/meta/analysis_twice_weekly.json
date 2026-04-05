@@ -1,10 +1,18 @@
 {
-  "generated_at": "2026-04-03T16:28:35.465071",
+  "generated_at": "2026-04-05T15:51:27.113235",
+  "account_health_score": 77.1,
+  "account_health_breakdown": {
+    "cpsv": 25,
+    "budget": 15.02,
+    "cpql": 20,
+    "cpl": 17.04,
+    "creative": 0.0
+  },
   "agent_version": "3.0",
   "cadence": "twice_weekly",
   "date_range": {
-    "since": "2026-03-27",
-    "until": "2026-04-02"
+    "since": "2026-03-29",
+    "until": "2026-04-04"
   },
   "benchmarks_loaded": true,
   "benchmarks_source": "/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/data/clients/amara/benchmarks.json",
@@ -14,18 +22,18 @@
     "cpl_alert_formula": "target (720) \u00d7 1.3",
     "cpl_critical": 1080,
     "cpl_critical_formula": "target (720) \u00d7 1.5",
-    "budget": 200000,
+    "budget": 199998,
     "leads": 278
   },
   "period": {
     "primary": {
-      "start": "2026-03-27",
-      "end": "2026-04-02",
+      "start": "2026-03-29",
+      "end": "2026-04-04",
       "cadence": "twice_weekly"
     },
     "mtd": {
       "start": "2026-04-01",
-      "end": "2026-04-02"
+      "end": "2026-04-04"
     }
   },
   "sop_benchmarks": {
@@ -96,74 +104,101 @@
     }
   },
   "account_pulse": {
-    "total_spend_30d": 51389.72,
-    "daily_avg_spend": 7341.388571428572,
-    "latest_daily_spend": 7446.78,
-    "spend_ratio": 1.0143557894458268,
+    "total_spend_30d": 50834.119999999995,
+    "daily_avg_spend": 7262.017142857143,
+    "latest_daily_spend": 6520.63,
+    "spend_ratio": 0.8979089241635343,
     "spend_status": "NORMAL",
-    "spend_trend": "STABLE",
-    "spend_change_pct": -5.52985513669809,
-    "total_leads_30d": 84,
-    "avg_daily_leads": 12.0,
-    "latest_daily_leads": 12,
-    "leads_trend": "UP",
-    "leads_change_pct": 10.294117647058817,
+    "spend_trend": "DOWN",
+    "spend_change_pct": -17.160845648736828,
+    "total_leads_30d": 83,
+    "avg_daily_leads": 11.857142857142858,
+    "latest_daily_leads": 7,
+    "leads_trend": "DOWN",
+    "leads_change_pct": -26.785714285714285,
     "zero_lead_days": 0,
-    "total_impressions": 503623,
-    "total_clicks": 3347,
-    "total_reach": 342600,
-    "overall_ctr": 0.6645844212833806,
+    "total_impressions": 538036,
+    "total_clicks": 3483,
+    "total_reach": 362615,
+    "overall_ctr": 0.6473544521184457,
     "ctr_trend": "STABLE",
-    "ctr_change_pct": -6.78757845025789,
-    "overall_cpc": 15.353964744547357,
-    "overall_cpm": 102.04005774160434,
-    "overall_cpl": 611.782380952381,
+    "ctr_change_pct": -7.266009852216768,
+    "overall_cpc": 14.594923916164225,
+    "overall_cpm": 94.4808897545889,
+    "overall_cpl": 612.4592771084336,
     "not_spending_campaigns": [],
     "alerts": [],
     "daily_spends": [
-      5545.92,
-      7975.34,
       9221.56,
       8088.07,
       6845.08,
       6266.97,
-      7446.78
+      7447.69,
+      6444.12,
+      6520.63
     ],
     "daily_leads": [
-      7,
-      10,
       17,
       17,
       8,
       13,
-      12
+      12,
+      9,
+      7
     ],
     "daily_ctrs": [
-      0.649122,
-      0.768814,
-      0.674154,
-      0.642539,
-      0.715011,
-      0.593567,
-      0.649
+      0.67,
+      0.64,
+      0.72,
+      0.59,
+      0.65,
+      0.58,
+      0.69
     ],
-    "daily_clicks": [
-      479,
-      482,
-      512,
-      441,
-      345,
-      463,
-      625
+    "daily_cpms": [
+      121.42,
+      117.84,
+      141.86,
+      80.34,
+      77.32,
+      82.73,
+      70.12
+    ],
+    "daily_tsrs": [
+      4.61,
+      5.05,
+      3.63,
+      3.22,
+      1.13,
+      4.94,
+      2.18
+    ],
+    "daily_vhrs": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "daily_impressions": [
-      73792,
-      62694,
       75947,
       68634,
       48251,
       78003,
-      96302
+      96318,
+      77889,
+      92994
+    ],
+    "daily_clicks": [
+      512,
+      441,
+      345,
+      464,
+      625,
+      454,
+      642
     ]
   },
   "cost_stack": {
@@ -172,32 +207,32 @@
       "MOFU": 0,
       "BOFU": 0
     },
-    "total_spend": 51389.72,
+    "total_spend": 50834.119999999995,
     "layers": {
       "TOFU": {
         "aggregate": {
-          "spend": 51389.72,
-          "impressions": 503623,
-          "clicks": 3347,
-          "leads": 84,
-          "ctr": 0.6645844212833806,
-          "cpc": 15.353964744547357,
-          "cpm": 102.04005774160434,
-          "cpl": 611.782380952381,
-          "avg_frequency": 1.5693735,
+          "spend": 50834.119999999995,
+          "impressions": 538036,
+          "clicks": 3483,
+          "leads": 83,
+          "ctr": 0.6473544521184457,
+          "cpc": 14.594923916164225,
+          "cpm": 94.4808897545889,
+          "cpl": 612.4592771084336,
+          "avg_frequency": 1.522422,
           "campaign_count": 2
         },
         "diagnostics": [
           {
             "metric": "CTR",
             "status": "LOW",
-            "value": 0.6645844212833806,
-            "message": "TOFU CTR at 0.66% below SOP minimum of 0.7%."
+            "value": 0.6473544521184457,
+            "message": "TOFU CTR at 0.65% below SOP minimum of 0.7%."
           },
           {
             "metric": "CTR_WEAK",
             "status": "HOOK_WEAK",
-            "value": "CPM=102 (stable), CTR=0.66%",
+            "value": "CPM=94 (stable), CTR=0.65%",
             "message": "TOFU: CPM stable but CTR weak. SOP: sharpen headline/first 3 sec."
           }
         ],
@@ -217,88 +252,76 @@
   },
   "campaign_audit": [
     {
-      "campaign_id": "120242148702000466",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "layer": "TOFU",
-      "objective": "OUTCOME_LEADS",
-      "status": "ACTIVE",
-      "health_score": 93.0,
-      "score_breakdown": {
-        "cpl_vs_target": 35,
-        "cpm": 15,
-        "ctr": 15,
-        "frequency": 15,
-        "lead_volume": 10,
-        "budget_util": 3.0
-      },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "excellent",
-        "frequency": "excellent",
-        "lead_volume": "excellent",
-        "budget_util": "poor"
-      },
-      "classification": "WINNER",
-      "spend": 18240.75,
-      "impressions": 98497,
-      "clicks": 655,
-      "ctr": 0.705639,
-      "cpc": 10.158624,
-      "cpm": 71.683175,
-      "frequency": 1.744635,
-      "reach": 63694,
-      "leads": 26,
-      "cpl": 701.5673076923077,
-      "daily_budget": 2500.0,
-      "budget_remaining": 1553.05,
-      "budget_utilization_pct": 24.321,
-      "is_lead_campaign": true,
-      "is_awareness": false,
-      "delivery_status": "DELIVERING",
-      "learning_status": "LEARNING_LIMITED"
-    },
-    {
       "campaign_id": "120231984866140466",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "layer": "TOFU",
       "objective": "OUTCOME_LEADS",
       "status": "ACTIVE",
-      "health_score": 89.2,
+      "health_score": 89.3,
       "score_breakdown": {
-        "cpl_vs_target": 35,
+        "cpl": 34.28,
+        "freq": 15,
         "cpm": 15,
-        "ctr": 11.25,
-        "frequency": 15,
-        "lead_volume": 10,
-        "budget_util": 3.0
+        "ctr": 5.06,
+        "leads": 10,
+        "budget": 10.0,
+        "cvr": 0
       },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "good",
-        "frequency": "excellent",
-        "lead_volume": "excellent",
-        "budget_util": "poor"
-      },
+      "score_bands": {},
       "classification": "WINNER",
-      "spend": 33148.97,
-      "impressions": 405126,
-      "clicks": 2692,
-      "ctr": 0.634159,
-      "cpc": 11.996297,
-      "cpm": 76.075585,
-      "frequency": 1.394112,
-      "reach": 278906,
-      "leads": 58,
-      "cpl": 571.5339655172414,
+      "spend": 33423.81,
+      "impressions": 447916,
+      "clicks": 2907,
+      "ctr": 0.683495,
+      "cpc": 13.942178,
+      "cpm": 95.294038,
+      "frequency": 1.377616,
+      "reach": 302036,
+      "leads": 57,
+      "cpl": 586.3826315789473,
       "daily_budget": 4784.0,
-      "budget_remaining": 2165.9,
-      "budget_utilization_pct": 23.097108416945375,
+      "budget_remaining": 1342.21,
+      "budget_utilization_pct": 23.28860785953177,
       "is_lead_campaign": true,
       "is_awareness": false,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE"
+    },
+    {
+      "campaign_id": "120242148702000466",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "layer": "TOFU",
+      "objective": "OUTCOME_LEADS",
+      "status": "ACTIVE",
+      "health_score": 74.4,
+      "score_breakdown": {
+        "cpl": 28.5,
+        "freq": 12.29,
+        "cpm": 9.31,
+        "ctr": 4.31,
+        "leads": 10,
+        "budget": 10.0,
+        "cvr": 0
+      },
+      "score_bands": {},
+      "classification": "WINNER",
+      "spend": 17410.31,
+      "impressions": 90120,
+      "clicks": 576,
+      "ctr": 0.641368,
+      "cpc": 33.230741,
+      "cpm": 213.131421,
+      "frequency": 1.667228,
+      "reach": 60579,
+      "leads": 26,
+      "cpl": 669.6273076923078,
+      "daily_budget": 2500.0,
+      "budget_remaining": 607.17,
+      "budget_utilization_pct": 23.21374666666667,
+      "is_lead_campaign": true,
+      "is_awareness": false,
+      "delivery_status": "DELIVERING",
+      "learning_status": "LEARNING_LIMITED"
     }
   ],
   "adset_analysis": [
@@ -308,122 +331,32 @@
       "campaign_id": "120231984866140466",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "layer": "TOFU",
-      "spend": 24616.380000000005,
-      "impressions": 331222,
-      "clicks": 2429,
-      "ctr": 0.783028,
-      "cpc": 10.463938,
-      "cpm": 81.935547,
-      "frequency": 1.303822,
-      "reach": 229755,
-      "leads": 42,
-      "cpl": 586.1042857142859,
+      "spend": 25036.67,
+      "impressions": 389061,
+      "clicks": 2667,
+      "ctr": 0.756241,
+      "cpc": 11.897841,
+      "cpm": 89.976367,
+      "frequency": 1.432273,
+      "reach": 262143,
+      "leads": 41,
+      "cpl": 610.650487804878,
       "daily_budget": 3584.0,
-      "budget_utilization_pct": 98.12013711734696,
+      "budget_utilization_pct": 99.79540019132652,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
-      "health_score": 100,
+      "health_score": 89.0,
       "classification": "WINNER",
       "score_breakdown": {
-        "cpl_vs_target": 35,
+        "cpl": 32.59,
+        "freq": 15,
         "cpm": 15,
-        "ctr": 15,
-        "frequency": 15,
-        "lead_volume": 10,
-        "budget_util": 10
+        "ctr": 6.36,
+        "leads": 10,
+        "budget": 10.0,
+        "cvr": 0
       },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "excellent",
-        "frequency": "excellent",
-        "lead_volume": "excellent",
-        "budget_util": "excellent"
-      },
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "diagnostics": []
-    },
-    {
-      "adset_id": "120242148702090466",
-      "adset_name": "DM Amara | Adv+ OT",
-      "campaign_id": "120242148702000466",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "layer": "TOFU",
-      "spend": 10693.809999999998,
-      "impressions": 62086,
-      "clicks": 428,
-      "ctr": 0.710878,
-      "cpc": 8.219605,
-      "cpm": 58.431391,
-      "frequency": 1.599731,
-      "reach": 43175,
-      "leads": 17,
-      "cpl": 629.0476470588234,
-      "daily_budget": 1500.0,
-      "budget_utilization_pct": 101.8458095238095,
-      "delivery_status": "DELIVERING",
-      "learning_status": "ACTIVE",
-      "health_score": 100,
-      "classification": "WINNER",
-      "score_breakdown": {
-        "cpl_vs_target": 35,
-        "cpm": 15,
-        "ctr": 15,
-        "frequency": 15,
-        "lead_volume": 10,
-        "budget_util": 10
-      },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "excellent",
-        "frequency": "excellent",
-        "lead_volume": "excellent",
-        "budget_util": "excellent"
-      },
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "diagnostics": []
-    },
-    {
-      "adset_id": "120242148702070466",
-      "adset_name": "DM Amara | Adv+ OT_2",
-      "campaign_id": "120242148702000466",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "layer": "TOFU",
-      "spend": 7546.94,
-      "impressions": 36411,
-      "clicks": 227,
-      "ctr": 0.69386,
-      "cpc": 14.624242,
-      "cpm": 101.471825,
-      "frequency": 1.466543,
-      "reach": 27153,
-      "leads": 9,
-      "cpl": 838.5488888888889,
-      "daily_budget": 1000.0,
-      "budget_utilization_pct": 107.81342857142857,
-      "delivery_status": "DELIVERING",
-      "learning_status": "ACTIVE",
-      "health_score": 87.5,
-      "classification": "WINNER",
-      "score_breakdown": {
-        "cpl_vs_target": 26.25,
-        "cpm": 15,
-        "ctr": 11.25,
-        "frequency": 15,
-        "lead_volume": 10,
-        "budget_util": 10
-      },
-      "score_bands": {
-        "cpl_vs_target": "good",
-        "cpm": "excellent",
-        "ctr": "good",
-        "frequency": "excellent",
-        "lead_volume": "excellent",
-        "budget_util": "excellent"
-      },
+      "score_bands": {},
       "should_pause": false,
       "auto_pause_reasons": [],
       "diagnostics": []
@@ -434,38 +367,104 @@
       "campaign_id": "120231984866140466",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "layer": "TOFU",
-      "spend": 8532.59,
-      "impressions": 73904,
-      "clicks": 263,
-      "ctr": 0.286074,
-      "cpc": 21.8034,
-      "cpm": 62.373841,
-      "frequency": 1.269558,
-      "reach": 63360,
+      "spend": 8387.14,
+      "impressions": 58855,
+      "clicks": 240,
+      "ctr": 0.413947,
+      "cpc": 27.780769,
+      "cpm": 114.997612,
+      "frequency": 1.078932,
+      "reach": 51427,
       "leads": 16,
-      "cpl": 533.286875,
+      "cpl": 524.19625,
       "daily_budget": 1200.0,
-      "budget_utilization_pct": 101.57845238095237,
+      "budget_utilization_pct": 99.84690476190475,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
-      "health_score": 86.5,
+      "health_score": 85.2,
       "classification": "WINNER",
       "score_breakdown": {
-        "cpl_vs_target": 35,
+        "cpl": 35,
+        "freq": 15,
         "cpm": 15,
-        "ctr": 1.5,
-        "frequency": 15,
-        "lead_volume": 10,
-        "budget_util": 10
+        "ctr": 0.25,
+        "leads": 10,
+        "budget": 10.0,
+        "cvr": 0
       },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "poor",
-        "frequency": "excellent",
-        "lead_volume": "excellent",
-        "budget_util": "excellent"
+      "score_bands": {},
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "diagnostics": []
+    },
+    {
+      "adset_id": "120242148702090466",
+      "adset_name": "DM Amara | Adv+ OT",
+      "campaign_id": "120242148702000466",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "layer": "TOFU",
+      "spend": 10441.4,
+      "impressions": 59729,
+      "clicks": 411,
+      "ctr": 0.671721,
+      "cpc": 29.505571,
+      "cpm": 198.194991,
+      "frequency": 1.565185,
+      "reach": 42772,
+      "leads": 18,
+      "cpl": 580.0777777777778,
+      "daily_budget": 1500.0,
+      "budget_utilization_pct": 99.44190476190475,
+      "delivery_status": "DELIVERING",
+      "learning_status": "ACTIVE",
+      "health_score": 84.0,
+      "classification": "WINNER",
+      "score_breakdown": {
+        "cpl": 34.72,
+        "freq": 13.51,
+        "cpm": 10.91,
+        "ctr": 4.85,
+        "leads": 10,
+        "budget": 10.0,
+        "cvr": 0
       },
+      "score_bands": {},
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "diagnostics": []
+    },
+    {
+      "adset_id": "120242148702070466",
+      "adset_name": "DM Amara | Adv+ OT_2",
+      "campaign_id": "120242148702000466",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "layer": "TOFU",
+      "spend": 6968.91,
+      "impressions": 30391,
+      "clicks": 165,
+      "ctr": 0.592085,
+      "cpc": 40.092895,
+      "cpm": 237.38392,
+      "frequency": 1.357158,
+      "reach": 23443,
+      "leads": 8,
+      "cpl": 871.11375,
+      "daily_budget": 1000.0,
+      "budget_utilization_pct": 99.55585714285714,
+      "delivery_status": "DELIVERING",
+      "learning_status": "ACTIVE",
+      "health_score": 57.9,
+      "classification": "WATCH",
+      "score_breakdown": {
+        "cpl": 14.51,
+        "freq": 15,
+        "cpm": 6.71,
+        "ctr": 3.43,
+        "leads": 8.27,
+        "budget": 10.0,
+        "cvr": 0
+      },
+      "score_bands": {},
       "should_pause": false,
       "auto_pause_reasons": [],
       "diagnostics": []
@@ -481,22 +480,23 @@
       "ad_name": "DM_Static_your_city_gives_traffic",
       "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
       "adset_name": "DM Amara | Adv+ OT",
-      "spend": 4083.55,
-      "impressions": 31221,
-      "clicks": 204,
-      "ctr": 0.757396,
-      "cpc": 7.384688,
-      "cpm": 55.931361,
-      "frequency": 1.566555,
-      "leads": 6,
-      "cpl": 680.5916666666667,
+      "spend": 6005.58,
+      "impressions": 40677,
+      "clicks": 264,
+      "leads": 9,
+      "cpl": 667.2866666666666,
+      "ctr": 0.73512,
+      "cpc": 16.335484,
+      "cpm": 120.085369,
+      "frequency": 1.447648,
       "is_video": false,
+      "creative_type": "static",
       "thumb_stop_pct": 0,
       "hold_rate_pct": 0,
       "first_frame_rate": 0,
-      "creative_age_days": 11,
-      "creative_score": 100.0,
-      "performance_score": 100,
+      "creative_age_days": 13,
+      "creative_score": 91.8,
+      "performance_score": 91.8,
       "age_score": 100,
       "classification": "WINNER",
       "health_signals": [],
@@ -509,460 +509,432 @@
       "video_p100": 0,
       "avg_watch_sec": 0,
       "weights_used": {
-        "cpl_vs_target": 45,
+        "cpl": 45,
         "cpm": 25,
-        "ctr": 30
+        "ctr": 20,
+        "cpc": 10
       },
       "score_breakdown": {
-        "cpl_vs_target": 45,
-        "cpm": 25,
-        "ctr": 30
+        "cpl": 36.85,
+        "cpm": 24.98,
+        "ctr": 20,
+        "cpc": 10
       },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "excellent"
-      }
-    },
-    {
-      "ad_id": "120242148702100466",
-      "ad_name": "DM_23/03/2026_70%_open_space",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "adset_name": "DM Amara | Adv+ OT",
-      "spend": 6610.26,
-      "impressions": 30865,
-      "clicks": 224,
-      "ctr": 0.535475,
-      "cpc": 12.6725,
-      "cpm": 67.858099,
-      "frequency": 1.210043,
-      "leads": 11,
-      "cpl": 600.9327272727273,
-      "is_video": false,
-      "thumb_stop_pct": 0.6220638263405152,
-      "hold_rate_pct": 0,
-      "first_frame_rate": 0,
-      "creative_age_days": 11,
-      "creative_score": 95.5,
-      "performance_score": 92.5,
-      "age_score": 100,
-      "classification": "WINNER",
-      "health_signals": [
-        "[STATIC] CTR 0.54% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy."
-      ],
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "scoring_type": "static",
-      "video_p25": 0,
-      "video_p50": 0,
-      "video_p75": 0,
-      "video_p100": 0,
-      "avg_watch_sec": 1.0,
-      "weights_used": {
-        "cpl_vs_target": 45,
-        "cpm": 25,
-        "ctr": 30
-      },
-      "score_breakdown": {
-        "cpl_vs_target": 45,
-        "cpm": 25,
-        "ctr": 22.5
-      },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "good"
-      }
-    },
-    {
-      "ad_id": "120242546671240466",
-      "ad_name": "DM_31/03/2026_Ai-visual_video",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "adset_name": "DM Amara | Adv+ OT_2",
-      "spend": 687.5000000000001,
-      "impressions": 995,
-      "clicks": 8,
-      "ctr": 1.639344,
-      "cpc": 153.19,
-      "cpm": 2511.311475,
-      "frequency": 1.016667,
-      "leads": 2,
-      "cpl": 343.75000000000006,
-      "is_video": true,
-      "thumb_stop_pct": 11.35678391959799,
-      "hold_rate_pct": 50.0,
-      "first_frame_rate": 0.20100502512562815,
-      "creative_age_days": 3,
-      "creative_score": 89.2,
-      "performance_score": 82.0,
-      "age_score": 100,
-      "classification": "WINNER",
-      "health_signals": [
-        "[VIDEO] First Frame Rate 0.2% < 80% target. Improve contrast, thumbnail, motion at 0-1s."
-      ],
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "scoring_type": "video",
-      "video_p25": 2,
-      "video_p50": 1,
-      "video_p75": 0,
-      "video_p100": 0,
-      "avg_watch_sec": 2.0,
-      "weights_used": {
-        "cpl_vs_target": 35,
-        "cpm": 20,
-        "thumb_stop": 15,
-        "video_hold": 15,
-        "ctr": 15
-      },
-      "score_breakdown": {
-        "cpl_vs_target": 35,
-        "cpm": 2.0,
-        "ctr": 15,
-        "thumb_stop": 15,
-        "video_hold": 15
-      },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "poor",
-        "ctr": "excellent",
-        "thumb_stop": "excellent",
-        "video_hold": "excellent"
-      }
-    },
-    {
-      "ad_id": "120242148702050466",
-      "ad_name": "DM_23/03/2026static_better_architecture",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "adset_name": "DM Amara | Adv+ OT_2",
-      "spend": 6128.580000000001,
-      "impressions": 33998,
-      "clicks": 213,
-      "ctr": 0.714595,
-      "cpc": 13.842727,
-      "cpm": 98.919446,
-      "frequency": 1.456323,
-      "leads": 7,
-      "cpl": 875.5114285714287,
-      "is_video": false,
-      "thumb_stop_pct": 0,
-      "hold_rate_pct": 0,
-      "first_frame_rate": 0,
-      "creative_age_days": 11,
-      "creative_score": 83.8,
-      "performance_score": 73.0,
-      "age_score": 100,
-      "classification": "WINNER",
-      "health_signals": [],
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "scoring_type": "static",
-      "video_p25": 0,
-      "video_p50": 0,
-      "video_p75": 0,
-      "video_p100": 0,
-      "avg_watch_sec": 0,
-      "weights_used": {
-        "cpl_vs_target": 45,
-        "cpm": 25,
-        "ctr": 30
-      },
-      "score_breakdown": {
-        "cpl_vs_target": 18.0,
-        "cpm": 25,
-        "ctr": 30
-      },
-      "score_bands": {
-        "cpl_vs_target": "watch",
-        "cpm": "excellent",
-        "ctr": "excellent"
-      }
-    },
-    {
-      "ad_id": "120242148702110466",
-      "ad_name": "DM_23/03/2026_Saurabh_Ten Months early_pocession",
-      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-      "adset_name": "DM Amara | Adv+ OT_2",
-      "spend": 730.86,
-      "impressions": 1418,
-      "clicks": 6,
-      "ctr": 0.0,
-      "cpc": 0.0,
-      "cpm": 186.884058,
-      "frequency": 1.159664,
-      "leads": 0,
-      "cpl": 0,
-      "is_video": true,
-      "thumb_stop_pct": 13.117066290550069,
-      "hold_rate_pct": 100.0,
-      "first_frame_rate": 0.14104372355430184,
-      "creative_age_days": 11,
-      "creative_score": 79.0,
-      "performance_score": 65.0,
-      "age_score": 100,
-      "classification": "WINNER",
-      "health_signals": [
-        "[VIDEO] First Frame Rate 0.1% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Spent \u20b9731 with ZERO leads. Review targeting & creative relevance."
-      ],
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "scoring_type": "video",
-      "video_p25": 2,
-      "video_p50": 2,
-      "video_p75": 0,
-      "video_p100": 0,
-      "avg_watch_sec": 2.0,
-      "weights_used": {
-        "cpl_vs_target": 35,
-        "cpm": 20,
-        "thumb_stop": 15,
-        "video_hold": 15,
-        "ctr": 15
-      },
-      "score_breakdown": {
-        "cpl_vs_target": 15.0185,
-        "cpm": 20,
-        "ctr": 0,
-        "thumb_stop": 15,
-        "video_hold": 15
-      },
-      "score_bands": {
-        "cpl_vs_target": "watch",
-        "cpm": "excellent",
-        "ctr": "poor",
-        "thumb_stop": "excellent",
-        "video_hold": "excellent"
-      }
-    },
-    {
-      "ad_id": "120240924569370466",
-      "ad_name": "DM_Haripriya_Video_Telugu",
-      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-      "adset_name": "DM Amara | Adv+ OT_2",
-      "spend": 1383.44,
-      "impressions": 10572,
-      "clicks": 39,
-      "ctr": 0.0,
-      "cpc": 0.0,
-      "cpm": 172.093023,
-      "frequency": 1.172727,
-      "leads": 2,
-      "cpl": 691.72,
-      "is_video": true,
-      "thumb_stop_pct": 7.453651153991676,
-      "hold_rate_pct": 100.0,
-      "first_frame_rate": 0.009458948164964056,
-      "creative_age_days": 38,
-      "creative_score": 73.6,
-      "performance_score": 85,
-      "age_score": 56.4,
-      "classification": "WINNER",
-      "health_signals": [
-        "[VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 38 days [WARNING] but performance score 85/100 \u2014 PERFORMING_WELL, no refresh needed."
-      ],
-      "should_pause": false,
-      "auto_pause_reasons": [],
-      "scoring_type": "video",
-      "video_p25": 1,
-      "video_p50": 1,
-      "video_p75": 1,
-      "video_p100": 0,
-      "avg_watch_sec": 2.0,
-      "weights_used": {
-        "cpl_vs_target": 35,
-        "cpm": 20,
-        "thumb_stop": 15,
-        "video_hold": 15,
-        "ctr": 15
-      },
-      "score_breakdown": {
-        "cpl_vs_target": 35,
-        "cpm": 20,
-        "ctr": 0,
-        "thumb_stop": 15,
-        "video_hold": 15
-      },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "poor",
-        "thumb_stop": "excellent",
-        "video_hold": "excellent"
-      }
+      "score_bands": {}
     },
     {
       "ad_id": "120232236324670466",
       "ad_name": "DM_Static_Your home has better amenities",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "adset_name": "DM Amara | Adv+ OT",
-      "spend": 20096.39,
-      "impressions": 248137,
-      "clicks": 2117,
-      "ctr": 1.142527,
-      "cpc": 11.036693,
-      "cpm": 126.097181,
-      "frequency": 1.242625,
-      "leads": 36,
-      "cpl": 558.2330555555556,
+      "spend": 18222.05,
+      "impressions": 294616,
+      "clicks": 2322,
+      "leads": 34,
+      "cpl": 535.9426470588235,
+      "ctr": 0.918926,
+      "cpc": 12.298085,
+      "cpm": 113.010297,
+      "frequency": 1.367985,
       "is_video": true,
-      "thumb_stop_pct": 1.5310090796616387,
-      "hold_rate_pct": 47.05882352941176,
-      "first_frame_rate": 0.04795737838371545,
-      "creative_age_days": 207,
-      "creative_score": 51.9,
-      "performance_score": 86.5,
-      "age_score": 0,
-      "classification": "WATCH",
+      "creative_type": "video",
+      "thumb_stop_pct": 0.7368914111928748,
+      "hold_rate_pct": 53.333333333333336,
+      "first_frame_rate": 0.02036549270915361,
+      "creative_age_days": 209,
+      "creative_score": 83.9,
+      "performance_score": 83.9,
+      "age_score": 100,
+      "classification": "WINNER",
       "health_signals": [
-        "[VIDEO] Thumb-stop 1.5% < 5% target. Fix first 3s: add motion/contrast/face.",
+        "[VIDEO] Thumb-stop 0.7% < 5% target. Fix first 3s: add motion/contrast/face.",
         "[VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 207 days [CRITICAL] but performance score 86.5/100 \u2014 PERFORMING_WELL, no refresh needed."
+        "Creative running 209 days [CRITICAL] but performance score 83.9/100 \u2014 PERFORMING_WELL, no refresh needed."
       ],
       "should_pause": false,
       "auto_pause_reasons": [],
       "scoring_type": "video",
-      "video_p25": 119,
-      "video_p50": 56,
-      "video_p75": 34,
-      "video_p100": 30,
+      "video_p25": 60,
+      "video_p50": 32,
+      "video_p75": 20,
+      "video_p100": 12,
       "avg_watch_sec": 2.0,
       "weights_used": {
-        "cpl_vs_target": 35,
+        "cpl": 35,
         "cpm": 20,
-        "thumb_stop": 15,
-        "video_hold": 15,
+        "tsr": 15,
+        "vhr": 15,
         "ctr": 15
       },
       "score_breakdown": {
-        "cpl_vs_target": 35,
+        "cpl": 35,
         "cpm": 20,
-        "ctr": 15,
-        "thumb_stop": 1.5,
-        "video_hold": 15
+        "tsr": 0,
+        "vhr": 15,
+        "ctr": 13.9
       },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "excellent",
-        "thumb_stop": "poor",
-        "video_hold": "excellent"
-      }
+      "score_bands": {}
     },
     {
       "ad_id": "120235869581380466",
       "ad_name": "DM_Influencer - 2",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "adset_name": "DM Amara | Adv+ OT_2",
-      "spend": 7149.150000000001,
-      "impressions": 63332,
-      "clicks": 224,
-      "ctr": 0.288201,
-      "cpc": 21.3594,
-      "cpm": 61.558015,
-      "frequency": 1.264412,
+      "spend": 7025.900000000001,
+      "impressions": 48411,
+      "clicks": 201,
       "leads": 14,
-      "cpl": 510.65357142857147,
+      "cpl": 501.85,
+      "ctr": 0.414607,
+      "cpc": 27.724231,
+      "cpm": 114.946579,
+      "frequency": 1.080927,
       "is_video": true,
-      "thumb_stop_pct": 9.366512979220614,
-      "hold_rate_pct": 46.02510460251046,
-      "first_frame_rate": 0.37737636581822775,
-      "creative_age_days": 142,
-      "creative_score": 51.9,
-      "performance_score": 86.5,
-      "age_score": 0,
-      "classification": "WATCH",
+      "creative_type": "video",
+      "thumb_stop_pct": 10.001859081613683,
+      "hold_rate_pct": 42.42424242424242,
+      "first_frame_rate": 0.5453306066803,
+      "creative_age_days": 144,
+      "creative_score": 70.4,
+      "performance_score": 70.4,
+      "age_score": 100,
+      "classification": "WINNER",
       "health_signals": [
-        "[VIDEO] First Frame Rate 0.4% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 142 days [CRITICAL] but performance score 86.5/100 \u2014 PERFORMING_WELL, no refresh needed."
+        "[VIDEO] First Frame Rate 0.5% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
+        "Creative running 144 days [CRITICAL] but performance score 70.4/100 \u2014 PERFORMING_WELL, no refresh needed."
       ],
       "should_pause": false,
       "auto_pause_reasons": [],
       "scoring_type": "video",
-      "video_p25": 239,
-      "video_p50": 110,
-      "video_p75": 71,
-      "video_p100": 41,
-      "avg_watch_sec": 1.0,
+      "video_p25": 264,
+      "video_p50": 112,
+      "video_p75": 62,
+      "video_p100": 32,
+      "avg_watch_sec": 2.0,
       "weights_used": {
-        "cpl_vs_target": 35,
+        "cpl": 35,
         "cpm": 20,
-        "thumb_stop": 15,
-        "video_hold": 15,
+        "tsr": 15,
+        "vhr": 15,
         "ctr": 15
       },
       "score_breakdown": {
-        "cpl_vs_target": 35,
+        "cpl": 35,
         "cpm": 20,
-        "ctr": 1.5,
-        "thumb_stop": 15,
-        "video_hold": 15
+        "tsr": 0,
+        "vhr": 15,
+        "ctr": 0.39
       },
-      "score_bands": {
-        "cpl_vs_target": "excellent",
-        "cpm": "excellent",
-        "ctr": "poor",
-        "thumb_stop": "excellent",
-        "video_hold": "excellent"
-      }
+      "score_bands": {}
+    },
+    {
+      "ad_id": "120242148702110466",
+      "ad_name": "DM_23/03/2026_Saurabh_Ten Months early_pocession",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "adset_name": "DM Amara | Adv+ OT_2",
+      "spend": 704.6,
+      "impressions": 1279,
+      "clicks": 6,
+      "leads": 0,
+      "cpl": 0,
+      "ctr": 1.098901,
+      "cpc": 83.23,
+      "cpm": 914.615385,
+      "frequency": 1.144654,
+      "is_video": true,
+      "creative_type": "video",
+      "thumb_stop_pct": 13.682564503518375,
+      "hold_rate_pct": 50.0,
+      "first_frame_rate": 0.6254886630179828,
+      "creative_age_days": 13,
+      "creative_score": 66.0,
+      "performance_score": 66.0,
+      "age_score": 100,
+      "classification": "WATCH",
+      "health_signals": [
+        "[VIDEO] First Frame Rate 0.6% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
+        "Spent \u20b9705 with ZERO leads. Review targeting & creative relevance."
+      ],
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "scoring_type": "video",
+      "video_p25": 8,
+      "video_p50": 4,
+      "video_p75": 2,
+      "video_p100": 2,
+      "avg_watch_sec": 4.0,
+      "weights_used": {
+        "cpl": 35,
+        "cpm": 20,
+        "tsr": 15,
+        "vhr": 15,
+        "ctr": 15
+      },
+      "score_breakdown": {
+        "cpl": 35,
+        "cpm": 0,
+        "tsr": 1.01,
+        "vhr": 15,
+        "ctr": 15
+      },
+      "score_bands": {}
+    },
+    {
+      "ad_id": "120240924569370466",
+      "ad_name": "DM_Haripriya_Video_Telugu",
+      "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+      "adset_name": "DM Amara | Adv+ OT_2",
+      "spend": 1361.24,
+      "impressions": 10444,
+      "clicks": 39,
+      "leads": 2,
+      "cpl": 680.62,
+      "ctr": 0.0,
+      "cpc": 0.0,
+      "cpm": 147.0,
+      "frequency": 1.176471,
+      "is_video": false,
+      "creative_type": "static",
+      "thumb_stop_pct": 7.449253159708924,
+      "hold_rate_pct": 0,
+      "first_frame_rate": 0,
+      "creative_age_days": 40,
+      "creative_score": 64.2,
+      "performance_score": 64.2,
+      "age_score": 100,
+      "classification": "WATCH",
+      "health_signals": [
+        "[STATIC] CTR 0.00% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy.",
+        "Creative running 40 days [WARNING]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d)."
+      ],
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "scoring_type": "static",
+      "video_p25": 0,
+      "video_p50": 0,
+      "video_p75": 0,
+      "video_p100": 0,
+      "avg_watch_sec": 1.0,
+      "weights_used": {
+        "cpl": 45,
+        "cpm": 25,
+        "ctr": 20,
+        "cpc": 10
+      },
+      "score_breakdown": {
+        "cpl": 35.66,
+        "cpm": 18.57,
+        "ctr": 0,
+        "cpc": 10
+      },
+      "score_bands": {}
+    },
+    {
+      "ad_id": "120242148702100466",
+      "ad_name": "DM_23/03/2026_70%_open_space",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "adset_name": "DM Amara | Adv+ OT",
+      "spend": 4435.82,
+      "impressions": 19052,
+      "clicks": 147,
+      "leads": 9,
+      "cpl": 492.8688888888889,
+      "ctr": 0.628627,
+      "cpc": 39.974103,
+      "cpm": 251.287879,
+      "frequency": 1.377748,
+      "is_video": true,
+      "creative_type": "video",
+      "thumb_stop_pct": 0.5091328994331303,
+      "hold_rate_pct": 66.66666666666666,
+      "first_frame_rate": 0.04723913499895024,
+      "creative_age_days": 13,
+      "creative_score": 63.1,
+      "performance_score": 63.1,
+      "age_score": 100,
+      "classification": "WATCH",
+      "health_signals": [
+        "[VIDEO] Thumb-stop 0.5% < 5% target. Fix first 3s: add motion/contrast/face.",
+        "[VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s."
+      ],
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "scoring_type": "video",
+      "video_p25": 9,
+      "video_p50": 6,
+      "video_p75": 6,
+      "video_p100": 2,
+      "avg_watch_sec": 3.0,
+      "weights_used": {
+        "cpl": 35,
+        "cpm": 20,
+        "tsr": 15,
+        "vhr": 15,
+        "ctr": 15
+      },
+      "score_breakdown": {
+        "cpl": 35,
+        "cpm": 6.96,
+        "tsr": 0,
+        "vhr": 15,
+        "ctr": 6.12
+      },
+      "score_bands": {}
+    },
+    {
+      "ad_id": "120242148702050466",
+      "ad_name": "DM_23/03/2026static_better_architecture",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "adset_name": "DM Amara | Adv+ OT_2",
+      "spend": 4507.87,
+      "impressions": 23589,
+      "clicks": 131,
+      "leads": 6,
+      "cpl": 751.3116666666666,
+      "ctr": 0.577293,
+      "cpc": 37.696389,
+      "cpm": 217.618666,
+      "frequency": 1.348033,
+      "is_video": false,
+      "creative_type": "static",
+      "thumb_stop_pct": 0,
+      "hold_rate_pct": 0,
+      "first_frame_rate": 0,
+      "creative_age_days": 13,
+      "creative_score": 54.3,
+      "performance_score": 54.3,
+      "age_score": 100,
+      "classification": "WATCH",
+      "health_signals": [
+        "[STATIC] CTR 0.58% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy."
+      ],
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "scoring_type": "static",
+      "video_p25": 0,
+      "video_p50": 0,
+      "video_p75": 0,
+      "video_p100": 0,
+      "avg_watch_sec": 0,
+      "weights_used": {
+        "cpl": 45,
+        "cpm": 25,
+        "ctr": 20,
+        "cpc": 10
+      },
+      "score_breakdown": {
+        "cpl": 29.35,
+        "cpm": 1.76,
+        "ctr": 13.2,
+        "cpc": 10
+      },
+      "score_bands": {}
+    },
+    {
+      "ad_id": "120242546671240466",
+      "ad_name": "DM_31/03/2026_Ai-visual_video",
+      "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+      "adset_name": "DM Amara | Adv+ OT_2",
+      "spend": 1756.44,
+      "impressions": 5523,
+      "clicks": 28,
+      "leads": 2,
+      "cpl": 878.22,
+      "ctr": 1.639344,
+      "cpc": 153.19,
+      "cpm": 2511.311475,
+      "frequency": 1.016667,
+      "is_video": true,
+      "creative_type": "video",
+      "thumb_stop_pct": 9.849719355422778,
+      "hold_rate_pct": 50.0,
+      "first_frame_rate": 0.03621220351258374,
+      "creative_age_days": 5,
+      "creative_score": 44.0,
+      "performance_score": 44.0,
+      "age_score": 100,
+      "classification": "WATCH",
+      "health_signals": [
+        "[VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s."
+      ],
+      "should_pause": false,
+      "auto_pause_reasons": [],
+      "scoring_type": "video",
+      "video_p25": 2,
+      "video_p50": 1,
+      "video_p75": 0,
+      "video_p100": 0,
+      "avg_watch_sec": 2.0,
+      "weights_used": {
+        "cpl": 35,
+        "cpm": 20,
+        "tsr": 15,
+        "vhr": 15,
+        "ctr": 15
+      },
+      "score_breakdown": {
+        "cpl": 14.01,
+        "cpm": 0,
+        "tsr": 0,
+        "vhr": 15,
+        "ctr": 15
+      },
+      "score_bands": {}
     },
     {
       "ad_id": "120234312309520466",
       "ad_name": "DM_Influencer",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "adset_name": "DM Amara | Adv+ OT",
-      "spend": 4519.99,
-      "impressions": 83085,
-      "clicks": 312,
-      "ctr": 0.342894,
-      "cpc": 8.12746,
-      "cpm": 27.868612,
-      "frequency": 1.217561,
-      "leads": 6,
-      "cpl": 753.3316666666666,
+      "spend": 6814.619999999999,
+      "impressions": 94445,
+      "clicks": 345,
+      "leads": 7,
+      "cpl": 973.5171428571427,
+      "ctr": 0.441418,
+      "cpc": 10.285429,
+      "cpm": 45.40169,
+      "frequency": 1.258671,
       "is_video": true,
-      "thumb_stop_pct": 9.51555635794668,
-      "hold_rate_pct": 34.78260869565217,
-      "first_frame_rate": 0.2214599506529458,
-      "creative_age_days": 170,
-      "creative_score": 46.7,
-      "performance_score": 77.8,
-      "age_score": 0,
+      "creative_type": "video",
+      "thumb_stop_pct": 10.142410926994547,
+      "hold_rate_pct": 37.03703703703704,
+      "first_frame_rate": 0.17152840277410134,
+      "creative_age_days": 172,
+      "creative_score": 43.5,
+      "performance_score": 43.5,
+      "age_score": 100,
       "classification": "WATCH",
       "health_signals": [
         "[VIDEO] First Frame Rate 0.2% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 170 days [CRITICAL] but performance score 77.8/100 \u2014 PERFORMING_WELL, no refresh needed."
+        "Creative running 172 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).",
+        "[AUTO-PAUSE] CPL \u20b9974 is >30% above target \u20b9720"
       ],
-      "should_pause": false,
-      "auto_pause_reasons": [],
+      "should_pause": true,
+      "auto_pause_reasons": [
+        "CPL \u20b9974 is >30% above target \u20b9720"
+      ],
       "scoring_type": "video",
-      "video_p25": 184,
-      "video_p50": 64,
-      "video_p75": 34,
-      "video_p100": 24,
+      "video_p25": 162,
+      "video_p50": 60,
+      "video_p75": 31,
+      "video_p100": 23,
       "avg_watch_sec": 1.0,
       "weights_used": {
-        "cpl_vs_target": 35,
+        "cpl": 35,
         "cpm": 20,
-        "thumb_stop": 15,
-        "video_hold": 15,
+        "tsr": 15,
+        "vhr": 15,
         "ctr": 15
       },
       "score_breakdown": {
-        "cpl_vs_target": 26.25,
+        "cpl": 7.39,
         "cpm": 20,
-        "ctr": 1.5,
-        "thumb_stop": 15,
-        "video_hold": 15
+        "tsr": 0,
+        "vhr": 15,
+        "ctr": 1.11
       },
-      "score_bands": {
-        "cpl_vs_target": "good",
-        "cpm": "excellent",
-        "ctr": "poor",
-        "thumb_stop": "excellent",
-        "video_hold": "excellent"
-      }
+      "score_bands": {}
     }
   ],
   "fatigue_alerts": [],
@@ -970,7 +942,7 @@
     {
       "playbook": 4,
       "title": "Thumb Stop Recovery \u2014 First 3 Seconds Fix",
-      "trigger": "1 video ads with thumb-stop < 5%",
+      "trigger": "2 video ads with thumb-stop < 5%",
       "diagnosis": [
         "First 3 seconds lack movement/contrast/curiosity",
         "Check video size/aspect ratio mismatch (cropped on feed?)",
@@ -983,6 +955,19 @@
         "Use pattern interrupts (camera shakes, cuts, quick zooms)",
         "Test UGC hooks ('POV: You finally find a 3BHK with 3 balconies')",
         "Try native feel (looks like a reel, not an ad)"
+      ],
+      "layer": "ALL"
+    },
+    {
+      "playbook": 10,
+      "title": "Volume Drop with Stable CPL \u2014 Scale & Learning Reset",
+      "trigger": "Leads trending DOWN (-27%) while CPL \u20b9612 is within range",
+      "actions": [
+        "Duplicate campaign to refresh learning",
+        "Increase budget by 20-25%",
+        "Add secondary ad variants to increase variety",
+        "Add new creative hooks or offers",
+        "Reverify conversion event is 'Leads' not 'Form Opens'"
       ],
       "layer": "ALL"
     }
@@ -1002,92 +987,88 @@
   "pattern_analysis": {
     "top_ads": [
       {
-        "name": "DM_31/03/2026_Ai-visual_video",
-        "cpl": 343.75000000000006,
-        "ctr": 1.639344,
-        "spend": 687.5000000000001,
-        "leads": 2,
+        "name": "DM_23/03/2026_70%_open_space",
+        "cpl": 492.8688888888889,
+        "ctr": 0.628627,
+        "spend": 4435.82,
+        "leads": 9,
         "is_video": true,
-        "score": 89.2
+        "score": 63.1
       },
       {
         "name": "DM_Influencer - 2",
-        "cpl": 510.65357142857147,
-        "ctr": 0.288201,
-        "spend": 7149.150000000001,
+        "cpl": 501.85,
+        "ctr": 0.414607,
+        "spend": 7025.900000000001,
         "leads": 14,
         "is_video": true,
-        "score": 51.9
+        "score": 70.4
       }
     ],
     "bottom_ads": [
       {
-        "name": "DM_Influencer",
-        "cpl": 753.3316666666666,
-        "ctr": 0.342894,
-        "spend": 4519.99,
-        "leads": 6,
+        "name": "DM_31/03/2026_Ai-visual_video",
+        "cpl": 878.22,
+        "ctr": 1.639344,
+        "spend": 1756.44,
+        "leads": 2,
         "is_video": true,
-        "score": 46.7
+        "score": 44.0
       },
       {
-        "name": "DM_23/03/2026static_better_architecture",
-        "cpl": 875.5114285714287,
-        "ctr": 0.714595,
-        "spend": 6128.580000000001,
+        "name": "DM_Influencer",
+        "cpl": 973.5171428571427,
+        "ctr": 0.441418,
+        "spend": 6814.619999999999,
         "leads": 7,
-        "is_video": false,
-        "score": 83.8
+        "is_video": true,
+        "score": 43.5
       }
     ],
     "patterns": [
       {
         "type": "METRIC_COMPARISON",
-        "detail": "Top 2 ads: avg CPL \u20b9427, CTR 0.96%, CPM \u20b91286, Freq 1.14"
+        "detail": "Top 2 ads: avg CPL \u20b9497, CTR 0.52%, CPM \u20b9183, Freq 1.23"
       },
       {
         "type": "METRIC_COMPARISON",
-        "detail": "Bottom 2 ads: avg CPL \u20b9814, CTR 0.53%, CPM \u20b963, Freq 1.34"
+        "detail": "Bottom 2 ads: avg CPL \u20b9926, CTR 1.04%, CPM \u20b91278, Freq 1.14"
       },
       {
         "type": "CPL_GAP",
-        "detail": "Bottom performers cost 1.9x more per lead (\u20b9814 vs \u20b9427)."
+        "detail": "Bottom performers cost 1.9x more per lead (\u20b9926 vs \u20b9497)."
       },
       {
         "type": "FORMAT_LOSER",
-        "detail": "'Static' format appears more in bottom performers (1/2) than top (0/2)."
-      },
-      {
-        "type": "FORMAT_WINNER",
-        "detail": "'Video' format appears more in top performers (1/2) than bottom (0/2)."
+        "detail": "'Video' format appears more in bottom performers (1/2) than top (0/2)."
       },
       {
         "type": "VIDEO_VS_STATIC",
-        "detail": "Top performers: 100% video, 0% static. Bottom: 50% video, 50% static."
+        "detail": "Top performers: 100% video, 0% static. Bottom: 100% video, 0% static."
       },
       {
         "type": "VIDEO_HOOK_QUALITY",
-        "detail": "Top video TSR: 10.4% vs bottom: 9.5%. Top video VHR: 48.0% vs bottom: 34.8%. Strong hooks = lower CPL."
+        "detail": "Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating \u2014 check copy/CTA instead."
       }
     ],
     "ad_count": 8,
     "top_avg": {
-      "cpl": 427.20178571428573,
-      "ctr": 0.9637724999999999,
-      "cpm": 1286.434745
+      "cpl": 497.3594444444444,
+      "ctr": 0.521617,
+      "cpm": 183.117229
     },
     "bottom_avg": {
-      "cpl": 814.4215476190477,
-      "ctr": 0.5287445,
-      "cpm": 63.394028999999996
+      "cpl": 925.8685714285714,
+      "ctr": 1.040381,
+      "cpm": 1278.3565825
     }
   },
   "recommendations": [
     {
       "priority": "IMMEDIATE",
       "category": "Thumb Stop Recovery \u2014 First 3 Seconds Fix",
-      "action": "Fix first 3 seconds on 1 video ads",
-      "detail": "Video ads with TSR < 5%: DM_Static_Your home has b. Add motion at 0-1s, use face/eyes, headline overlay, pattern interrupts.",
+      "action": "Fix first 3 seconds on 2 video ads",
+      "detail": "Video ads with TSR < 5%: DM_Static_Your home has b, DM_23/03/2026_70%_open_sp. Add motion at 0-1s, use face/eyes, headline overlay, pattern interrupts.",
       "ice_score": 7.7,
       "layer": "ALL",
       "root_causes": []
@@ -1095,8 +1076,8 @@
     {
       "priority": "THIS_WEEK",
       "category": "Scale Winners",
-      "action": "Increase budget on 'DM-23/03/2026-500-AL-MO-LED-(Jobtitles_i' by 20-25%",
-      "detail": "Score: 93.0/100, CPL: \u20b9702 (within target), 26 leads. SOP: Scale max 25%.",
+      "action": "Increase budget on 'DM Amara | Adv+OT | [HNIs Narrowed by Re' by 20-25%",
+      "detail": "Score: 89.3/100, CPL: \u20b9586 (within target), 57 leads. SOP: Scale max 25%.",
       "ice_score": 8.3,
       "layer": "TOFU",
       "root_causes": []
@@ -1128,17 +1109,8 @@
     {
       "priority": "THIS_WEEK",
       "category": "Static Creative CTR Fix",
-      "action": "Improve CTR on 1 static ads",
+      "action": "Improve CTR on 2 static ads",
       "detail": "Static ads with CTR < 0.7%. Improve headline visibility, CTA contrast, visual hierarchy. Add price overlay, benefit callout, or social proof.",
-      "ice_score": 7.0,
-      "layer": "ALL",
-      "root_causes": []
-    },
-    {
-      "priority": "THIS_WEEK",
-      "category": "Creative Strategy",
-      "action": "Double down on winning creative formats",
-      "detail": "'Video' format appears more in top performers (1/2) than bottom (0/2).",
       "ice_score": 7.0,
       "layer": "ALL",
       "root_causes": []
@@ -1154,20 +1126,20 @@
     }
   ],
   "budget_pacing": {
-    "avg_7d_spend": 7341.388571428572,
-    "latest_spend": 7446.78,
+    "avg_7d_spend": 7262.017142857143,
+    "latest_spend": 6520.63,
     "spend_anomalies": [],
     "exhausted_budgets": [],
     "under_spending": [
       {
-        "name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-        "pace": 608.025,
-        "budget": 2500.0
+        "name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+        "pace": 1114.127,
+        "budget": 4784.0
       },
       {
-        "name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-        "pace": 1104.9656666666667,
-        "budget": 4784.0
+        "name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
+        "pace": 580.3436666666668,
+        "budget": 2500.0
       }
     ],
     "funnel_split_issues": [
@@ -1175,22 +1147,22 @@
       "MOFU is under-indexed: 0% actual vs 35% target (-35pp)."
     ],
     "daily_spends": [
-      5545.92,
-      7975.34,
       9221.56,
       8088.07,
       6845.08,
       6266.97,
-      7446.78
+      7447.69,
+      6444.12,
+      6520.63
     ]
   },
   "monthly_pacing": {
     "month": "2026-04",
-    "days_elapsed": 2,
-    "days_remaining": 27,
-    "pct_through_month": 6.666666666666667,
+    "days_elapsed": 4,
+    "days_remaining": 25,
+    "pct_through_month": 13.333333333333334,
     "targets": {
-      "budget": 200000,
+      "budget": 199998,
       "leads": 278,
       "cpl": 720,
       "svs": {
@@ -1202,36 +1174,36 @@
         "high": 20000
       }
     },
-    "data_source": "MTD (2026-04-01 to 2026-04-03)",
+    "data_source": "MTD (2026-04-01 to 2026-04-05)",
     "mtd": {
-      "spend": 13713.75,
-      "leads": 25,
-      "cpl": 548.55,
-      "ctr": 0.6241932245202375,
-      "cpc": 12.604549632352942,
-      "cpm": 78.67674478643757,
-      "impressions": 174305,
-      "clicks": 1088
+      "spend": 26679.41,
+      "leads": 41,
+      "cpl": 650.7173170731708,
+      "ctr": 0.632959061888043,
+      "cpc": 12.210256292906179,
+      "cpm": 77.28592368570467,
+      "impressions": 345204,
+      "clicks": 2185
     },
     "expected": {
-      "spend": 13333.333333333334,
-      "leads": 18.53333333333333
+      "spend": 26666.399999999998,
+      "leads": 37.06666666666666
     },
     "projected_eom": {
-      "spend": 205706.25,
-      "leads": 375.0,
-      "cpl": 548.55
+      "spend": 200095.575,
+      "leads": 307.5,
+      "cpl": 650.7173170731708
     },
     "pacing": {
-      "spend_pct": 102.85312499999999,
+      "spend_pct": 100.04878798787988,
       "spend_status": "ON TRACK",
-      "leads_pct": 134.89208633093526,
+      "leads_pct": 110.61151079136691,
       "leads_status": "AHEAD",
       "cpl_status": "ON TARGET"
     },
     "daily_needed": {
-      "leads": 9.37037037037037,
-      "spend": 6899.490740740741
+      "leads": 9.48,
+      "spend": 6932.7436
     },
     "alerts": []
   },
@@ -1239,36 +1211,36 @@
     {
       "type": "BEST_PERFORMING_AD",
       "severity": "INFO",
-      "entity": "DM_31/03/2026_Ai-visual_video",
-      "detail": "Best performing ad: 'DM_31/03/2026_Ai-visual_video' \u2014 CPL \u20b9344, 2 leads, \u20b9688 spend, CTR 1.64%.",
+      "entity": "DM_23/03/2026_70%_open_space",
+      "detail": "Best performing ad: 'DM_23/03/2026_70%_open_space' \u2014 CPL \u20b9493, 9 leads, \u20b94,436 spend, CTR 0.63%.",
       "auto_action": false
     },
     {
       "type": "WORST_PERFORMING_AD",
       "severity": "HIGH",
       "entity": "DM_23/03/2026_Saurabh_Ten Months early_pocession",
-      "detail": "Worst performing ad: 'DM_23/03/2026_Saurabh_Ten Months early_pocession' \u2014 \u20b9731 spent with ZERO leads.",
+      "detail": "Worst performing ad: 'DM_23/03/2026_Saurabh_Ten Months early_pocession' \u2014 \u20b9705 spent with ZERO leads.",
       "auto_action": false
     },
     {
       "type": "ADS_ANALYZED",
       "severity": "INFO",
       "entity": "Account-wide",
-      "detail": "Total ads analyzed: 9. Winners: 6, Losers: 0, Watch: 3.",
+      "detail": "Total ads analyzed: 9. Winners: 3, Losers: 0, Watch: 6.",
       "auto_action": false
     },
     {
       "type": "BUDGET_EFFICIENCY",
       "severity": "MEDIUM",
       "entity": "Account-wide",
-      "detail": "Budget efficiency: 22% of budget (\u20b911,379) going to ads with CPL > target or zero leads.",
+      "detail": "Budget efficiency: 27% of budget (\u20b913,784) going to ads with CPL > target or zero leads.",
       "auto_action": false
     },
     {
       "type": "CPL_TREND",
-      "severity": "INFO",
+      "severity": "HIGH",
       "entity": "Account-wide",
-      "detail": "CPL trending DOWN over last 3 days: \u20b9856, \u20b9482, \u20b9621.",
+      "detail": "CPL trending UP over last 3 days: \u20b9621, \u20b9716, \u20b9932.",
       "auto_action": false
     }
   ],
@@ -1303,19 +1275,25 @@
     "ad_scores": {
       "winners": [
         "DM_Static_your_city_gives_traffic",
-        "DM_23/03/2026_70%_open_space",
-        "DM_31/03/2026_Ai-visual_video",
-        "DM_23/03/2026static_better_architecture",
-        "DM_23/03/2026_Saurabh_Ten Months early_pocession",
-        "DM_Haripriya_Video_Telugu"
+        "DM_Static_Your home has better amenities",
+        "DM_Influencer - 2"
       ],
       "losers": [],
-      "auto_pause": []
+      "auto_pause": [
+        {
+          "ad_name": "DM_Influencer",
+          "ad_id": "120234312309520466",
+          "score": 43.5,
+          "reasons": [
+            "CPL \u20b9974 is >30% above target \u20b9720"
+          ]
+        }
+      ]
     },
     "campaign_scores": {
       "winners": [
-        "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-        "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025"
+        "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+        "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC"
       ],
       "losers": []
     }
@@ -1323,16 +1301,16 @@
   "summary": {
     "total_campaigns": 2,
     "total_adsets": 4,
-    "total_spend": 51389.72,
-    "total_leads": 84,
-    "avg_cpl": 611.782380952381,
-    "overall_ctr": 0.6645844212833806,
+    "total_spend": 50834.119999999995,
+    "total_leads": 83,
+    "avg_cpl": 612.4592771084336,
+    "overall_ctr": 0.6473544521184457,
     "total_fatigue_alerts": 0,
-    "active_playbooks": 1,
-    "total_recommendations": 6,
+    "active_playbooks": 2,
+    "total_recommendations": 5,
     "immediate_actions": 1,
-    "ads_to_pause": 0,
-    "winner_ads": 6,
+    "ads_to_pause": 1,
+    "winner_ads": 3,
     "loser_ads": 0,
     "learning_limited_campaigns": 1,
     "non_delivering_campaigns": 0,
@@ -1341,7 +1319,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-03T16:28:35.465071",
+    "verified_at": "2026-04-05T15:51:27.113235",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 14,
     "verification_status": "MATCH"

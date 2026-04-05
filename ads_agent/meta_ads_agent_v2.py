@@ -32,7 +32,11 @@ from collections import defaultdict
 from urllib.request import urlopen, Request
 from urllib.parse import urlencode, quote
 from urllib.error import URLError, HTTPError
-import ads_agent.scoring_engine as scoring_engine
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import scoring_engine
+from scoring_engine import safe_div
+from intelligence_engines import PerformanceIntelligenceEngine, PatternDetectionEngine
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CONFIG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -994,12 +998,32 @@ def score_meta_ad(ad_data, cpl_target):
         
     result["should_pause"] = len(auto_pause_reasons) > 0
     result["auto_pause_reasons"] = auto_pause_reasons
-    
+
+    # Fields expected by analyze_creative_health
+    is_video = ad_data.get("is_video", False)
+    result["scoring_type"] = "video" if is_video else "static"
+    result["weights_used"] = (
+        {"cpl": 35, "cpm": 20, "tsr": 15, "vhr": 15, "ctr": 15}
+        if is_video
+        else {"cpl": 45, "cpm": 25, "ctr": 20, "cpc": 10}
+    )
+    result["scores"] = result.get("breakdown", {})
+    result["bands"] = {}
+
     return result
 
 def score_meta_campaign(campaign_data, cpl_target):
     result = scoring_engine.score_meta_campaign_module(campaign_data, cpl_target)
     result["total_score"] = result["score"]
+    result["scores"] = result.get("breakdown", {})
+    result["bands"] = {}
+    score = result["score"]
+    if score >= SOP.get("winner_threshold", 70):
+        result["classification"] = "WINNER"
+    elif score <= SOP.get("loser_threshold", 40):
+        result["classification"] = "LOSER"
+    else:
+        result["classification"] = "WATCH"
     return result
 
 
@@ -1132,6 +1156,7 @@ def analyze_creative_health(ad_insights, active_ads):
             "ad_id": ad_id, "ad_name": ad_name,
             "campaign_name": ad.get("campaign_name", ""), "adset_name": ad.get("adset_name", ""),
             "spend": spend, "impressions": impressions, "clicks": si(ad.get("clicks")),
+            "leads": leads, "cpl": cpl,
             "ctr": ctr, "cpc": cpc, "cpm": cpm, "frequency": frequency,
             "is_video": is_video,
             "creative_type": "video" if is_video else "static",
@@ -2414,62 +2439,43 @@ def generate_recommendations(pulse, cost_stack, creative_health, fatigue_alerts,
 # ━━━━━━━━━━━━ MODULE 3.12: PERFORMANCE MARKETER INTELLECT ━━━━━━━━
 
 def apply_marketer_intellect(pulse, cost_stack, creative_health, campaign_audit, adset_analysis,
-                              monthly_pacing, patterns, learning_history):
-    """Goes BEYOND SOPs — expert performance marketer reasoning layer."""
+                               monthly_pacing, patterns, learning_history):
+    """Deep AI-driven insights using PIE and PDE engines (Meta version)."""
     insights = []
+    
+    # Initialize Engines
+    pie = PerformanceIntelligenceEngine(target_cpl=CPL_TARGET)
+    pde = PatternDetectionEngine()
 
-    # ── Diminishing Returns Detection ──
+    # 1. PIE Diagnosis for each campaign
     for c in campaign_audit:
-        if c["is_lead_campaign"] and c["spend"] > 10000 and c["cpl"] > CPL_TARGET * 1.1:
-            # Check if this campaign was previously cheaper
-            prev_data = learning_history.get("campaign_cpl_history", {}).get(c["campaign_id"], [])
-            if prev_data and len(prev_data) >= 2:
-                prev_avg_cpl = sum(p["cpl"] for p in prev_data[-3:]) / len(prev_data[-3:])
-                if c["cpl"] > prev_avg_cpl * 1.15:
-                    insights.append({
-                        "type": "DIMINISHING_RETURNS",
-                        "severity": "HIGH",
-                        "entity": c["campaign_name"],
-                        "detail": f"CPL rising from ₹{prev_avg_cpl:.0f} to ₹{c['cpl']:.0f} despite continued spend. "
-                                  f"Audience ceiling likely reached. Consider: duplicate with fresh audience, "
-                                  f"or shift budget to campaigns with lower marginal CPL.",
-                        "auto_action": False,
-                    })
+        if c.get("spend", 0) > 0:
+            # Map Meta metrics to common schema for PIE
+            # Note: Meta uses 'cpl' and 'ctr' already in our campaign_audit
+            diagnosis = pie.diagnose_campaign(c)
+            for d in diagnosis:
+                 insights.append({
+                    "type": "DIAGNOSIS",
+                    "severity": "HIGH",
+                    "entity": c["campaign_name"],
+                    "detail": f"{d['issue']}: {d['why']}. {d['fix']}",
+                    "auto_action": False,
+                })
 
-    # ── Cannibalization Detection ──
-    # Check for campaigns targeting similar audiences with both showing rising CPM
-    active_campaigns = [c for c in campaign_audit if c["spend"] > 1000]
-    if len(active_campaigns) >= 2:
-        for i, c1 in enumerate(active_campaigns):
-            for c2 in active_campaigns[i+1:]:
-                if c1["layer"] == c2["layer"] and c1["cpm"] > SOP["cpm_ideal_high"] and c2["cpm"] > SOP["cpm_ideal_high"]:
-                    insights.append({
-                        "type": "CANNIBALIZATION_RISK",
-                        "severity": "MEDIUM",
-                        "entity": f"{c1['campaign_name'][:30]} vs {c2['campaign_name'][:30]}",
-                        "detail": f"Both {c1['layer']} campaigns have elevated CPM (₹{c1['cpm']:.0f} & ₹{c2['cpm']:.0f}). "
-                                  f"Possible audience overlap driving auction competition. "
-                                  f"Consider: consolidate into one campaign, or set audience exclusions between them.",
-                        "auto_action": False,
-                    })
+    # 2. PDE Pattern Detection
+    for c in campaign_audit:
+        p = pde.detect_learning_trap(c)
+        if p:
+            insights.append({
+                "type": "PATTERN_ALERT",
+                "severity": "MEDIUM",
+                "entity": c["campaign_name"],
+                "detail": f"{p['pattern']}: {p['evidence']}. {p['proactive_step']}",
+                "auto_action": False,
+            })
 
-    # ── Creative Velocity Check ──
-    total_ads = len(creative_health)
-    old_creatives = [a for a in creative_health if a.get("creative_age_days") and a["creative_age_days"] > SOP["creative_refresh_days"]]
-    if total_ads > 0 and len(old_creatives) / total_ads > 0.5:
-        insights.append({
-            "type": "CREATIVE_VELOCITY_LOW",
-            "severity": "HIGH",
-            "entity": "Account-wide",
-            "detail": f"{len(old_creatives)}/{total_ads} ads are older than {SOP['creative_refresh_days']} days. "
-                      f"Creative refresh pipeline needs acceleration. "
-                      f"SOP: Maintain an always-on experiment campaign testing new creatives.",
-            "auto_action": False,
-        })
-
-    # ── Budget Reallocation Math ──
-    # Calculate optimal budget split based on marginal CPL
-    lead_campaigns = [c for c in campaign_audit if c["is_lead_campaign"] and c["leads"] > 0]
+    # 3. Budget Reallocation Math (Classic Marketer Intellect)
+    lead_campaigns = [c for c in campaign_audit if c.get("is_lead_campaign") and c.get("leads", 0) > 0]
     if len(lead_campaigns) >= 2:
         sorted_by_cpl = sorted(lead_campaigns, key=lambda x: x["cpl"])
         best_cpl = sorted_by_cpl[0]
@@ -2483,53 +2489,35 @@ def apply_marketer_intellect(pulse, cost_stack, creative_health, campaign_audit,
                     "type": "BUDGET_REALLOCATION",
                     "severity": "HIGH",
                     "entity": f"Shift from '{worst_cpl['campaign_name'][:30]}' to '{best_cpl['campaign_name'][:30]}'",
-                    "detail": f"If ₹{worst_cpl['spend']:,.0f} were spent at best campaign's CPL (₹{best_cpl['cpl']:.0f}), "
-                              f"you'd get ~{potential_leads:.0f} leads instead of {actual_leads}. "
-                              f"That's ~{extra_leads:.0f} additional leads. "
-                              f"Consider gradually shifting 20-25% of budget from worst to best performer.",
+                    "detail": f"Shift 25% budget to best-performer. Projected upside: +{extra_leads:.0f} leads.",
                     "auto_action": False,
                 })
 
-    # ── Revenue Funnel Thinking ──
-    if monthly_pacing:
-        mp = monthly_pacing
-        mt = mp["targets"]
-        if mp["mtd"]["leads"] > 0:
-            # Estimate funnel conversion rates
-            sv_rate = (mt["svs"]["high"] / mt["leads"]) * 100 if mt["leads"] > 0 else 4
-            projected_svs = mp["projected_eom"]["leads"] * (sv_rate / 100)
-            if projected_svs < mt["svs"]["low"]:
-                insights.append({
-                    "type": "FUNNEL_PROJECTION",
-                    "severity": "HIGH",
-                    "entity": "Revenue Funnel",
-                    "detail": f"Projected SVs: {projected_svs:.0f} (target: {mt['svs']['low']}-{mt['svs']['high']}). "
-                              f"At current pace ({mp['projected_eom']['leads']:.0f} projected leads × ~{sv_rate:.1f}% SV rate), "
-                              f"likely to miss SV target. Either increase lead volume OR improve lead quality for higher SV rate.",
-                    "auto_action": False,
-                })
-
-    # ── Auto-Action Flags ──
+    # 4. Auto-Pause Logic
     for c in campaign_audit:
-        # Auto-pause: 0 leads at 8K impressions or CPL > 1.3x target
-        if c["is_lead_campaign"]:
+        if c.get("is_lead_campaign"):
             if c["leads"] == 0 and c["impressions"] >= SOP["auto_pause_zero_leads_impressions"]:
                 insights.append({
                     "type": "AUTO_PAUSE",
                     "severity": "CRITICAL",
                     "entity": c["campaign_name"],
-                    "detail": f"Zero leads after {c['impressions']:,} impressions. Auto-pause recommended.",
+                    "detail": f"Zero leads after {c['impressions']:,} impressions. Performance floor breached.",
                     "auto_action": True,
                 })
-            elif c["leads"] > 0 and c["cpl"] > CPL_TARGET * SOP["auto_pause_cpl_multiplier"]:
-                pct_above = ((c["cpl"] / CPL_TARGET) - 1) * 100
-                insights.append({
-                    "type": "AUTO_PAUSE_CPL",
-                    "severity": "HIGH",
-                    "entity": c["campaign_name"],
-                    "detail": f"CPL ₹{c['cpl']:.0f} is {pct_above:.0f}% above target ₹{CPL_TARGET}. Consider pausing or restructuring.",
-                    "auto_action": True if pct_above > 50 else False,
-                })
+
+    # 5. CPL Alert Logic
+    for c in campaign_audit:
+        if c.get("is_lead_campaign") and c.get("cpl", 0) > CPL_TARGET * SOP["auto_pause_cpl_multiplier"]:
+            pct_above = ((c["cpl"] / CPL_TARGET) - 1) * 100
+            insights.append({
+                "type": "AUTO_PAUSE_CPL",
+                "severity": "HIGH",
+                "entity": c["campaign_name"],
+                "detail": f"CPL ₹{c['cpl']:.0f} is {pct_above:.0f}% above target ₹{CPL_TARGET}. Consider pausing or restructuring.",
+                "auto_action": True if pct_above > 50 else False,
+            })
+
+    return insights
 
     # ── Performance Insights Enhancement ──
     # Best performing ad (lowest CPL with meaningful spend > ₹500)
@@ -2929,6 +2917,17 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
     intellect_insights = apply_marketer_intellect(
         pulse, cost_stack, creative_health, campaign_audit, adset_analysis,
         monthly_pacing, patterns, learning_history)
+        
+    # ── Final Strategic Narrative ──
+    learning_prev = load_learning_history() or {"runs": []}
+    prev_narrative = None
+    if learning_prev.get("runs"):
+        prev_narrative = learning_prev["runs"][-1].get("strategic_narrative")
+
+    pie_engine = PerformanceIntelligenceEngine(target_cpl=CPL_TARGET)
+    ctx_msg = f"META ADS: Spend ₹{latest_spend:,.0f}, CPL ₹{overall_cpl:,.0f}. MTD Pacing: {pacing_ratio*100:.0f}% spend relative to linear target."
+    strategic_narrative = pie_engine.generate_strategic_narrative(ctx_msg, previous_narrative=prev_narrative)
+    print(f"  Strategic Narrative: {strategic_narrative}")
 
     # ─── Overall Health Score (Meta) ───
     # Weights: CPSV (25), Budget (25), CPQL (20), CPL (20), Creative (10)
@@ -2971,6 +2970,7 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
     # Build analysis JSON
     analysis = {
         "generated_at": NOW.isoformat(),
+        "strategic_narrative": strategic_narrative,
         "account_health_score": account_health["score"],
         "account_health_breakdown": account_health["breakdown"],
         "agent_version": "3.0",
@@ -3232,6 +3232,7 @@ def main():
         "date": str(TODAY), "cadence": "multi_cadence",
         "total_leads": pulse["total_leads_30d"], "avg_cpl": pulse["overall_cpl"],
         "overall_ctr": pulse["overall_ctr"],
+        "strategic_narrative": strategic_narrative,
     })
     if "campaign_cpl_history" not in learning_history:
         learning_history["campaign_cpl_history"] = {}

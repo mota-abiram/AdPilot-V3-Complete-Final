@@ -29,7 +29,7 @@ envVarGroups:
       - key: SESSION_SECRET
         generateValue: true   # Render auto-generates a secure random value
       - key: DATABASE_URL
-        sync: false           # Set to your Render Postgres internal URL
+        sync: false           # Set to your Render Postgres internaxl URL
       - key: META_ACCESS_TOKEN
         sync: false
       - key: META_AD_ACCOUNT_ID

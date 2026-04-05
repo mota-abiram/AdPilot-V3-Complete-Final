@@ -231,6 +231,8 @@ export interface Recommendation {
   category: string;
   action: string;
   detail: string;
+  insight?: string;
+  impact?: string;
   ice_score: number;
   layer: string;
   root_causes?: RootCause[];
@@ -459,8 +461,10 @@ export interface QuickActionRequest {
 export const biddingRecommendations = pgTable("bidding_recommendations", {
   id: serial("id").primaryKey(),
   campaignId: text("campaign_id").notNull(),
+  adGroupId: text("ad_group_id"),
   clientId: text("client_id").notNull(),
   campaignName: text("campaign_name").notNull(),
+  adGroupName: text("ad_group_name"),
   currentStrategy: text("current_strategy").notNull(), // e.g. "MAXIMIZE_CLICKS", "TARGET_CPA"
   recommendedStrategy: text("recommended_strategy").notNull(),
   currentBidLimit: numeric("current_bid_limit"),

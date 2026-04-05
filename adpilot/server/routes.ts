@@ -31,6 +31,7 @@ import {
 import { pool, db } from "./db";
 import { analysisSnapshots, biddingRecommendations } from "@shared/schema";
 import { and, eq, desc } from "drizzle-orm";
+import { normalizeGoogleAnalysis } from "./google-transform";
 import {
   executeGoogleAction,
   executeGoogleBatch,
@@ -399,35 +400,42 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
     return cached.data;
   }
 
+  let raw: any = null;
+
   // 1. Try DB first (Most reliable)
   const snap = await loadAnalysisSnapshot(clientId, platform, cadence);
   if (snap) {
-    analysisCache.set(cacheKey, { data: snap, ts: Date.now() });
-    return snap;
+    raw = snap;
   }
 
   // 2. File fallback
-  const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
-  if (!client) {
-    throw new Error(`Client '${clientId}' not found in registry`);
-  }
-  const platformConfig = client.platforms[platform];
-  if (!platformConfig) {
-    throw new Error(`Platform '${platform}' not configured for client '${clientId}'`);
+  if (!raw) {
+    const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
+    if (!client) {
+      throw new Error(`Client '${clientId}' not found in registry`);
+    }
+    const platformConfig = client.platforms[platform];
+    if (!platformConfig) {
+      throw new Error(`Platform '${platform}' not configured for client '${clientId}'`);
+    }
+
+    let dataPath = resolvePlatformDataPath(clientId, platform, platformConfig);
+
+    if (cadence) {
+      const cadencePath = dataPath.replace(/analysis\.json$/, `analysis_${cadence}.json`);
+      if (fs.existsSync(cadencePath)) dataPath = cadencePath;
+    }
+
+    if (!fs.existsSync(dataPath)) {
+      throw new Error(`No analysis data found (DB or File) for ${clientId}/${platform}`);
+    }
+
+    raw = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
   }
 
-  let dataPath = resolvePlatformDataPath(clientId, platform, platformConfig);
+  // 3. Normalize Google data into canonical shape
+  const data = platform === "google" ? normalizeGoogleAnalysis(raw) : raw;
 
-  if (cadence) {
-    const cadencePath = dataPath.replace(/analysis\.json$/, `analysis_${cadence}.json`);
-    if (fs.existsSync(cadencePath)) dataPath = cadencePath;
-  }
-
-  if (!fs.existsSync(dataPath)) {
-    throw new Error(`No analysis data found (DB or File) for ${clientId}/${platform}`);
-  }
-
-  const data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
   analysisCache.set(cacheKey, { data, ts: Date.now() });
   return data;
 }
@@ -3247,139 +3255,14 @@ export async function registerRoutes(
     res.json({ success: true, entry });
   });
 
-  // ─── Bidding Intelligence Endpoints ───────────────────────────
-
-  app.get("/api/clients/:clientId/google/bidding-recommendations", async (req, res) => {
-    try {
-      const { clientId } = req.params;
-      const history = await db
-        .select()
-        .from(biddingRecommendations)
-        .where(eq(biddingRecommendations.clientId, clientId))
-        .orderBy(desc(biddingRecommendations.createdAt));
-
-      if (history.length === 0) {
-        return res.json({ campaigns: [], meta: { data_available: false }, history: [] });
-      }
-
-      // Get latest per campaign
-      const latestMap = new Map();
-      const actionHistory: any[] = [];
-
-      history.forEach(rec => {
-        if (!latestMap.has(rec.campaignId)) {
-          let structuredReason = { reasons: [], alerts: [], recommendation: "hold" };
-          try {
-            structuredReason = JSON.parse(rec.reason);
-          } catch (e) {
-            structuredReason = { reasons: [rec.reason], alerts: [], recommendation: "hold" };
-          }
-
-          latestMap.set(rec.campaignId, {
-            campaign_id: rec.campaignId,
-            campaign_name: rec.campaignName,
-            current_strategy: rec.currentStrategy,
-            avg_cpc: parseFloat(rec.avgCpc),
-            cvr: parseFloat(rec.cvr),
-            ctr: parseFloat(rec.ctr),
-            conversions_30d: parseFloat(rec.conversions), // Using latest as 30d proxy if not split
-            conversions_14d: parseFloat(rec.conversions),
-            cost_per_conversion: parseFloat(rec.costPerConversion),
-            search_impression_share: rec.searchImpressionShare ? parseFloat(rec.searchImpressionShare) : null,
-            lost_is_rank: rec.lostIsRank ? parseFloat(rec.lostIsRank) : null,
-            lost_is_budget: rec.lostIsBudget ? parseFloat(rec.lostIsBudget) : null,
-            clicks: parseInt(rec.clicks),
-            recommendation: structuredReason.recommendation,
-            confidence: rec.confidenceLevel,
-            reasons: structuredReason.reasons,
-            alerts: structuredReason.alerts,
-            computed_bid_limit: rec.recommendedBidLimit ? parseFloat(rec.recommendedBidLimit) : 0,
-            suggested_tcpa: rec.recommendedTCPA ? parseFloat(rec.recommendedTCPA) : 0,
-            target_cpa: rec.currentTCPA ? parseFloat(rec.currentTCPA) : 850,
-            status: rec.status,
-            id: rec.id
-          });
-        }
-
-        if (rec.status !== "pending") {
-          actionHistory.push({
-            id: rec.id,
-            timestamp: rec.updatedAt?.toISOString(),
-            campaign_id: rec.campaignId,
-            campaign_name: rec.campaignName,
-            action: rec.status === "applied" ? "apply" : "reject",
-            recommendation: rec.recommendedStrategy,
-            rationale: rec.strategicRationale,
-          });
-        }
-      });
-
-      const campaigns = Array.from(latestMap.values());
-      const onCorrect = campaigns.filter(c => c.recommendation === "hold").length;
-
-      res.json({
-        campaigns,
-        meta: {
-          generated_at: history[0].createdAt?.toISOString(),
-          data_available: true,
-          total_campaigns: campaigns.length,
-          alert_count: campaigns.reduce((acc, c) => acc + c.alerts.length, 0),
-          on_correct_strategy: Math.round((onCorrect / campaigns.length) * 100) || 0,
-          target_cpa: campaigns[0]?.target_cpa || 850,
-        },
-        history: actionHistory
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // ─── Bidding Intelligence: Trigger + DB Action ───────────────
+  // NOTE: GET /api/clients/:clientId/google/bidding-recommendations is handled above (SOP decision engine)
+  // NOTE: POST .../action is handled above (file-based action recording)
 
   app.post("/api/clients/:clientId/google/bidding-recommendations/trigger", async (req, res) => {
     try {
       await generateBiddingRecommendations(req.params.clientId);
       res.json({ success: true, message: "Bidding intelligence run completed." });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/clients/:clientId/google/bidding-recommendations/action", async (req, res) => {
-    try {
-      const { clientId } = req.params;
-      const { campaign_id, action, rationale } = req.body; // "apply", "reject"
-      
-      const status = action === "apply" ? "applied" : "rejected";
-
-      if (!rationale) {
-        return res.status(400).json({ error: "Strategic rationale is required." });
-      }
-
-      // Update the latest pending recommendation for this campaign
-      const [latest] = await db
-        .select()
-        .from(biddingRecommendations)
-        .where(and(
-          eq(biddingRecommendations.clientId, clientId),
-          eq(biddingRecommendations.campaignId, campaign_id),
-          eq(biddingRecommendations.status, "pending")
-        ))
-        .orderBy(desc(biddingRecommendations.createdAt))
-        .limit(1);
-
-      if (!latest) {
-        return res.status(404).json({ error: "No pending recommendation found for this campaign." });
-      }
-
-      await db
-        .update(biddingRecommendations)
-        .set({ 
-          status: status, 
-          strategicRationale: rationale,
-          updatedAt: new Date()
-        })
-        .where(eq(biddingRecommendations.id, latest.id));
-
-      res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

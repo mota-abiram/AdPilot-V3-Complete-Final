@@ -11,7 +11,8 @@ import { ClientProvider, useClient } from "@/lib/client-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { CommandTerminal, CommandTerminalToggle } from "@/components/command-terminal";
 import LoginPage from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -35,6 +36,8 @@ import GoogleRestructuringPage from "@/pages/google/restructuring";
 import CreativeCalendarPage from "@/pages/creative-calendar";
 import MtdDeliverablesPage from "@/pages/mtd-deliverables";
 import AnalyticsAdsPage from "@/pages/analytics-ads";
+import KeywordsPage from "@/pages/keywords.tsx";
+import AudiencesPage from "@/pages/audiences.tsx";
 import { timeAgo } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
@@ -64,6 +67,8 @@ function AppRouter() {
       <Route path="/creative-calendar" component={CreativeCalendarPage} />
       <Route path="/mtd-deliverables" component={MtdDeliverablesPage} />
       <Route path="/analytics/ads" component={AnalyticsAdsPage} />
+      <Route path="/keywords" component={KeywordsPage} />
+      <Route path="/audiences" component={AudiencesPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -82,6 +87,17 @@ function AppLayout() {
     "--sidebar-width": "17rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setTerminalOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
@@ -130,7 +146,9 @@ function AppLayout() {
           </header>
           <main className="flex-1 overflow-y-auto overflow-x-hidden" style={{ overscrollBehavior: "contain" }}>
             <section aria-label="Workspace content">
-              <AppRouter />
+              <ErrorBoundary>
+                <AppRouter />
+              </ErrorBoundary>
             </section>
             <aside className="px-6 py-4 border-t border-border/40 bg-background/72 backdrop-blur-sm" aria-label="Attribution">
               <PerplexityAttribution />
@@ -167,18 +185,20 @@ function AuthGate() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Router hook={useHashLocation}>
-            <AuthProvider>
-              <AuthGate />
-            </AuthProvider>
-          </Router>
-          <Toaster />
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Router hook={useHashLocation}>
+              <AuthProvider>
+                <AuthGate />
+              </AuthProvider>
+            </Router>
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

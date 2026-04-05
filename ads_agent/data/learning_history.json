@@ -41,6 +41,34 @@
       "total_leads": 84,
       "avg_cpl": 611.782380952381,
       "overall_ctr": 0.6645844212833806
+    },
+    {
+      "date": "2026-04-05",
+      "cadence": "multi_cadence",
+      "total_leads": 83,
+      "avg_cpl": 612.4592771084336,
+      "overall_ctr": 0.6473556553012351
+    },
+    {
+      "date": "2026-04-05",
+      "cadence": "multi_cadence",
+      "total_leads": 83,
+      "avg_cpl": 612.4592771084336,
+      "overall_ctr": 0.6473556553012351
+    },
+    {
+      "date": "2026-04-05",
+      "cadence": "multi_cadence",
+      "total_leads": 83,
+      "avg_cpl": 612.4592771084336,
+      "overall_ctr": 0.6473556553012351
+    },
+    {
+      "date": "2026-04-05",
+      "cadence": "multi_cadence",
+      "total_leads": 83,
+      "avg_cpl": 612.4592771084336,
+      "overall_ctr": 0.6473544521184457
     }
   ],
   "patterns": [
@@ -84,6 +112,30 @@
         "'Video' format appears more in top performers (1/2) than bottom (0/2).",
         "Top video TSR: 10.4% vs bottom: 9.5%. Top video VHR: 48.0% vs bottom: 34.8%. Strong hooks = lower CPL."
       ]
+    },
+    {
+      "date": "2026-04-05",
+      "top_patterns": [
+        "Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-05",
+      "top_patterns": [
+        "Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-05",
+      "top_patterns": [
+        "Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-05",
+      "top_patterns": [
+        "Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
     }
   ],
   "fatigue_timelines": {},
@@ -125,6 +177,30 @@
         "cpl": 701.5673076923077,
         "leads": 26,
         "spend": 18240.75
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 669.6273076923078,
+        "leads": 26,
+        "spend": 17410.31
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 669.6273076923078,
+        "leads": 26,
+        "spend": 17410.31
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 669.6273076923078,
+        "leads": 26,
+        "spend": 17410.31
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 669.6273076923078,
+        "leads": 26,
+        "spend": 17410.31
       }
     ],
     "120231984866140466": [
@@ -163,6 +239,30 @@
         "cpl": 571.5339655172414,
         "leads": 58,
         "spend": 33148.97
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 586.3826315789473,
+        "leads": 57,
+        "spend": 33423.81
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 586.3826315789473,
+        "leads": 57,
+        "spend": 33423.81
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 586.3826315789473,
+        "leads": 57,
+        "spend": 33423.81
+      },
+      {
+        "date": "2026-04-05",
+        "cpl": 586.3826315789473,
+        "leads": 57,
+        "spend": 33423.81
       }
     ],
     "120240639389720466": [

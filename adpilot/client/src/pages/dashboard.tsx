@@ -153,6 +153,26 @@ const FUNNEL_COLORS: Record<string, string> = {
   BOFU: "hsl(35, 90%, 55%)",
 };
 
+// Comprehensive funnel/spend color map covering both Meta (TOFU/MOFU/BOFU) and Google (Search/DG)
+const activeFunnelColors: Record<string, string> = {
+  ...FUNNEL_COLORS,
+  Search: "hsl(210, 70%, 55%)",
+  "Demand Gen": "hsl(35, 80%, 55%)",
+  DG: "hsl(35, 80%, 55%)",
+  Display: "hsl(280, 60%, 55%)",
+  Video: "hsl(160, 50%, 50%)",
+  Shopping: "hsl(120, 50%, 50%)",
+  Performance: "hsl(0, 60%, 55%)",
+};
+
+const cadenceDisplayMap: Record<string, string> = {
+  daily: "Last 1 Day",
+  twice_weekly: "Last 7 Days",
+  weekly: "Last 14 Days",
+  biweekly: "Last 30 Days",
+  monthly: "Month to Date",
+};
+
 function CustomTooltipContent({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -185,6 +205,25 @@ function getCadencePeriodLabel(cadence: string): string {
 }
 
 export default function DashboardPage() {
+  // ─── 1. Helper Functions ─────────────────────────────────────────
+
+  function findAdIdByName(adName: string, creativeHealthData: any[]): string | null {
+    const ad = creativeHealthData.find((a: any) => a.ad_name === adName);
+    return ad?.ad_id || null;
+  }
+
+  function findAdsetByEntity(entity: string, adsetAnalysisData: any[]): { id: string; name: string } | null {
+    const adset = adsetAnalysisData.find((a: any) => entity.includes(a.adset_name) || a.adset_name.includes(entity));
+    if (adset) return { id: adset.adset_id, name: adset.adset_name };
+    return null;
+  }
+
+  function formatRangeDate(value: string) {
+    const parsed = new Date(`${value}T00:00:00`);
+    return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  // ─── 2. Hooks ────────────────────────────────────────────────────
   const {
     analysisData: data,
     isLoadingAnalysis: isLoading,
@@ -280,6 +319,8 @@ export default function DashboardPage() {
     staleTime: 0,
   });
 
+  // ─── 3. Data Loading & Errors ──────────────────────────────────────
+
   if (analysisError) {
     return (
       <div className="p-6">
@@ -307,8 +348,13 @@ export default function DashboardPage() {
     );
   }
 
+  // ─── 4. Derived Variables & Data Normalization ──────────────────────
+
   const isGoogle = activePlatform === "google";
+  const cadenceLabel = (data as any).cadence || activeCadence || "";
+  const periodLabel = getCadencePeriodLabel(cadenceLabel);
   const rawAp = (data as any).account_pulse || {};
+  
   const lastSuccessfulFetch =
     syncState?.last_successful_fetch ||
     (data as any)?.last_successful_fetch ||
@@ -317,7 +363,7 @@ export default function DashboardPage() {
     null;
   const lastSuccessfulFetchDate = parseSyncTimestamp(lastSuccessfulFetch);
 
-  // ─── Normalize account_pulse for both platforms ─────────────────
+  // Normalize account_pulse
   const ap = {
     ...rawAp,
     total_spend_30d: rawAp.total_spend_30d ?? rawAp.total_spend ?? 0,
@@ -340,7 +386,8 @@ export default function DashboardPage() {
     daily_vhrs: rawAp.daily_vhrs || [],
   };
 
-  // ─── Normalize monthly_pacing from the active analysis snapshot ──
+  // ─── 5. MTD & Pacing Normalization ─────────────────────────────────
+
   const rawMp = (data as any).monthly_pacing;
   const rawMtdPacing = ((data as any).account_pulse || rawAp).mtd_pacing;
   const clientTargets = activeClient?.targets?.[activePlatform];
@@ -383,36 +430,24 @@ export default function DashboardPage() {
     alerts: ((data as any).account_pulse || rawAp).alerts?.map((a: any) => typeof a === "string" ? a : a.message || a.alert || JSON.stringify(a)) || [],
   } : null;
 
-  // ─── Normalize other fields ────────────────────────────────────
-  const s = (data as any).summary || {
+  // ─── 6. Performance Data Groups ────────────────────────────────────
+
+  const analysisSummary = (data as any).summary || {
     total_fatigue_alerts: ((data as any).frequency_audit?.alerts || []).length,
     immediate_actions: ((data as any).auto_pause_candidates || []).length,
   };
 
-  const fatigue_alerts: any[] = (data as any).fatigue_alerts || [];
-  const recommendations: any[] = (data as any).recommendations || [];
-
-  const campaign_audit: any[] = (data as any).campaign_audit || ((data as any).campaigns || []).map((c: any) => ({
-    campaign_id: c.id || "",
-    campaign_name: c.name || "Unknown",
-    layer: c.campaign_type || "unknown",
-    status: c.status || "ENABLED",
-    health_score: c.benchmark_comparison ? Math.round(
-      (c.ctr > 0 ? 30 : 0) +
-      (c.conversions > 0 ? 40 : 0) +
-      (c.cpl > 0 && c.cpl < (clientTargets?.cpl ?? 850) * 1.5 ? 30 : 10)
-    ) : 50,
-    spend: c.cost || 0,
-    leads: Math.round(c.conversions || c.all_conversions || 0),
-    cpl: c.cpl || 0,
-    ctr: c.ctr || 0,
-  }));
-
-  const cost_stack = (data as any).cost_stack || {};
-  const thresholds = (data as any).dynamic_thresholds || (data as any).thresholds || null;
-  const rawScoringSummary = (data as any).scoring_summary;
+  const fatigueAlerts: any[] = (data as any).fatigue_alerts || [];
+  const adRecommendations: any[] = (data as any).recommendations || [];
+  const campaignAudit: any[] = (data as any).campaign_audit || (data as any).campaigns || [];
+  const costStack = (data as any).cost_stack || {};
+  const thresholds = (data as any).dynamic_thresholds || (data as any).thresholds || {};
   const adsetAnalysis: any[] = (data as any).adset_analysis || [];
+  const creativeHealth: any[] = (data as any).creative_health || [];
+  const intellectInsights = (data as any).intellect_insights || [];
+  const autoPauseCandidates = (data as any).auto_pause_candidates || [];
 
+  const rawScoringSummary = (data as any).scoring_summary;
   const scoringSummary = adsetAnalysis.length > 0 ? {
     total_adsets: adsetAnalysis.length,
     winners: adsetAnalysis.filter((a: any) => a.classification === "WINNER").length,
@@ -420,21 +455,6 @@ export default function DashboardPage() {
     underperformers: adsetAnalysis.filter((a: any) => a.classification === "UNDERPERFORMER" || a.classification === "LOSER").length,
     auto_pause: rawScoringSummary?.ad_scores?.auto_pause || [],
   } : null;
-
-  const intellectInsights = (data as any).intellect_insights || [];
-  const agentVersion = (data as any).agent_version || "";
-  const cadenceLabel = (data as any).cadence || activeCadence || "";
-  const periodLabel = getCadencePeriodLabel(cadenceLabel);
-  const patternAnalysis = (data as any).pattern_analysis;
-
-  // ─── Google-specific data ──────────────────────────────────────
-  const searchSummary = isGoogle ? (data as any).search_summary : null;
-  const dgSummary = isGoogle ? (data as any).dg_summary : null;
-  const autoPauseCandidates = (data as any).auto_pause_candidates || [];
-  const playbooksTriggered = (data as any).playbooks_triggered || [];
-
-  // ─── Creative health for performance insights ──────────────────
-  const creativeHealth: any[] = (data as any).creative_health || [];
 
   // Fallback for Google: if daily_spends empty, try daily_trends
   if (isGoogle && ap.daily_spends.length === 0) {
@@ -447,19 +467,43 @@ export default function DashboardPage() {
     }
   }
 
-  // Daily chart data
-  const dayLabels = ap.daily_spends.map((_: number, i: number) => `Day ${i + 1}`);
+  // ─── 7. Date Range & Chart Data ────────────────────────────────────
+
+  const displayDateRange = (() => {
+    const googleWindow = (data as any)?.window;
+    if (googleWindow?.since && googleWindow?.until) {
+      return { since: googleWindow.since, until: googleWindow.until };
+    }
+    const dateRange = (data as any)?.date_range;
+    if (dateRange?.since && dateRange?.until) {
+      return { since: dateRange.since, until: dateRange.until };
+    }
+    const period = (data as any)?.period?.primary;
+    if (period?.start && period?.end) {
+      return { since: period.start, until: period.end };
+    }
+    return null;
+  })();
+
+  const dayLabels = ap.daily_spends.map((_: number, i: number) => {
+    if (displayDateRange?.since) {
+      const d = new Date(`${displayDateRange.since}T00:00:00`);
+      d.setDate(d.getDate() + i);
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+    return `Day ${i + 1}`;
+  });
+
   const dailyChartData = ap.daily_spends.map((spend: number, i: number) => {
     const leads = ap.daily_leads[i] || 0;
     return {
-      day: dayLabels[i],
+      day: dayLabels[i] || `Day ${i + 1}`,
       spend: Math.round(spend),
       leads,
       cpl: leads > 0 ? Math.round(spend / leads) : 0,
     };
   });
 
-  // ─── Multi-metric CTR/TSR/VHR/CPM chart data ──────────────────
   const videoCreatives = creativeHealth.filter((c: any) => c.is_video && c.impressions > 0);
   const totalVideoImpressions = videoCreatives.reduce((s: number, c: any) => s + c.impressions, 0);
   const blendedTSR = totalVideoImpressions > 0
@@ -472,43 +516,34 @@ export default function DashboardPage() {
   const multiMetricChartData = ap.daily_ctrs.map((ctr: number, i: number) => ({
     day: dayLabels[i],
     ctr: parseFloat(ctr.toFixed(2)),
-    // Segregate TSR/VHR: only use video-specific metrics if available
     tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
     vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
     cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
   }));
 
-  // Funnel donut data
-  const funnelData = cost_stack?.funnel_split_actual
-    ? Object.entries(cost_stack.funnel_split_actual)
+  const funnelData = costStack?.funnel_split_actual
+    ? Object.entries(costStack.funnel_split_actual)
       .filter(([, v]) => (v as number) > 0)
       .map(([key, val]) => ({ name: key, value: val as number }))
-    : isGoogle && searchSummary && dgSummary
+    : isGoogle && (data as any).search_summary && (data as any).dg_summary
       ? [
-        { name: "Search", value: Math.round((searchSummary.spend / ap.total_spend_30d) * 100) || 0 },
-        { name: "Demand Gen", value: Math.round((dgSummary.spend / ap.total_spend_30d) * 100) || 0 },
+        { name: "Search", value: Math.round(((data as any).search_summary.spend / ap.total_spend_30d) * 100) || 0 },
+        { name: "Demand Gen", value: Math.round(((data as any).dg_summary.spend / ap.total_spend_30d) * 100) || 0 },
       ].filter(d => d.value > 0)
       : [];
 
-  const GOOGLE_FUNNEL_COLORS: Record<string, string> = {
-    Search: "hsl(220, 70%, 55%)",
-    "Demand Gen": "hsl(35, 90%, 55%)",
-    branded: "hsl(262, 60%, 55%)",
-    location: "hsl(220, 70%, 55%)",
-    demand_gen: "hsl(35, 90%, 55%)",
-  };
-  const activeFunnelColors = isGoogle ? { ...FUNNEL_COLORS, ...GOOGLE_FUNNEL_COLORS } : FUNNEL_COLORS;
+  // ─── 8. Thresholds & Alerts ────────────────────────────────────────
 
-  // Critical alerts for banner
   const criticalAlerts: string[] = [];
-  const cplCritical = thresholds?.cpl_critical ?? (isGoogle ? 1360 : 0);
-  const cplAlert = thresholds?.cpl_alert ?? (isGoogle ? 1190 : 0);
-  const cplTarget = thresholds?.cpl_target ?? (isGoogle ? 850 : 0);
+  const cplCritical = thresholds?.cpl_critical || benchmarks?.cpl_critical || (isGoogle ? 1360 : 1200);
+  const ctrMin = thresholds?.ctr_min || benchmarks?.ctr_min || (isGoogle ? 0.3 : 0.4);
+  const cplTarget = thresholds?.cpl_target || benchmarks?.cpl_target || (isGoogle ? 850 : 800);
+
   if (cplCritical > 0 && ap.overall_cpl > cplCritical) {
-    criticalAlerts.push(`CPL ₹${Math.round(ap.overall_cpl)} exceeds critical threshold ₹${Math.round(cplCritical)}`);
+    criticalAlerts.push(`Avg CPL ₹${Math.round(ap.overall_cpl)} exceeds critical threshold ₹${Math.round(cplCritical)}`);
   }
-  if (!isGoogle && ap.overall_ctr < 0.4) {
-    criticalAlerts.push(`CTR ${formatPct(ap.overall_ctr)} is critically low (< 0.4%)`);
+  if (!isGoogle && ap.overall_ctr < ctrMin) {
+    criticalAlerts.push(`CTR ${formatPct(ap.overall_ctr)} is critically low (< ${ctrMin}%)`);
   }
   if (isGoogle && mp && mp.pacing.leads_pct < 50) {
     criticalAlerts.push(`Lead pacing at ${mp.pacing.leads_pct.toFixed(0)}% — projected ${Math.round(mp.projected_eom?.leads || 0)} vs ${mp.targets?.leads || 0} target. Significant shortfall.`);
@@ -520,29 +555,8 @@ export default function DashboardPage() {
     criticalAlerts.push(`${autoPauseCandidates.length} ads/ad groups flagged for auto-pause. Review required.`);
   }
 
-  // ─── Performance Insights helpers ─────────────────────────────
-  const adsWithMetrics = creativeHealth.filter((c: any) => c.spend > 0);
-  const totalAdsAnalyzed = adsWithMetrics.length;
-  const totalCampaignsAnalyzed = new Set(adsWithMetrics.map((c: any) => c.campaign_name)).size;
+  // ─── 9. Performance Scoring & Trends ─────────────────────────────────
 
-  // Best and worst performing ads
-  const adsWithLeads = adsWithMetrics.filter((c: any) => c.leads > 0 && c.cpl > 0);
-  const bestAd = adsWithLeads.length > 0
-    ? adsWithLeads.reduce((best: any, c: any) => (!best || c.cpl < best.cpl) ? c : best, null)
-    : null;
-  const worstAd = adsWithMetrics.length > 0
-    ? adsWithMetrics.reduce((worst: any, c: any) => (!worst || (c.spend > 500 && (c.cpl > worst.cpl || (c.leads === 0 && c.spend > worst.spend)))) ? c : worst, null)
-    : null;
-
-  // Budget efficiency
-  const targetCpl = benchmarks?.cpl_target || clientTargets?.cpl || cplTarget || 800;
-  const spendOnHighCpl = adsWithMetrics
-    .filter((c: any) => c.cpl > targetCpl || (c.leads === 0 && c.spend > 0))
-    .reduce((s: number, c: any) => s + c.spend, 0);
-  const totalSpendAll = adsWithMetrics.reduce((s: number, c: any) => s + c.spend, 0);
-  const budgetEfficiencyPct = totalSpendAll > 0 ? Math.round((spendOnHighCpl / totalSpendAll) * 100) : 0;
-
-  // ─── Account Health Score (Powered by Centralized Backend Engine) ────
   const backendHealthScore = (data as any)?.account_health_score;
   const backendBreakdown = (data as any)?.account_health_breakdown;
 
@@ -563,61 +577,49 @@ export default function DashboardPage() {
     healthScoreComponents.creative * 0.10
   );
 
-  // Derive KPI variables from monthly_pacing and benchmarks
   const svsMtd = benchmarks?.svs_mtd || 0;
   const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
   const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthScoreColor = accountHealthScore >= 75 ? "hsl(142, 70%, 45%)" : accountHealthScore >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
-  const healthScoreData = [
-    { name: "Score", value: accountHealthScore },
-    { name: "Remaining", value: 100 - accountHealthScore },
-  ];
+  const healthScoreData = [{ name: "Score", value: accountHealthScore }, { name: "Remaining", value: 100 - accountHealthScore }];
 
-  // Helper: find ad id by name from creative_health
-  function findAdIdByName(adName: string): string | null {
-    const ad = creativeHealth.find((a: any) => a.ad_name === adName);
-    return ad?.ad_id || null;
-  }
+  // ─── 10. Missing Derived Variables ──────────────────────────────────
 
-  // Helper: find adset by entity name from intellect insights
-  function findAdsetByEntity(entity: string): { id: string; name: string } | null {
-    const adset = adsetAnalysis.find((a: any) => entity.includes(a.adset_name) || a.adset_name.includes(entity));
-    if (adset) return { id: adset.adset_id, name: adset.adset_name };
-    return null;
-  }
+  // Agent version from API response
+  const agentVersion: string = (data as any)?.agent_version || "";
 
-  const cadenceDisplayMap: Record<string, string> = {
-    daily: "Last 1 Day",
-    twice_weekly: "Last 7 Days",
-    weekly: "Last 14 Days",
-    biweekly: "Last 30 Days",
-    monthly: "Month to Date",
-  };
+  // Google-specific summary data
+  const searchSummary: any = isGoogle ? (data as any)?.search_summary || null : null;
+  const dgSummary: any = isGoogle ? (data as any)?.dg_summary || null : null;
 
-  const displayDateRange = (() => {
-    const googleWindow = (data as any)?.window;
-    if (googleWindow?.since && googleWindow?.until) {
-      return { since: googleWindow.since, until: googleWindow.until };
-    }
+  // Pattern analysis from intellect layer
+  const patternAnalysis: any = (data as any)?.pattern_analysis || null;
 
-    const dateRange = (data as any)?.date_range;
-    if (dateRange?.since && dateRange?.until) {
-      return { since: dateRange.since, until: dateRange.until };
-    }
+  // Playbooks / SOPs triggered
+  const playbooksTriggered: any[] = (data as any)?.playbooks_triggered || (data as any)?.sop_triggers || [];
 
-    const period = (data as any)?.period?.primary;
-    if (period?.start && period?.end) {
-      return { since: period.start, until: period.end };
-    }
+  // Performance insights — ads/campaigns analyzed
+  const totalAdsAnalyzed: number = creativeHealth?.length || 0;
+  const totalCampaignsAnalyzed: number = campaignAudit?.length || 0;
 
-    return null;
-  })();
+  // Best & worst performing ads (by CPL, min 1 lead)
+  const adsWithLeads = creativeHealth.filter((a: any) => (a.leads ?? 0) > 0 && (a.spend ?? 0) > 0);
+  const bestAd: any = adsWithLeads.length > 0
+    ? adsWithLeads.reduce((best: any, cur: any) => ((cur.cpl || Infinity) < (best.cpl || Infinity) ? cur : best), adsWithLeads[0])
+    : null;
+  const worstAd: any = adsWithLeads.length > 0
+    ? adsWithLeads.reduce((worst: any, cur: any) => ((cur.cpl || 0) > (worst.cpl || 0) ? cur : worst), adsWithLeads[0])
+    : null;
 
-  const formatRangeDate = (value: string) => {
-    const parsed = new Date(`${value}T00:00:00`);
-    return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
+  // Budget efficiency — % of spend going to ads with CPL > target
+  const targetCpl: number = cplTarget;
+  const totalAdSpend = creativeHealth.reduce((s: number, a: any) => s + (a.spend || 0), 0);
+  const wastedSpend = creativeHealth
+    .filter((a: any) => (a.cpl || 0) > targetCpl && (a.spend || 0) > 0)
+    .reduce((s: number, a: any) => s + (a.spend || 0), 0);
+  const budgetEfficiencyPct: number = totalAdSpend > 0 ? Math.round((wastedSpend / totalAdSpend) * 100) : 0;
+
 
   return (
     <div className="page-shell max-w-[1600px] mx-auto">
@@ -701,12 +703,12 @@ export default function DashboardPage() {
         <h2 id="dashboard-kpis" className="sr-only">Key performance indicators</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <KpiCard
-            title={`Spend (${periodLabel})`}
-            value={formatINR(ap.total_spend_30d, 0)}
+            title="MTD Spend"
+            value={formatINR(mp?.mtd?.spend || 0, 0)}
             trend={ap.spend_trend}
             trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
             icon={IndianRupee}
-            subtitle="vs prior"
+            subtitle={`${periodLabel}: ${formatINR(ap.total_spend_30d, 0)}`}
             status={verifyData ? (
               verifyData.verified
                 ? { label: "Verified ✓", variant: "success" }
@@ -714,25 +716,26 @@ export default function DashboardPage() {
             ) : undefined}
           />
           <KpiCard
-            title={`Leads (${periodLabel})`}
-            value={ap.total_leads_30d.toString()}
+            title="MTD Leads"
+            value={(mp?.mtd?.leads || 0).toString()}
             trend={ap.leads_trend}
             trendValue={`${Math.abs(ap.leads_change_pct).toFixed(1)}%`}
             icon={Users}
-            subtitle="vs prior"
+            subtitle={`${periodLabel}: ${ap.total_leads_30d}`}
           />
           <KpiCard
-            title="Avg CPL"
-            value={formatINR(ap.overall_cpl, 0)}
+            title="MTD Avg CPL"
+            value={formatINR(mp?.mtd?.cpl || 0, 0)}
             trend={ap.spend_trend}
             trendValue={`${Math.abs((ap as any).cpl_change_pct || ap.spend_change_pct || 0).toFixed(1)}%`}
             icon={Target}
             isInverse
+            subtitle={`${periodLabel}: ${formatINR(ap.overall_cpl, 0)}`}
             status={
-              thresholds
-                ? ap.overall_cpl <= thresholds.cpl_target
+              thresholds || benchmarks
+                ? (mp?.mtd?.cpl || ap.overall_cpl) <= (thresholds?.cpl_target || benchmarks?.cpl_target || 850)
                   ? { label: "On Target", variant: "success" }
-                  : ap.overall_cpl <= thresholds.cpl_alert
+                  : (mp?.mtd?.cpl || ap.overall_cpl) <= (thresholds?.cpl_alert || benchmarks?.cpl_alert || 1200)
                     ? { label: "Watch", variant: "warning" }
                     : { label: "Alert", variant: "destructive" }
                 : undefined
@@ -766,9 +769,9 @@ export default function DashboardPage() {
           />
           <KpiCard
             title="Active Alerts"
-            value={`${(s.total_fatigue_alerts || 0) + (s.immediate_actions || 0)}`}
+            value={`${(analysisSummary.total_fatigue_alerts || 0) + (analysisSummary.immediate_actions || 0)}`}
             icon={AlertTriangle}
-            subtitle={`${s.total_fatigue_alerts || 0} fatigue · ${s.immediate_actions || 0} actions`}
+            subtitle={`${analysisSummary.total_fatigue_alerts || 0} fatigue · ${analysisSummary.immediate_actions || 0} actions`}
           />
         </div>
       </section>
@@ -1465,13 +1468,13 @@ export default function DashboardPage() {
                     <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} />
                     <YAxis
                       yAxisId="spend"
-                      tick={{ fontSize: 10, fill: "hsl(260, 12%, 16%)" }}
+                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
                       tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`}
                     />
                     <YAxis
                       yAxisId="leads"
                       orientation="right"
-                      tick={{ fontSize: 10, fill: "hsl(260, 12%, 16%)" }}
+                      tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
                     />
                     <RechartsTooltip content={<CustomTooltipContent />} />
                     <Area
@@ -1823,7 +1826,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {campaign_audit.map((c) => {
+                  {campaignAudit.map((c: any) => {
                     const layer = getLayerColor(c.layer);
                     const status = getStatusColor(c.status);
                     const isPaused = c.status === "PAUSED";
@@ -1919,13 +1922,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-4 pt-0 space-y-4">
             {/* Fatigue Alerts */}
-            {fatigue_alerts.length > 0 && (
+            {fatigueAlerts.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   Fatigue Alerts
                 </h3>
-                {fatigue_alerts.map((alert, i) => {
-                  const adId = findAdIdByName(alert.ad_name);
+                {fatigueAlerts.map((alert, i) => {
+                  const adId = findAdIdByName(alert.ad_name, creativeHealth);
                   return (
                     <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
                       <div className="flex items-center justify-between gap-2 mb-1">
@@ -1972,7 +1975,7 @@ export default function DashboardPage() {
                   View All <ArrowRight className="w-2.5 h-2.5" />
                 </Link>
               </div>
-              {recommendations.slice(0, 3).map((rec, i) => (
+              {adRecommendations.slice(0, 3).map((rec, i) => (
                 <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-bold tabular-nums text-primary">
@@ -2012,7 +2015,7 @@ export default function DashboardPage() {
                 const insightEntity = insight.entity || insight.title || "";
                 const insightDetail = insight.detail || insight.observation || "";
                 const insightRec = insight.recommendation || "";
-                const adsetMatch = findAdsetByEntity(insightEntity);
+                const adsetMatch = findAdsetByEntity(insightEntity, adsetAnalysis);
                 return (
                   <div
                     key={i}

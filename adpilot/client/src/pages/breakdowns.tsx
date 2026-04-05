@@ -260,6 +260,13 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   const [sortKey, setSortKey] = useState<string>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  function toggleSort(key: string) {
+    if (sortKey === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
+    else { setSortKey(key); setSortDir("desc"); }
+  }
+
+  function toggleExpand(id: string) { setExpandedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
+
   const thresholds = analysisData?.dynamic_thresholds;
   const cplTarget = thresholds?.cpl_target ?? 0;
   const ctrTarget = thresholds?.ctr_min ?? 0.7;
@@ -295,7 +302,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
     const source = data?.available && data.breakdowns?.[tabKey] ? data.breakdowns[tabKey] : [];
     if (selectedCampaign !== ACCOUNT_OVERVIEW) return source;
     const aggregated: Record<string, BreakdownRow> = {};
-    source.forEach(row => {
+    source.forEach((row: any) => {
       const dim = row.dimension || "Unknown";
       if (!aggregated[dim]) { aggregated[dim] = { ...row }; }
       else {
@@ -515,6 +522,13 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
   const [sortKey, setSortKey] = useState<string>("cost");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
 
+  function toggleSort(key: string) {
+    if (sortKey === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
+    else { setSortKey(key); setSortDir("desc"); }
+  }
+
+  function toggleExpand(id: string) { setExpandedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
+
   const { data, isLoading } = useQuery<BreakdownData>({
     queryKey: [apiBase, "breakdowns", selectedCampaign, activeCadence],
     queryFn: async () => {
@@ -689,8 +703,6 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
       </Card>
     </div>
   );
-  
-  function toggleExpand(id: string) { setExpandedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
 }
 
 // ─── Shared UI Components ──────────────────────────────────────────

@@ -105,30 +105,11 @@ export default function AdsetsPage() {
   // Reset page when filters change
   useEffect(() => { setPage(1); setSearchPage(1); setDgPage(1); }, [filterLayer, filterClassification, filterLearning, filterCampaign]);
 
-  // For Google: extract ad groups from campaigns data, or use ad_group_analysis
+  // For Google: use ad_group_analysis (normalized by server transform layer)
   const googleAdGroups = useMemo(() => {
     if (!isGoogle || !data) return [];
-    // Try ad_group_analysis first
-    const directSource = (data as any)?.ad_group_analysis;
-    if (directSource && directSource.length > 0) return directSource;
-
-    // Fallback: extract from campaigns → ad_groups array
-    const campaigns = (data as any)?.campaigns || [];
-    const adGroups: any[] = [];
-    for (const camp of campaigns) {
-      const ags = camp.ad_groups || [];
-      for (const ag of ags) {
-        adGroups.push({
-          ...ag,
-          campaign_name: camp.name || camp.campaign_name,
-          campaign_id: camp.id || camp.campaign_id,
-          campaign_type: camp.campaign_type,
-          ad_group_id: ag.id || ag.ad_group_id,
-          ad_group_name: ag.name || ag.ad_group_name,
-        });
-      }
-    }
-    return adGroups;
+    // ad_group_analysis is now always populated by the server normalization layer
+    return (data as any)?.ad_group_analysis || [];
   }, [data, isGoogle]);
 
   // Campaign list for dropdown (Google only)

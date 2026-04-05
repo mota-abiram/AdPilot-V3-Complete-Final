@@ -329,6 +329,61 @@
       "auto_pause_count": 12,
       "playbooks_triggered": 3,
       "recommendations_count": 20
+    },
+    {
+      "timestamp": "2026-04-05 15:52:19.944880",
+      "cadence": "daily",
+      "total_spend": 18092.67,
+      "total_leads": 7.998491,
+      "overall_cpl": 2262.01,
+      "overall_cvr": 0.63,
+      "auto_pause_count": 6,
+      "playbooks_triggered": 3,
+      "recommendations_count": 12
+    },
+    {
+      "timestamp": "2026-04-05 15:52:19.944880",
+      "cadence": "twice_weekly",
+      "total_spend": 119820.06,
+      "total_leads": 60.99844,
+      "overall_cpl": 1964.31,
+      "overall_cvr": 0.56,
+      "auto_pause_count": 8,
+      "playbooks_triggered": 5,
+      "recommendations_count": 16
+    },
+    {
+      "timestamp": "2026-04-05 15:52:19.944880",
+      "cadence": "weekly",
+      "total_spend": 214321.12,
+      "total_leads": 119.93193099999999,
+      "overall_cpl": 1787.02,
+      "overall_cvr": 0.71,
+      "auto_pause_count": 8,
+      "playbooks_triggered": 4,
+      "recommendations_count": 21
+    },
+    {
+      "timestamp": "2026-04-05 15:52:19.944880",
+      "cadence": "biweekly",
+      "total_spend": 372119.12,
+      "total_leads": 228.52547099999998,
+      "overall_cpl": 1628.35,
+      "overall_cvr": 0.55,
+      "auto_pause_count": 8,
+      "playbooks_triggered": 3,
+      "recommendations_count": 20
+    },
+    {
+      "timestamp": "2026-04-05 15:52:19.944880",
+      "cadence": "monthly",
+      "total_spend": 77912.69,
+      "total_leads": 31.985667999999997,
+      "overall_cpl": 2435.86,
+      "overall_cvr": 0.39,
+      "auto_pause_count": 8,
+      "playbooks_triggered": 5,
+      "recommendations_count": 21
     }
   ],
   "patterns": [],

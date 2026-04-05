@@ -47,6 +47,7 @@ import {
   BarChart3,
   MousePointerClick,
   Activity,
+  SlidersHorizontal,
   Eye,
   Ban,
   History,
@@ -58,6 +59,14 @@ import { formatINR, formatPct, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -639,14 +648,16 @@ function CampaignRecommendationRow({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function GoogleBiddingPage() {
-  const { activeClientId, apiBase } = useClient();
+  const { activeClientId, apiBase, activePlatform } = useClient();
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
+  const [activeLevel, setActiveLevel] = useState<"campaign" | "ad_group">("campaign");
   const [filterRec, setFilterRec] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"alerts" | "confidence" | "conversions">("alerts");
   const [showHistory, setShowHistory] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch recommendations
@@ -714,35 +725,35 @@ export default function GoogleBiddingPage() {
     });
   }
 
-  // Filtered + sorted campaigns
-  const processedCampaigns = useMemo(() => {
+  // Filtered + sorted entities
+  const processedEntities = useMemo(() => {
     if (!data?.campaigns) return [];
-    let filtered = data.campaigns;
+    let entities = activeLevel === "campaign" ? data.campaigns : (data as any).ad_groups || [];
 
     if (filterRec !== "all") {
-      filtered = filtered.filter((c) => c.recommendation === filterRec);
+      entities = entities.filter((c: any) => c.recommendation === filterRec);
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((c) => c.campaign_name.toLowerCase().includes(q));
+      entities = entities.filter((c: any) => (c.campaign_name || c.name || "").toLowerCase().includes(q));
     }
 
-    return [...filtered].sort((a, b) => {
+    return [...entities].sort((a: any, b: any) => {
       if (sortBy === "alerts") {
-        const aScore = a.alerts.filter((x) => x.severity === "critical").length * 10 +
-                       a.alerts.filter((x) => x.severity === "warning").length;
-        const bScore = b.alerts.filter((x) => x.severity === "critical").length * 10 +
-                       b.alerts.filter((x) => x.severity === "warning").length;
+        const aScore = (a.alerts || []).filter((x: any) => x.severity === "critical").length * 10 +
+                       (a.alerts || []).filter((x: any) => x.severity === "warning").length;
+        const bScore = (b.alerts || []).filter((x: any) => x.severity === "critical").length * 10 +
+                       (b.alerts || []).filter((x: any) => x.severity === "warning").length;
         return bScore - aScore;
       }
       if (sortBy === "confidence") {
-        const order = { high: 3, medium: 2, low: 1 };
+        const order: any = { high: 3, medium: 2, low: 1 };
         return (order[b.confidence] || 0) - (order[a.confidence] || 0);
       }
-      return b.conversions_30d - a.conversions_30d;
+      return (b.conversions_30d || 0) - (a.conversions_30d || 0);
     });
-  }, [data, filterRec, sortBy, searchQuery]);
+  }, [data, activeLevel, filterRec, sortBy, searchQuery]);
 
   // Loading
   if (isLoading) {
@@ -819,6 +830,35 @@ export default function GoogleBiddingPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center bg-muted/30 p-1 rounded-lg border border-border/50 mr-2">
+            <button
+              onClick={() => setActiveLevel("campaign")}
+              className={cn(
+                "px-3 py-1 text-[11px] font-bold rounded-md transition-all",
+                activeLevel === "campaign" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Campaigns
+            </button>
+            <button
+              onClick={() => setActiveLevel("ad_group")}
+              className={cn(
+                "px-3 py-1 text-[11px] font-bold rounded-md transition-all",
+                activeLevel === "ad_group" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Ad Groups
+            </button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-primary/20 hover:bg-primary/5"
+            onClick={() => setShowRules(true)}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Rule Engine
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -1026,22 +1066,24 @@ export default function GoogleBiddingPage() {
         />
       </div>
 
-      {/* ─── Campaign Recommendation Cards ───────────────────────────── */}
+      {/* ─── Recommendation Cards ───────────────────────────── */}
       <div className="space-y-3">
-        {processedCampaigns.length === 0 ? (
+        {processedEntities.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-400/40 mb-3" />
-              <p className="text-sm font-medium text-foreground">No campaigns match this filter</p>
-              <p className="text-xs text-muted-foreground mt-1">Try changing the filter above</p>
+              <p className="text-sm font-medium text-foreground">All Clear</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                No {activeLevel === "campaign" ? "campaign" : "ad group"} recommendations found.
+              </p>
             </CardContent>
           </Card>
         ) : (
-          processedCampaigns.map((camp) => (
+          processedEntities.map((entity: any) => (
             <CampaignRecommendationRow
-              key={camp.campaign_id}
-              camp={camp}
-              onAction={(type) => handleAction(camp, type)}
+              key={(entity.campaign_id || "") + (entity.id || "")}
+              camp={entity}
+              onAction={(type) => handleAction(entity, type)}
             />
           ))
         )}
@@ -1054,9 +1096,99 @@ export default function GoogleBiddingPage() {
         </span>
         <span className="flex items-center gap-1">
           <ShieldCheck className="w-3 h-3 text-primary" />
-          SOP-enforced · Max Clicks → tCPA only · No unsupported strategies
+          SOP-enforced · Max Clicks → tCPA · AI Decision Engine
         </span>
       </div>
+      
+      <RuleEngine 
+        open={showRules} 
+        onClose={() => setShowRules(false)}
+        platform={activePlatform}
+        clientId={activeClientId || ""}
+        targets={meta}
+      />
     </div>
+  );
+}
+
+function RuleEngine({ open, onClose, platform, clientId, targets }: any) {
+  return (
+    <Sheet open={open} onOpenChange={onClose}>
+      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetHeader className="pb-6 border-b">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="w-5 h-5 text-primary" />
+            <SheetTitle>Bidding Rule Engine</SheetTitle>
+          </div>
+          <SheetDescription>
+            Configure automated bidding SOPs and safety guardrails for {platform === "google" ? "Google Ads" : "Meta"}.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="py-6 space-y-8">
+          {/* Rule 1: Auto-Pause */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">1. Auto-Pause Logic</h3>
+              <Badge variant="secondary" className="text-emerald-400 bg-emerald-500/10">Active</Badge>
+            </div>
+            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
+              <div className="flex items-center justify-between gap-10">
+                <span className="text-xs text-muted-foreground">Pause Ad Groups if CPL &gt;</span>
+                <div className="flex items-center gap-2">
+                   <span className="text-xs font-bold text-foreground">2.0x</span>
+                   <span className="text-[10px] text-muted-foreground">Target</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-10">
+                <span className="text-xs text-muted-foreground">Min Impressions before pause</span>
+                <span className="text-xs font-bold text-foreground">1,500</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Rule 2: Bid Limits */}
+          <div className="space-y-4">
+             <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">2. Bid Limit Calculation</h3>
+              <Badge variant="secondary" className="text-emerald-400 bg-emerald-500/10">Active</Badge>
+            </div>
+            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
+              <div className="flex items-center justify-between gap-10">
+                <span className="text-xs text-muted-foreground">Default Bid Cap Multiplier</span>
+                <span className="text-xs font-bold text-foreground">1.35x (Avg CPC)</span>
+              </div>
+              <div className="flex items-center justify-between gap-10">
+                <span className="text-xs text-muted-foreground">Dynamic CVR Safety Cap</span>
+                <span className="text-xs font-bold text-foreground">Target CPL × CVR</span>
+              </div>
+            </div>
+          </div>
+
+           {/* Rule 3: tCPA Migration */}
+           <div className="space-y-4">
+             <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">3. tCPA Migration</h3>
+              <Badge variant="secondary" className="text-amber-400 bg-amber-500/10">Manual Approval</Badge>
+            </div>
+            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
+              <div className="flex items-center justify-between gap-10">
+                <span className="text-xs text-muted-foreground">Min conversions (7-day) for switch</span>
+                <span className="text-xs font-bold text-foreground">15+</span>
+              </div>
+              <div className="flex items-center justify-between gap-10">
+                <span className="text-xs text-muted-foreground">Max Impression Share Loss allowed</span>
+                <span className="text-xs font-bold text-foreground">20% (Budget Limited)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <SheetFooter className="mt-8 pt-6 border-t">
+          <Button variant="outline" className="text-xs" onClick={onClose}>Close</Button>
+          <Button className="text-xs bg-primary text-primary-foreground">Save Configuration</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

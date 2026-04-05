@@ -36,6 +36,9 @@ from collections import defaultdict
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━ CONFIG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
+import scoring_engine
+from intelligence_engines import PerformanceIntelligenceEngine, PatternDetectionEngine
 
 # ── Resolve client ID early (from --client arg or ADPILOT_CLIENT_ID env var) ──
 def _resolve_client_id():
@@ -627,6 +630,11 @@ def extract_campaign(row):
     ctr = (safe_div(clicks, impressions) * 100) if impressions > 0 else 0
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
     avg_cpm = micros_to_inr(metrics.get("averageCpm"))
+    # Derive CPC/CPM when API returns 0 (common with auto-bidding strategies)
+    if avg_cpc == 0 and clicks > 0:
+        avg_cpc = safe_div(cost, clicks)
+    if avg_cpm == 0 and impressions > 0:
+        avg_cpm = safe_div(cost, impressions) * 1000
     cost_per_conv = micros_to_inr(metrics.get("costPerConversion"))
     cvr = safe_div(conversions, clicks) * 100
 
@@ -665,14 +673,14 @@ def extract_campaign(row):
         "avg_cpm": round(avg_cpm, 2),
         "cpl": round(cost_per_conv, 2) if cost_per_conv else round(safe_div(cost, conversions), 2),
         "cvr": round(cvr, 2),
-        # IS metrics
-        "search_impression_share": round(search_is * 100, 1) if search_is else None,
-        "search_budget_lost_is": round(search_budget_lost_is * 100, 1) if search_budget_lost_is else None,
-        "search_rank_lost_is": round(search_rank_lost_is * 100, 1) if search_rank_lost_is else None,
-        "absolute_top_is": round(abs_top_is * 100, 1) if abs_top_is else None,
-        "top_is": round(top_is * 100, 1) if top_is else None,
-        "click_share": round(click_share * 100, 1) if click_share else None,
-        "exact_match_is": round(exact_match_is * 100, 1) if exact_match_is else None,
+        # IS metrics (use `is not None` to preserve 0 values; None means truly unavailable)
+        "search_impression_share": round(search_is * 100, 1) if search_is is not None else 0,
+        "search_budget_lost_is": round(search_budget_lost_is * 100, 1) if search_budget_lost_is is not None else 0,
+        "search_rank_lost_is": round(search_rank_lost_is * 100, 1) if search_rank_lost_is is not None else 0,
+        "absolute_top_is": round(abs_top_is * 100, 1) if abs_top_is is not None else 0,
+        "top_is": round(top_is * 100, 1) if top_is is not None else 0,
+        "click_share": round(click_share * 100, 1) if click_share is not None else 0,
+        "exact_match_is": round(exact_match_is * 100, 1) if exact_match_is is not None else 0,
     }
 
 def extract_ad_group(row):
@@ -687,6 +695,8 @@ def extract_ad_group(row):
     conversions = sf(metrics.get("conversions"))
     ctr = (safe_div(clicks, impressions) * 100) if impressions > 0 else 0
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
+    if avg_cpc == 0 and clicks > 0:
+        avg_cpc = safe_div(cost, clicks)
     cvr = safe_div(conversions, clicks) * 100
     cpl = safe_div(cost, conversions)
 
@@ -1013,6 +1023,21 @@ def analyze_campaigns(campaigns, ad_groups):
         bench = get_benchmark_for_type(ctype)
         campaign_ags = ag_by_campaign.get(c["id"], [])
 
+        # Score each ad group
+        for ag in campaign_ags:
+            ag_score_data = {
+                "cpl": ag.get("cpl", 0), "cvr": ag.get("cvr", 0),
+                "avg_cpc": ag.get("avg_cpc", 0), "ctr": ag.get("ctr", 0),
+                "quality_score": ag.get("quality_score", 5),
+                "impression_share": 0, "campaign_type": ctype,
+            }
+            ag_scored = scoring_engine.score_google_adgroup_module(ag_score_data, CPL_TARGET)
+            ag["health_score"] = ag_scored["score"]
+            ag["score"] = ag_scored["score"]
+            ag["score_breakdown"] = ag_scored.get("breakdown", {})
+            s = ag_scored["score"]
+            ag["classification"] = "Excellent" if s >= 80 else "Good" if s >= 60 else "Average" if s >= 40 else "Poor"
+
         # Cost stack diagnosis
         cost_stack = diagnose_cost_stack(c, bench)
 
@@ -1230,12 +1255,37 @@ def score_google_adgroup(ag_data, target_cpl):
 def score_google_ad(ad_data, cpl_target):
     # Specialized scoring for RSA vs Video vs Static
     ad_type = ad_data.get("ad_type", "RSA").upper()
-    if "VIDEO" in ad_type or ad_data.get("is_video", False):
-        return scoring_engine.score_google_creative_module(ad_data, cpl_target)
-    elif "RSA" in ad_type or "SEARCH_AD" in ad_type:
-        return scoring_engine.score_google_rsa_module(ad_data, cpl_target)
+    is_video = "VIDEO" in ad_type or ad_data.get("is_video", False)
+    is_rsa = "RSA" in ad_type or "SEARCH_AD" in ad_type
+
+    if is_video:
+        result = scoring_engine.score_google_creative_module(ad_data, cpl_target)
+    elif is_rsa:
+        result = scoring_engine.score_google_rsa_module(ad_data, cpl_target)
     else:
-        return scoring_engine.score_google_creative_module(ad_data, cpl_target)
+        result = scoring_engine.score_google_creative_module(ad_data, cpl_target)
+
+    # Enrich with expected fields
+    score = result.get("score", 0)
+    result["total_score"] = score
+    result["performance_score"] = score
+    result["age_score"] = max(0, 100 - ad_data.get("age_days", 0) * 2)
+    result["classification"] = "Excellent" if score >= 80 else "Good" if score >= 60 else "Average" if score >= 40 else "Poor"
+    result["scoring_type"] = "video" if is_video else ("rsa" if is_rsa else "static")
+
+    # Auto-pause logic
+    leads = ad_data.get("conversions", 0)
+    impressions = ad_data.get("impressions", 0)
+    cpl = ad_data.get("cpl", 0)
+    auto_pause_reasons = []
+    if leads == 0 and impressions >= 5000:
+        auto_pause_reasons.append(f"Zero conversions after {impressions:,} impressions")
+    if leads > 0 and cpl > cpl_target * 1.4:
+        auto_pause_reasons.append(f"CPL ₹{cpl:,.0f} is >40% above target ₹{cpl_target:,.0f}")
+    result["should_pause"] = len(auto_pause_reasons) > 0
+    result["auto_pause_reasons"] = auto_pause_reasons
+
+    return result
 
 def analyze_creative_health(ads, cpl_target):
     results = []
@@ -1938,19 +1988,51 @@ def match_playbooks(campaigns, account_pulse, cvr_analysis):
 # ━━━━━━━━━━━━━ MODULE 11: PERFORMANCE MARKETER INTELLECT ━━━━━━━━
 
 def generate_intellect_insights(campaigns, account_pulse, cvr_analysis, bidding):
-    """Beyond-SOP insights using performance marketing intellect."""
+    """Deep AI-driven insights using PIE and PDE engines."""
     insights = []
+    
+    # Initialize Engines
+    pie = PerformanceIntelligenceEngine(benchmarks=BENCHMARKS, target_cpl=CPL_TARGET)
+    pde = PatternDetectionEngine()
 
     active = [c for c in campaigns if c["status"] == "ENABLED"]
+    
+    # 1. PIE Diagnosis for each campaign
+    for c in active:
+        diagnosis = pie.diagnose_campaign(c)
+        for d in diagnosis:
+            insights.append({
+                "type": "diagnosis",
+                "title": f"{c['name'][:30]} — {d['issue']}",
+                "observation": d["why"],
+                "recommendation": d["fix"],
+                "impact": d["impact"],
+                "confidence": "high",
+            })
+
+    # 2. PDE Pattern Tracking
+    for c in active:
+        # Check for learning trap
+        p = pde.detect_learning_trap(c)
+        if p:
+            insights.append({
+                "type": "pattern",
+                "title": f"Algorithm Alert: {c['name'][:30]}",
+                "observation": p["evidence"],
+                "recommendation": p["proactive_step"],
+                "impact": "Slow start / algorithm drift",
+                "confidence": "medium",
+            })
+
+    # 3. Budget & Efficiency Patterns (Hand-tuned marketer intellect)
     search = [c for c in active if is_search_type(c["campaign_type"])]
     dg = [c for c in active if is_dg_type(c["campaign_type"])]
-
-    # 1. Budget allocation insight
+    
     search_spend = sum(c["cost"] for c in search)
     dg_spend = sum(c["cost"] for c in dg)
     total_spend = search_spend + dg_spend
+    
     if total_spend > 0:
-        search_pct = search_spend / total_spend * 100
         search_leads = sum(c["conversions"] for c in search)
         dg_leads = sum(c["conversions"] for c in dg)
         search_cpl = safe_div(search_spend, search_leads)
@@ -1961,61 +2043,12 @@ def generate_intellect_insights(campaigns, account_pulse, cvr_analysis, bidding)
                 "type": "opportunity",
                 "title": "DG Outperforming Search on CPL",
                 "observation": f"DG CPL ₹{dg_cpl:.0f} vs Search CPL ₹{search_cpl:.0f} — DG is 30%+ cheaper",
-                "recommendation": "Consider shifting 10-15% budget from generic search to top DG campaigns",
-                "confidence": "medium",
-            })
-        elif search_cpl > 0 and dg_cpl > search_cpl * 1.5:
-            insights.append({
-                "type": "risk",
-                "title": "DG CPL Much Higher Than Search",
-                "observation": f"DG CPL ₹{dg_cpl:.0f} is 50%+ higher than Search CPL ₹{search_cpl:.0f}",
-                "recommendation": "Audit DG audiences, refresh creatives, trim bottom 30% audiences",
+                "recommendation": "Shift 15% budget from generic search to scaling DG campaigns.",
+                "impact": "Increases lead-volume within existing budget",
                 "confidence": "high",
             })
 
-    # 2. Branded vs non-branded efficiency
-    branded = [c for c in search if c["campaign_type"] == "branded"]
-    non_branded = [c for c in search if c["campaign_type"] != "branded"]
-    if branded and non_branded:
-        branded_cpl = safe_div(sum(c["cost"] for c in branded), sum(c["conversions"] for c in branded))
-        nb_cpl = safe_div(sum(c["cost"] for c in non_branded), sum(c["conversions"] for c in non_branded))
-        if branded_cpl > 0 and nb_cpl > 0 and branded_cpl > nb_cpl:
-            insights.append({
-                "type": "anomaly",
-                "title": "Branded CPL Higher Than Non-Branded",
-                "observation": f"Branded CPL ₹{branded_cpl:.0f} > Non-branded ₹{nb_cpl:.0f} — unusual pattern",
-                "recommendation": "Check if competitors are bidding on brand terms. Review branded search terms for junk.",
-                "confidence": "high",
-            })
-
-    # 3. CVR cross-campaign pattern
-    if search:
-        cvrs = [(c["name"], c["cvr"], c["campaign_type"]) for c in search if c["clicks"] >= 30]
-        if cvrs:
-            best = max(cvrs, key=lambda x: x[1])
-            worst = min(cvrs, key=lambda x: x[1])
-            if best[1] > 0 and worst[1] > 0 and best[1] > worst[1] * 3:
-                insights.append({
-                    "type": "pattern",
-                    "title": "CVR Disparity Across Campaigns",
-                    "observation": f"Best CVR: {best[0][:30]} ({best[1]}%) vs Worst: {worst[0][:30]} ({worst[1]}%)",
-                    "recommendation": f"Investigate why {worst[0][:30]} has low CVR — likely audience quality or keyword intent mismatch",
-                    "confidence": "high",
-                })
-
-    # 4. Overall health score
-    overall_cpl = account_pulse.get("overall_cpl", 0)
-    if overall_cpl > 0:
-        if overall_cpl < CPL_TARGET * 0.8:
-            insights.append({
-                "type": "opportunity",
-                "title": "CPL Well Below Target — Room to Scale",
-                "observation": f"Overall CPL ₹{overall_cpl:.0f} is 20%+ below target ₹{CPL_TARGET}",
-                "recommendation": "Increase budgets on top performers by 20-25%. Combat Learning Limited on strong campaigns.",
-                "confidence": "high",
-            })
-
-    # 5. Budget utilization — underspend or overspend vs monthly target
+    # 4. Monthly MTD Pacing Analysis
     mtd = account_pulse.get("mtd_pacing", {})
     pacing_spend_pct = mtd.get("pacing_spend_pct", 0)
     pacing_leads_pct = mtd.get("pacing_leads_pct", 0)
@@ -2023,31 +2056,14 @@ def generate_intellect_insights(campaigns, account_pulse, cvr_analysis, bidding)
         if pacing_spend_pct < 80 and pacing_leads_pct > pacing_spend_pct:
             insights.append({
                 "type": "opportunity",
-                "title": "Budget Underspend with Strong Efficiency",
-                "observation": f"Spend pacing {pacing_spend_pct:.0f}% but lead pacing {pacing_leads_pct:.0f}% — budget headroom exists with above-target efficiency",
-                "recommendation": "Increase daily budgets by 15-20% on campaigns with CPL < target. This is free upside.",
-                "confidence": "high",
-            })
-        elif pacing_spend_pct > 110 and pacing_leads_pct < pacing_spend_pct * 0.8:
-            insights.append({
-                "type": "risk",
-                "title": "Budget Overspend Without Proportional Leads",
-                "observation": f"Spend pacing at {pacing_spend_pct:.0f}% but leads only at {pacing_leads_pct:.0f}% — diminishing returns",
-                "recommendation": "Reduce budgets on campaigns with CPL > 1.4x target. Reallocate to efficient performers.",
+                "title": "Underspend with High Efficiency",
+                "observation": f"Spend pacing {pacing_spend_pct:.0f}% vs Lead pacing {pacing_leads_pct:.0f}%",
+                "recommendation": "Aggressively scale top 3 performers (+25% budget) to reach monthly targets.",
+                "impact": "Recovers missed volume without CPL blowup",
                 "confidence": "high",
             })
 
-    # 6. Search term intent quality (branded canary)
-    if branded and search:
-        branded_ctr = safe_div(sum(c["clicks"] for c in branded), sum(c["impressions"] for c in branded)) * 100
-        if branded_ctr < 8:
-            insights.append({
-                "type": "anomaly",
-                "title": "Branded Search CTR Unusually Low",
-                "observation": f"Branded CTR is only {branded_ctr:.1f}% — healthy branded should be 12%+",
-                "recommendation": "Check search terms report for non-branded queries leaking into branded campaigns. Add negatives.",
-                "confidence": "high",
-            })
+    return insights
 
     # 7. Ad copy effectiveness — RSA strength check via ad data
     for c in active:
@@ -3283,11 +3299,12 @@ def run_analysis(cadence="twice_weekly"):
     print(f"{'='*60}")
 
     # Modules to activate based on cadence
-    run_bidding = cadence in ("weekly", "biweekly", "monthly")
-    run_qs = cadence in ("weekly", "biweekly", "monthly")
-    run_search_terms_deep = cadence in ("weekly", "biweekly", "monthly")
-    run_breakdowns = cadence in ("biweekly", "monthly")
-    run_funnel = cadence == "monthly"
+    # Enable key analysis modules for twice_weekly+ to ensure dashboard data is populated
+    run_bidding = cadence in ("twice_weekly", "weekly", "biweekly", "monthly")
+    run_qs = cadence in ("twice_weekly", "weekly", "biweekly", "monthly")
+    run_search_terms_deep = cadence in ("twice_weekly", "weekly", "biweekly", "monthly")
+    run_breakdowns = cadence in ("twice_weekly", "weekly", "biweekly", "monthly")
+    run_funnel = cadence in ("monthly",)
 
     # 1. Collect data
     ds = collect_data(cadence_window=window)
@@ -3321,8 +3338,25 @@ def run_analysis(cadence="twice_weekly"):
     # 3. Campaign Analysis
     print("\n--- Module 2: Campaign Analysis + Cost Stack ---")
     campaign_analysis = analyze_campaigns(ds["campaigns"], ds["ad_groups"])
+    # Attach health scores from scoring engine to each campaign
     for ca in campaign_analysis:
-        print(f"  {ca['name'][:40]}: {ca['campaign_type']} | CPL {fmt_inr(ca['cpl'])} | CTR {ca['ctr']}% | CVR {ca['cvr']}% | {ca['cost_stack']['overall']}")
+        score_data = {
+            "cpl": ca.get("cpl", 0), "cvr": ca.get("cvr", 0),
+            "avg_cpc": ca.get("avg_cpc", 0), "ctr": ca.get("ctr", 0),
+            "quality_score": ca.get("quality_score", 5),
+            "impression_share": ca.get("search_impression_share", 0) or 0,
+            "campaign_type": ca.get("campaign_type", "location"),
+        }
+        if is_dg_type(ca.get("campaign_type", "")):
+            scored = scoring_engine.score_google_dg_module(score_data, CPL_TARGET)
+        else:
+            scored = scoring_engine.score_google_campaign_module(score_data, CPL_TARGET)
+        ca["health_score"] = scored["score"]
+        ca["score"] = scored["score"]
+        ca["score_breakdown"] = scored.get("breakdown", {})
+        s = scored["score"]
+        ca["classification"] = "Excellent" if s >= 80 else "Good" if s >= 60 else "Average" if s >= 40 else "Poor"
+        print(f"  {ca['name'][:40]}: {ca['campaign_type']} | CPL {fmt_inr(ca['cpl'])} | CTR {ca['ctr']}% | CVR {ca['cvr']}% | {ca['cost_stack']['overall']} | Score: {ca['health_score']:.0f}")
 
     # 4. Bidding Analysis (weekly+)
     bidding = {"per_ad_group": [], "smart_bidding_readiness": []}
@@ -3369,6 +3403,17 @@ def run_analysis(cadence="twice_weekly"):
     # 10. Performance Marketer Intellect
     print("\n--- Module 9: Performance Marketer Intellect ---")
     intellect = generate_intellect_insights(ds["campaigns"], account_pulse, cvr_analysis, bidding)
+    
+    # ── Final Strategic Narrative ──
+    learning_prev = load_learning_history()
+    prev_narrative = None
+    if learning_prev.get("runs"):
+        prev_narrative = learning_prev["runs"][-1].get("strategic_narrative")
+    
+    pie_engine = PerformanceIntelligenceEngine(target_cpl=CPL_TARGET)
+    ctx_msg = f"GOOGLE ADS: Spend ₹{account_pulse.get('latest_daily_spend'):,.0f}, CPL ₹{account_pulse.get('overall_cpl'):,.0f}. MTD Pacing: {account_pulse.get('mtd_pacing', {}).get('pacing_spend_pct', 0):.0f}% spend vs {account_pulse.get('mtd_pacing', {}).get('pacing_leads_pct', 0):.0f}% leads."
+    strategic_narrative = pie_engine.generate_strategic_narrative(ctx_msg, previous_narrative=prev_narrative)
+    print(f"  Strategic Narrative: {strategic_narrative}")
     for ins in intellect:
         print(f"  [{ins['type']}] {ins['title']}")
 
@@ -3524,6 +3569,7 @@ def run_analysis(cadence="twice_weekly"):
     # Build final output
     result = {
         "status": "OK",
+        "strategic_narrative": strategic_narrative,
         "account_health_score": account_health["score"],
         "account_health_breakdown": account_health["breakdown"],
         "timestamp": str(NOW),
@@ -3601,6 +3647,7 @@ def run_analysis(cadence="twice_weekly"):
         "auto_pause_count": len(auto_pause),
         "playbooks_triggered": len(playbooks),
         "recommendations_count": len(recommendations),
+        "strategic_narrative": strategic_narrative,
     })
     # Keep last 100 runs
     learning["runs"] = learning["runs"][-100:]

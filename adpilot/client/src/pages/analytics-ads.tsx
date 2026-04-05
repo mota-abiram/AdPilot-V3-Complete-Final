@@ -168,22 +168,26 @@ export default function AnalyticsAdsPage() {
       }));
     }
 
-    // Fallback if creative_health not present
-    const campaigns = ((data as any).campaigns || []) as any[];
+    // Fallback if creative_health not present — extract from nested campaigns
+    const campaigns = ((data as any).campaign_audit || (data as any).campaigns || []) as any[];
     campaigns.forEach((campaign) => {
       ((campaign.ad_groups || []) as any[]).forEach((adGroup) => {
         ((adGroup.ads || []) as any[]).forEach((ad) => {
+          const cost = ad.cost || ad.spend || 0;
+          const conversions = ad.conversions || ad.leads || 0;
           googleCreatives.push({
-            id: ad.id || ad.ad_id || `${campaign.name}-${adGroup.name}-${ad.name}`,
+            id: ad.id || ad.ad_id || `${campaign.campaign_name || campaign.name}-${adGroup.name}-${ad.name}`,
             name: ad.name || ad.headline || "Untitled Ad",
-            campaignName: campaign.name || "Unassigned Campaign",
-            adsetName: adGroup.name || "Unassigned Ad Group",
+            campaignName: campaign.campaign_name || campaign.name || "Unassigned Campaign",
+            adsetName: adGroup.name || adGroup.ad_group_name || "Unassigned Ad Group",
             isVideo: ad.ad_type === "VIDEO" || (ad.type?.includes?.("VIDEO") ?? false),
-            spend: ad.cost || ad.spend || 0,
+            spend: cost,
             impressions: ad.impressions || 0,
-            leads: ad.conversions || ad.leads || 0,
+            leads: conversions,
             ctr: ad.ctr || 0,
-            cpl: (ad.cost || 0) / (ad.conversions || 1) || 0,
+            cpl: conversions > 0 ? Math.round((cost / conversions) * 100) / 100 : 0,
+            tsr: ad.tsr || ad.video_metrics?.tsr || undefined,
+            vhr: ad.vhr || ad.video_metrics?.vhr || undefined,
           });
         });
       });

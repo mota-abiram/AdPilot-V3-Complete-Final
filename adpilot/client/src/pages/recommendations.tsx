@@ -32,6 +32,7 @@ import {
   Brain,
   AlertCircle,
   Info,
+  Search,
 } from "lucide-react";
 import { getLayerColor, formatINR } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -76,7 +77,7 @@ function mapRecommendationToExecution(
   const detail = String(rec.detail || "").toLowerCase();
   const isGoogle = (data as any).platform === "google";
   const entities: any[] = isGoogle
-    ? ((data as any).ad_group_analysis || [])
+    ? ((data as any).ad_group_analysis || (data as any).campaigns || [])
     : (data.adset_analysis || []);
   const getEntityId = (e: any) => isGoogle ? e.ad_group_id : e.adset_id;
   const getEntityName = (e: any) => isGoogle ? e.ad_group_name : e.adset_name;
@@ -104,10 +105,13 @@ function mapRecommendationToExecution(
       };
     }
     const campaigns: any[] = isGoogle
-      ? ((data as any).campaigns || [])
+      ? ((data as any).campaign_audit || (data as any).campaigns || [])
       : (data.campaign_audit || []);
     const campaign = campaigns.find((c: any) => {
       const campaignName = c.campaign_name || c.name || "";
+      const campaignId = c.campaign_id || c.id || "";
+      // Match by campaign_id first (reliable), then by name in detail string
+      if ((rec as any).campaign_id && campaignId === (rec as any).campaign_id) return true;
       return String(rec.detail || "").includes(campaignName);
     });
     if (campaign) {
@@ -843,9 +847,37 @@ export default function RecommendationsPage() {
                           </div>
                         </div>
 
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{rec.category}</div>
-                        <p className="text-sm font-medium text-foreground">{rec.action}</p>
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">{rec.detail}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-2 pb-3">
+                          <div className="space-y-1.5 border-r border-border/20 pr-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-60">
+                              <Search className="w-3.5 h-3.5" /> Insight
+                            </span>
+                            <p className="text-[12px] text-foreground font-semibold leading-snug">
+                              {rec.insight || rec.category}
+                            </p>
+                            {rec.detail && !rec.insight && (
+                                <p className="text-[10.5px] text-muted-foreground italic leading-tight mt-1">
+                                    {rec.detail.split('\n')[0]}
+                                </p>
+                            )}
+                          </div>
+                          <div className="space-y-1.5 border-r border-border/20 pr-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-60">
+                              <Zap className="w-3.5 h-3.5 text-primary" /> Action
+                            </span>
+                            <p className="text-[12px] text-primary/90 font-bold leading-snug underline underline-offset-4 decoration-primary/20">
+                              {rec.action}
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-60">
+                              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> Impact
+                            </span>
+                            <p className="text-[12px] text-emerald-300 font-semibold leading-snug">
+                              {rec.impact || "Expected to improve CPL efficiency and stabilize performance."}
+                            </p>
+                          </div>
+                        </div>
 
                         {/* Root Causes */}
                         {rec.root_causes && rec.root_causes.length > 0 && (
