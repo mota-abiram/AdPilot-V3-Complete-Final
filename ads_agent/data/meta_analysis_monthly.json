@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-06T10:55:59.450199",
-  "strategic_narrative": "Mojo's Take: The current MTD CPL of \u20b9667 is inefficient, indicating a serious need for optimization to improve conversion efficiency. Shift focus to enhance TOFU strategies and lower CPL to drive better ROAS.",
+  "generated_at": "2026-04-06T18:52:18.303332",
+  "strategic_narrative": "Mojo's Take: Current CPL of \u20b9667 is unsustainable and undermining ROAS, with urgent corrective measures needed at TOFU to enhance CVR. Focus on refining targeting and optimizing creative assets to prevent continued budget bleed.",
   "account_health_score": 80.6,
   "account_health_breakdown": {
     "cpsv": 25,
@@ -326,8 +326,8 @@
       "reach": 30786,
       "leads": 12,
       "cpl": 548.8533333333334,
-      "daily_budget": 1500.0,
-      "budget_utilization_pct": 62.72609523809523,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 89.5,
@@ -362,8 +362,8 @@
       "reach": 33434,
       "leads": 14,
       "cpl": 434.8071428571429,
-      "daily_budget": 1200.0,
-      "budget_utilization_pct": 72.46785714285716,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 85.0,
@@ -398,8 +398,8 @@
       "reach": 226535,
       "leads": 25,
       "cpl": 740.828,
-      "daily_budget": 3584.0,
-      "budget_utilization_pct": 73.82294323979592,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 77.0,
@@ -434,8 +434,8 @@
       "reach": 13914,
       "leads": 2,
       "cpl": 2070.11,
-      "daily_budget": 1000.0,
-      "budget_utilization_pct": 59.146,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 38.5,
@@ -462,7 +462,7 @@
           ],
           "playbook": "Stagnant Results Despite OK Frequency \u2014 Algorithm Reset",
           "solutions": [
-            "Increase budget by 20-25% (max \u20b91250/day)",
+            "Increase budget by 20-25%",
             "Consolidate similar adsets to pool conversions",
             "Broaden audience signals (add Advantage+ targeting)",
             "Add more creative variants to increase delivery"
@@ -471,10 +471,19 @@
       ]
     }
   ],
-  "breakdowns": {},
+  "breakdowns": {
+    "age": [],
+    "gender": [],
+    "placement": [],
+    "device": [],
+    "region": []
+  },
   "campaign_breakdowns": {},
   "geo_alerts": [],
-  "target_locations": [],
+  "target_locations": [
+    "Hyderabad",
+    "Secunderabad"
+  ],
   "creative_health": [
     {
       "ad_id": "120242148702100466",
@@ -893,19 +902,7 @@
       "score_bands": {}
     }
   ],
-  "fatigue_alerts": [
-    {
-      "type": "CTR_DECAY",
-      "severity": "WARNING",
-      "ad_name": "Campaign-level",
-      "campaign": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-      "layer": "TOFU",
-      "decay_pct": 16.381838566527694,
-      "ctr_before": 0.6206375,
-      "ctr_after": 0.5189656666666667,
-      "message": "Campaign 'DM Amara | Adv+OT | [HNIs Narrowed by Real Es' CTR decayed 16% (0.62% -> 0.52%)."
-    }
-  ],
+  "fatigue_alerts": [],
   "active_playbooks": [
     {
       "playbook": 2,
@@ -1326,7 +1323,7 @@
     "total_leads": 53,
     "avg_cpl": 666.6879245283019,
     "overall_ctr": 0.5718170095235084,
-    "total_fatigue_alerts": 1,
+    "total_fatigue_alerts": 0,
     "active_playbooks": 3,
     "total_recommendations": 7,
     "immediate_actions": 1,
@@ -1340,7 +1337,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-06T10:55:59.450199",
+    "verified_at": "2026-04-06T18:52:18.303332",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 10,
     "verification_status": "MATCH"

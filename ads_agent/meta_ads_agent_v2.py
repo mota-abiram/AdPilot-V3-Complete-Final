@@ -612,15 +612,14 @@ def collect_data(date_since=None, date_until=None):
     print(f"    -> {len(ds['all_adsets'])} total ad sets")
 
     # 10. Demographic Breakdowns
-    insight_fields_breakdown = "spend,impressions,clicks,ctr,cpc,cpm,actions,cost_per_action_type,reach"
+    insight_fields_breakdown = "spend,impressions,clicks,actions"
 
     # 10a. Age breakdown
     print("  Fetching age breakdowns...")
     ds["breakdown_age"] = fetch_all_pages(
         f"act_{AD_ACCOUNT_ID}/insights",
-        {"fields": "date_start," + insight_fields_breakdown,
+        {"fields": insight_fields_breakdown,
          "time_range": json.dumps({"since": since, "until": until}),
-         "time_increment": "1",
          "breakdowns": "age",
          "level": "account", "limit": "500"})
     print(f"    -> {len(ds['breakdown_age'])} age rows")
@@ -629,9 +628,8 @@ def collect_data(date_since=None, date_until=None):
     print("  Fetching gender breakdowns...")
     ds["breakdown_gender"] = fetch_all_pages(
         f"act_{AD_ACCOUNT_ID}/insights",
-        {"fields": "date_start," + insight_fields_breakdown,
+        {"fields": insight_fields_breakdown,
          "time_range": json.dumps({"since": since, "until": until}),
-         "time_increment": "1",
          "breakdowns": "gender",
          "level": "account", "limit": "500"})
     print(f"    -> {len(ds['breakdown_gender'])} gender rows")
@@ -640,9 +638,8 @@ def collect_data(date_since=None, date_until=None):
     print("  Fetching placement breakdowns...")
     ds["breakdown_placement"] = fetch_all_pages(
         f"act_{AD_ACCOUNT_ID}/insights",
-        {"fields": "date_start," + insight_fields_breakdown,
+        {"fields": insight_fields_breakdown,
          "time_range": json.dumps({"since": since, "until": until}),
-         "time_increment": "1",
          "breakdowns": "publisher_platform",
          "level": "account", "limit": "500"})
     print(f"    -> {len(ds['breakdown_placement'])} placement rows")
@@ -651,9 +648,8 @@ def collect_data(date_since=None, date_until=None):
     print("  Fetching device breakdowns...")
     ds["breakdown_device"] = fetch_all_pages(
         f"act_{AD_ACCOUNT_ID}/insights",
-        {"fields": "date_start," + insight_fields_breakdown,
+        {"fields": insight_fields_breakdown,
          "time_range": json.dumps({"since": since, "until": until}),
-         "time_increment": "1",
          "breakdowns": "device_platform",
          "level": "account", "limit": "500"})
     print(f"    -> {len(ds['breakdown_device'])} device rows")
@@ -662,16 +658,15 @@ def collect_data(date_since=None, date_until=None):
     print("  Fetching region breakdowns...")
     ds["breakdown_region"] = fetch_all_pages(
         f"act_{AD_ACCOUNT_ID}/insights",
-        {"fields": "date_start," + insight_fields_breakdown,
+        {"fields": insight_fields_breakdown,
          "time_range": json.dumps({"since": since, "until": until}),
-         "time_increment": "1",
          "breakdowns": "region",
          "level": "account", "limit": "500"})
     print(f"    -> {len(ds['breakdown_region'])} region rows")
 
     # 11. Campaign-level demographic breakdowns
     print("  Fetching campaign-level breakdowns...")
-    insight_fields_campaign_bd = "campaign_name,campaign_id,spend,impressions,clicks,ctr,cpc,cpm,actions,cost_per_action_type,reach"
+    insight_fields_campaign_bd = "campaign_name,campaign_id,spend,impressions,clicks,actions"
 
     campaign_breakdowns = {}
     active_campaign_ids = set()
@@ -689,9 +684,8 @@ def collect_data(date_since=None, date_until=None):
             try:
                 rows = fetch_all_pages(
                     f"{cid}/insights",
-                    {"fields": "date_start," + insight_fields_campaign_bd,
+                    {"fields": insight_fields_campaign_bd,
                      "time_range": json.dumps({"since": since, "until": until}),
-                     "time_increment": "1",
                      "breakdowns": bd_type,
                      "limit": "500"})
                 campaign_breakdowns[cid][bd_key] = rows
@@ -1558,7 +1552,7 @@ def analyze_breakdowns(ds):
         final_rows = []
         for dim_val, data in aggregated.items():
             spend = data["spend"]
-            leads = get_action_value(data["actions"], ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"])
+            leads = get_action_value(data["actions"], LEAD_ACTION_TYPES)
             cpl = spend / leads if leads > 0 else 0
             final_rows.append({
                 "dimension": dim_val, "spend": round(spend, 2), "impressions": data["impressions"], "clicks": data["clicks"],
@@ -1579,8 +1573,6 @@ def analyze_breakdowns(ds):
         else:
             result[key] = []
     
-    return result
-
 # Geo-spend validation
     # Meta API returns state-level regions (e.g. "Telangana") not cities.
     # Build a mapping of target cities to their states so state-level data
@@ -2920,6 +2912,68 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
 
     # Run all analysis modules
     pulse = analyze_account_pulse(campaign_insights, daily_trends, ds.get("historical", []))
+
+    # ── Patch daily_spends/leads arrays when daily_trends doesn't cover the full window ──
+    # daily_trends is hardcoded to 7 days in collect_data(). For weekly (14d) and
+    # biweekly (30d) cadences this means only 7 rows are available, making the trend
+    # comparison meaningless. We rebuild the arrays from c_daily (campaign daily rows)
+    # which are correctly filtered to the full cadence window.
+    from datetime import datetime as _dt
+    try:
+        expected_days = (_dt.strptime(date_until, "%Y-%m-%d") - _dt.strptime(date_since, "%Y-%m-%d")).days + 1
+    except Exception:
+        expected_days = 7
+    if len(pulse.get("daily_spends", [])) < max(2, expected_days - 1):
+        # Aggregate c_daily (per-campaign daily rows) by date to get account-level daily totals
+        day_aggr: dict = {}
+        for row in c_daily:
+            dt = row.get("date_start", "")
+            if not dt:
+                continue
+            if dt not in day_aggr:
+                day_aggr[dt] = {"spend": 0.0, "leads": 0, "clicks": 0, "impressions": 0}
+            day_aggr[dt]["spend"] += float(row.get("spend", 0) or 0)
+            # leads: sum all lead-type actions
+            for act in (row.get("actions") or []):
+                if act.get("action_type") in ("lead", "onsite_conversion.lead_grouped",
+                                               "offsite_conversion.fb_pixel_lead"):
+                    day_aggr[dt]["leads"] += float(act.get("value", 0) or 0)
+            day_aggr[dt]["clicks"] += int(row.get("clicks", 0) or 0)
+            day_aggr[dt]["impressions"] += int(row.get("impressions", 0) or 0)
+
+        if day_aggr:
+            sorted_dates = sorted(day_aggr.keys())
+            new_spends = [round(day_aggr[d]["spend"], 2) for d in sorted_dates]
+            new_leads = [round(day_aggr[d]["leads"], 1) for d in sorted_dates]
+            new_clicks = [day_aggr[d]["clicks"] for d in sorted_dates]
+            new_impressions = [day_aggr[d]["impressions"] for d in sorted_dates]
+            new_ctrs = [
+                round((day_aggr[d]["clicks"] / day_aggr[d]["impressions"]) * 100, 2)
+                if day_aggr[d]["impressions"] > 0 else 0.0
+                for d in sorted_dates
+            ]
+            # Recompute trend with the full-window daily arrays
+            spend_trend, spend_change = trend_direction(new_spends)
+            leads_trend, leads_change = trend_direction(new_leads)
+            ctr_trend, ctr_change = trend_direction(new_ctrs)
+            pulse["daily_spends"] = new_spends
+            pulse["daily_leads"] = new_leads
+            pulse["daily_ctrs"] = new_ctrs
+            pulse["daily_clicks"] = new_clicks
+            pulse["daily_impressions"] = new_impressions
+            pulse["spend_trend"] = spend_trend
+            pulse["spend_change_pct"] = spend_change
+            pulse["leads_trend"] = leads_trend
+            pulse["leads_change_pct"] = leads_change
+            pulse["ctr_trend"] = ctr_trend
+            pulse["ctr_change_pct"] = ctr_change
+            pulse["latest_daily_spend"] = new_spends[-1] if new_spends else pulse.get("latest_daily_spend", 0)
+            pulse["latest_daily_leads"] = new_leads[-1] if new_leads else pulse.get("latest_daily_leads", 0)
+            pulse["daily_avg_spend"] = sum(new_spends) / len(new_spends) if new_spends else 0
+            pulse["avg_daily_leads"] = sum(new_leads) / len(new_leads) if new_leads else 0
+            pulse["zero_lead_days"] = sum(1 for l in new_leads if l == 0)
+            print(f"    [INFO] Rebuilt daily arrays from campaign rows: {len(new_spends)} days "
+                  f"(spend_trend={spend_trend} {spend_change:+.1f}%, leads_trend={leads_trend} {leads_change:+.1f}%)")
 
     cost_stack = analyze_cost_stack(
         campaign_insights, adset_insights,

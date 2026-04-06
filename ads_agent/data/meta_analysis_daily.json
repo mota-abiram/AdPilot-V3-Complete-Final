@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-06T10:55:59.450199",
-  "strategic_narrative": "Mojo's Take: Current MTD CPL of \u20b9667 is unsustainably high, indicating a weak TOFU strategy. Immediate optimization of ad targeting and creative is essential to lower costs and improve conversion rates.",
+  "generated_at": "2026-04-06T18:52:18.303332",
+  "strategic_narrative": "Mojo's Take: The stagnant CPL of \u20b9667 is crushing ROAS, exposing a dire need for TOFU optimization. Immediate focus on refining targeting and creative is crucial to reduce acquisition costs and salvage budget allocation before further revenue decline.",
   "account_health_score": 80.6,
   "account_health_breakdown": {
     "cpsv": 25,
@@ -113,8 +113,8 @@
     "spend_trend": "STABLE",
     "spend_change_pct": 0,
     "total_leads_30d": 12,
-    "avg_daily_leads": 12.0,
-    "latest_daily_leads": 12,
+    "avg_daily_leads": 24.0,
+    "latest_daily_leads": 24.0,
     "leads_trend": "STABLE",
     "leads_change_pct": 0,
     "zero_lead_days": 0,
@@ -133,7 +133,7 @@
       8654.5
     ],
     "daily_leads": [
-      12
+      24.0
     ],
     "daily_ctrs": [
       0.36
@@ -294,9 +294,9 @@
       "reach": 6466,
       "leads": 5,
       "cpl": 353.932,
-      "daily_budget": 1500.0,
-      "budget_utilization_pct": 16.85390476190476,
-      "delivery_status": "LOW_DELIVERY",
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
+      "delivery_status": "DELIVERING",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 88.5,
       "classification": "WINNER",
@@ -320,7 +320,7 @@
           ],
           "playbook": "Stagnant Results Despite OK Frequency \u2014 Algorithm Reset",
           "solutions": [
-            "Increase budget by 20-25% (max \u20b91875/day)",
+            "Increase budget by 20-25%",
             "Consolidate similar adsets to pool conversions",
             "Broaden audience signals (add Advantage+ targeting)",
             "Add more creative variants to increase delivery"
@@ -344,9 +344,9 @@
       "reach": 9362,
       "leads": 3,
       "cpl": 467.18,
-      "daily_budget": 1200.0,
-      "budget_utilization_pct": 16.685,
-      "delivery_status": "LOW_DELIVERY",
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
+      "delivery_status": "DELIVERING",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 85.0,
       "classification": "WINNER",
@@ -370,7 +370,7 @@
           ],
           "playbook": "Stagnant Results Despite OK Frequency \u2014 Algorithm Reset",
           "solutions": [
-            "Increase budget by 20-25% (max \u20b91500/day)",
+            "Increase budget by 20-25%",
             "Consolidate similar adsets to pool conversions",
             "Broaden audience signals (add Advantage+ targeting)",
             "Add more creative variants to increase delivery"
@@ -394,9 +394,9 @@
       "reach": 3212,
       "leads": 0,
       "cpl": 0,
-      "daily_budget": 1000.0,
-      "budget_utilization_pct": 17.238142857142858,
-      "delivery_status": "LOW_DELIVERY",
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
+      "delivery_status": "DELIVERING",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 62.1,
       "classification": "WATCH",
@@ -420,7 +420,7 @@
           ],
           "playbook": "Stagnant Results Despite OK Frequency \u2014 Algorithm Reset",
           "solutions": [
-            "Increase budget by 20-25% (max \u20b91250/day)",
+            "Increase budget by 20-25%",
             "Consolidate similar adsets to pool conversions",
             "Broaden audience signals (add Advantage+ targeting)",
             "Add more creative variants to increase delivery"
@@ -444,9 +444,9 @@
       "reach": 50316,
       "leads": 4,
       "cpl": 1069.1575,
-      "daily_budget": 3584.0,
-      "budget_utilization_pct": 17.0465162627551,
-      "delivery_status": "LOW_DELIVERY",
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
+      "delivery_status": "DELIVERING",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 47.2,
       "classification": "WATCH",
@@ -472,7 +472,7 @@
           ],
           "playbook": "Stagnant Results Despite OK Frequency \u2014 Algorithm Reset",
           "solutions": [
-            "Increase budget by 20-25% (max \u20b94480/day)",
+            "Increase budget by 20-25%",
             "Consolidate similar adsets to pool conversions",
             "Broaden audience signals (add Advantage+ targeting)",
             "Add more creative variants to increase delivery"
@@ -481,10 +481,19 @@
       ]
     }
   ],
-  "breakdowns": {},
+  "breakdowns": {
+    "age": [],
+    "gender": [],
+    "placement": [],
+    "device": [],
+    "region": []
+  },
   "campaign_breakdowns": {},
   "geo_alerts": [],
-  "target_locations": [],
+  "target_locations": [
+    "Hyderabad",
+    "Secunderabad"
+  ],
   "creative_health": [
     {
       "ad_id": "120232236324670466",
@@ -1101,7 +1110,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-06T10:55:59.450199",
+    "verified_at": "2026-04-06T18:52:18.303332",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 2,
     "verification_status": "MATCH"

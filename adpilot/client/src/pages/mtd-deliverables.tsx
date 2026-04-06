@@ -160,9 +160,9 @@ export default function MtdDeliverablesPage() {
 
   // 1. Fetch Consolidated MTD Data (Source of Truth)
   const { data: mtdData, isLoading: isLoadingMtd } = useQuery<ConsolidatedMtdData>({
-    queryKey: ["/api/mtd-deliverables", activeClientId],
+    queryKey: ["/api/mtd-deliverables", activeClientId, activePlatform],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/mtd-deliverables?client_id=${activeClientId}`);
+      const res = await apiRequest("GET", `/api/mtd-deliverables?client_id=${activeClientId}&platform=${activePlatform}`);
       return res.json();
     },
     enabled: !!activeClientId,
@@ -171,9 +171,9 @@ export default function MtdDeliverablesPage() {
 
   // 2. Fetch Manual Entry for specific form fields
   const { data: deliverables, isLoading: isLoadingManual } = useQuery<ManualDeliverables>({
-    queryKey: ["/api/clients", activeClientId, "mtd-deliverables"],
+    queryKey: ["/api/clients", activeClientId, activePlatform, "mtd-deliverables"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/mtd-deliverables`);
+      const res = await apiRequest("GET", `/api/clients/${activeClientId}/mtd-deliverables?platform=${activePlatform}`);
       return res.json();
     },
     enabled: !!activeClientId,
@@ -181,9 +181,9 @@ export default function MtdDeliverablesPage() {
 
   // 3. Fetch History
   const { data: history = [], isLoading: isLoadingHistory } = useQuery<MtdHistoryEntry[]>({
-    queryKey: ["/api/clients", activeClientId, "mtd-deliverables", "history"],
+    queryKey: ["/api/clients", activeClientId, activePlatform, "mtd-deliverables", "history"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/mtd-deliverables/history`);
+      const res = await apiRequest("GET", `/api/clients/${activeClientId}/mtd-deliverables/history?platform=${activePlatform}`);
       return res.json();
     },
     enabled: !!activeClientId,
@@ -203,12 +203,13 @@ export default function MtdDeliverablesPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (payload: Partial<ManualDeliverables>) => {
-      const res = await apiRequest("PUT", `/api/clients/${activeClientId}/mtd-deliverables`, payload);
+      const res = await apiRequest("PUT", `/api/clients/${activeClientId}/mtd-deliverables?platform=${activePlatform}`, payload);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, "mtd-deliverables"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/mtd-deliverables", activeClientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform, "mtd-deliverables"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform, "mtd-deliverables", "history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mtd-deliverables", activeClientId, activePlatform] });
       setHasChanges(false);
       toast({ title: "Saved", description: "MTD data updated successfully" });
     },
@@ -251,7 +252,7 @@ export default function MtdDeliverablesPage() {
             <h1 className="text-xl font-extrabold text-foreground tracking-tight">MTD Deliverables Master</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-2">
               <Activity className="w-3 h-3 text-emerald-400" />
-              Unified Source of Truth (API + Manual) · Last Sync: {mtdData?.last_updated ? new Date(mtdData.last_updated).toLocaleTimeString() : 'Never'}
+              {activePlatform === "google" ? "Google Ads" : "Meta Ads"} source of truth (API + Manual) · Last Sync: {mtdData?.last_updated ? new Date(mtdData.last_updated).toLocaleTimeString() : 'Never'}
             </p>
           </div>
         </div>

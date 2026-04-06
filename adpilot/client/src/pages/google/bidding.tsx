@@ -22,20 +22,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 import {
   AlertTriangle,
   TrendingUp,
-  TrendingDown,
-  Minus,
   Loader2,
   Zap,
   Info,
   ShieldCheck,
-  Clock,
   Target,
   Brain,
   ChevronDown,
@@ -54,19 +54,16 @@ import {
   AlertCircle,
   RefreshCw,
   ExternalLink,
+  Check,
+  Lightbulb,
+  RotateCcw,
+  Gauge,
+  Layers,
 } from "lucide-react";
-import { formatINR, formatPct, truncate } from "@/lib/format";
+import { formatINR, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,7 +88,7 @@ interface CampaignRecommendation {
   lost_is_rank: number | null;
   lost_is_budget: number | null;
   clicks: number;
-  recommendation: "stay_max_clicks" | "switch_tcpa" | "hold";
+  recommendation: "stay_max_clicks" | "switch_tcpa" | "hold" | "revert_max_clicks";
   confidence: "high" | "medium" | "low";
   reasons: string[];
   alerts: BiddingAlert[];
@@ -153,7 +150,16 @@ function getRecommendationConfig(rec: string) {
         border: "border-amber-500/30",
         icon: <Ban className="w-3.5 h-3.5" />,
       };
-    default: // stay_max_clicks
+    case "revert_max_clicks":
+      return {
+        label: "Revert to Max Clicks",
+        shortLabel: "← Revert",
+        color: "text-red-400",
+        bg: "bg-red-500/10",
+        border: "border-red-500/30",
+        icon: <RotateCcw className="w-3.5 h-3.5" />,
+      };
+    default:
       return {
         label: "Stay: Max Clicks",
         shortLabel: "Max Clicks",
@@ -194,6 +200,115 @@ function formatStrategy(s: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .replace("Maximize Clicks", "Max Clicks")
     .replace("Target Cpa", "tCPA");
+}
+
+// ─── A2 SOP Formula Strip ─────────────────────────────────────────────────────
+
+function SOPFormulaStrip() {
+  const rules = [
+    {
+      label: "Primary Formula",
+      value: "Bid Limit = MIN(Low Top-of-Page CPC × 1.35, Target CPA × CVR)",
+      note: "SOP 2.3 · +35% default, adjust 30–40% by risk",
+      color: "text-primary",
+      icon: <Gauge className="w-3.5 h-3.5 text-primary" />,
+    },
+    {
+      label: "Default Strategy",
+      value: "Max Clicks with Bid Cap",
+      note: "All new campaigns start here. Never launch on tCPA.",
+      color: "text-blue-400",
+      icon: <MousePointerClick className="w-3.5 h-3.5 text-blue-400" />,
+    },
+    {
+      label: "Upgrade Trigger",
+      value: "Switch after ≥ 30 stable conv / 30d",
+      note: "CVR variance < ±20% over 2 weeks, stable tracking",
+      color: "text-emerald-400",
+      icon: <Zap className="w-3.5 h-3.5 text-emerald-400" />,
+    },
+    {
+      label: "tCPA Seed",
+      value: "Current CPA × 0.80",
+      note: "Seed 20% below trailing CPA — conservative start",
+      color: "text-purple-400",
+      icon: <Target className="w-3.5 h-3.5 text-purple-400" />,
+    },
+    {
+      label: "Guardrail",
+      value: "NEVER switch if IS Lost (Budget) > 20%",
+      note: "Fix budget first — tCPA cannot help budget-limited campaigns",
+      color: "text-amber-400",
+      icon: <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />,
+    },
+    {
+      label: "Revert Trigger",
+      value: "CPL > Target × 1.4 AND conv < 10 on tCPA",
+      note: "Revert bid limit = Avg CPC × 1.2",
+      color: "text-red-400",
+      icon: <RotateCcw className="w-3.5 h-3.5 text-red-400" />,
+    },
+  ];
+
+  return (
+    <Card className="border-primary/20 bg-primary/3">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+            SOP Formula Reference — Digital Mojo Bidding Rules
+          </p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {rules.map((rule) => (
+            <div key={rule.label} className="space-y-1">
+              <div className="flex items-center gap-1">
+                {rule.icon}
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">{rule.label}</p>
+              </div>
+              <p className={cn("text-[11px] font-bold leading-snug", rule.color)}>{rule.value}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight">{rule.note}</p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── A3 Metric Chips ──────────────────────────────────────────────────────────
+
+function MetricChip({
+  label,
+  value,
+  colorClass,
+  icon,
+  tooltip,
+  sub,
+}: {
+  label: string;
+  value: string;
+  colorClass: string;
+  icon: React.ReactNode;
+  tooltip?: string;
+  sub?: string;
+}) {
+  const content = (
+    <div className="flex items-center gap-1 cursor-default">
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="text-muted-foreground text-[10px]">{label}</span>
+      <span className={cn("font-bold tabular-nums text-[11px]", colorClass)}>{value}</span>
+      {sub && <span className="text-[9px] text-muted-foreground">{sub}</span>}
+    </div>
+  );
+
+  if (!tooltip) return content;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipContent className="max-w-xs text-xs">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 // ─── Action Dialog ─────────────────────────────────────────────────────────────
@@ -241,7 +356,7 @@ function ActionDialog({
             <div className="space-y-3 mt-1">
               <div className={cn("p-3 rounded-lg border text-xs", rec.bg, rec.border)}>
                 <p className="font-bold text-foreground mb-1 text-sm">{truncate(state.campaign.campaign_name, 40)}</p>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-muted-foreground">Current:</span>
                   <span className="font-medium">{formatStrategy(state.campaign.current_strategy)}</span>
                   {state.campaign.recommendation === "switch_tcpa" && (
@@ -254,6 +369,12 @@ function ActionDialog({
                     <>
                       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className={cn("font-bold", rec.color)}>Bid cap {formatINR(state.campaign.computed_bid_limit, 0)}</span>
+                    </>
+                  )}
+                  {state.campaign.recommendation === "revert_max_clicks" && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className={cn("font-bold", rec.color)}>Max Clicks · bid cap {formatINR(state.campaign.avg_cpc * 1.2, 0)}</span>
                     </>
                   )}
                 </div>
@@ -287,7 +408,7 @@ function ActionDialog({
             data-testid="input-rationale"
           />
           <p className="text-[10px] text-muted-foreground">
-            All bidding decisions are logged with rationale for audit and learning purposes.
+            All bidding decisions are logged with rationale for audit and team accountability.
             {rationale.length < 10 && rationale.length > 0 && (
               <span className="text-red-400 ml-1">Min 10 characters required ({10 - rationale.length} more)</span>
             )}
@@ -313,9 +434,9 @@ function ActionDialog({
   );
 }
 
-// ─── Campaign Row ─────────────────────────────────────────────────────────────
+// ─── Campaign Recommendation Card ─────────────────────────────────────────────
 
-function CampaignRecommendationRow({
+function CampaignRecommendationCard({
   camp,
   onAction,
 }: {
@@ -330,15 +451,77 @@ function CampaignRecommendationRow({
   const criticalAlerts = alerts.filter((a) => a.severity === "critical");
   const warningAlerts = alerts.filter((a) => a.severity === "warning");
 
+  // Metric chip colors
+  const cpcColor =
+    camp.avg_cpc > camp.computed_bid_limit * 1.1
+      ? "text-red-400"
+      : camp.avg_cpc > camp.computed_bid_limit
+      ? "text-amber-400"
+      : "text-emerald-400";
+
+  const cvrColor =
+    camp.cvr < 1 ? "text-red-400" : camp.cvr >= 4 ? "text-emerald-400" : "text-amber-400";
+
+  const conv30Color =
+    camp.conversions_30d >= 50
+      ? "text-emerald-400"
+      : camp.conversions_30d >= 30
+      ? "text-amber-400"
+      : "text-red-400";
+
+  const isColor =
+    (camp.search_impression_share ?? 0) >= 60
+      ? "text-emerald-400"
+      : (camp.search_impression_share ?? 0) >= 40
+      ? "text-amber-400"
+      : "text-red-400";
+
+  const rankColor =
+    (camp.lost_is_rank ?? 0) < 10
+      ? "text-emerald-400"
+      : (camp.lost_is_rank ?? 0) <= 40
+      ? "text-amber-400"
+      : "text-red-400";
+
+  const budgetColor =
+    (camp.lost_is_budget ?? 0) < 10
+      ? "text-emerald-400"
+      : (camp.lost_is_budget ?? 0) <= 20
+      ? "text-amber-400"
+      : "text-red-400";
+
+  const cplColor =
+    camp.cost_per_conversion <= camp.target_cpa
+      ? "text-emerald-400"
+      : camp.cost_per_conversion <= camp.target_cpa * 1.2
+      ? "text-amber-400"
+      : "text-red-400";
+
+  const clickColor =
+    camp.clicks > 200 ? "text-emerald-400" : camp.clicks >= 50 ? "text-amber-400" : "text-red-400";
+
+  const cvrVarColor =
+    camp.cvr_variance_14d == null
+      ? "text-muted-foreground"
+      : Math.abs(camp.cvr_variance_14d) < 10
+      ? "text-emerald-400"
+      : Math.abs(camp.cvr_variance_14d) <= 20
+      ? "text-amber-400"
+      : "text-red-400";
+
+  const revertBidCap = camp.avg_cpc * 1.2;
+
   return (
-    <div className={cn(
-      "rounded-xl border transition-all duration-200",
-      criticalAlerts.length > 0
-        ? "border-red-500/30 bg-red-500/3"
-        : warningAlerts.length > 0
-        ? "border-amber-500/30 bg-amber-500/3"
-        : "border-border/50 bg-card/60"
-    )}>
+    <div
+      className={cn(
+        "rounded-xl border transition-all duration-200",
+        criticalAlerts.length > 0
+          ? "border-red-500/30 bg-red-500/3"
+          : warningAlerts.length > 0
+          ? "border-amber-500/30 bg-amber-500/3"
+          : "border-border/50 bg-card/60"
+      )}
+    >
       {/* Main Row */}
       <div className="p-4 grid grid-cols-[1fr_auto] gap-4 items-start">
         <div className="min-w-0">
@@ -354,7 +537,7 @@ function CampaignRecommendationRow({
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               )}
               <span className="text-sm font-semibold text-foreground">
-                {truncate(camp.campaign_name, 45)}
+                {truncate(camp.campaign_name, 48)}
               </span>
             </button>
             {camp.campaign_type && (
@@ -372,113 +555,116 @@ function CampaignRecommendationRow({
             )}
           </div>
 
-          {/* Metric chips */}
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-help">
-                  <Activity className="w-3 h-3" />
-                  <span>CPC</span>
-                  <span className={cn(
-                    "font-bold tabular-nums",
-                    camp.avg_cpc > camp.computed_bid_limit * 1.1 ? "text-red-400" : "text-foreground"
-                  )}>
-                    {formatINR(camp.avg_cpc, 0)}
-                  </span>
-                  {camp.computed_bid_limit > 0 && (
-                    <span className="text-muted-foreground">/ cap {formatINR(camp.computed_bid_limit, 0)}</span>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs text-xs">
-                <p className="font-medium mb-1">Bid Limit (SOP Formula)</p>
-                <p>MIN(Low Top-of-Page CPC × 1.35, Target CPA × CVR)</p>
-                <p className="text-muted-foreground mt-1">
-                  = MIN({formatINR(camp.bid_limit_by_top_of_page, 0)}, {formatINR(camp.bid_limit_by_cpa, 0)})
-                </p>
-                <p className="font-bold text-primary mt-1">= {formatINR(camp.computed_bid_limit, 0)}</p>
-              </TooltipContent>
-            </Tooltip>
+          {/* ── A3 Metric Chips ── */}
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mb-3">
+            {/* 1. CPC vs Bid Cap */}
+            <MetricChip
+              label="CPC"
+              value={formatINR(camp.avg_cpc, 0)}
+              colorClass={cpcColor}
+              icon={<Activity className="w-3 h-3" />}
+              sub={camp.computed_bid_limit > 0 ? `/ cap ${formatINR(camp.computed_bid_limit, 0)}` : undefined}
+              tooltip={`Bid Limit = MIN(Low Top-of-Page CPC × 1.35, Target CPA × CVR)\n= MIN(${formatINR(camp.bid_limit_by_top_of_page, 0)}, ${formatINR(camp.bid_limit_by_cpa, 0)})\n= ${formatINR(camp.computed_bid_limit, 0)}`}
+            />
 
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" />
-              <span>CVR</span>
-              <span className={cn(
-                "font-bold tabular-nums",
-                camp.cvr < 1 ? "text-red-400" : camp.cvr >= 4 ? "text-emerald-400" : "text-foreground"
-              )}>
-                {camp.cvr.toFixed(1)}%
-              </span>
-              {camp.cvr_variance_14d != null && (
-                <span className={cn(
-                  "text-[10px]",
-                  camp.cvr_variance_14d < 20 ? "text-emerald-400" : "text-amber-400"
-                )}>
-                  ±{camp.cvr_variance_14d.toFixed(0)}%
-                </span>
-              )}
-            </div>
+            {/* 2. CVR */}
+            <MetricChip
+              label="CVR"
+              value={`${camp.cvr.toFixed(1)}%`}
+              colorClass={cvrColor}
+              icon={<TrendingUp className="w-3 h-3" />}
+              tooltip="Conversion Rate = Conversions / Clicks. Critical for Route B bid math."
+            />
 
-            <div className="flex items-center gap-1">
-              <BarChart3 className="w-3 h-3" />
-              <span>Conv/30d</span>
-              <span className={cn(
-                "font-bold tabular-nums",
-                camp.conversions_30d >= 50 ? "text-emerald-400" :
-                camp.conversions_30d >= 30 ? "text-amber-400" : "text-red-400"
-              )}>
-                {camp.conversions_30d}
-              </span>
-              <span className="text-[10px]">(need ≥30)</span>
-            </div>
+            {/* 3. Conversions / 30d */}
+            <MetricChip
+              label="Conv/30d"
+              value={String(camp.conversions_30d)}
+              colorClass={conv30Color}
+              icon={<BarChart3 className="w-3 h-3" />}
+              sub="(need ≥30)"
+              tooltip="≥50 = high confidence tCPA, ≥30 = eligible, <30 = stay Max Clicks"
+            />
 
+            {/* 4. Search IS */}
             {camp.search_impression_share != null && (
-              <div className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                <span>IS</span>
-                <span className={cn(
-                  "font-bold tabular-nums",
-                  camp.search_impression_share >= 60 ? "text-emerald-400" :
-                  camp.search_impression_share >= 40 ? "text-amber-400" : "text-red-400"
-                )}>
-                  {camp.search_impression_share.toFixed(0)}%
-                </span>
-              </div>
+              <MetricChip
+                label="Search IS"
+                value={`${camp.search_impression_share.toFixed(0)}%`}
+                colorClass={isColor}
+                icon={<Eye className="w-3 h-3" />}
+                tooltip="Search Impression Share. ≥60% = good, 40–60% = moderate, <40% = serious visibility gap"
+              />
             )}
 
-            {camp.lost_is_rank != null && camp.lost_is_rank > 0 && (
-              <div className="flex items-center gap-1 text-red-400">
-                <ArrowUpRight className="w-3 h-3" />
-                <span>Lost(Rank) {camp.lost_is_rank.toFixed(0)}%</span>
-              </div>
+            {/* 5. IS Lost Rank */}
+            {camp.lost_is_rank != null && (
+              <MetricChip
+                label="Lost(Rank)"
+                value={`${camp.lost_is_rank.toFixed(0)}%`}
+                colorClass={rankColor}
+                icon={<ArrowUpRight className="w-3 h-3" />}
+                tooltip="IS lost due to Ad Rank (QS + bid). >40% = CRITICAL rank problem. Fix QS before raising bids."
+              />
             )}
 
-            {camp.lost_is_budget != null && camp.lost_is_budget > 0 && (
-              <div className="flex items-center gap-1 text-amber-400">
-                <AlertTriangle className="w-3 h-3" />
-                <span>Lost(Budget) {camp.lost_is_budget.toFixed(0)}%</span>
-              </div>
+            {/* 6. IS Lost Budget */}
+            {camp.lost_is_budget != null && (
+              <MetricChip
+                label="Lost(Budget)"
+                value={`${camp.lost_is_budget.toFixed(0)}%`}
+                colorClass={budgetColor}
+                icon={<AlertTriangle className="w-3 h-3" />}
+                tooltip=">20% = budget-limited. Blocks tCPA switch. Increase budget by 20% — do NOT raise bids."
+              />
             )}
 
+            {/* 7. Cost / Conv */}
             {camp.cost_per_conversion > 0 && (
-              <div className="flex items-center gap-1">
-                <Target className="w-3 h-3" />
-                <span>Cost/Conv</span>
-                <span className={cn(
-                  "font-bold tabular-nums",
-                  camp.cost_per_conversion <= camp.target_cpa ? "text-emerald-400" :
-                  camp.cost_per_conversion <= camp.target_cpa * 1.2 ? "text-amber-400" : "text-red-400"
-                )}>
-                  {formatINR(camp.cost_per_conversion, 0)}
-                </span>
-              </div>
+              <MetricChip
+                label="CPL"
+                value={formatINR(camp.cost_per_conversion, 0)}
+                colorClass={cplColor}
+                sub={camp.target_cpa > 0 ? `/ target ${formatINR(camp.target_cpa, 0)}` : undefined}
+                icon={<Target className="w-3 h-3" />}
+                tooltip="Cost per lead vs Target CPA. >Target×1.2 triggers revert from tCPA."
+              />
             )}
+
+            {/* 8. Clicks */}
+            <MetricChip
+              label="Clicks"
+              value={camp.clicks.toLocaleString()}
+              colorClass={clickColor}
+              icon={<MousePointerClick className="w-3 h-3" />}
+              tooltip=">200 = high data confidence, 50–200 = moderate, <50 = low data"
+            />
+
+            {/* 9. CVR Variance 14d */}
+            {camp.cvr_variance_14d != null && (
+              <MetricChip
+                label="CVR Var 14d"
+                value={`±${Math.abs(camp.cvr_variance_14d).toFixed(0)}%`}
+                colorClass={cvrVarColor}
+                icon={<Gauge className="w-3 h-3" />}
+                tooltip="CVR variance over 14 days. Must be <±20% for tCPA switch. ±10–20% = caution, >±20% = too volatile."
+              />
+            )}
+
+            {/* 10. Tracking Stable */}
+            <MetricChip
+              label="Tracking"
+              value={camp.tracking_stable ? "Stable" : "Unstable"}
+              colorClass={camp.tracking_stable ? "text-emerald-400" : "text-red-400"}
+              icon={camp.tracking_stable ? <Check className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+              tooltip="Conversion tracking consistency check. Must be TRUE before switching to tCPA."
+            />
           </div>
 
-          {/* Alerts */}
-          {Array.isArray(camp.alerts) && camp.alerts.length > 0 && (
+          {/* ── A5 Alerts ── */}
+          {alerts.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-3">
-              {camp.alerts.map((alert, i) => {
+              {alerts.map((alert, i) => {
                 const ac = getAlertConfig(alert.severity);
                 return (
                   <div
@@ -499,7 +685,7 @@ function CampaignRecommendationRow({
             </div>
           )}
 
-          {/* Recommendation pill + reasons */}
+          {/* ── Recommendation pill + reasons ── */}
           <div className={cn("flex items-start gap-2 p-2.5 rounded-lg border text-xs", rec.bg, rec.border)}>
             <div className={cn("flex items-center gap-1.5 font-bold shrink-0 mt-0.5", rec.color)}>
               {rec.icon}
@@ -513,7 +699,7 @@ function CampaignRecommendationRow({
           </div>
         </div>
 
-        {/* Right panel: confidence + actions */}
+        {/* Right panel */}
         <div className="flex flex-col items-end gap-3 shrink-0">
           {/* Confidence badge */}
           <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold", conf.cls)}>
@@ -521,21 +707,30 @@ function CampaignRecommendationRow({
             {conf.label} Confidence
           </div>
 
-          {/* tCPA target if applicable */}
+          {/* tCPA target */}
           {camp.recommendation === "switch_tcpa" && camp.suggested_tcpa > 0 && (
             <div className="text-right">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Suggested tCPA</p>
               <p className="text-lg font-black text-emerald-400 tabular-nums">{formatINR(camp.suggested_tcpa, 0)}</p>
-              <p className="text-[9px] text-muted-foreground">Current CPA × 0.8</p>
+              <p className="text-[9px] text-muted-foreground">Current CPA × 0.80</p>
             </div>
           )}
 
-          {/* Bid limit if staying on Max Clicks */}
+          {/* Bid cap for Max Clicks */}
           {camp.recommendation === "stay_max_clicks" && camp.computed_bid_limit > 0 && (
             <div className="text-right">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Bid Cap</p>
               <p className="text-lg font-black text-blue-400 tabular-nums">{formatINR(camp.computed_bid_limit, 0)}</p>
               <p className="text-[9px] text-muted-foreground">SOP Formula</p>
+            </div>
+          )}
+
+          {/* Revert bid cap */}
+          {camp.recommendation === "revert_max_clicks" && (
+            <div className="text-right">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Revert Bid Cap</p>
+              <p className="text-lg font-black text-red-400 tabular-nums">{formatINR(revertBidCap, 0)}</p>
+              <p className="text-[9px] text-muted-foreground">Avg CPC × 1.20</p>
             </div>
           )}
 
@@ -587,62 +782,367 @@ function CampaignRecommendationRow({
         </div>
       </div>
 
-      {/* Expanded: Bid formula breakdown */}
+      {/* ── A6 Bid Formula Breakdown (expanded) ── */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-border/30 pt-3">
+        <div className="px-4 pb-4 border-t border-border/30 pt-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
-            Bid Limit Formula Breakdown
+            A6 · Bid Limit Formula Breakdown
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             {[
               {
-                label: "Low Top-of-Page CPC",
-                value: formatINR(camp.low_top_of_page_cpc, 0),
-                sub: "Google benchmark",
-                color: "text-foreground",
-              },
-              {
-                label: "× 1.35 multiplier",
+                label: "Route A · Top-of-Page",
+                formula: "Low Top CPC × 1.35",
                 value: formatINR(camp.bid_limit_by_top_of_page, 0),
-                sub: "Route A ceiling",
+                sub: `${formatINR(camp.low_top_of_page_cpc, 0)} × 1.35`,
                 color: "text-blue-400",
+                note: "Auction benchmark + 35% markup",
               },
               {
-                label: "Target CPA × CVR",
-                value: formatINR(camp.bid_limit_by_cpa, 0),
-                sub: `₹${camp.target_cpa} × ${camp.cvr.toFixed(2)}%`,
+                label: "Route B · CPA Math",
+                formula: "Target CPA × CVR",
+                value: camp.cvr > 0 ? formatINR(camp.bid_limit_by_cpa, 0) : "N/A — no CVR",
+                sub: camp.cvr > 0 ? `${formatINR(camp.target_cpa, 0)} × ${camp.cvr.toFixed(2)}%` : "Route A only",
                 color: "text-purple-400",
+                note: "Max affordable CPC from conversion math",
               },
               {
-                label: "Computed Bid Limit",
+                label: "Final Bid Limit",
+                formula: "MIN(Route A, Route B)",
                 value: formatINR(camp.computed_bid_limit, 0),
-                sub: "MIN(Route A, Route B)",
+                sub: "Conservative — lower value wins",
                 color: camp.avg_cpc > camp.computed_bid_limit ? "text-red-400" : "text-emerald-400",
+                note: "Used as bid cap for Max Clicks",
               },
+              camp.recommendation === "switch_tcpa"
+                ? {
+                    label: "tCPA Seed",
+                    formula: "Current CPA × 0.80",
+                    value: formatINR(camp.suggested_tcpa, 0),
+                    sub: `${formatINR(camp.cost_per_conversion, 0)} × 0.80`,
+                    color: "text-emerald-400",
+                    note: "20% below trailing CPA — safe algorithm start",
+                  }
+                : camp.recommendation === "revert_max_clicks"
+                ? {
+                    label: "Revert Bid Limit",
+                    formula: "Avg CPC × 1.20",
+                    value: formatINR(camp.avg_cpc * 1.2, 0),
+                    sub: `${formatINR(camp.avg_cpc, 0)} × 1.20`,
+                    color: "text-red-400",
+                    note: "Used when reverting from tCPA",
+                  }
+                : {
+                    label: "tCPA Seed",
+                    formula: "Current CPA × 0.80",
+                    value: camp.cost_per_conversion > 0 ? formatINR(camp.cost_per_conversion * 0.8, 0) : "—",
+                    sub: "Hypothetical if switched",
+                    color: "text-muted-foreground",
+                    note: "Not applicable — not eligible yet",
+                  },
             ].map((item) => (
-              <div key={item.label} className="p-2.5 rounded-lg bg-muted/20 border border-border/30">
-                <p className="text-[10px] text-muted-foreground mb-1">{item.label}</p>
+              <div key={item.label} className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{item.label}</p>
+                <p className="text-[9px] text-muted-foreground font-mono mb-1">{item.formula}</p>
                 <p className={cn("text-base font-extrabold tabular-nums", item.color)}>{item.value}</p>
-                <p className="text-[9px] text-muted-foreground">{item.sub}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">{item.sub}</p>
+                <p className="text-[9px] text-muted-foreground/60 mt-1 italic">{item.note}</p>
               </div>
             ))}
           </div>
 
+          {/* tCPA readiness checklist */}
           {camp.recommendation === "switch_tcpa" && (
-            <div className="mt-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-              <p className="text-xs font-bold text-emerald-400 mb-1">tCPA Seed Calculation</p>
-              <p className="text-[11px] text-muted-foreground">
-                Recommended tCPA = Current CPA × 0.8 = {formatINR(camp.cost_per_conversion, 0)} × 0.8 = {" "}
-                <span className="font-bold text-emerald-400">{formatINR(camp.suggested_tcpa, 0)}</span>
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Seeds tCPA conservatively below current CPA to allow Google's algorithm to optimize without overspending.
-              </p>
+            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <p className="text-xs font-bold text-emerald-400 mb-2">tCPA Readiness Checklist</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                {[
+                  { label: "Conv ≥ 30", pass: camp.conversions_30d >= 30 },
+                  { label: "CVR Var < ±20%", pass: camp.cvr_variance_14d == null || Math.abs(camp.cvr_variance_14d) < 20 },
+                  { label: "Tracking Stable", pass: camp.tracking_stable },
+                  { label: "Budget OK (IS Lost Budget ≤20%)", pass: (camp.lost_is_budget ?? 0) <= 20 },
+                ].map((check) => (
+                  <div key={check.label} className="flex items-center gap-1.5">
+                    {check.pass ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                    )}
+                    <span className={check.pass ? "text-foreground" : "text-red-400"}>{check.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+// ─── A7 Action History Table ───────────────────────────────────────────────────
+
+function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
+  if (history.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-10 text-center gap-2">
+          <History className="w-8 h-8 text-muted-foreground/30" />
+          <p className="text-xs text-muted-foreground">No actions recorded yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 border-b border-border/40">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <History className="w-4 h-4 text-primary" />
+          Bidding Action History
+          <span className="text-[10px] font-normal text-muted-foreground ml-1">· All decisions logged with rationale</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border/30 bg-muted/20">
+                {["Time", "Campaign", "Action", "Strategy", "Rationale", "Parameters"].map((h) => (
+                  <th
+                    key={h}
+                    className="p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-left"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...history].reverse().map((entry) => (
+                <tr key={entry.id} className="border-b border-border/20 hover:bg-muted/10">
+                  <td className="p-3 tabular-nums text-muted-foreground whitespace-nowrap">
+                    {new Date(entry.timestamp).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="p-3 max-w-[160px]">
+                    <span className="truncate block">{truncate(entry.campaign_name, 25)}</span>
+                  </td>
+                  <td className="p-3">
+                    <Badge
+                      className={cn(
+                        "text-[9px] px-1.5",
+                        entry.action === "apply"
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : entry.action === "reject"
+                          ? "bg-red-500/15 text-red-400"
+                          : "bg-blue-500/15 text-blue-400"
+                      )}
+                    >
+                      {entry.action.replace("_", " ")}
+                    </Badge>
+                  </td>
+                  <td className="p-3 text-muted-foreground">{getRecommendationConfig(entry.recommendation).label}</td>
+                  <td className="p-3 text-muted-foreground max-w-[200px]">
+                    <span className="truncate block" title={entry.rationale}>
+                      {truncate(entry.rationale, 50)}
+                    </span>
+                  </td>
+                  <td className="p-3 max-w-[180px]">
+                    {entry.params && Object.keys(entry.params).length > 0 ? (
+                      <div className="space-y-0.5">
+                        {Object.entries(entry.params).map(([k, v]) => (
+                          <div key={k} className="flex items-center gap-1">
+                            <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}:</span>
+                            <span className="font-bold text-foreground">
+                              {typeof v === "number" ? formatINR(v, 0) : String(v)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── A8 Recommended Enhancements ──────────────────────────────────────────────
+
+const ENHANCEMENTS = [
+  {
+    priority: "HIGH",
+    effort: "LOW",
+    title: "Weekly CPC Cap Recalculation",
+    description: "Auto-refresh bid limits weekly using latest CVR and IS data, with a diff view showing old vs new cap.",
+  },
+  {
+    priority: "HIGH",
+    effort: "MEDIUM",
+    title: "Ad Group-Level Bid Intelligence",
+    description: "Per-AG CVR, CPC cap, and IS metrics drill-down. SOP computes CVR per ad group and adjusts caps per ad group.",
+  },
+  {
+    priority: "HIGH",
+    effort: "MEDIUM",
+    title: "Auction Insights Integration",
+    description: "Competitor overlap trend tracking and automated alerts. If overlap + outranking grows and Top IS falls, isolate competitor shield ad group.",
+  },
+  {
+    priority: "HIGH",
+    effort: "LOW",
+    title: "Brand vs Non-Brand Strategy Split",
+    description: "Apply different thresholds for branded campaigns (lower CPC caps, higher IS targets) vs location/generic campaigns.",
+  },
+  {
+    priority: "MEDIUM",
+    effort: "MEDIUM",
+    title: "Geo/Device/Day-Part Bid Adjustments",
+    description: "+/-10-20% modifier recommendations where CVR differs materially by geo, device, or day-part.",
+  },
+  {
+    priority: "MEDIUM",
+    effort: "LOW",
+    title: "Budget Pacing Alert",
+    description: "When IS Lost Budget >10% on profitable segments, show budget utilization trend and recommended daily budget.",
+  },
+  {
+    priority: "MEDIUM",
+    effort: "LOW",
+    title: "Historical Bid Performance Tracking",
+    description: "Sparkline showing CPC, CVR, IS, and CPL trend per campaign to validate whether past bid changes improved performance.",
+  },
+  {
+    priority: "MEDIUM",
+    effort: "HIGH",
+    title: "OCI (Offline Conversion Import) tCPA",
+    description: "With OCI feeding Site-Visit/Booking data, support tCPA on segments closest to bookings with downstream conversion import.",
+  },
+];
+
+function EnhancementsPanel() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors py-2"
+      >
+        <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+        <span className="font-semibold">A8 · SOP Recommended Enhancements ({ENHANCEMENTS.length})</span>
+        {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+      </button>
+
+      {open && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+          {ENHANCEMENTS.map((e) => (
+            <div key={e.title} className="p-3 rounded-lg bg-muted/20 border border-border/30">
+              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                <Badge
+                  className={cn(
+                    "text-[8px] px-1.5 py-0",
+                    e.priority === "HIGH"
+                      ? "bg-red-500/15 text-red-400"
+                      : "bg-amber-500/15 text-amber-400"
+                  )}
+                >
+                  {e.priority}
+                </Badge>
+                <Badge className="text-[8px] px-1.5 py-0 bg-muted text-muted-foreground">{e.effort} EFFORT</Badge>
+              </div>
+              <p className="text-[11px] font-semibold text-foreground mb-1">{e.title}</p>
+              <p className="text-[10px] text-muted-foreground leading-snug">{e.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Rule Engine Sheet ─────────────────────────────────────────────────────────
+
+function RuleEngine({ open, onClose, platform }: { open: boolean; onClose: () => void; platform: string }) {
+  return (
+    <Sheet open={open} onOpenChange={onClose}>
+      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetHeader className="pb-6 border-b">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="w-5 h-5 text-primary" />
+            <SheetTitle>Bidding Rule Engine</SheetTitle>
+          </div>
+          <SheetDescription>
+            SOP thresholds and safety guardrails for {platform === "google" ? "Google Ads" : "Meta"}.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="py-6 space-y-6">
+          {[
+            {
+              title: "1. tCPA Upgrade Gate",
+              items: [
+                { label: "Min Conversions / 30d", value: "≥ 30 (high confidence) / ≥ 15 (medium)" },
+                { label: "CVR Variance 14d", value: "< ±20% required" },
+                { label: "Tracking Status", value: "Must be Stable" },
+                { label: "IS Lost (Budget)", value: "Must be ≤ 20%" },
+              ],
+            },
+            {
+              title: "2. Revert Trigger",
+              items: [
+                { label: "CPL threshold", value: "> Target CPA × 1.4" },
+                { label: "Min Conversions on tCPA", value: "< 10 to trigger revert" },
+                { label: "Revert Bid Limit", value: "Avg CPC × 1.20" },
+              ],
+            },
+            {
+              title: "3. Bid Limit Formula (SOP 2.3)",
+              items: [
+                { label: "Route A multiplier", value: "Low Top-of-Page CPC × 1.35 (range: 1.30–1.40)" },
+                { label: "Route B formula", value: "Target CPA × CVR" },
+                { label: "Final", value: "MIN(Route A, Route B)" },
+                { label: "tCPA Seed", value: "Current CPA × 0.80" },
+              ],
+            },
+            {
+              title: "4. Auto-Pause Logic",
+              items: [
+                { label: "Pause Ad Groups if CPL >", value: "2.0× Target" },
+                { label: "Min Impressions before pause", value: "1,500" },
+              ],
+            },
+          ].map((section) => (
+            <div key={section.title} className="space-y-3">
+              <h3 className="text-sm font-bold text-foreground">{section.title}</h3>
+              <div className="grid gap-2 p-4 border rounded-lg bg-muted/20">
+                {section.items.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-4">
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                    <span className="text-xs font-bold text-foreground text-right">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <SheetFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -654,25 +1154,25 @@ export default function GoogleBiddingPage() {
   const qc = useQueryClient();
 
   const [actionDialog, setActionDialog] = useState<ActionDialogState | null>(null);
-  const [activeLevel, setActiveLevel] = useState<"campaign" | "ad_group">("campaign");
   const [filterRec, setFilterRec] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"alerts" | "confidence" | "conversions">("alerts");
   const [showHistory, setShowHistory] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch recommendations
   const { data, isLoading, error, refetch } = useQuery<BiddingData>({
     queryKey: ["/api/clients", activeClientId, "google/bidding-recommendations"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `${apiBase}/api/clients/${activeClientId}/google/bidding-recommendations`);
+      const res = await apiRequest(
+        "GET",
+        `${apiBase}/api/clients/${activeClientId}/google/bidding-recommendations`
+      );
       return res.json();
     },
     enabled: !!activeClientId,
-    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+    refetchInterval: 5 * 60 * 1000,
   });
 
-  // Action mutation
   const actionMutation = useMutation({
     mutationFn: async (payload: {
       campaign_id: string;
@@ -722,53 +1222,57 @@ export default function GoogleBiddingPage() {
       params:
         campaign.recommendation === "switch_tcpa"
           ? { strategy: "TARGET_CPA", target_cpa: campaign.suggested_tcpa }
+          : campaign.recommendation === "revert_max_clicks"
+          ? { strategy: "MAXIMIZE_CLICKS", bid_limit: campaign.avg_cpc * 1.2 }
           : { bid_limit: campaign.computed_bid_limit },
     });
   }
 
-  // Filtered + sorted entities
-  const processedEntities = useMemo(() => {
+  const processedCampaigns = useMemo(() => {
     if (!data?.campaigns) return [];
-    let entities = activeLevel === "campaign" ? data.campaigns : (data as any).ad_groups || [];
+    let list = [...data.campaigns];
 
     if (filterRec !== "all") {
-      entities = entities.filter((c: any) => c.recommendation === filterRec);
+      list = list.filter((c) => c.recommendation === filterRec);
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      entities = entities.filter((c: any) => (c.campaign_name || c.name || "").toLowerCase().includes(q));
+      list = list.filter((c) => c.campaign_name.toLowerCase().includes(q));
     }
 
-    return [...entities].sort((a: any, b: any) => {
+    return list.sort((a, b) => {
       if (sortBy === "alerts") {
-        const aScore = (a.alerts || []).filter((x: any) => x.severity === "critical").length * 10 +
-                       (a.alerts || []).filter((x: any) => x.severity === "warning").length;
-        const bScore = (b.alerts || []).filter((x: any) => x.severity === "critical").length * 10 +
-                       (b.alerts || []).filter((x: any) => x.severity === "warning").length;
-        return bScore - aScore;
+        const score = (c: CampaignRecommendation) =>
+          (c.alerts || []).filter((x) => x.severity === "critical").length * 10 +
+          (c.alerts || []).filter((x) => x.severity === "warning").length;
+        return score(b) - score(a);
       }
       if (sortBy === "confidence") {
-        const order: any = { high: 3, medium: 2, low: 1 };
+        const order: Record<string, number> = { high: 3, medium: 2, low: 1 };
         return (order[b.confidence] || 0) - (order[a.confidence] || 0);
       }
       return (b.conversions_30d || 0) - (a.conversions_30d || 0);
     });
-  }, [data, activeLevel, filterRec, sortBy, searchQuery]);
+  }, [data, filterRec, sortBy, searchQuery]);
 
-  // Loading
+  // ── Loading state ──
   if (isLoading) {
     return (
       <div className="p-6 space-y-4 max-w-[1400px]">
         <Skeleton className="h-10 w-72 mb-6" />
         <div className="grid grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
         </div>
+        <Skeleton className="h-28 rounded-xl" />
         <Skeleton className="h-[500px] rounded-xl" />
       </div>
     );
   }
 
+  // ── Error / no data state ──
   if (error || !data?.meta?.data_available) {
     return (
       <div className="p-6 space-y-4 max-w-[1400px]">
@@ -781,6 +1285,7 @@ export default function GoogleBiddingPage() {
             <p className="text-xs text-muted-foreground">Max Clicks ↔ tCPA decision engine</p>
           </div>
         </div>
+        <SOPFormulaStrip />
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-3">
             <AlertTriangle className="w-12 h-12 text-muted-foreground/40" />
@@ -796,13 +1301,16 @@ export default function GoogleBiddingPage() {
     );
   }
 
-  const meta = data?.meta || { total_campaigns: 0, alert_count: 0 };
-  const campaignList = Array.isArray(data?.campaigns) ? data.campaigns : [];
-  const tcpaSwitchCandidates = campaignList.filter((c) => c.recommendation === "switch_tcpa").length;
+  const meta = data.meta;
+  const campaignList = Array.isArray(data.campaigns) ? data.campaigns : [];
+  const tcpaCandidates = campaignList.filter((c) => c.recommendation === "switch_tcpa").length;
   const holdCandidates = campaignList.filter((c) => c.recommendation === "hold").length;
   const criticalAlertCount = campaignList.reduce(
-    (sum, c) => sum + (Array.isArray(c.alerts) ? c.alerts.filter((a) => a.severity === "critical").length : 0), 0
+    (sum, c) =>
+      sum + (Array.isArray(c.alerts) ? c.alerts.filter((a) => a.severity === "critical").length : 0),
+    0
   );
+  const totalAlerts = meta.alert_count;
 
   return (
     <div className="p-6 space-y-5 max-w-[1400px]">
@@ -823,35 +1331,14 @@ export default function GoogleBiddingPage() {
             <Brain className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-foreground tracking-tight">
-              Bidding Intelligence
-            </h1>
+            <h1 className="text-xl font-extrabold text-foreground tracking-tight">Bidding Intelligence</h1>
             <p className="text-xs text-muted-foreground">
-              SOP-aligned decision engine · Max Clicks ↔ tCPA · Target CPA: {formatINR(meta.target_cpa, 0)}
+              SOP-aligned decision engine · Max Clicks ↔ tCPA · Target CPA:{" "}
+              {formatINR(meta.target_cpa, 0)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted/30 p-1 rounded-lg border border-border/50 mr-2">
-            <button
-              onClick={() => setActiveLevel("campaign")}
-              className={cn(
-                "px-3 py-1 text-[11px] font-bold rounded-md transition-all",
-                activeLevel === "campaign" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Campaigns
-            </button>
-            <button
-              onClick={() => setActiveLevel("ad_group")}
-              className={cn(
-                "px-3 py-1 text-[11px] font-bold rounded-md transition-all",
-                activeLevel === "ad_group" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Ad Groups
-            </button>
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -864,60 +1351,107 @@ export default function GoogleBiddingPage() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5 text-xs"
+            className={cn("gap-1.5 text-xs", showHistory && "bg-primary/5 border-primary/30")}
             onClick={() => setShowHistory(!showHistory)}
           >
             <History className="w-3.5 h-3.5" />
             Action History
+            {data.history.length > 0 && (
+              <Badge className="ml-1 text-[9px] px-1 py-0 bg-primary/20 text-primary">
+                {data.history.length}
+              </Badge>
+            )}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => refetch()}
-          >
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => refetch()}>
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </Button>
         </div>
       </div>
 
-      {/* ─── Overview Cards ──────────────────────────────────────────── */}
+      {/* ─── A1 Overview Summary Cards ──────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Total Campaigns */}
         <Card className="border-border/50">
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Total Campaigns</p>
+            <div className="flex items-center gap-2 mb-1">
+              <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Campaigns</p>
+            </div>
             <p className="text-3xl font-black tabular-nums text-foreground">{meta.total_campaigns}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">Under bidding analysis</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Active under analysis</p>
           </CardContent>
         </Card>
 
-        <Card className={cn("border-border/50", criticalAlertCount > 0 && "border-red-500/40")}>
+        {/* Active Alerts */}
+        <Card
+          className={cn(
+            "border-border/50",
+            criticalAlertCount > 0 ? "border-red-500/40" : totalAlerts > 0 ? "border-amber-500/30" : "border-emerald-500/30"
+          )}
+        >
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Active Alerts</p>
-            <p className={cn("text-3xl font-black tabular-nums", criticalAlertCount > 0 ? "text-red-400" : "text-emerald-400")}>
-              {meta.alert_count}
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active Alerts</p>
+            </div>
+            <div className="flex items-end gap-2">
+              <p
+                className={cn(
+                  "text-3xl font-black tabular-nums",
+                  criticalAlertCount > 0 ? "text-red-400" : totalAlerts > 0 ? "text-amber-400" : "text-emerald-400"
+                )}
+              >
+                {totalAlerts}
+              </p>
+              {criticalAlertCount > 0 && (
+                <Badge className="mb-1 text-[9px] px-1.5 bg-red-500/15 text-red-400 border-red-500/30">
+                  {criticalAlertCount} critical
+                </Badge>
+              )}
+            </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              {criticalAlertCount > 0 ? `${criticalAlertCount} critical` : "No critical alerts"}
+              {criticalAlertCount > 0
+                ? `${criticalAlertCount} require immediate action`
+                : totalAlerts > 0
+                ? "Warnings — review recommended"
+                : "No active alerts"}
             </p>
           </CardContent>
         </Card>
 
-        <Card className={cn("border-border/50", tcpaSwitchCandidates > 0 && "border-emerald-500/40")}>
+        {/* tCPA Candidates */}
+        <Card className={cn("border-border/50", tcpaCandidates > 0 && "border-emerald-500/40")}>
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">tCPA Candidates</p>
-            <p className={cn("text-3xl font-black tabular-nums", tcpaSwitchCandidates > 0 ? "text-emerald-400" : "text-foreground")}>
-              {tcpaSwitchCandidates}
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">tCPA Candidates</p>
+            </div>
+            <p
+              className={cn(
+                "text-3xl font-black tabular-nums",
+                tcpaCandidates > 0 ? "text-emerald-400" : "text-foreground"
+              )}
+            >
+              {tcpaCandidates}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">Ready to switch strategy</p>
           </CardContent>
         </Card>
 
+        {/* Hold / Monitor */}
         <Card className={cn("border-border/50", holdCandidates > 0 && "border-amber-500/40")}>
           <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Hold / Monitor</p>
-            <p className={cn("text-3xl font-black tabular-nums", holdCandidates > 0 ? "text-amber-400" : "text-foreground")}>
+            <div className="flex items-center gap-2 mb-1">
+              <Ban className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hold / Monitor</p>
+            </div>
+            <p
+              className={cn(
+                "text-3xl font-black tabular-nums",
+                holdCandidates > 0 ? "text-amber-400" : "text-foreground"
+              )}
+            >
               {holdCandidates}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">Budget / tracking issues</p>
@@ -925,103 +1459,21 @@ export default function GoogleBiddingPage() {
         </Card>
       </div>
 
-      {/* ─── SOP Formula Strip ───────────────────────────────────────── */}
-      <Card className="border-primary/20 bg-primary/3">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-6">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">SOP Bid Limit Formula</p>
-              <p className="text-sm font-mono">
-                Bid Limit = MIN(
-                <span className="text-blue-400 font-bold">Low Top-of-Page CPC × 1.3–1.4</span>,{" "}
-                <span className="text-purple-400 font-bold">Target CPA × CVR</span>
-                )
-              </p>
-            </div>
-            <div className="h-10 w-px bg-border/50 hidden md:block" />
-            <div className="flex gap-5 text-xs">
-              <div className="flex items-center gap-1.5">
-                <MousePointerClick className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-muted-foreground">Default:</span>
-                <span className="font-bold">Max Clicks with Bid Cap</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-muted-foreground">Upgrade:</span>
-                <span className="font-bold">tCPA after ≥30 stable conversions</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Ban className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-muted-foreground">Guard:</span>
-                <span className="font-bold">Never switch if budget-limited</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ─── A2 SOP Formula Strip ────────────────────────────────────── */}
+      <SOPFormulaStrip />
 
-      {/* ─── Action History Panel ─────────────────────────────────────── */}
-      {showHistory && data.history.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 border-b border-border/40">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <History className="w-4 h-4 text-primary" />
-              Bidding Action History
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border/30 bg-muted/20">
-                    {["Time", "Campaign", "Action", "Strategy", "Rationale"].map((h) => (
-                      <th key={h} className="p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-left">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...data.history].reverse().map((entry) => (
-                    <tr key={entry.id} className="border-b border-border/20 hover:bg-muted/10">
-                      <td className="p-3 tabular-nums text-muted-foreground whitespace-nowrap">
-                        {new Date(entry.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </td>
-                      <td className="p-3 max-w-[160px]">
-                        <span className="truncate block">{truncate(entry.campaign_name, 25)}</span>
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          className={cn("text-[9px] px-1.5",
-                            entry.action === "apply" ? "bg-emerald-500/15 text-emerald-400" :
-                            entry.action === "reject" ? "bg-red-500/15 text-red-400" :
-                            "bg-blue-500/15 text-blue-400"
-                          )}
-                        >
-                          {entry.action.replace("_", " ")}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{getRecommendationConfig(entry.recommendation).label}</td>
-                      <td className="p-3 text-muted-foreground max-w-[250px]">
-                        <span className="truncate block" title={entry.rationale}>{truncate(entry.rationale, 60)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* ─── A7 Action History ────────────────────────────────────────── */}
+      {showHistory && <ActionHistoryTable history={data.history} />}
 
-      {/* ─── Filters ─────────────────────────────────────────────────── */}
+      {/* ─── Filters + Search ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg border border-border/50">
+        <div className="flex items-center gap-0.5 p-1 bg-muted/30 rounded-lg border border-border/50">
           {[
-            { key: "all", label: "All Campaigns" },
-            { key: "switch_tcpa", label: `→ tCPA (${tcpaSwitchCandidates})` },
+            { key: "all", label: "All" },
+            { key: "switch_tcpa", label: `→ tCPA (${tcpaCandidates})` },
             { key: "stay_max_clicks", label: "Max Clicks" },
             { key: "hold", label: `Hold (${holdCandidates})` },
+            { key: "revert_max_clicks", label: "Revert" },
           ].map((f) => (
             <button
               key={f.key}
@@ -1038,7 +1490,7 @@ export default function GoogleBiddingPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg border border-border/50 ml-auto">
+        <div className="flex items-center gap-0.5 p-1 bg-muted/30 rounded-lg border border-border/50 ml-auto">
           <span className="text-[10px] text-muted-foreground px-2">Sort:</span>
           {[
             { key: "alerts" as const, label: "Alerts" },
@@ -1068,129 +1520,55 @@ export default function GoogleBiddingPage() {
         />
       </div>
 
-      {/* ─── Recommendation Cards ───────────────────────────── */}
+      {/* ─── A3+A4+A5+A6 Campaign Cards ──────────────────────────────── */}
       <div className="space-y-3">
-        {processedEntities.length === 0 ? (
+        {processedCampaigns.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-400/40 mb-3" />
-              <p className="text-sm font-medium text-foreground">All Clear</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                No {activeLevel === "campaign" ? "campaign" : "ad group"} recommendations found.
-              </p>
+              <p className="text-sm font-medium text-foreground">No campaigns match this filter</p>
+              <p className="text-xs text-muted-foreground mt-1">Try a different filter or search term.</p>
             </CardContent>
           </Card>
         ) : (
-          processedEntities.map((entity: any) => (
-            <CampaignRecommendationRow
-              key={(entity.campaign_id || "") + (entity.id || "")}
-              camp={entity}
-              onAction={(type) => handleAction(entity, type)}
+          processedCampaigns.map((camp) => (
+            <CampaignRecommendationCard
+              key={camp.campaign_id}
+              camp={camp}
+              onAction={(type) => handleAction(camp, type)}
             />
           ))
         )}
       </div>
 
-      {/* ─── Footer info ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t border-border/30">
+      {/* ─── A8 Recommended Enhancements ─────────────────────────────── */}
+      <div className="border-t border-border/30 pt-4">
+        <EnhancementsPanel />
+      </div>
+
+      {/* ─── Footer ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2">
         <span>
-          Last computed: {new Date(meta.generated_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+          Last computed:{" "}
+          {new Date(meta.generated_at).toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </span>
         <span className="flex items-center gap-1">
           <ShieldCheck className="w-3 h-3 text-primary" />
-          SOP-enforced · Max Clicks → tCPA · AI Decision Engine
+          SOP-enforced · Digital Mojo Bidding Rules · AI Decision Engine
         </span>
       </div>
-      
-      <RuleEngine 
-        open={showRules} 
+
+      {/* ─── Rule Engine Sheet ─────────────────────────────────────────── */}
+      <RuleEngine
+        open={showRules}
         onClose={() => setShowRules(false)}
         platform={activePlatform}
-        clientId={activeClientId || ""}
-        targets={meta}
       />
     </div>
-  );
-}
-
-function RuleEngine({ open, onClose, platform, clientId, targets }: any) {
-  return (
-    <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
-        <SheetHeader className="pb-6 border-b">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-5 h-5 text-primary" />
-            <SheetTitle>Bidding Rule Engine</SheetTitle>
-          </div>
-          <SheetDescription>
-            Configure automated bidding SOPs and safety guardrails for {platform === "google" ? "Google Ads" : "Meta"}.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="py-6 space-y-8">
-          {/* Rule 1: Auto-Pause */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">1. Auto-Pause Logic</h3>
-              <Badge variant="secondary" className="text-emerald-400 bg-emerald-500/10">Active</Badge>
-            </div>
-            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
-              <div className="flex items-center justify-between gap-10">
-                <span className="text-xs text-muted-foreground">Pause Ad Groups if CPL &gt;</span>
-                <div className="flex items-center gap-2">
-                   <span className="text-xs font-bold text-foreground">2.0x</span>
-                   <span className="text-[10px] text-muted-foreground">Target</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-10">
-                <span className="text-xs text-muted-foreground">Min Impressions before pause</span>
-                <span className="text-xs font-bold text-foreground">1,500</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Rule 2: Bid Limits */}
-          <div className="space-y-4">
-             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">2. Bid Limit Calculation</h3>
-              <Badge variant="secondary" className="text-emerald-400 bg-emerald-500/10">Active</Badge>
-            </div>
-            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
-              <div className="flex items-center justify-between gap-10">
-                <span className="text-xs text-muted-foreground">Default Bid Cap Multiplier</span>
-                <span className="text-xs font-bold text-foreground">1.35x (Avg CPC)</span>
-              </div>
-              <div className="flex items-center justify-between gap-10">
-                <span className="text-xs text-muted-foreground">Dynamic CVR Safety Cap</span>
-                <span className="text-xs font-bold text-foreground">Target CPL × CVR</span>
-              </div>
-            </div>
-          </div>
-
-           {/* Rule 3: tCPA Migration */}
-           <div className="space-y-4">
-             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">3. tCPA Migration</h3>
-              <Badge variant="secondary" className="text-amber-400 bg-amber-500/10">Manual Approval</Badge>
-            </div>
-            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
-              <div className="flex items-center justify-between gap-10">
-                <span className="text-xs text-muted-foreground">Min conversions (7-day) for switch</span>
-                <span className="text-xs font-bold text-foreground">15+</span>
-              </div>
-              <div className="flex items-center justify-between gap-10">
-                <span className="text-xs text-muted-foreground">Max Impression Share Loss allowed</span>
-                <span className="text-xs font-bold text-foreground">20% (Budget Limited)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SheetFooter className="mt-8 pt-6 border-t">
-          <Button variant="outline" className="text-xs" onClick={onClose}>Close</Button>
-          <Button className="text-xs bg-primary text-primary-foreground">Save Configuration</Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
   );
 }

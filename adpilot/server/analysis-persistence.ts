@@ -9,7 +9,7 @@ const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 // ─── In-memory analysis cache ────────────────────────────────────────
 // Shared here so both routes.ts (reads) and this module (writes) can
 // invalidate it without a circular dependency.
-export const ANALYSIS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+export const ANALYSIS_CACHE_TTL = 10 * 1000; // 10 seconds (temporarily reduced)
 export const analysisCache = new Map<string, { data: any; ts: number }>();
 
 export function getCacheKey(clientId: string, platform: string, cadence?: string) {

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-06T10:55:59.450199",
-  "strategic_narrative": "Mojo's Take: The cost per lead (CPL) at \u20b9667 remains high, indicating suboptimal conversion rates (CVR) and inefficient use of budget. Prioritize optimizing ad creatives and targeting to lower CPL and increase return on ad spend (ROAS) before the pacing risks exceeding the linear target.",
+  "generated_at": "2026-04-06T18:52:18.303332",
+  "strategic_narrative": "Mojo's Take: The current CPL of \u20b9667 is unsustainable and directly jeopardizes ROAS, signaling a glaring TOFU inefficiency. Immediate optimization of targeting and creative assets is crucial to reduce CPL and enhance CVR before budget depletion amplifies losses.",
   "account_health_score": 80.6,
   "account_health_breakdown": {
     "cpsv": 25,
@@ -108,13 +108,13 @@
     "total_spend_30d": 105282.80999999998,
     "daily_avg_spend": 7520.200714285714,
     "latest_daily_spend": 8654.5,
-    "spend_ratio": 1.1508336451126258,
+    "spend_ratio": 1.2051796375439374,
     "spend_status": "NORMAL",
     "spend_trend": "STABLE",
     "spend_change_pct": -8.629596911399034,
     "total_leads_30d": 163,
-    "avg_daily_leads": 11.642857142857142,
-    "latest_daily_leads": 12,
+    "avg_daily_leads": 23.285714285714285,
+    "latest_daily_leads": 24.0,
     "leads_trend": "STABLE",
     "leads_change_pct": -8.235294117647058,
     "zero_lead_days": 0,
@@ -146,20 +146,20 @@
       8654.5
     ],
     "daily_leads": [
-      14,
-      13,
-      16,
-      8,
-      7,
-      10,
-      17,
-      17,
-      8,
-      13,
-      12,
-      9,
-      7,
-      12
+      28.0,
+      26.0,
+      32.0,
+      16.0,
+      14.0,
+      20.0,
+      34.0,
+      34.0,
+      16.0,
+      26.0,
+      24.0,
+      18.0,
+      14.0,
+      24.0
     ],
     "daily_ctrs": [
       0.66,
@@ -178,13 +178,6 @@
       0.36
     ],
     "daily_cpms": [
-      118.86,
-      103.53,
-      84.7,
-      67.02,
-      75.16,
-      127.21,
-      121.42,
       117.84,
       141.86,
       80.34,
@@ -194,13 +187,6 @@
       88.7
     ],
     "daily_tsrs": [
-      6.55,
-      5.22,
-      5.61,
-      5.58,
-      5.4,
-      4.17,
-      4.61,
       5.05,
       3.63,
       3.22,
@@ -210,13 +196,6 @@
       9.09
     ],
     "daily_vhrs": [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
       0.0,
       0.0,
       0.0,
@@ -373,7 +352,7 @@
       "campaign_name": "DM-18/02/2026-500-AL-MO-LED-(Lookalike)-CBO-DB-SL-LO-LC-HYD-SEC",
       "layer": "MOFU",
       "objective": "OUTCOME_LEADS",
-      "status": "PAUSED",
+      "status": "ACTIVE",
       "health_score": 74.5,
       "score_breakdown": {
         "cpl": 35,
@@ -458,8 +437,8 @@
       "reach": 521804,
       "leads": 90,
       "cpl": 614.2576666666666,
-      "daily_budget": 3584.0,
-      "budget_utilization_pct": 220.35710299744898,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 88.9,
@@ -494,8 +473,8 @@
       "reach": 137888,
       "leads": 32,
       "cpl": 522.2665625,
-      "daily_budget": 1200.0,
-      "budget_utilization_pct": 198.95869047619047,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 85.0,
@@ -530,8 +509,8 @@
       "reach": 99729,
       "leads": 30,
       "cpl": 665.117,
-      "daily_budget": 1500.0,
-      "budget_utilization_pct": 190.03342857142854,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 82.9,
@@ -566,9 +545,9 @@
       "reach": 119,
       "leads": 0,
       "cpl": 0,
-      "daily_budget": 1200.0,
-      "budget_utilization_pct": 0.2563095238095238,
-      "delivery_status": "LOW_DELIVERY",
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
+      "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 74.5,
       "classification": "WINNER",
@@ -602,8 +581,8 @@
       "reach": 54199,
       "leads": 11,
       "cpl": 1210.1863636363637,
-      "daily_budget": 1000.0,
-      "budget_utilization_pct": 190.1721428571429,
+      "daily_budget": 0,
+      "budget_utilization_pct": 0,
       "delivery_status": "DELIVERING",
       "learning_status": "ACTIVE",
       "health_score": 40.9,
@@ -625,10 +604,19 @@
       "diagnostics": []
     }
   ],
-  "breakdowns": {},
+  "breakdowns": {
+    "age": [],
+    "gender": [],
+    "placement": [],
+    "device": [],
+    "region": []
+  },
   "campaign_breakdowns": {},
   "geo_alerts": [],
-  "target_locations": [],
+  "target_locations": [
+    "Hyderabad",
+    "Secunderabad"
+  ],
   "creative_health": [
     {
       "ad_id": "120232236324670466",
@@ -1395,7 +1383,7 @@
     }
   ],
   "budget_pacing": {
-    "avg_7d_spend": 7520.200714285714,
+    "avg_7d_spend": 7181.087142857143,
     "latest_spend": 8654.5,
     "spend_anomalies": [],
     "exhausted_budgets": [],
@@ -1405,13 +1393,6 @@
       "MOFU is under-indexed: 0% actual vs 35% target (-35pp)."
     ],
     "daily_spends": [
-      8654.18,
-      10358.4,
-      7201.49,
-      6058.31,
-      5545.92,
-      7975.34,
-      9221.56,
       8088.07,
       6845.08,
       6266.97,
@@ -1568,7 +1549,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-06T10:55:59.450199",
+    "verified_at": "2026-04-06T18:52:18.303332",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 30,
     "verification_status": "MATCH"

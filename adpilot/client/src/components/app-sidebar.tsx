@@ -60,6 +60,7 @@ import logo from "@/assets/logo.png";
 const coreNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
+  // Meta uses the generic audiences page; Google gets a dedicated one under /google/audiences
   { title: "Audiences", url: "/audiences", icon: Users },
   { title: "Ads Panel", url: "/analytics/ads", icon: Clapperboard },
 ];
@@ -76,7 +77,7 @@ const googleNavItems = [
   { title: "Ads", url: "/ads", icon: Sparkles },
   { title: "Quality Score", url: "/google/quality-score", icon: BarChart3 },
   { title: "Search Terms", url: "/google/search-terms", icon: Target },
-  { title: "Demand Gen", url: "/google/demand-gen", icon: Users },
+  { title: "Audiences", url: "/google/audiences", icon: Users },
   { title: "Restructuring", url: "/google/restructuring", icon: GitBranch },
 ];
 
@@ -139,6 +140,12 @@ function NavSection({
                 <SidebarMenuButton asChild isActive={isActive}>
                   <Link
                     href={item.url}
+                    className={cn(
+                      "transition-all duration-200",
+                      isActive
+                        ? "border-l-[3px] border-l-[#8B5CF6] pl-[9px]"
+                        : "hover:bg-white/5"
+                    )}
                     data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                   >
                     <item.icon className="w-4 h-4 shrink-0" />

@@ -5,10 +5,19 @@ import { apiRequest } from "@/lib/queryClient";
 import type { PlatformSyncState } from "@/lib/sync-state";
 
 // ─── Cadence-aware metric recalculation ─────────────────────────────
-// The Python agent stores the same aggregate totals across all cadence files.
-// We recalculate totals from the per-day arrays so metrics actually reflect
-// the selected time window (1D / 7D / 14D / 30D / MTD).
-function recalcMetricsFromDailyArrays(data: any): any {
+// The agent stores correct per-cadence totals in the DB. We only recalculate
+// from daily arrays when the array fully covers the cadence window — otherwise
+// we trust the agent's pre-computed totals (avoids stomping weekly/biweekly
+// totals with a truncated 7-day daily array).
+const CADENCE_EXPECTED_DAYS: Record<string, number> = {
+  daily: 1,
+  twice_weekly: 7,
+  weekly: 14,
+  biweekly: 30,
+  monthly: 31, // upper bound; actual MTD days vary
+};
+
+function recalcMetricsFromDailyArrays(data: any, cadence?: string): any {
   if (!data?.account_pulse) return data;
   const ap = data.account_pulse;
 
@@ -31,19 +40,40 @@ function recalcMetricsFromDailyArrays(data: any): any {
 
   if (dailySpends.length === 0) return data;
 
+  // ── Coverage check: only override agent totals when daily array covers the window ──
+  // If the array is shorter than expected (e.g. 7 rows for a 14-day weekly cadence),
+  // the agent already stored correct totals — trust them and skip total recalc.
+  const expectedDays = cadence ? (CADENCE_EXPECTED_DAYS[cadence] ?? 7) : 7;
+  const coversWindow = dailySpends.length >= Math.floor(expectedDays * 0.9);
+
+  if (!coversWindow) {
+    // Daily arrays are truncated — only update per-day averages and latest values,
+    // but keep the agent's pre-computed totals (total_spend_30d, total_leads_30d, overall_cpl).
+    return {
+      ...data,
+      account_pulse: {
+        ...ap,
+        daily_avg_spend: dailySpends.length > 0 ? dailySpends.reduce((s, v) => s + v, 0) / dailySpends.length : ap.daily_avg_spend,
+        latest_daily_spend: dailySpends.length > 0 ? dailySpends[dailySpends.length - 1] : ap.latest_daily_spend,
+        latest_daily_leads: dailyLeads.length > 0 ? dailyLeads[dailyLeads.length - 1] : ap.latest_daily_leads,
+        zero_lead_days: dailyLeads.filter((d) => d === 0).length,
+      },
+    };
+  }
+
+  // Daily array fully covers the window — recalculate totals from it.
   const totalSpend = dailySpends.reduce((s, v) => s + v, 0);
   const totalLeads = dailyLeads.reduce((s, v) => s + v, 0);
   const totalClicks = dailyClicks.reduce((s, v) => s + v, 0);
   const totalImpressions = dailyImpressions.reduce((s, v) => s + v, 0);
-  
+
   // Weighted CTR: (Total Clicks / Total Impressions) * 100
-  const weightedCtr = totalImpressions > 0 
-    ? (totalClicks / totalImpressions) * 100 
+  const weightedCtr = totalImpressions > 0
+    ? (totalClicks / totalImpressions) * 100
     : (dailyCtrs.length > 0 ? dailyCtrs.reduce((s, v) => s + v, 0) / dailyCtrs.length : ap.overall_ctr || 0);
-    
+
   const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
-  // Build updated account_pulse with recalculated totals
   const updatedAp = {
     ...ap,
     total_spend_30d: totalSpend,
@@ -59,7 +89,6 @@ function recalcMetricsFromDailyArrays(data: any): any {
     zero_lead_days: dailyLeads.filter((d) => d === 0).length,
   };
 
-  // Also recalculate summary
   const updatedSummary = data.summary ? {
     ...data.summary,
     total_spend: totalSpend,
@@ -199,11 +228,13 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  // Recalculate aggregate metrics from daily arrays so they reflect the cadence window
+  // Recalculate aggregate metrics from daily arrays so they reflect the cadence window.
+  // Pass activeCadence so the recalc can skip overriding totals when daily arrays
+  // don't cover the full window (weekly/biweekly stored only 7 days of daily rows).
   const analysisData = useMemo(() => {
     if (!rawAnalysisData) return undefined;
-    return recalcMetricsFromDailyArrays(rawAnalysisData) as AnalysisData;
-  }, [rawAnalysisData]);
+    return recalcMetricsFromDailyArrays(rawAnalysisData, activeCadence) as AnalysisData;
+  }, [rawAnalysisData, activeCadence]);
 
   // When switching clients, auto-select the first enabled platform
   const handleSetActiveClient = useCallback((id: string) => {

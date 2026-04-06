@@ -31,7 +31,7 @@ import BreakdownsPage from "@/pages/breakdowns";
 import GoogleQualityScorePage from "@/pages/google/quality-score";
 import GoogleSearchTermsPage from "@/pages/google/search-terms";
 import GoogleBiddingPage from "@/pages/google/bidding";
-import GoogleDemandGenPage from "@/pages/google/demand-gen";
+import GoogleAudiencesPage from "@/pages/google/audiences";
 import GoogleRestructuringPage from "@/pages/google/restructuring";
 import CreativeCalendarPage from "@/pages/creative-calendar";
 import MtdDeliverablesPage from "@/pages/mtd-deliverables";
@@ -62,7 +62,7 @@ function AppRouter() {
       <Route path="/google/quality-score" component={GoogleQualityScorePage} />
       <Route path="/google/search-terms" component={GoogleSearchTermsPage} />
       <Route path="/google/bidding" component={GoogleBiddingPage} />
-      <Route path="/google/demand-gen" component={GoogleDemandGenPage} />
+      <Route path="/google/audiences" component={GoogleAudiencesPage} />
       <Route path="/google/restructuring" component={GoogleRestructuringPage} />
       <Route path="/creative-calendar" component={CreativeCalendarPage} />
       <Route path="/mtd-deliverables" component={MtdDeliverablesPage} />

@@ -1747,13 +1747,13 @@ export async function registerRoutes(
       const data = await readAnalysisData(clientId, platform, cadence);
 
       // Check for any breakdown data in the analysis
-      const hasBreakdowns = data.breakdowns || data.breakdown_age || data.breakdown_gender ||
-        data.breakdown_placement || data.breakdown_device || data.breakdown_region;
+      const hasBreakdowns = data.breakdowns || data.demographic_breakdowns || data.breakdown_age || 
+        data.breakdown_gender || data.breakdown_placement || data.breakdown_device || data.breakdown_region;
 
       if (hasBreakdowns) {
         return res.json({
           available: true,
-          breakdowns: data.breakdowns || {
+          breakdowns: data.breakdowns || data.demographic_breakdowns || {
             age: data.breakdown_age || [],
             gender: data.breakdown_gender || [],
             placement: data.breakdown_placement || [],
@@ -1793,10 +1793,20 @@ export async function registerRoutes(
 
     try {
       const data = await readAnalysisData(clientId, platform, cadence);
-      const cbd = data.campaign_breakdowns?.[campaignId];
+      
+      // Attempt to get campaign-specific data first
+      let cbd = data.campaign_breakdowns?.[campaignId];
+      
+      // For Google, if campaign-specific data isn't found, fallback to global demographic_breakdowns
+      // which the frontend is now capable of filtering by campaign_id.
+      if (!cbd && (platform === "google" || platform === "google_ads")) {
+        cbd = data.demographic_breakdowns || data.breakdowns;
+      }
+
       if (!cbd) {
         return res.json({ available: false, message: "No breakdown data for this campaign." });
       }
+
       return res.json({
         available: true,
         breakdowns: cbd,
@@ -2191,17 +2201,25 @@ export async function registerRoutes(
 
   // ─── MTD Deliverables Endpoints ──────────────────────────────────
 
-  function getMtdDeliverablesPath(clientId: string): string {
+  function getMtdDeliverablesPath(clientId: string, platform: string = "meta"): string {
+    return path.join(DATA_BASE, "clients", clientId, `mtd_deliverables_${platform}.json`);
+  }
+
+  function getLegacyMtdDeliverablesPath(clientId: string): string {
     return path.join(DATA_BASE, "clients", clientId, "mtd_deliverables.json");
   }
 
-  function getMtdHistoryPath(clientId: string): string {
+  function getMtdHistoryPath(clientId: string, platform: string = "meta"): string {
+    return path.join(DATA_BASE, "clients", clientId, `mtd_history_${platform}.json`);
+  }
+
+  function getLegacyMtdHistoryPath(clientId: string): string {
     return path.join(DATA_BASE, "clients", clientId, "mtd_history.json");
   }
 
   // ─── Consolidated MTD Deliverables (Source of Truth) ────────────
   app.get("/api/mtd-deliverables", async (req, res) => {
-    const { client_id: clientId } = req.query;
+    const { client_id: clientId, platform: requestedPlatform } = req.query;
     if (!clientId) return res.status(400).json({ error: "client_id is required" });
 
     const currentRegistry = await loadRegistry();
@@ -2215,9 +2233,14 @@ export async function registerRoutes(
     let trackingIssueFlag = false;
     let lastAnalysisUpdate = "";
 
+    const requestedPlatformId = typeof requestedPlatform === "string" ? requestedPlatform : null;
+    const platformEntries = Object.entries(client.platforms).filter(([platformId, platform]) => {
+      if (!platform.enabled) return false;
+      return requestedPlatformId ? platformId === requestedPlatformId : true;
+    });
+
     // 1. Accumulate API Data from Platforms
-    for (const [platformId, platform] of Object.entries(client.platforms)) {
-      if (!platform.enabled) continue;
+    for (const [platformId] of platformEntries) {
       try {
         const data = await readAnalysisData(clientId as string, platformId);
         if (data) {
@@ -2239,12 +2262,21 @@ export async function registerRoutes(
     }
 
     // 2. Fetch Manual Deliverables
-    const mtdFilePath = getMtdDeliverablesPath(clientId as string);
+    const mtdFilePath = getMtdDeliverablesPath(clientId as string, requestedPlatformId || "meta");
     let manual: any = { svs_achieved: 0, positive_leads_achieved: 0, quality_lead_count: 0, updated_at: null };
     if (fs.existsSync(mtdFilePath)) {
       try {
         manual = JSON.parse(fs.readFileSync(mtdFilePath, "utf-8"));
       } catch (e) {}
+    } else if (requestedPlatformId === "meta") {
+      const legacyPath = getLegacyMtdDeliverablesPath(clientId as string);
+      if (fs.existsSync(legacyPath)) {
+        try {
+          manual = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
+        } catch (e) {}
+      } else {
+        manualInputMissing = true;
+      }
     } else {
       manualInputMissing = true;
     }
@@ -2272,6 +2304,7 @@ export async function registerRoutes(
     const now = new Date();
     const result = {
       client_id: clientId,
+      platform: requestedPlatformId || "all",
       month: now.toISOString().slice(0, 7), // YYYY-MM
       mtd: {
         spend: totalSpend,
@@ -2313,8 +2346,10 @@ export async function registerRoutes(
     const calcMtdTarget = (monthly: number) => totalDays > 0 ? (monthly / totalDays) * daysElapsed : 0;
     // Projected formula: (MTD Delivered / Days Elapsed) × Total Days
     const calcProjected = (delivered: number) => daysElapsed > 0 ? (delivered / daysElapsed) * totalDays : 0;
-    // Daily Needed formula: (Monthly Target − MTD Delivered) / Remaining Days
-    const calcDailyNeeded = (monthly: number, delivered: number) => daysRemaining > 0 ? (monthly - delivered) / daysRemaining : 0;
+    // Daily Needed formula: max(0, Monthly Target − MTD Delivered) / Remaining Days
+    const calcDailyNeeded = (monthly: number, delivered: number) => daysRemaining > 0 ? Math.max(0, monthly - delivered) / daysRemaining : 0;
+    // Ratio projections are computed from projected numerator / denominator.
+    const calcProjectedRatio = (projectedNumerator: number, projectedDenominator: number) => projectedDenominator > 0 ? projectedNumerator / projectedDenominator : 0;
 
     // Status for volume metrics (higher = better)
     const volumeStatus = (delivered: number, mtdTgt: number) => {
@@ -2359,8 +2394,12 @@ export async function registerRoutes(
     // Fetch MTD deliverables (manual inputs: svs, qualified_leads, closures)
     let manual: any = { svs_achieved: 0, positive_leads_achieved: 0, closures_achieved: 0, quality_lead_count: 0 };
     try {
-      const mtdPath = getMtdDeliverablesPath(clientId);
+      const mtdPath = getMtdDeliverablesPath(clientId, platform);
       if (fs.existsSync(mtdPath)) manual = JSON.parse(fs.readFileSync(mtdPath, "utf-8"));
+      else if (platform === "meta") {
+        const legacyPath = getLegacyMtdDeliverablesPath(clientId);
+        if (fs.existsSync(legacyPath)) manual = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
+      }
     } catch (_) {}
 
     // ─── Authoritative delivered values ─────────────────────────────
@@ -2372,6 +2411,10 @@ export async function registerRoutes(
     const mtdCpl = mtdLeads > 0 ? Math.round(div(mtdSpend, mtdLeads)) : 0;
     const mtdCpql = mtdQLeads > 0 ? Math.round(div(mtdSpend, mtdQLeads)) : 0;
     const mtdCpsv = mtdSvs > 0 ? Math.round(div(mtdSpend, mtdSvs)) : 0;
+    const projectedSpend = calcProjected(mtdSpend);
+    const projectedLeads = calcProjected(mtdLeads);
+    const projectedQLeads = calcProjected(mtdQLeads);
+    const projectedSvs = calcProjected(mtdSvs);
 
     // ─── Monthly targets ─────────────────────────────────────────────
     const budgetTarget = bm.budget ?? mp?.targets?.budget ?? 0;
@@ -2410,7 +2453,7 @@ export async function registerRoutes(
         monthly_target: cplTarget,
         mtd_target: cplTarget,
         mtd_delivered: mtdCpl,
-        projected: mp?.projected_eom?.cpl ?? 0,
+        projected: Math.round(calcProjectedRatio(projectedSpend, projectedLeads)),
         daily_needed: null,
         status: costStatus(mtdCpl, cplTarget),
         format: "inr",
@@ -2430,7 +2473,7 @@ export async function registerRoutes(
         monthly_target: cpqlTarget,
         mtd_target: cpqlTarget,
         mtd_delivered: mtdCpql,
-        projected: null,
+        projected: Math.round(calcProjectedRatio(projectedSpend, projectedQLeads)),
         daily_needed: null,
         status: costStatus(mtdCpql, cpqlTarget),
         format: "inr",
@@ -2450,7 +2493,7 @@ export async function registerRoutes(
         monthly_target: `${cpsvTargetLow}–${cpsvTargetHigh}`,
         mtd_target: cpsvTargetHigh,
         mtd_delivered: mtdCpsv,
-        projected: null,
+        projected: Math.round(calcProjectedRatio(projectedSpend, projectedSvs)),
         daily_needed: null,
         status: costStatus(mtdCpsv, cpsvTargetHigh),
         format: "inr",
@@ -2486,8 +2529,17 @@ export async function registerRoutes(
 
   app.get("/api/clients/:clientId/mtd-deliverables", (req, res) => {
     const { clientId } = req.params;
-    const filePath = getMtdDeliverablesPath(clientId);
+    const platform = (req.query.platform as string) || "meta";
+    const filePath = getMtdDeliverablesPath(clientId, platform);
     if (!fs.existsSync(filePath)) {
+      if (platform === "meta") {
+        const legacyPath = getLegacyMtdDeliverablesPath(clientId);
+        if (fs.existsSync(legacyPath)) {
+          try {
+            return res.json(JSON.parse(fs.readFileSync(legacyPath, "utf-8")));
+          } catch {}
+        }
+      }
       return res.json({
         svs_achieved: 0,
         positive_leads_achieved: 0,
@@ -2514,7 +2566,8 @@ export async function registerRoutes(
 
   app.put("/api/clients/:clientId/mtd-deliverables", (req, res) => {
     const { clientId } = req.params;
-    const filePath = getMtdDeliverablesPath(clientId);
+    const platform = (req.query.platform as string) || "meta";
+    const filePath = getMtdDeliverablesPath(clientId, platform);
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -2531,12 +2584,19 @@ export async function registerRoutes(
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 
     // Update History
-    const historyPath = getMtdHistoryPath(clientId);
+    const historyPath = getMtdHistoryPath(clientId, platform);
     let history: any[] = [];
     if (fs.existsSync(historyPath)) {
       try {
         history = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
       } catch (e) {}
+    } else if (platform === "meta") {
+      const legacyHistoryPath = getLegacyMtdHistoryPath(clientId);
+      if (fs.existsSync(legacyHistoryPath)) {
+        try {
+          history = JSON.parse(fs.readFileSync(legacyHistoryPath, "utf-8"));
+        } catch (e) {}
+      }
     }
     history.unshift({ ...data, id: Date.now() });
     // Keep last 50 entries
@@ -2548,8 +2608,17 @@ export async function registerRoutes(
 
   app.get("/api/clients/:clientId/mtd-deliverables/history", (req, res) => {
     const { clientId } = req.params;
-    const historyPath = getMtdHistoryPath(clientId);
+    const platform = (req.query.platform as string) || "meta";
+    const historyPath = getMtdHistoryPath(clientId, platform);
     if (!fs.existsSync(historyPath)) {
+      if (platform === "meta") {
+        const legacyHistoryPath = getLegacyMtdHistoryPath(clientId);
+        if (fs.existsSync(legacyHistoryPath)) {
+          try {
+            return res.json(JSON.parse(fs.readFileSync(legacyHistoryPath, "utf-8")));
+          } catch {}
+        }
+      }
       return res.json([]);
     }
     try {
@@ -2612,16 +2681,28 @@ export async function registerRoutes(
       const data = await readAnalysisData(clientId, platform, cadence);
       const ap = data.account_pulse || {};
       const agentSpend = ap.total_spend_30d ?? ap.total_spend ?? 0;
+      const agentLeads = Math.round(ap.total_leads_30d ?? ap.total_leads ?? 0);
 
-      // Check if the agent embedded verification data
+      // Check if the normalizer embedded verification data (from meta-transform / google-transform)
       const verification = data.data_verification || data.api_cross_check;
       if (verification) {
         return res.json({
-          verified: verification.verified ?? (verification.discrepancy_pct < 5),
+          verified: verification.verified ?? (verification.discrepancy_pct < 5 && (verification.leads_discrepancy_pct ?? 0) < 5),
+          // Spend checks
           apiSpend: verification.api_spend ?? verification.live_spend ?? agentSpend,
           agentSpend,
           discrepancy: Math.abs((verification.api_spend ?? agentSpend) - agentSpend),
-          discrepancyPct: verification.discrepancy_pct ?? 0,
+          discrepancyPct: verification.spend_discrepancy_pct ?? verification.discrepancy_pct ?? 0,
+          // Leads checks
+          apiLeads: verification.entity_leads ?? verification.reported_leads ?? agentLeads,
+          agentLeads,
+          leadsDiscrepancy: verification.leads_discrepancy ?? 0,
+          leadsDiscrepancyPct: verification.leads_discrepancy_pct ?? 0,
+          creativeHealthLeads: verification.creative_health_leads ?? null,
+          adsetAnalysisLeads: verification.adset_analysis_leads ?? null,
+          leadsCorrectionApplied: verification.leads_correction_applied ?? false,
+          leadsCorrectionFactor: verification.leads_correction_factor ?? 1,
+          // Status
           status: "verified",
           lastVerified: verification.verified_at ?? data.generated_at ?? null,
         });
@@ -2631,16 +2712,30 @@ export async function registerRoutes(
       // If they differ significantly, flag it
       try {
         const baseData = await readAnalysisData(clientId, platform); // default (no cadence)
-        const baseSpend = (baseData.account_pulse || {}).total_spend_30d ?? (baseData.account_pulse || {}).total_spend ?? 0;
-        const discrepancy = Math.abs(agentSpend - baseSpend);
-        const discrepancyPct = baseSpend > 0 ? (discrepancy / baseSpend) * 100 : 0;
+        const baseAp = baseData.account_pulse || {};
+        const baseSpend = baseAp.total_spend_30d ?? baseAp.total_spend ?? 0;
+        const baseLeads = Math.round(baseAp.total_leads_30d ?? baseAp.total_leads ?? 0);
+
+        const spendDiscrepancy = Math.abs(agentSpend - baseSpend);
+        const spendDiscrepancyPct = baseSpend > 0 ? (spendDiscrepancy / baseSpend) * 100 : 0;
+
+        const leadsDiscrepancy = Math.abs(agentLeads - baseLeads);
+        const leadsDiscrepancyPct = baseLeads > 0 ? (leadsDiscrepancy / baseLeads) * 100 : 0;
 
         return res.json({
-          verified: discrepancyPct < 5,
+          verified: spendDiscrepancyPct < 5 && leadsDiscrepancyPct < 5,
           apiSpend: baseSpend,
           agentSpend,
-          discrepancy: Math.round(discrepancy),
-          discrepancyPct: parseFloat(discrepancyPct.toFixed(2)),
+          discrepancy: Math.round(spendDiscrepancy),
+          discrepancyPct: parseFloat(spendDiscrepancyPct.toFixed(2)),
+          apiLeads: baseLeads,
+          agentLeads,
+          leadsDiscrepancy: leadsDiscrepancy,
+          leadsDiscrepancyPct: parseFloat(leadsDiscrepancyPct.toFixed(2)),
+          creativeHealthLeads: null,
+          adsetAnalysisLeads: null,
+          leadsCorrectionApplied: false,
+          leadsCorrectionFactor: 1,
           status: "cross_checked",
           lastVerified: data.generated_at || null,
         });
@@ -2652,6 +2747,14 @@ export async function registerRoutes(
           agentSpend,
           discrepancy: 0,
           discrepancyPct: 0,
+          apiLeads: agentLeads,
+          agentLeads,
+          leadsDiscrepancy: 0,
+          leadsDiscrepancyPct: 0,
+          creativeHealthLeads: null,
+          adsetAnalysisLeads: null,
+          leadsCorrectionApplied: false,
+          leadsCorrectionFactor: 1,
           status: "single_source",
           lastVerified: data.generated_at || null,
         });
@@ -3053,7 +3156,7 @@ export async function registerRoutes(
   app.get("/api/clients/:clientId/google/bidding-recommendations", (req, res) => {
     const { clientId } = req.params;
     const dataDir = getClientDataDir(clientId);
-    const analysisPath = path.join(dataDir, "google_analysis.json");
+    const analysisPath = path.join(dataDir, "google", "analysis.json");
 
     if (!fs.existsSync(analysisPath)) {
       return res.json({ campaigns: [], meta: { generated_at: new Date().toISOString(), data_available: false } });

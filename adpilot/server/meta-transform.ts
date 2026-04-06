@@ -171,5 +171,92 @@ export function normalizeMetaAnalysis(raw: any): any {
     };
   }
 
+  // ── 6. Daily leads correction ────────────────────────────────────────
+  // The Python agent sometimes writes daily_leads arrays with inflated
+  // values (commonly 2x) compared to the authoritative total_leads_30d.
+  // Detect and correct this so charts, CPL calculations, and the health
+  // score all use consistent numbers.
+  if (data.account_pulse) {
+    const ap = data.account_pulse;
+    const dailyLeads: number[] = ap.daily_leads || [];
+    const dailyLeadsSum = dailyLeads.reduce((s: number, v: number) => s + v, 0);
+    const reportedTotal = ap.total_leads_30d ?? ap.total_leads ?? 0;
+
+    if (reportedTotal > 0 && dailyLeadsSum > 0 && dailyLeadsSum !== reportedTotal) {
+      const ratio = dailyLeadsSum / reportedTotal;
+      // Only correct if the ratio is a clean multiplier (1.8x–2.2x, 2.8x–3.2x, etc.)
+      // This avoids correcting minor rounding differences
+      const roundedRatio = Math.round(ratio);
+      if (roundedRatio >= 2 && Math.abs(ratio - roundedRatio) < 0.2) {
+        // Scale daily_leads down by the detected multiplier
+        data.account_pulse = {
+          ...ap,
+          daily_leads: dailyLeads.map((v: number) => Math.round(v / roundedRatio)),
+          _leads_correction_applied: true,
+          _leads_correction_factor: roundedRatio,
+        };
+      }
+    }
+  }
+
+  // ── 7. Data verification — embed cross-source comparison ─────────────
+  // Compare leads from multiple sources so the dashboard can surface
+  // discrepancies: daily_leads (corrected), total_leads_30d,
+  // creative_health sum, adset_analysis sum.
+  if (!data.data_verification) {
+    const ap = data.account_pulse || {};
+    const correctedDailyLeads: number[] = ap.daily_leads || [];
+    const correctedDailyLeadsSum = correctedDailyLeads.reduce((s: number, v: number) => s + v, 0);
+    const reportedTotal = ap.total_leads_30d ?? ap.total_leads ?? 0;
+    const dailySpends: number[] = ap.daily_spends || [];
+    const totalSpend = dailySpends.reduce((s: number, v: number) => s + v, 0);
+    const reportedSpend = ap.total_spend_30d ?? ap.total_spend ?? 0;
+
+    // Sum leads from entity-level arrays
+    const creativeLeads = (data.creative_health || [])
+      .reduce((s: number, c: any) => s + (c.leads ?? 0), 0);
+    const adsetLeads = (data.adset_analysis || [])
+      .reduce((s: number, a: any) => s + (a.leads ?? 0), 0);
+
+    // Entity-level leads are the most trustworthy cross-reference
+    const entityLeads = Math.max(creativeLeads, adsetLeads);
+
+    // Spend discrepancy
+    const spendDiscrepancy = Math.abs(totalSpend - reportedSpend);
+    const spendDiscrepancyPct = reportedSpend > 0
+      ? (spendDiscrepancy / reportedSpend) * 100
+      : 0;
+
+    // Leads discrepancy: compare reported total vs entity-level total
+    const leadsDiscrepancy = entityLeads > 0
+      ? Math.abs(reportedTotal - entityLeads)
+      : 0;
+    const leadsDiscrepancyPct = entityLeads > 0
+      ? (leadsDiscrepancy / entityLeads) * 100
+      : 0;
+
+    const verified = spendDiscrepancyPct < 5 && leadsDiscrepancyPct < 5;
+
+    data.data_verification = {
+      verified,
+      verified_at: data.generated_at || new Date().toISOString(),
+      // Spend verification
+      api_spend: reportedSpend,
+      daily_spend_sum: Math.round(totalSpend * 100) / 100,
+      spend_discrepancy_pct: parseFloat(spendDiscrepancyPct.toFixed(2)),
+      // Leads verification
+      reported_leads: reportedTotal,
+      daily_leads_sum: correctedDailyLeadsSum,
+      entity_leads: entityLeads,
+      creative_health_leads: creativeLeads,
+      adset_analysis_leads: adsetLeads,
+      leads_discrepancy: leadsDiscrepancy,
+      leads_discrepancy_pct: parseFloat(leadsDiscrepancyPct.toFixed(2)),
+      // Daily leads correction tracking
+      leads_correction_applied: !!ap._leads_correction_applied,
+      leads_correction_factor: ap._leads_correction_factor || 1,
+    };
+  }
+
   return data;
 }

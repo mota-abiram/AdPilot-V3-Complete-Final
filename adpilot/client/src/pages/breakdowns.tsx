@@ -189,16 +189,16 @@ function getRecommendationType(row: any, score: number, tabName: string, isTarge
 // ─── Main Component ────────────────────────────────────────────────
 
 export default function BreakdownsPage() {
-  const { activeClient: client, activeCadence: globalCadence } = useClient();
-  const [activeTab, setActiveTab] = useState<"Meta" | "Google">("Meta");
-  
+  const { activeClient: client, activeCadence: globalCadence, activePlatform } = useClient();
+
   const clientId = client?.id || "amara";
+  const platformKey = activePlatform === "google" ? "google" : "meta";
   const apiBase = `/api/clients/${clientId}`;
 
   const { data: analysisData, isLoading: isLoadingAnalysis } = useQuery({
-    queryKey: [apiBase, activeTab.toLowerCase(), "analysis", globalCadence],
+    queryKey: [apiBase, platformKey, "analysis", globalCadence],
     queryFn: async () => {
-      const url = `${apiBase}/${activeTab.toLowerCase()}/analysis?cadence=${globalCadence}`;
+      const url = `${apiBase}/${platformKey}/analysis?cadence=${globalCadence}`;
       const res = await apiRequest("GET", url);
       return res.json();
     },
@@ -208,36 +208,15 @@ export default function BreakdownsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="flex items-center gap-1 p-6 border-b border-border/50">
-        <button
-          onClick={() => setActiveTab("Meta")}
-          className={cn(
-            "px-4 py-2 text-sm font-semibold rounded-md transition-all",
-            activeTab === "Meta" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:bg-muted"
-          )}
-        >
-          Meta Ads
-        </button>
-        <button
-          onClick={() => setActiveTab("Google")}
-          className={cn(
-            "px-4 py-2 text-sm font-semibold rounded-md transition-all",
-            activeTab === "Google" ? "bg-[#F0BC00] text-black shadow-lg" : "text-muted-foreground hover:bg-muted"
-          )}
-        >
-          Google Ads
-        </button>
-      </div>
-
-      {activeTab === "Meta" ? (
-        <MetaBreakdowns 
+      {platformKey === "meta" ? (
+        <MetaBreakdowns
           clientId={clientId}
-          analysisData={analysisData} 
+          analysisData={analysisData}
           isLoadingAnalysis={isLoadingAnalysis}
           activeCadence={activeCadence}
         />
       ) : (
-        <GoogleBreakdowns 
+        <GoogleBreakdowns
           clientId={clientId}
           analysisData={analysisData}
           isLoadingAnalysis={isLoadingAnalysis}
@@ -297,7 +276,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   });
 
   const tabKey = activeTab.toLowerCase();
-  
+
   const rawRows: BreakdownRow[] = useMemo(() => {
     const source = data?.available && data.breakdowns?.[tabKey] ? data.breakdowns[tabKey] : [];
     if (selectedCampaign !== ACCOUNT_OVERVIEW) return source;
@@ -333,7 +312,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   const targetLocations = data?.target_locations || [];
   const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
   const totalLeads = rows.reduce((s, r) => s + r.leads, 0);
-  
+
   const rowsWithLeads = rows.filter(r => r.leads > 0);
   const best = rowsWithLeads.length > 0 ? rowsWithLeads.reduce((a, b) => (a.cpl < b.cpl ? a : b)) : null;
   const worst = rowsWithLeads.length > 0 ? rowsWithLeads.reduce((a, b) => (a.cpl > b.cpl ? a : b)) : null;
@@ -408,10 +387,10 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-         <MetricCard icon={IndianRupee} label="Total Spend" value={formatINR(totalSpend, 0)} color="text-primary" />
-         <MetricCard icon={Trophy} label="Best Performance" value={best ? best.dimension : "—"} subValue={best ? `CPL ${formatINR(best.cpl, 0)}` : ""} color="text-emerald-400" />
-         <MetricCard icon={ThumbsDown} label="Worst Performance" value={worst ? worst.dimension : "—"} subValue={worst ? `CPL ${formatINR(worst.cpl, 0)}` : ""} color="text-red-400" />
-         <MetricCard icon={MapPin} label="Geo Accuracy" value={geoAlerts.length === 0 ? "Targeted" : "Alert"} subValue={geoAlerts.length > 0 ? `${formatINR(geoAlerts.reduce((s, a) => s + a.spend, 0),0)} leakage` : "Clean"} color={geoAlerts.length > 0 ? "text-red-400" : "text-emerald-400"} />
+        <MetricCard icon={IndianRupee} label="Total Spend" value={formatINR(totalSpend, 0)} color="text-primary" />
+        <MetricCard icon={Trophy} label="Best Performance" value={best ? best.dimension : "—"} subValue={best ? `CPL ${formatINR(best.cpl, 0)}` : ""} color="text-emerald-400" />
+        <MetricCard icon={ThumbsDown} label="Worst Performance" value={worst ? worst.dimension : "—"} subValue={worst ? `CPL ${formatINR(worst.cpl, 0)}` : ""} color="text-red-400" />
+        <MetricCard icon={MapPin} label="Geo Accuracy" value={geoAlerts.length === 0 ? "Targeted" : "Alert"} subValue={geoAlerts.length > 0 ? `${formatINR(geoAlerts.reduce((s, a) => s + a.spend, 0), 0)} leakage` : "Clean"} color={geoAlerts.length > 0 ? "text-red-400" : "text-emerald-400"} />
       </div>
 
       <div className="flex items-center gap-1 border-b border-border/50">
@@ -429,22 +408,22 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
             <thead>
               <tr className="bg-muted/20 border-b border-border/50">
                 <th className="p-3 w-10">
-                   <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6"><SlidersHorizontal className="h-3.5 w-3.5" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setColumnSize("normal")}>Regular Width</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide View</DropdownMenuItem>
-                      </DropdownMenuContent>
-                   </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6"><SlidersHorizontal className="h-3.5 w-3.5" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setColumnSize("normal")}>Regular Width</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide View</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </th>
                 {columns.map(col => (
                   <th key={col.key} onClick={() => col.key !== "actions" && toggleSort(col.key)}
-                    className={cn("p-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none", 
-                    col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
-                    columnSize === "compact" ? "px-1" : columnSize === "wide" ? "px-6" : "px-3")}>
+                    className={cn("p-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none",
+                      col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
+                      columnSize === "compact" ? "px-1" : columnSize === "wide" ? "px-6" : "px-3")}>
                     <div className="flex items-center gap-1">{col.label} {sortKey === col.key && (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
                   </th>
                 ))}
@@ -458,45 +437,45 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                 return (
                   <React.Fragment key={i}>
                     <tr className={cn("border-b border-border/30 hover:bg-muted/20 transition-all cursor-pointer", isExpanded && "bg-primary/5")} onClick={() => toggleExpand(row.dimension)}>
-                       <td className="p-3"><Button variant="ghost" size="sm" className="h-6 w-6 p-0">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</Button></td>
-                       <td className={cn("p-3 font-semibold text-foreground", columnSize === "compact" ? "px-1" : columnSize === "wide" ? "px-6" : "px-3")}>
-                          {row.dimension}
-                          {row.classification && <Badge variant="outline" className={cn("ml-2 text-[9px] font-black tracking-tighter", row.classification === "WINNER" ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5" : "border-red-500/30 text-red-400 bg-red-500/5")}>{row.classification}</Badge>}
-                       </td>
-                       <td className="p-3 text-center">
-                          <Tooltip>
-                             <TooltipTrigger asChild><span className={cn("inline-flex items-center justify-center w-7 h-7 rounded font-black text-[11px] border", getScoreBg(score.total), getScoreColor(score.total))}>{score.total}</span></TooltipTrigger>
-                             <TooltipContent side="left" className="p-2 space-y-1 text-[10px]">
-                               <p className="font-bold border-b border-border/50 pb-1 mb-1">Score Anatomy ({score.total})</p>
-                               <div className="flex justify-between gap-4"><span>CPL Score:</span> <span>{score.cplScore}/50</span></div>
-                               <div className="flex justify-between gap-4"><span>CTR Score:</span> <span>{score.ctrScore}/20</span></div>
-                               <div className="flex justify-between gap-4"><span>Volume:</span> <span>{score.volumeScore}/20</span></div>
-                             </TooltipContent>
-                          </Tooltip>
-                       </td>
-                       <td className="p-3 text-right tabular-nums font-medium">{formatINR(row.spend, 0)}</td>
-                       <td className="p-3 text-right"><ProgressBar pct={spendPct} color="bg-primary/60" /></td>
-                       <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.impressions)}</td>
-                       <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.clicks)}</td>
-                       <td className="p-3 text-right tabular-nums">{formatPct(row.ctr)}</td>
-                       <td className="p-3 text-right tabular-nums font-bold text-foreground">{row.leads}</td>
-                       <td className={cn("p-3 text-right tabular-nums font-bold", getCplColor(row.cpl, thresholds))}>{row.cpl > 0 ? formatINR(row.cpl,0) : "—"}</td>
-                       <td className="p-3">
-                          <UnifiedActions compact item={{ id: itemId, description: `Scale ${activeTab}: ${row.dimension}`, autoExecutable: false }}
-                            entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
-                            recommendation={rec.text} onStateChange={() => {}} />
-                       </td>
+                      <td className="p-3"><Button variant="ghost" size="sm" className="h-6 w-6 p-0">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</Button></td>
+                      <td className={cn("p-3 font-semibold text-foreground", columnSize === "compact" ? "px-1" : columnSize === "wide" ? "px-6" : "px-3")}>
+                        {row.dimension}
+                        {row.classification && <Badge variant="outline" className={cn("ml-2 text-[9px] font-black tracking-tighter", row.classification === "WINNER" ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5" : "border-red-500/30 text-red-400 bg-red-500/5")}>{row.classification}</Badge>}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild><span className={cn("inline-flex items-center justify-center w-7 h-7 rounded font-black text-[11px] border", getScoreBg(score.total), getScoreColor(score.total))}>{score.total}</span></TooltipTrigger>
+                          <TooltipContent side="left" className="p-2 space-y-1 text-[10px]">
+                            <p className="font-bold border-b border-border/50 pb-1 mb-1">Score Anatomy ({score.total})</p>
+                            <div className="flex justify-between gap-4"><span>CPL Score:</span> <span>{score.cplScore}/50</span></div>
+                            <div className="flex justify-between gap-4"><span>CTR Score:</span> <span>{score.ctrScore}/20</span></div>
+                            <div className="flex justify-between gap-4"><span>Volume:</span> <span>{score.volumeScore}/20</span></div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
+                      <td className="p-3 text-right tabular-nums font-medium">{formatINR(row.spend, 0)}</td>
+                      <td className="p-3 text-right"><ProgressBar pct={spendPct} color="bg-primary/60" /></td>
+                      <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.impressions)}</td>
+                      <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.clicks)}</td>
+                      <td className="p-3 text-right tabular-nums">{formatPct(row.ctr)}</td>
+                      <td className="p-3 text-right tabular-nums font-bold text-foreground">{row.leads}</td>
+                      <td className={cn("p-3 text-right tabular-nums font-bold", getCplColor(row.cpl, thresholds))}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
+                      <td className="p-3">
+                        <UnifiedActions compact item={{ id: itemId, description: `Scale ${activeTab}: ${row.dimension}`, autoExecutable: false }}
+                          entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
+                          recommendation={rec.text} onStateChange={() => { }} />
+                      </td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-muted/10">
                         <td colSpan={11} className="p-6 border-b border-primary/20">
-                           <div className="max-w-[700px] space-y-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Strategic Analysis Breakdown</h4>
-                              <ScoreExpansion score={score} row={row} cplTarget={cplTarget} ctrTarget={ctrTarget} />
-                              <div className="p-4 rounded border border-border/50 bg-background/50 space-y-2">
-                                 <p className="text-xs text-foreground leading-relaxed">Intelligence layer indicates <strong>{rec.text}</strong>. Performance efficiency is {score.total >= 70 ? "high" : "suboptimal"}. CPL variance vs account benchmark: {row.cpl > 0 ? `${((row.cpl/cplTarget - 1)*100).toFixed(0)}%` : "N/A"}.</p>
-                              </div>
-                           </div>
+                          <div className="max-w-[700px] space-y-4">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Strategic Analysis Breakdown</h4>
+                            <ScoreExpansion score={score} row={row} cplTarget={cplTarget} ctrTarget={ctrTarget} />
+                            <div className="p-4 rounded border border-border/50 bg-background/50 space-y-2">
+                              <p className="text-xs text-foreground leading-relaxed">Intelligence layer indicates <strong>{rec.text}</strong>. Performance efficiency is {score.total >= 70 ? "high" : "suboptimal"}. CPL variance vs account benchmark: {row.cpl > 0 ? `${((row.cpl / cplTarget - 1) * 100).toFixed(0)}%` : "N/A"}.</p>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -532,7 +511,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
   const { data, isLoading } = useQuery<BreakdownData>({
     queryKey: [apiBase, "breakdowns", selectedCampaign, activeCadence],
     queryFn: async () => {
-      const url = selectedCampaign === ACCOUNT_OVERVIEW 
+      const url = selectedCampaign === ACCOUNT_OVERVIEW
         ? `${apiBase}/breakdowns?cadence=${activeCadence}`
         : `${apiBase}/breakdowns/${selectedCampaign}?cadence=${activeCadence}`;
       const res = await apiRequest("GET", url);
@@ -541,45 +520,45 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
   });
 
   const tabKey = GOOGLE_TAB_KEYS[activeTab];
-  
+
   const rawRows: GoogleBreakdownRow[] = useMemo(() => {
     if (!data?.available || !data.breakdowns) return [];
-    
-    // Google usually sends breakdowns organized by campaign ID
-    const source = data.breakdowns;
+
+    // Google demographic_breakdowns is a global object with keys like 'age', 'gender', 'device'
+    // Each key contains a flat array of records for ALL campaigns.
+    const allRecords = data.breakdowns[tabKey] || [];
+
+    // 1. Filter by selected campaign if not ACCOUNT_OVERVIEW
+    const filtered = selectedCampaign === ACCOUNT_OVERVIEW
+      ? allRecords
+      : allRecords.filter((r: any) => r.campaign_id === selectedCampaign);
+
+    // 2. Aggregate by dimension
     const aggregated: Record<string, GoogleBreakdownRow> = {};
-    
-    const resolveAndAdd = (campBreakdowns: any) => {
-      const rows = campBreakdowns[tabKey] || [];
-      rows.forEach((r: any) => {
-        const dim = r.age_range || r.gender || r.device || r.region || r.dimension || "Unknown";
-        if (!aggregated[dim]) {
-          aggregated[dim] = {
-             ...r,
-             dimension: dim,
-             cost: r.cost || r.spend || 0,
-             conversions: r.conversions || r.leads || 0,
-             impressions: r.impressions || 0,
-             clicks: r.clicks || 0
-          };
-        } else {
-          const agg = aggregated[dim];
-          agg.cost += (r.cost || r.spend || 0);
-          agg.impressions += (r.impressions || 0);
-          agg.clicks += (r.clicks || 0);
-          agg.conversions += (r.conversions || r.leads || 0);
-        }
-      });
-    };
 
-    if (selectedCampaign === ACCOUNT_OVERVIEW) {
-      if (Array.isArray(source)) source.forEach(c => resolveAndAdd(c.breakdowns || {}));
-      else Object.values(source).forEach((v: any) => typeof v === 'object' && resolveAndAdd(v.breakdowns || v));
-    } else {
-      const target = Array.isArray(source) ? source.find(c => c.campaign_id === selectedCampaign) : source[selectedCampaign];
-      if (target) resolveAndAdd(target.breakdowns || target);
-    }
+    filtered.forEach((r: any) => {
+      // Handle the various field names Google uses for dimensions
+      const dim = r.age_range || r.gender || r.device || r.region || r.location || r.dimension || "Unknown";
 
+      if (!aggregated[dim]) {
+        aggregated[dim] = {
+          ...r,
+          dimension: dim,
+          cost: r.cost || r.spend || 0,
+          conversions: r.conversions || r.leads || 0,
+          impressions: r.impressions || 0,
+          clicks: r.clicks || 0
+        };
+      } else {
+        const agg = aggregated[dim];
+        agg.cost += (r.cost || r.spend || 0);
+        agg.impressions += (r.impressions || 0);
+        agg.clicks += (r.clicks || 0);
+        agg.conversions += (r.conversions || r.leads || 0);
+      }
+    });
+
+    // 3. Final metric derivation
     return Object.values(aggregated).map(r => ({
       ...r,
       ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
@@ -631,7 +610,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
 
   return (
     <div className="p-6 space-y-4 max-w-[1600px]">
-       <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <BarChart3 className="w-6 h-6 text-[#F0BC00]" />
           <h2 className="text-xl font-bold tracking-tight">Google Breakdown Intelligence</h2>
@@ -639,8 +618,8 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-         <MetricCard icon={IndianRupee} label="Total Cost" value={formatINR(totalCost, 0)} color="text-[#F0BC00]" />
-         <MetricCard icon={Trophy} label="Best Google Performance" value={best ? best.dimension : "—"} subValue={best ? `CPL ${formatINR(best.cpl, 0)}` : ""} color="text-emerald-400" />
+        <MetricCard icon={IndianRupee} label="Total Cost" value={formatINR(totalCost, 0)} color="text-[#F0BC00]" />
+        <MetricCard icon={Trophy} label="Best Google Performance" value={best ? best.dimension : "—"} subValue={best ? `CPL ${formatINR(best.cpl, 0)}` : ""} color="text-emerald-400" />
       </div>
 
       <div className="flex items-center gap-1 border-b border-border/50">
@@ -674,18 +653,18 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
                 return (
                   <React.Fragment key={i}>
                     <tr className={cn("border-b border-border/30 hover:bg-muted/20 transition-all cursor-pointer", isExpanded && "bg-[#F0BC00]/5")} onClick={() => toggleExpand(row.dimension)}>
-                       <td className="p-3"><Button variant="ghost" size="sm" className="h-6 w-6 p-0">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</Button></td>
-                       <td className="p-3 font-semibold text-foreground">{row.dimension}</td>
-                       <td className="p-3 text-right tabular-nums font-medium">{formatINR(row.cost, 0)}</td>
-                       <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.clicks)}</td>
-                       <td className="p-3 text-right tabular-nums">{formatPct(row.ctr)}</td>
-                       <td className="p-3 text-right tabular-nums font-bold text-foreground">{row.conversions}</td>
-                       <td className={cn("p-3 text-right tabular-nums font-bold", row.cpl > 0 && row.cpl < 850 ? "text-emerald-400" : "text-foreground")}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
-                       <td className="p-3 text-center">
-                         <UnifiedActions compact item={{ id: itemId, description: `Google ${activeTab}: ${row.dimension}`, autoExecutable: false }}
-                            entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
-                            recommendation="Monitor segment" onStateChange={() => {}} />
-                       </td>
+                      <td className="p-3"><Button variant="ghost" size="sm" className="h-6 w-6 p-0">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</Button></td>
+                      <td className="p-3 font-semibold text-foreground">{row.dimension}</td>
+                      <td className="p-3 text-right tabular-nums font-medium">{formatINR(row.cost, 0)}</td>
+                      <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.clicks)}</td>
+                      <td className="p-3 text-right tabular-nums">{formatPct(row.ctr)}</td>
+                      <td className="p-3 text-right tabular-nums font-bold text-foreground">{row.conversions}</td>
+                      <td className={cn("p-3 text-right tabular-nums font-bold", row.cpl > 0 && row.cpl < 850 ? "text-emerald-400" : "text-foreground")}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
+                      <td className="p-3 text-center">
+                        <UnifiedActions compact item={{ id: itemId, description: `Google ${activeTab}: ${row.dimension}`, autoExecutable: false }}
+                          entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
+                          recommendation="Monitor segment" onStateChange={() => { }} />
+                      </td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-[#F0BC00]/5">
