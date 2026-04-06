@@ -277,33 +277,43 @@ async function runAgent(): Promise<void> {
           cwd: ADS_AGENT_DIR,
           timeout: 600000,
         });
-      } catch (error) {
+        const syncCompletedAt = new Date().toISOString();
+        for (const clientId of metaClients) {
+          setPlatformSyncState(clientId, "meta", {
+            last_synced_at: syncCompletedAt,
+            last_successful_fetch: getLatestAnalysisTimestamp(clientId, "meta"),
+            sync_status: "success",
+          });
+
+          // PERSIST TO DB: Capture all cadence JSON files and push to Postgres
+          const metaDir = path.join(DATA_BASE, "clients", clientId, "meta");
+          const cadenceFiles = [
+            { file: "analysis.json", cadence: "twice_weekly" },
+            { file: "analysis_daily.json", cadence: "daily" },
+            { file: "analysis_weekly.json", cadence: "weekly" },
+            { file: "analysis_biweekly.json", cadence: "biweekly" },
+            { file: "analysis_monthly.json", cadence: "monthly" },
+          ];
+          for (const { file, cadence } of cadenceFiles) {
+            const filePath = path.join(metaDir, file);
+            if (fs.existsSync(filePath)) {
+              try {
+                const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+                await saveAnalysisSnapshot(clientId, "meta", data, cadence);
+              } catch (e) {
+                log(`[DB Push] Failed to persist Meta ${cadence} snapshot for ${clientId}: ${e}`, "scheduler");
+              }
+            }
+          }
+        }
+      } catch (error: any) {
         metaClients.forEach((clientId) => {
           setPlatformSyncState(clientId, "meta", {
             last_synced_at: new Date().toISOString(),
             sync_status: "failed",
           });
         });
-        throw error;
-      }
-      const syncCompletedAt = new Date().toISOString();
-      for (const clientId of metaClients) {
-        setPlatformSyncState(clientId, "meta", {
-          last_synced_at: syncCompletedAt,
-          last_successful_fetch: getLatestAnalysisTimestamp(clientId, "meta"),
-          sync_status: "success",
-        });
-
-        // PERSIST TO DB: Capture the newly generated JSON file and push to Postgres
-        const metaPath = path.join(DATA_BASE, "clients", clientId, "meta", "analysis.json");
-        if (fs.existsSync(metaPath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-            await saveAnalysisSnapshot(clientId, "meta", data);
-          } catch (e) {
-            log(`[DB Push] Failed to persist Meta snapshot for ${clientId}: ${e}`, "scheduler");
-          }
-        }
+        log(`Scheduler: Meta agent failed: ${error.message}`, "scheduler");
       }
     }
 
@@ -325,12 +335,13 @@ async function runAgent(): Promise<void> {
             timeout: 600000,
             env: { ...process.env, ...client.googleCreds },
           });
-        } catch (error) {
+        } catch (error: any) {
           setPlatformSyncState(client.id, "google", {
             last_synced_at: new Date().toISOString(),
             sync_status: "failed",
           });
-          throw error;
+          log(`Scheduler: Google agent failed for client '${client.id}': ${error.message}`, "scheduler");
+          continue;
         }
         setPlatformSyncState(client.id, "google", {
           last_synced_at: new Date().toISOString(),
@@ -338,18 +349,32 @@ async function runAgent(): Promise<void> {
           sync_status: "success",
         });
 
-        // PERSIST TO DB: Capture the newly generated JSON file and push to Postgres
-        const googlePath = path.join(DATA_BASE, "clients", client.id, "google", "analysis.json");
-        if (fs.existsSync(googlePath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(googlePath, "utf-8"));
-            await saveAnalysisSnapshot(client.id, "google", data);
-            
-            // RUN BIDDING INTELLIGENCE
-            await generateBiddingRecommendations(client.id);
-          } catch (e) {
-            log(`[Bidding/DB Push] Failed for ${client.id}: ${e}`, "scheduler");
+        // PERSIST TO DB: Capture all cadence JSON files and push to Postgres
+        const googleDir = path.join(DATA_BASE, "clients", client.id, "google");
+        const googleCadenceFiles = [
+          { file: "analysis.json", cadence: "twice_weekly" },
+          { file: "analysis_daily.json", cadence: "daily" },
+          { file: "analysis_weekly.json", cadence: "weekly" },
+          { file: "analysis_biweekly.json", cadence: "biweekly" },
+          { file: "analysis_monthly.json", cadence: "monthly" },
+        ];
+        for (const { file, cadence } of googleCadenceFiles) {
+          const filePath = path.join(googleDir, file);
+          if (fs.existsSync(filePath)) {
+            try {
+              const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+              await saveAnalysisSnapshot(client.id, "google", data, cadence);
+            } catch (e) {
+              log(`[DB Push] Failed to persist Google ${cadence} snapshot for ${client.id}: ${e}`, "scheduler");
+            }
           }
+        }
+
+        // RUN BIDDING INTELLIGENCE
+        try {
+          await generateBiddingRecommendations(client.id);
+        } catch (e) {
+          log(`[Bidding] Failed for ${client.id}: ${e}`, "scheduler");
         }
         log(`Scheduler: Google agent completed for client '${client.id}'`, "scheduler");
       }

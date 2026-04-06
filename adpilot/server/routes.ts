@@ -32,6 +32,7 @@ import { pool, db } from "./db";
 import { analysisSnapshots, biddingRecommendations } from "@shared/schema";
 import { and, eq, desc } from "drizzle-orm";
 import { normalizeGoogleAnalysis } from "./google-transform";
+import { normalizeMetaAnalysis } from "./meta-transform";
 import {
   executeGoogleAction,
   executeGoogleBatch,
@@ -434,7 +435,9 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   }
 
   // 3. Normalize Google data into canonical shape
-  const data = platform === "google" ? normalizeGoogleAnalysis(raw) : raw;
+  const data = platform === "google"
+    ? normalizeGoogleAnalysis(raw)
+    : normalizeMetaAnalysis(raw);
 
   analysisCache.set(cacheKey, { data, ts: Date.now() });
   return data;

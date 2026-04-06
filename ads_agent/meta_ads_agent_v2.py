@@ -2918,16 +2918,6 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
         pulse, cost_stack, creative_health, campaign_audit, adset_analysis,
         monthly_pacing, patterns, learning_history)
         
-    # ── Final Strategic Narrative ──
-    learning_prev = load_learning_history() or {"runs": []}
-    prev_narrative = None
-    if learning_prev.get("runs"):
-        prev_narrative = learning_prev["runs"][-1].get("strategic_narrative")
-
-    pie_engine = PerformanceIntelligenceEngine(target_cpl=CPL_TARGET)
-    ctx_msg = f"META ADS: Spend ₹{latest_spend:,.0f}, CPL ₹{overall_cpl:,.0f}. MTD Pacing: {pacing_ratio*100:.0f}% spend relative to linear target."
-    strategic_narrative = pie_engine.generate_strategic_narrative(ctx_msg, previous_narrative=prev_narrative)
-    print(f"  Strategic Narrative: {strategic_narrative}")
 
     # ─── Overall Health Score (Meta) ───
     # Weights: CPSV (25), Budget (25), CPQL (20), CPL (20), Creative (10)
@@ -2966,6 +2956,17 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
     }
     
     account_health = scoring_engine.calculate_meta_health(health_input, creative_avg_score)
+
+    # ── Final Strategic Narrative ──
+    learning_prev = load_learning_history() or {"runs": []}
+    prev_narrative = None
+    if learning_prev.get("runs"):
+        prev_narrative = learning_prev["runs"][-1].get("strategic_narrative")
+
+    pie_engine = PerformanceIntelligenceEngine(target_cpl=CPL_TARGET)
+    ctx_msg = f"META ADS: MTD Spend ₹{mtd_spend:,.0f}, MTD CPL ₹{mtd_cpl:,.0f}. Pacing: {pacing_ratio*100:.0f}% relative to linear target."
+    strategic_narrative = pie_engine.generate_strategic_narrative(ctx_msg, previous_narrative=prev_narrative)
+    print(f"  Strategic Narrative: {strategic_narrative}")
 
     # Build analysis JSON
     analysis = {
@@ -3232,7 +3233,7 @@ def main():
         "date": str(TODAY), "cadence": "multi_cadence",
         "total_leads": pulse["total_leads_30d"], "avg_cpl": pulse["overall_cpl"],
         "overall_ctr": pulse["overall_ctr"],
-        "strategic_narrative": strategic_narrative,
+        "strategic_narrative": default_analysis.get("strategic_narrative"),
     })
     if "campaign_cpl_history" not in learning_history:
         learning_history["campaign_cpl_history"] = {}

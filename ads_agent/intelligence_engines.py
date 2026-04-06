@@ -99,34 +99,41 @@ RULES:
 - Do not use flowery language.
 - Format as: 'Mojo's Take: [Insight]. [Action].'"""
 
-        try:
-            if self.groq_api_key:
-                url = "https://api.groq.com/openai/v1/chat/completions"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.groq_api_key}"
-                }
-                model = "llama-3.3-70b-versatile"
-            else:
-                url = "https://api.openai.com/v1/chat/completions"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.openai_api_key}"
-                }
-                model = "gpt-4o-mini"
+        import time
 
-            body = json.dumps({
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 150
+        providers = []
+        if self.groq_api_key:
+            providers.append({
+                "url": "https://api.groq.com/openai/v1/chat/completions",
+                "headers": {"Content-Type": "application/json", "Authorization": f"Bearer {self.groq_api_key}"},
+                "model": "llama-3.3-70b-versatile",
+            })
+        if self.openai_api_key:
+            providers.append({
+                "url": "https://api.openai.com/v1/chat/completions",
+                "headers": {"Content-Type": "application/json", "Authorization": f"Bearer {self.openai_api_key}"},
+                "model": "gpt-4o-mini",
             })
 
-            req = Request(url, data=body.encode(), headers=headers)
-            with urlopen(req) as resp:
-                data = json.loads(resp.read().decode())
-                return data["choices"][0]["message"]["content"].strip()
-        except Exception as e:
-            return f"Strategic analysis failed: {str(e)}"
+        last_error = None
+        for provider in providers:
+            for attempt in range(2):
+                try:
+                    body = json.dumps({
+                        "model": provider["model"],
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 150
+                    })
+                    req = Request(provider["url"], data=body.encode(), headers=provider["headers"])
+                    with urlopen(req, timeout=30) as resp:
+                        data = json.loads(resp.read().decode())
+                        return data["choices"][0]["message"]["content"].strip()
+                except Exception as e:
+                    last_error = e
+                    if attempt == 0:
+                        time.sleep(2)
+
+        return f"Strategic analysis failed: {str(last_error)}"
 
 class PatternDetectionEngine:
     """

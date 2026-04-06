@@ -703,12 +703,12 @@ export default function DashboardPage() {
         <h2 id="dashboard-kpis" className="sr-only">Key performance indicators</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <KpiCard
-            title="MTD Spend"
-            value={formatINR(mp?.mtd?.spend || 0, 0)}
+            title={`Spend · ${periodLabel}`}
+            value={formatINR(ap.total_spend_30d, 0)}
             trend={ap.spend_trend}
             trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
             icon={IndianRupee}
-            subtitle={`${periodLabel}: ${formatINR(ap.total_spend_30d, 0)}`}
+            subtitle={`MTD: ${formatINR(mp?.mtd?.spend || 0, 0)}`}
             status={verifyData ? (
               verifyData.verified
                 ? { label: "Verified ✓", variant: "success" }
@@ -716,26 +716,26 @@ export default function DashboardPage() {
             ) : undefined}
           />
           <KpiCard
-            title="MTD Leads"
-            value={(mp?.mtd?.leads || 0).toString()}
+            title={`Leads · ${periodLabel}`}
+            value={(ap.total_leads_30d || 0).toString()}
             trend={ap.leads_trend}
             trendValue={`${Math.abs(ap.leads_change_pct).toFixed(1)}%`}
             icon={Users}
-            subtitle={`${periodLabel}: ${ap.total_leads_30d}`}
+            subtitle={`MTD: ${mp?.mtd?.leads || 0} leads`}
           />
           <KpiCard
-            title="MTD Avg CPL"
-            value={formatINR(mp?.mtd?.cpl || 0, 0)}
+            title={`Avg CPL · ${periodLabel}`}
+            value={formatINR(ap.overall_cpl, 0)}
             trend={ap.spend_trend}
             trendValue={`${Math.abs((ap as any).cpl_change_pct || ap.spend_change_pct || 0).toFixed(1)}%`}
             icon={Target}
             isInverse
-            subtitle={`${periodLabel}: ${formatINR(ap.overall_cpl, 0)}`}
+            subtitle={`MTD CPL: ${formatINR(mp?.mtd?.cpl || 0, 0)}`}
             status={
               thresholds || benchmarks
-                ? (mp?.mtd?.cpl || ap.overall_cpl) <= (thresholds?.cpl_target || benchmarks?.cpl_target || 850)
+                ? ap.overall_cpl <= (thresholds?.cpl_target || benchmarks?.cpl_target || 850)
                   ? { label: "On Target", variant: "success" }
-                  : (mp?.mtd?.cpl || ap.overall_cpl) <= (thresholds?.cpl_alert || benchmarks?.cpl_alert || 1200)
+                  : ap.overall_cpl <= (thresholds?.cpl_alert || benchmarks?.cpl_alert || 1200)
                     ? { label: "Watch", variant: "warning" }
                     : { label: "Alert", variant: "destructive" }
                 : undefined

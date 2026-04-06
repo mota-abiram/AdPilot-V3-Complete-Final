@@ -3411,7 +3411,11 @@ def run_analysis(cadence="twice_weekly"):
         prev_narrative = learning_prev["runs"][-1].get("strategic_narrative")
     
     pie_engine = PerformanceIntelligenceEngine(target_cpl=CPL_TARGET)
-    ctx_msg = f"GOOGLE ADS: Spend ₹{account_pulse.get('latest_daily_spend'):,.0f}, CPL ₹{account_pulse.get('overall_cpl'):,.0f}. MTD Pacing: {account_pulse.get('mtd_pacing', {}).get('pacing_spend_pct', 0):.0f}% spend vs {account_pulse.get('mtd_pacing', {}).get('pacing_leads_pct', 0):.0f}% leads."
+    daily_spend = account_pulse.get('latest_daily_spend') or account_pulse.get('total_spend', 0) or 0
+    overall_cpl = account_pulse.get('overall_cpl', 0) or 0
+    pacing_spend = account_pulse.get('mtd_pacing', {}).get('pacing_spend_pct', 0) or 0
+    pacing_leads = account_pulse.get('mtd_pacing', {}).get('pacing_leads_pct', 0) or 0
+    ctx_msg = f"GOOGLE ADS: Spend ₹{daily_spend:,.0f}, CPL ₹{overall_cpl:,.0f}. MTD Pacing: {pacing_spend:.0f}% spend vs {pacing_leads:.0f}% leads."
     strategic_narrative = pie_engine.generate_strategic_narrative(ctx_msg, previous_narrative=prev_narrative)
     print(f"  Strategic Narrative: {strategic_narrative}")
     for ins in intellect:

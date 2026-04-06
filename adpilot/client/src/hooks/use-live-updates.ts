@@ -4,43 +4,58 @@ import { queryClient } from "@/lib/queryClient";
 /**
  * SSE hook that listens for live server events and invalidates
  * React Query caches when data is refreshed (e.g., after scheduler run).
+ * Reconnects automatically on connection loss.
  */
 export function useLiveUpdates() {
   const esRef = useRef<EventSource | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const es = new EventSource("/api/events");
-    esRef.current = es;
+    let disposed = false;
 
-    const invalidateSyncState = () => {
-      queryClient.invalidateQueries({
-        predicate: (query) =>
-          Array.isArray(query.queryKey) && query.queryKey.includes("sync-state"),
+    function connect() {
+      if (disposed) return;
+
+      const es = new EventSource("/api/events");
+      esRef.current = es;
+
+      const invalidateSyncState = () => {
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey.includes("sync-state"),
+        });
+      };
+
+      es.addEventListener("data-refreshed", () => {
+        queryClient.invalidateQueries();
       });
-    };
 
-    es.addEventListener("data-refreshed", () => {
-      // Invalidate all analysis queries so pages re-fetch
-      queryClient.invalidateQueries();
-    });
+      es.addEventListener("agent-run-started", () => {
+        invalidateSyncState();
+        console.log("[SSE] Agent run started");
+      });
 
-    es.addEventListener("agent-run-started", () => {
-      invalidateSyncState();
-      console.log("[SSE] Agent run started");
-    });
+      es.addEventListener("agent-run-failed", (e) => {
+        invalidateSyncState();
+        console.warn("[SSE] Agent run failed:", e.data);
+      });
 
-    es.addEventListener("agent-run-failed", (e) => {
-      invalidateSyncState();
-      console.warn("[SSE] Agent run failed:", e.data);
-    });
+      es.onerror = () => {
+        es.close();
+        esRef.current = null;
+        if (!disposed) {
+          retryTimeoutRef.current = setTimeout(connect, 3000);
+        }
+      };
+    }
 
-    es.onerror = () => {
-      // EventSource auto-reconnects
-    };
+    connect();
 
     return () => {
-      es.close();
+      disposed = true;
+      esRef.current?.close();
       esRef.current = null;
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
     };
   }, []);
 }
