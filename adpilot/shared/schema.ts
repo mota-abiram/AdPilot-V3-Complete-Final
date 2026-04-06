@@ -27,6 +27,20 @@ export const clients = pgTable("clients", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const clientCredentials = pgTable("client_credentials", {
+  clientId: text("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+  meta: jsonb("meta").$type<{ accessToken: string; adAccountId: string }>(),
+  google: jsonb("google").$type<{
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+    developerToken: string;
+    mccId: string;
+    customerId: string;
+  }>(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const creativeHubs = pgTable("creative_hubs", {
   clientId: text("client_id").primaryKey(),
   setup: jsonb("setup").default(null),
@@ -55,6 +69,7 @@ export type ApiConfig = typeof apiConfigs.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type CreativeHub = typeof creativeHubs.$inferSelect;
 export type ActionLog = typeof actionLogs.$inferSelect;
+export type ClientCredential = typeof clientCredentials.$inferSelect;
 
 export interface AnalysisPeriod {
   start: string;

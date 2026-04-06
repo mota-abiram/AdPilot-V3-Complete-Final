@@ -156,10 +156,10 @@ export default function GoogleSearchTermsPage() {
   const campaigns = useMemo(() => {
     if (!stData) return [];
     const allTerms = [
-      ...(stData.all_terms || []),
-      ...(stData.negative_candidates || []),
-      ...(stData.competitor_terms || []),
-      ...(stData.high_value_terms || []),
+      ...(Array.isArray(stData.all_terms) ? stData.all_terms : []),
+      ...(Array.isArray(stData.negative_candidates) ? stData.negative_candidates : []),
+      ...(Array.isArray(stData.competitor_terms) ? stData.competitor_terms : []),
+      ...(Array.isArray(stData.high_value_terms) ? stData.high_value_terms : []),
     ];
     const campSet = new Map<string, string>();
     allTerms.forEach((t) => {
@@ -210,10 +210,10 @@ export default function GoogleSearchTermsPage() {
     let list: SearchTermEntry[] = [];
     switch (activeTab) {
       case "all":
-        list = stData.all_terms || [
-          ...(stData.negative_candidates || []),
-          ...(stData.competitor_terms || []),
-          ...(stData.high_value_terms || []),
+        list = Array.isArray(stData.all_terms) ? stData.all_terms : [
+          ...(Array.isArray(stData.negative_candidates) ? stData.negative_candidates : []),
+          ...(Array.isArray(stData.competitor_terms) ? stData.competitor_terms : []),
+          ...(Array.isArray(stData.high_value_terms) ? stData.high_value_terms : []),
         ];
         break;
       case "high_value":
@@ -358,10 +358,10 @@ export default function GoogleSearchTermsPage() {
     // Default to first campaign in selection
     const firstKey = Array.from(selectedTermKeys)[0];
     const allTermsList = stData ? [
-      ...(stData.all_terms || []),
-      ...(stData.negative_candidates || []),
-      ...(stData.competitor_terms || []),
-      ...(stData.high_value_terms || []),
+      ...(Array.isArray(stData.all_terms) ? stData.all_terms : []),
+      ...(Array.isArray(stData.negative_candidates) ? stData.negative_candidates : []),
+      ...(Array.isArray(stData.competitor_terms) ? stData.competitor_terms : []),
+      ...(Array.isArray(stData.high_value_terms) ? stData.high_value_terms : []),
     ] : [];
     const firstTerm = allTermsList.find(t => getTermKey(t) === firstKey);
     setBulkCampaignId(firstTerm?.campaign_id || campaigns[0]?.id || "");

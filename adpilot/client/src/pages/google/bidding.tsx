@@ -260,7 +260,7 @@ function ActionDialog({
               </div>
               {state.type !== "reject" && (
                 <div className="space-y-1 text-[11px] text-muted-foreground">
-                  {state.campaign.reasons.map((r, i) => (
+                  {(Array.isArray(state.campaign.reasons) ? state.campaign.reasons : []).map((r, i) => (
                     <div key={i} className="flex items-start gap-1.5">
                       <span className="text-primary mt-0.5">·</span>
                       <span>{r}</span>
@@ -326,8 +326,9 @@ function CampaignRecommendationRow({
   const [expanded, setExpanded] = useState(false);
   const rec = getRecommendationConfig(camp.recommendation);
   const conf = getConfidenceConfig(camp.confidence);
-  const criticalAlerts = camp.alerts.filter((a) => a.severity === "critical");
-  const warningAlerts = camp.alerts.filter((a) => a.severity === "warning");
+  const alerts = Array.isArray(camp.alerts) ? camp.alerts : [];
+  const criticalAlerts = alerts.filter((a) => a.severity === "critical");
+  const warningAlerts = alerts.filter((a) => a.severity === "warning");
 
   return (
     <div className={cn(
@@ -475,7 +476,7 @@ function CampaignRecommendationRow({
           </div>
 
           {/* Alerts */}
-          {camp.alerts.length > 0 && (
+          {Array.isArray(camp.alerts) && camp.alerts.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-3">
               {camp.alerts.map((alert, i) => {
                 const ac = getAlertConfig(alert.severity);
@@ -505,7 +506,7 @@ function CampaignRecommendationRow({
               <span>{rec.label}</span>
             </div>
             <div className="text-muted-foreground space-y-0.5">
-              {camp.reasons.map((r, i) => (
+              {(Array.isArray(camp.reasons) ? camp.reasons : []).map((r, i) => (
                 <div key={i}>· {r}</div>
               ))}
             </div>
@@ -795,11 +796,12 @@ export default function GoogleBiddingPage() {
     );
   }
 
-  const meta = data.meta;
-  const tcpaSwitchCandidates = data.campaigns.filter((c) => c.recommendation === "switch_tcpa").length;
-  const holdCandidates = data.campaigns.filter((c) => c.recommendation === "hold").length;
-  const criticalAlertCount = data.campaigns.reduce(
-    (sum, c) => sum + c.alerts.filter((a) => a.severity === "critical").length, 0
+  const meta = data?.meta || { total_campaigns: 0, alert_count: 0 };
+  const campaignList = Array.isArray(data?.campaigns) ? data.campaigns : [];
+  const tcpaSwitchCandidates = campaignList.filter((c) => c.recommendation === "switch_tcpa").length;
+  const holdCandidates = campaignList.filter((c) => c.recommendation === "hold").length;
+  const criticalAlertCount = campaignList.reduce(
+    (sum, c) => sum + (Array.isArray(c.alerts) ? c.alerts.filter((a) => a.severity === "critical").length : 0), 0
   );
 
   return (

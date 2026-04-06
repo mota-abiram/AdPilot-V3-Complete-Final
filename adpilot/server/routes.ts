@@ -61,6 +61,7 @@ import {
   type CreativeStatusTag,
 } from "./creative-hub";
 import { generateBiddingRecommendations } from "./bidding-intelligence";
+import { storage } from "./storage";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
 // The registry is now persisted to disk so clients added via the UI survive restarts.
@@ -170,39 +171,53 @@ function ensureDataDir() {
   if (!fs.existsSync(DATA_BASE)) fs.mkdirSync(DATA_BASE, { recursive: true });
 }
 
-function loadRegistry(): ClientConfig[] {
-  ensureDataDir();
-  if (!fs.existsSync(REGISTRY_FILE)) {
-    const initial = [DEFAULT_CLIENT];
-    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(initial, null, 2));
-    return initial;
-  }
-  try {
-    return JSON.parse(fs.readFileSync(REGISTRY_FILE, "utf-8")) as ClientConfig[];
-  } catch {
-    return [DEFAULT_CLIENT];
-  }
+async function loadRegistry(): Promise<ClientConfig[]> {
+  const clients = await storage.getAllClients();
+  if (clients.length === 0) return [DEFAULT_CLIENT];
+  // Cast DB schema to ClientConfig interface
+  return clients.map(c => ({
+    ...c,
+    targetLocations: c.targetLocations as string[] || [],
+    platforms: c.platforms as Record<string, PlatformConfig>,
+    targets: c.targets as Record<string, ClientTargets> || {},
+    createdAt: c.createdAt?.toISOString()
+  }));
 }
 
-function saveRegistry(registry: ClientConfig[]): void {
-  ensureDataDir();
-  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2));
-}
-
-function loadCredentials(): Record<string, ClientCredentials> {
-  ensureDataDir();
-  if (!fs.existsSync(CREDENTIALS_FILE)) return {};
-  try {
-    const arr = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8")) as ClientCredentials[];
-    return Object.fromEntries(arr.map((c) => [c.clientId, c]));
-  } catch {
-    return {};
+async function saveRegistry(registry: ClientConfig[]): Promise<void> {
+  // Logic to sync the entire registry is replaced by per-client atomic storage methods.
+  // We keep this function sig for easier refactoring of routes.
+  for (const client of registry) {
+    const existing = await storage.getClient(client.id);
+    if (existing) {
+      await storage.updateClient(client.id, client);
+    } else {
+      await storage.createClient(client);
+    }
   }
 }
 
-function saveCredentials(store: Record<string, ClientCredentials>): void {
-  ensureDataDir();
-  fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify(Object.values(store), null, 2));
+async function loadCredentials(): Promise<Record<string, ClientCredentials>> {
+  const clients = await storage.getAllClients();
+  const result: Record<string, ClientCredentials> = {};
+  for (const c of clients) {
+    const creds = await storage.getCredentials(c.id);
+    if (creds) {
+      result[c.id] = {
+        clientId: c.id,
+        meta: creds.meta ? { accessToken: creds.meta.accessToken, adAccountId: creds.meta.adAccountId } : undefined,
+        google: creds.google as any,
+        updatedAt: creds.updatedAt?.toISOString() || ""
+      };
+    }
+  }
+  return result;
+}
+
+async function saveCredentials(store: Record<string, ClientCredentials>): Promise<void> {
+  for (const [clientId, data] of Object.entries(store)) {
+    await storage.saveCredentials(clientId, data);
+  }
 }
 
 function isPlaceholderSecret(value?: string): boolean {
@@ -267,7 +282,7 @@ function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): 
 }
 
 // Live in-memory registry (loaded at startup, mutated by CRUD APIs)
-let CLIENT_REGISTRY: ClientConfig[] = loadRegistry();
+// Live registry is now loaded on-demand via await loadRegistry()
 
 // Also support the legacy flat file path as a fallback for amara/meta
 const LEGACY_META_PATH = path.join(DATA_BASE, "meta_analysis_v2.json");
@@ -411,7 +426,8 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
 
   // 2. File fallback
   if (!raw) {
-    const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
+    const currentRegistry = await loadRegistry();
+    const client = currentRegistry.find((c) => c.id === clientId);
     if (!client) {
       throw new Error(`Client '${clientId}' not found in registry`);
     }
@@ -444,8 +460,9 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
 }
 
 // List available cadence files for a client/platform
-function listCadences(clientId: string, platform: string): string[] {
-  const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
+async function listCadences(clientId: string, platform: string): Promise<string[]> {
+  const currentRegistry = await loadRegistry();
+  const client = currentRegistry.find((c) => c.id === clientId);
   if (!client) return [];
   const platformConfig = client.platforms[platform];
   if (!platformConfig) return [];
@@ -461,8 +478,9 @@ function listCadences(clientId: string, platform: string): string[] {
 }
 
 // ─── Helper: get benchmarks from registry targets ─────────────────
-function getDefaultBenchmarks(clientId: string, platform?: string): any {
-  const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
+async function getDefaultBenchmarks(clientId: string, platform?: string): Promise<any> {
+  const currentRegistry = await loadRegistry();
+  const client = currentRegistry.find((c) => c.id === clientId);
   const targets = client?.targets;
 
   // Use the specified platform's targets, or fall back to meta, or use hardcoded defaults
@@ -508,10 +526,10 @@ export async function registerRoutes(
 
   // ─── Client Registry Endpoints ─────────────────────────────────
   
-  // List all clients
   app.get("/api/clients", async (_req, res) => {
+    const registry = await loadRegistry();
     // Collect all platforms across all clients to check DB presence efficiently
-    const platformStatusPromises = CLIENT_REGISTRY.flatMap(c => 
+    const platformStatusPromises = registry.flatMap(c => 
       Object.keys(c.platforms).map(async (platformId) => {
         // 1. Filesystem check
         const fileExists = fs.existsSync(resolvePlatformDataPath(c.id, platformId, (c.platforms as any)[platformId])) ||
@@ -543,7 +561,7 @@ export async function registerRoutes(
     const statusMap = new Map<string, boolean>();
     platformStatuses.forEach(s => statusMap.set(`${s.clientId}:${s.platformId}`, s.hasData));
 
-    const clients = CLIENT_REGISTRY.map((c) => ({
+    const clients = registry.map((c) => ({
       id: c.id,
       name: c.name,
       shortName: c.shortName,
@@ -562,8 +580,9 @@ export async function registerRoutes(
   });
 
   // Get single client details
-  app.get("/api/clients/:clientId", (req, res) => {
-    const client = CLIENT_REGISTRY.find((c) => c.id === req.params.clientId);
+  app.get("/api/clients/:clientId", async (req, res) => {
+    const registry = await loadRegistry();
+    const client = registry.find((c) => c.id === req.params.clientId);
     if (!client) {
       return res.status(404).json({ error: "Client not found" });
     }
@@ -594,13 +613,14 @@ export async function registerRoutes(
   }
 
   // POST /api/clients — create a new client
-  app.post("/api/clients", (req, res) => {
+  app.post("/api/clients", async (req, res) => {
     const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Client name is required" });
     }
     const id = toClientId(name.trim());
-    if (CLIENT_REGISTRY.find((c) => c.id === id)) {
+    const registry = await loadRegistry();
+    if (registry.find((c) => c.id === id)) {
       return res.status(409).json({ error: `A client with id '${id}' already exists` });
     }
     const newClient: ClientConfig = {
@@ -631,18 +651,17 @@ export async function registerRoutes(
     fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/meta`), { recursive: true });
     fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/google`), { recursive: true });
 
-    CLIENT_REGISTRY.push(newClient);
-    saveRegistry(CLIENT_REGISTRY);
+    await storage.createClient(newClient);
     res.status(201).json({ id, name: newClient.name, shortName: newClient.shortName });
   });
 
   // PUT /api/clients/:clientId — update name, location, targets, platform enable/disable
-  app.put("/api/clients/:clientId", (req, res) => {
-    const idx = CLIENT_REGISTRY.findIndex((c) => c.id === req.params.clientId);
-    if (idx === -1) return res.status(404).json({ error: "Client not found" });
-    const existing = CLIENT_REGISTRY[idx];
+  app.put("/api/clients/:clientId", async (req, res) => {
+    const existing = await storage.getClient(req.params.clientId);
+    if (!existing) return res.status(404).json({ error: "Client not found" });
     const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle, targets } = req.body;
-    CLIENT_REGISTRY[idx] = {
+    
+    const updatedClient = {
       ...existing,
       name: (name || existing.name).trim(),
       shortName: (shortName || existing.shortName).trim(),
@@ -653,36 +672,34 @@ export async function registerRoutes(
         : existing.targetLocations,
       platforms: {
         ...existing.platforms,
-        meta: { ...existing.platforms.meta, enabled: enableMeta !== undefined ? Boolean(enableMeta) : existing.platforms.meta?.enabled },
-        google: { ...existing.platforms.google, enabled: enableGoogle !== undefined ? Boolean(enableGoogle) : existing.platforms.google?.enabled },
+        meta: { ...existing.platforms.meta, enabled: enableMeta !== undefined ? Boolean(enableMeta) : (existing.platforms as any).meta?.enabled },
+        google: { ...existing.platforms.google, enabled: enableGoogle !== undefined ? Boolean(enableGoogle) : (existing.platforms as any).google?.enabled },
       },
       targets: targets !== undefined ? targets : existing.targets,
     };
-    saveRegistry(CLIENT_REGISTRY);
+    
+    await storage.updateClient(req.params.clientId, updatedClient);
     res.json({ success: true, id: req.params.clientId });
   });
 
   // DELETE /api/clients/:clientId — remove from registry (data files preserved)
-  app.delete("/api/clients/:clientId", (req, res) => {
+  app.delete("/api/clients/:clientId", async (req, res) => {
     const { clientId } = req.params;
     if (clientId === "amara") {
       return res.status(403).json({ error: "The default client cannot be deleted" });
     }
-    const idx = CLIENT_REGISTRY.findIndex((c) => c.id === clientId);
-    if (idx === -1) return res.status(404).json({ error: "Client not found" });
-    CLIENT_REGISTRY.splice(idx, 1);
-    saveRegistry(CLIENT_REGISTRY);
-    // Also remove credentials
-    const creds = loadCredentials();
-    delete creds[clientId];
-    saveCredentials(creds);
+    const existing = await storage.getClient(clientId);
+    if (!existing) return res.status(404).json({ error: "Client not found" });
+    
+    await storage.deleteClient(clientId);
+    await storage.deleteCredentials(clientId);
     res.json({ success: true });
   });
 
   // GET /api/clients/:clientId/credentials — return masked credentials (for display)
-  app.get("/api/clients/:clientId/credentials", (req, res) => {
-    const creds = loadCredentials();
-    const c = creds[req.params.clientId];
+  app.get("/api/clients/:clientId/credentials", async (req, res) => {
+    const credsStore = await loadCredentials();
+    const c = credsStore[req.params.clientId];
     const envMeta = getDefaultMetaCredsFromEnv();
     const envGoogle = getDefaultGoogleCredsFromEnv();
     const clientMeta = getValidMetaCreds(c);
@@ -712,14 +729,15 @@ export async function registerRoutes(
   });
 
   // PUT /api/clients/:clientId/credentials — save/update credentials
-  app.put("/api/clients/:clientId/credentials", (req, res) => {
+  app.put("/api/clients/:clientId/credentials", async (req, res) => {
     const { clientId } = req.params;
-    if (!CLIENT_REGISTRY.find((c) => c.id === clientId)) {
+    const client = await storage.getClient(clientId);
+    if (!client) {
       return res.status(404).json({ error: "Client not found" });
     }
     const { meta, google } = req.body;
-    const creds = loadCredentials();
-    const existing = creds[clientId] || { clientId, updatedAt: "" };
+    const credsStore = await loadCredentials();
+    const existing = credsStore[clientId] || { clientId, updatedAt: "" };
 
     if (meta) {
       const { accessToken, adAccountId } = meta;
@@ -745,8 +763,8 @@ export async function registerRoutes(
     }
 
     existing.updatedAt = new Date().toISOString();
-    creds[clientId] = existing;
-    saveCredentials(creds);
+    credsStore[clientId] = existing;
+    await saveCredentials(credsStore);
 
     // Keep the legacy Python credentials file aligned for local scripts.
     if (google) {
@@ -779,9 +797,10 @@ export async function registerRoutes(
   app.get("/api/clients/:clientId/platforms/:platform/analysis", handleAnalysisRequest);
   app.get("/api/clients/:clientId/:platform/analysis", handleAnalysisRequest);
 
-  app.get("/api/clients/:clientId/:platform/sync-state", (req, res) => {
+  app.get("/api/clients/:clientId/:platform/sync-state", async (req, res) => {
     try {
-      const client = CLIENT_REGISTRY.find((entry) => entry.id === req.params.clientId);
+      const registry = await loadRegistry();
+      const client = registry.find((entry) => entry.id === req.params.clientId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
@@ -1684,18 +1703,18 @@ export async function registerRoutes(
     return path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
   }
 
-  app.get("/api/clients/:clientId/benchmarks", (req, res) => {
+  app.get("/api/clients/:clientId/benchmarks", async (req, res) => {
     const { clientId } = req.params;
     const platform = (req.query.platform as string) || "meta";
     const benchPath = getBenchmarksPath(clientId);
     if (!fs.existsSync(benchPath)) {
-      return res.json({ ...getDefaultBenchmarks(clientId, platform), updated_at: null });
+      return res.json({ ...(await getDefaultBenchmarks(clientId, platform)), updated_at: null });
     }
     try {
       const data = JSON.parse(fs.readFileSync(benchPath, "utf-8"));
       res.json(data);
     } catch {
-      res.json({ ...getDefaultBenchmarks(clientId, platform), updated_at: null });
+      res.json({ ...(await getDefaultBenchmarks(clientId, platform)), updated_at: null });
     }
   });
 
@@ -1718,7 +1737,8 @@ export async function registerRoutes(
   app.get("/api/clients/:clientId/:platform/breakdowns", async (req, res) => {
     const { clientId, platform } = req.params;
     const cadence = req.query.cadence as string | undefined;
-    const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
+    const currentRegistry = await loadRegistry();
+    const client = currentRegistry.find((c) => c.id === clientId);
     if (!client) {
       return res.status(404).json({ error: "Client not found" });
     }
@@ -1765,7 +1785,8 @@ export async function registerRoutes(
   app.get("/api/clients/:clientId/:platform/breakdowns/:campaignId", async (req, res) => {
     const { clientId, platform, campaignId } = req.params;
     const cadence = req.query.cadence as string | undefined;
-    const client = CLIENT_REGISTRY.find((c) => c.id === clientId);
+    const currentRegistry = await loadRegistry();
+    const client = currentRegistry.find((c) => c.id === clientId);
     if (!client) {
       return res.status(404).json({ error: "Client not found" });
     }
@@ -2183,7 +2204,8 @@ export async function registerRoutes(
     const { client_id: clientId } = req.query;
     if (!clientId) return res.status(400).json({ error: "client_id is required" });
 
-    const client = CLIENT_REGISTRY.find(c => c.id === clientId);
+    const currentRegistry = await loadRegistry();
+    const client = currentRegistry.find(c => c.id === clientId);
     if (!client) return res.status(404).json({ error: "Client not found" });
 
     let totalSpend = 0;
@@ -2935,7 +2957,7 @@ export async function registerRoutes(
       }
 
       // Load client config and analysis data
-      const registry = loadRegistry();
+      const registry = await loadRegistry();
       const client = registry.find((c) => c.id === clientId);
       if (!client) {
         return res.status(404).json({ error: `Client "${clientId}" not found` });

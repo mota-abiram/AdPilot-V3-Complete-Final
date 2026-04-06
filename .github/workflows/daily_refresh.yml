@@ -35,17 +35,12 @@ jobs:
       - name: Create Data Directory
         run: mkdir -p ads_agent/data
 
-      - name: Run Meta Ads Agent
+      - name: Run Agents
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Fallback secrets for single-client setup
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           META_AD_ACCOUNT_ID: ${{ secrets.META_AD_ACCOUNT_ID }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENAPI_API_KEY: ${{ secrets.OPENAPI_API_KEY }}
-        run: |
-          python ads_agent/meta_ads_agent_v2.py --multi-cadence
-
-      - name: Run Google Ads Agent
-        env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
@@ -55,7 +50,26 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENAPI_API_KEY: ${{ secrets.OPENAPI_API_KEY }}
         run: |
-          python ads_agent/google_ads_agent_v2.py --multi-cadence
+          echo "Syncing clients from database..."
+          python ads_agent/fetch_clients.py
+          
+          REG_PATH="ads_agent/data/clients_registry.json"
+          
+          if [ -f "$REG_PATH" ]; then
+            echo "Processing clients from registry..."
+            # Loop through each client ID found in the registry
+            for client in $(jq -r '.[] | .id' "$REG_PATH"); do
+              echo "------------------------------------------------------"
+              echo "RUNNING ANALYSIS FOR CLIENT: $client"
+              echo "------------------------------------------------------"
+              python ads_agent/meta_ads_agent_v2.py --multi-cadence --client "$client" || echo "Meta analysis failed for $client"
+              python ads_agent/google_ads_agent_v2.py --multi-cadence --client "$client" || echo "Google analysis failed for $client"
+            done
+          else
+            echo "No registry found. Running default configuration (Amara)."
+            python ads_agent/meta_ads_agent_v2.py --multi-cadence
+            python ads_agent/google_ads_agent_v2.py --multi-cadence
+          fi
 
       - name: Commit and Push Data Updates
         run: |

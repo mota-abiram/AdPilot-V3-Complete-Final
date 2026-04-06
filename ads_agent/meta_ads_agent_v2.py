@@ -40,10 +40,49 @@ from intelligence_engines import PerformanceIntelligenceEngine, PatternDetection
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CONFIG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-AD_ACCOUNT_ID = "391022327028566"
+# ── Resolve client ID early (from --client arg or ADPILOT_CLIENT_ID env var) ──
+def _resolve_client_id():
+    import argparse as _ap
+    p = _ap.ArgumentParser(add_help=False)
+    p.add_argument("--client", default=None)
+    known, _ = p.parse_known_args()
+    return known.client or os.environ.get("ADPILOT_CLIENT_ID", "amara")
+
+_CLIENT_ID = _resolve_client_id()
+
+# ── Load per-client credentials from clients_credentials.json ──
+def _load_meta_credentials(client_id):
+    creds_path = os.path.join(os.path.dirname(__file__), "data", "clients_credentials.json")
+    if os.path.exists(creds_path):
+        try:
+            with open(creds_path) as f:
+                arr = json.load(f)
+            for entry in arr:
+                if entry.get("clientId") == client_id:
+                    m = entry.get("meta", {})
+                    if m:
+                        return {
+                            "ad_account_id": m.get("adAccountId", ""),
+                            "access_token": m.get("accessToken", ""),
+                        }
+        except Exception:
+            pass
+    return None
+
+_client_creds = _load_meta_credentials(_CLIENT_ID)
+if _client_creds:
+    # Inject into environment so rest of script picks them up
+    if _client_creds["ad_account_id"]:
+        os.environ["META_AD_ACCOUNT_ID"] = _client_creds["ad_account_id"]
+    if _client_creds["access_token"]:
+        os.environ["META_ACCESS_TOKEN"] = _client_creds["access_token"]
+
+# Final Configuration
+AD_ACCOUNT_ID = os.environ.get("META_AD_ACCOUNT_ID", "391022327028566")
 ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN", "")
+
+# Legacy Fallback (optional)
 if not ACCESS_TOKEN:
-    # Fallback: try reading from credentials file
     creds_path = os.path.join(os.path.dirname(__file__), "meta_credentials.json")
     if os.path.exists(creds_path):
         with open(creds_path) as f:
@@ -72,7 +111,7 @@ CADENCE_WINDOWS = {
 }
 
 # ── Load Benchmarks from File (Single Source of Truth) ──
-BENCHMARKS_PATH = os.path.join(DATA_DIR, "clients", "amara", "benchmarks.json")
+BENCHMARKS_PATH = os.path.join(DATA_DIR, "clients", _CLIENT_ID, "benchmarks.json")
 _BENCHMARKS_LOADED = False
 _BENCHMARKS = {}
 if os.path.exists(BENCHMARKS_PATH):
@@ -3268,6 +3307,8 @@ def main():
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Mojo Performance Agent v3 — Meta Ads (Multi-Cadence)")
+    parser.add_argument("--client", default=_CLIENT_ID,
+                        help="Client ID to analyze (defaults to amara)")
     parser.add_argument("--cadence", choices=["daily", "twice_weekly", "weekly", "biweekly", "monthly"],
                         default="twice_weekly",
                         help="Primary SOP cadence")

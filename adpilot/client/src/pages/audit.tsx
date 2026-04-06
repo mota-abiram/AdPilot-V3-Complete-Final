@@ -103,14 +103,14 @@ function getCostStack(data: any): { cpm: number; ctr: number; cpc: number; cpl: 
 }
 
 function getCreativeHealth(data: any): { adsAnalyzed: number; tsrFailing: number; vhrFailing: number; ffrFailing: number; details: any[] } {
-  const ads = data?.creative_health || [];
+  const ads = Array.isArray(data?.creative_health) ? data.creative_health : [];
   const t = data?.dynamic_thresholds || {};
   const tsrMin = t.tsr_min ?? 30;
   const vhrMin = t.vhr_min ?? 25;
   const ffrMin = 90;
-  const tsrFailing = ads.filter((a: any) => (a.tsr ?? a.thumb_stop_rate ?? 0) < tsrMin).length;
-  const vhrFailing = ads.filter((a: any) => (a.vhr ?? a.hold_rate ?? 0) < vhrMin).length;
-  const ffrFailing = ads.filter((a: any) => (a.ffr ?? a.first_frame_rate ?? 100) < ffrMin).length;
+  const tsrFailing = ads.filter((a: any) => (a?.tsr ?? a?.thumb_stop_rate ?? 0) < tsrMin).length;
+  const vhrFailing = ads.filter((a: any) => (a?.vhr ?? a?.hold_rate ?? 0) < vhrMin).length;
+  const ffrFailing = ads.filter((a: any) => (a?.ffr ?? a?.first_frame_rate ?? 100) < ffrMin).length;
   return { adsAnalyzed: ads.length, tsrFailing, vhrFailing, ffrFailing, details: ads };
 }
 
@@ -136,25 +136,26 @@ function getGoogleSpendVsPlan(data: any): { actual: number; plan: number; pct: n
 }
 
 function getGoogleCvrOutliers(data: any): any[] {
-  const campaigns = data?.campaigns || [];
-  const adGroups = campaigns.flatMap((c: any) => (c.ad_groups || []).map((ag: any) => ({ ...ag, campaign_name: c.name })));
-  // Flag ad groups with CVR < 50% of overall avg
-  const totalClicks = adGroups.reduce((s: number, ag: any) => s + (ag.clicks || 0), 0);
-  const totalConv = adGroups.reduce((s: number, ag: any) => s + (ag.conversions || 0), 0);
+  const campaigns = Array.isArray(data?.campaigns) ? data.campaigns : [];
+  const adGroups = campaigns.flatMap((c: any) => (Array.isArray(c?.ad_groups) ? c.ad_groups : []).map((ag: any) => ({ ...ag, campaign_name: c?.name || "Unknown" })));
+  
+  const totalClicks = adGroups.reduce((s: number, ag: any) => s + (ag?.clicks || 0), 0);
+  const totalConv = adGroups.reduce((s: number, ag: any) => s + (ag?.conversions || 0), 0);
   const avgCvr = totalClicks > 0 ? (totalConv / totalClicks) * 100 : 0;
+  
   return adGroups.filter((ag: any) => {
-    const agCvr = ag.clicks > 0 ? ((ag.conversions || 0) / ag.clicks) * 100 : 0;
+    const agCvr = ag.clicks > 0 ? ((ag?.conversions || 0) / ag.clicks) * 100 : 0;
     return ag.clicks > 50 && agCvr < avgCvr * 0.5;
   });
 }
 
 function getGoogleISData(data: any, type: string): { is: number; lostRank: number; lostBudget: number } {
-  const campaigns = data?.campaigns || [];
-  const filtered = campaigns.filter((c: any) => (c.campaign_type || c.theme || "") === type);
+  const campaigns = Array.isArray(data?.campaigns) ? data.campaigns : [];
+  const filtered = campaigns.filter((c: any) => (c?.campaign_type || c?.theme || "") === type);
   if (filtered.length === 0) return { is: 0, lostRank: 0, lostBudget: 0 };
-  const avgIS = filtered.reduce((s: number, c: any) => s + (c.search_impression_share || c.impression_share || 0), 0) / filtered.length;
-  const avgLostRank = filtered.reduce((s: number, c: any) => s + (c.search_is_lost_rank || c.is_lost_rank || 0), 0) / filtered.length;
-  const avgLostBudget = filtered.reduce((s: number, c: any) => s + (c.search_is_lost_budget || c.is_lost_budget || 0), 0) / filtered.length;
+  const avgIS = filtered.reduce((s: number, c: any) => s + (c?.search_impression_share || c?.impression_share || 0), 0) / filtered.length;
+  const avgLostRank = filtered.reduce((s: number, c: any) => s + (c?.search_is_lost_rank || c?.is_lost_rank || 0), 0) / filtered.length;
+  const avgLostBudget = filtered.reduce((s: number, c: any) => s + (c?.search_is_lost_budget || c?.is_lost_budget || 0), 0) / filtered.length;
   return { is: avgIS, lostRank: avgLostRank, lostBudget: avgLostBudget };
 }
 
@@ -170,11 +171,11 @@ function getGoogleDGCPM(data: any): number {
 }
 
 function getGoogleQSData(data: any): { avgQS: number; below6Count: number; total: number; details: any[] } {
-  const campaigns = data?.campaigns || [];
-  const adGroups = campaigns.flatMap((c: any) => (c.ad_groups || []).map((ag: any) => ({ ...ag, campaign_name: c.name })));
-  const withQS = adGroups.filter((ag: any) => ag.quality_score != null && ag.quality_score > 0);
-  const avgQS = withQS.length > 0 ? withQS.reduce((s: number, ag: any) => s + ag.quality_score, 0) / withQS.length : 0;
-  const below6 = withQS.filter((ag: any) => ag.quality_score < 6);
+  const campaigns = Array.isArray(data?.campaigns) ? data.campaigns : [];
+  const adGroups = campaigns.flatMap((c: any) => (Array.isArray(c?.ad_groups) ? c.ad_groups : []).map((ag: any) => ({ ...ag, campaign_name: c?.name || "Unknown" })));
+  const withQS = adGroups.filter((ag: any) => ag?.quality_score != null && ag?.quality_score > 0);
+  const avgQS = withQS.length > 0 ? withQS.reduce((s: number, ag: any) => s + (ag?.quality_score || 0), 0) / withQS.length : 0;
+  const below6 = withQS.filter((ag: any) => ag?.quality_score < 6);
   return { avgQS, below6Count: below6.length, total: withQS.length, details: below6 };
 }
 
@@ -347,12 +348,12 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
         sopText: "Queue 2 new creative variants per struggling ad set (reuse best motifs: price on image, benefits, testimonials, memes, collage)",
         icon: Palette,
         getData: (data) => {
-          const struggling = (data?.adset_analysis || []).filter((a: any) => a.classification === "UNDERPERFORMER" || a.classification === "WATCH");
+          const struggling = (Array.isArray(data?.adset_analysis) ? data.adset_analysis : []).filter((a: any) => a.classification === "UNDERPERFORMER" || a.classification === "WATCH");
           const status: CheckStatus = struggling.length > 0 ? "warning" : "pass";
           return {
             status,
             currentValue: struggling.length > 0 ? `${struggling.length} struggling ad set(s) need fresh creatives` : "No struggling ad sets",
-            detail: struggling.length > 0 ? struggling.map((a: any) => a.adset_name || a.name).slice(0, 3).join(", ") : "All ad sets performing well",
+            detail: struggling.length > 0 ? struggling.map((a: any) => a.adset_name || a?.name).slice(0, 3).join(", ") : "All ad sets performing well",
             recommendation: struggling.length > 0 ? "Queue 2 new creative variants per struggling ad set — reuse winning motifs" : undefined,
           };
         },
@@ -394,15 +395,15 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         sopText: "Compare TOFU vs TOFU, MOFU vs MOFU, BOFU vs BOFU. Don't cross-compare. Slash bottom 30% in every stage",
         icon: Layers,
         getData: (data) => {
-          const campaigns = data?.campaign_audit || [];
+          const campaigns = Array.isArray(data?.campaign_audit) ? data.campaign_audit : [];
           const byLayer: Record<string, any[]> = {};
           campaigns.forEach((c: any) => {
-            const layer = c.layer || c.funnel_stage || "UNKNOWN";
+            const layer = c?.layer || c?.funnel_stage || "UNKNOWN";
             if (!byLayer[layer]) byLayer[layer] = [];
             byLayer[layer].push(c);
           });
           const layers = Object.keys(byLayer);
-          const underperformers = campaigns.filter((c: any) => c.classification === "UNDERPERFORMER").length;
+          const underperformers = campaigns.filter((c: any) => c?.classification === "UNDERPERFORMER").length;
           return {
             status: underperformers > 0 ? "warning" : "pass",
             currentValue: `${layers.length} funnel layers active · ${underperformers} underperformer(s) to review`,
@@ -422,9 +423,8 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         sopText: "Prospecting (Adv+): keep signals light. MOFU: test lookalikes. BOFU: tight windows, split by recency, A+ OFF",
         icon: Target,
         getData: (data) => {
-          const adsets = data?.adset_analysis || [];
-          const bofu = adsets.filter((a: any) => (a.layer || "").toUpperCase().includes("BOFU"));
-          const mofu = adsets.filter((a: any) => (a.layer || "").toUpperCase().includes("MOFU"));
+          const adsets = Array.isArray(data?.adset_analysis) ? data.adset_analysis : [];
+          const bofu = adsets.filter((a: any) => (a?.layer || "").toUpperCase().includes("BOFU"));
           return {
             status: "warning",
             currentValue: `TOFU/MOFU: ${adsets.length - bofu.length} ad sets · BOFU: ${bofu.length} ad sets`,
@@ -471,8 +471,8 @@ const BIWEEKLY_CHECKLIST: ChecklistSection[] = [
         sopText: "Replace top 20% high-freq ads; mirror winning creative before inventing from scratch. Micro-tweaks can reset creative learning",
         icon: RefreshCw,
         getData: (data) => {
-          const ads = data?.creative_health || [];
-          const highFreq = ads.filter((a: any) => (a.frequency ?? 0) > 2.5);
+          const ads = Array.isArray(data?.creative_health) ? data.creative_health : [];
+          const highFreq = ads.filter((a: any) => (a?.frequency ?? 0) > 2.5);
           const status: CheckStatus = highFreq.length > 0 ? "warning" : "pass";
           return {
             status,

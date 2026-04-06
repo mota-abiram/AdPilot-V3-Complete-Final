@@ -208,12 +208,14 @@ export default function DashboardPage() {
   // ─── 1. Helper Functions ─────────────────────────────────────────
 
   function findAdIdByName(adName: string, creativeHealthData: any[]): string | null {
-    const ad = creativeHealthData.find((a: any) => a.ad_name === adName);
+    if (!Array.isArray(creativeHealthData)) return null;
+    const ad = creativeHealthData.find((a: any) => a?.ad_name === adName);
     return ad?.ad_id || null;
   }
 
   function findAdsetByEntity(entity: string, adsetAnalysisData: any[]): { id: string; name: string } | null {
-    const adset = adsetAnalysisData.find((a: any) => entity.includes(a.adset_name) || a.adset_name.includes(entity));
+    if (!Array.isArray(adsetAnalysisData)) return null;
+    const adset = adsetAnalysisData.find((a: any) => entity.includes(a?.adset_name) || a?.adset_name?.includes(entity));
     if (adset) return { id: adset.adset_id, name: adset.adset_name };
     return null;
   }
@@ -437,23 +439,23 @@ export default function DashboardPage() {
     immediate_actions: ((data as any).auto_pause_candidates || []).length,
   };
 
-  const fatigueAlerts: any[] = (data as any).fatigue_alerts || [];
-  const adRecommendations: any[] = (data as any).recommendations || [];
-  const campaignAudit: any[] = (data as any).campaign_audit || (data as any).campaigns || [];
+  const fatigueAlerts: any[] = Array.isArray((data as any).fatigue_alerts) ? (data as any).fatigue_alerts : [];
+  const adRecommendations: any[] = Array.isArray((data as any).recommendations) ? (data as any).recommendations : [];
+  const campaignAudit: any[] = Array.isArray((data as any).campaign_audit) ? (data as any).campaign_audit : Array.isArray((data as any).campaigns) ? (data as any).campaigns : [];
   const costStack = (data as any).cost_stack || {};
   const thresholds = (data as any).dynamic_thresholds || (data as any).thresholds || {};
-  const adsetAnalysis: any[] = (data as any).adset_analysis || [];
-  const creativeHealth: any[] = (data as any).creative_health || [];
-  const intellectInsights = (data as any).intellect_insights || [];
-  const autoPauseCandidates = (data as any).auto_pause_candidates || [];
+  const adsetAnalysis: any[] = Array.isArray((data as any).adset_analysis) ? (data as any).adset_analysis : [];
+  const creativeHealth: any[] = Array.isArray((data as any).creative_health) ? (data as any).creative_health : [];
+  const intellectInsights: any[] = Array.isArray((data as any).intellect_insights) ? (data as any).intellect_insights : [];
+  const autoPauseCandidates: any[] = Array.isArray((data as any).auto_pause_candidates) ? (data as any).auto_pause_candidates : [];
 
   const rawScoringSummary = (data as any).scoring_summary;
   const scoringSummary = adsetAnalysis.length > 0 ? {
     total_adsets: adsetAnalysis.length,
-    winners: adsetAnalysis.filter((a: any) => a.classification === "WINNER").length,
-    watch: adsetAnalysis.filter((a: any) => a.classification === "WATCH").length,
-    underperformers: adsetAnalysis.filter((a: any) => a.classification === "UNDERPERFORMER" || a.classification === "LOSER").length,
-    auto_pause: rawScoringSummary?.ad_scores?.auto_pause || [],
+    winners: adsetAnalysis.filter((a: any) => a?.classification === "WINNER").length,
+    watch: adsetAnalysis.filter((a: any) => a?.classification === "WATCH").length,
+    underperformers: adsetAnalysis.filter((a: any) => a?.classification === "UNDERPERFORMER" || a?.classification === "LOSER").length,
+    auto_pause: Array.isArray(rawScoringSummary?.ad_scores?.auto_pause) ? rawScoringSummary.ad_scores.auto_pause : [],
   } : null;
 
   // Fallback for Google: if daily_spends empty, try daily_trends
@@ -513,9 +515,9 @@ export default function DashboardPage() {
     ? videoCreatives.reduce((s: number, c: any) => s + c.hold_rate_pct * c.impressions, 0) / totalVideoImpressions
     : null;
 
-  const multiMetricChartData = ap.daily_ctrs.map((ctr: number, i: number) => ({
+  const multiMetricChartData = (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((ctr: number, i: number) => ({
     day: dayLabels[i],
-    ctr: parseFloat(ctr.toFixed(2)),
+    ctr: typeof ctr === "number" ? parseFloat(ctr.toFixed(2)) : 0,
     tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
     vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
     cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,

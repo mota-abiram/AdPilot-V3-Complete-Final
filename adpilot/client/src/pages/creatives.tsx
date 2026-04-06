@@ -329,29 +329,31 @@ export default function CreativesPage() {
   }, [activePlatform]);
 
   useEffect(() => {
-    if (!hubData?.threads?.length) {
+    const threads = Array.isArray(hubData?.threads) ? hubData.threads : [];
+    if (!threads.length) {
       setSelectedThreadId(null);
       setSelectedVersionId(null);
       return;
     }
-    if (!selectedThreadId || !hubData.threads.some((thread) => thread.id === selectedThreadId)) {
-      const nextThread = hubData.threads[0];
-      setSelectedThreadId(nextThread.id);
-      setSelectedVersionId(nextThread.activeVersionId);
+    if (!selectedThreadId || !threads.some((thread) => thread?.id === selectedThreadId)) {
+      const nextThread = threads[0];
+      setSelectedThreadId(nextThread?.id || null);
+      setSelectedVersionId(nextThread?.activeVersionId || null);
       setSelectedSection(null);
     }
   }, [hubData?.threads, selectedThreadId]);
 
   const selectedThread = useMemo(
-    () => hubData?.threads.find((thread) => thread.id === selectedThreadId) || null,
+    () => (Array.isArray(hubData?.threads) ? hubData.threads : []).find((thread) => thread?.id === selectedThreadId) || null,
     [hubData?.threads, selectedThreadId],
   );
 
   const selectedVersion = useMemo(() => {
     if (!selectedThread) return null;
+    const versions = Array.isArray(selectedThread.versions) ? selectedThread.versions : [];
     return (
-      selectedThread.versions.find((version) => version.id === (selectedVersionId || selectedThread.activeVersionId)) ||
-      selectedThread.versions[0] ||
+      versions.find((version) => version.id === (selectedVersionId || selectedThread.activeVersionId)) ||
+      versions[0] ||
       null
     );
   }, [selectedThread, selectedVersionId]);
@@ -402,7 +404,8 @@ export default function CreativesPage() {
     },
     onSuccess: (next) => {
       syncHubState(next);
-      const thread = next.threads.find((item) => item.id === selectedThreadId);
+      const threads = Array.isArray(next?.threads) ? next.threads : [];
+      const thread = threads.find((item) => item?.id === selectedThreadId);
       if (thread) setSelectedVersionId(thread.activeVersionId);
       toast({ title: "Section regenerated", description: "Only the selected block changed. The rest stayed intact." });
     },
@@ -722,7 +725,7 @@ export default function CreativesPage() {
             </CardHeader>
             <CardContent className="flex-1 min-h-0 overflow-y-auto p-4">
               <div className="grid gap-3">
-              {hubData?.threads.length ? (
+              {Array.isArray(hubData?.threads) && hubData.threads.length ? (
                 hubData.threads.map((thread) => (
                   <button
                     key={thread.id}
@@ -743,7 +746,7 @@ export default function CreativesPage() {
                       <div className="min-w-0">
                         <p className="text-base font-semibold leading-tight text-foreground line-clamp-2">{thread.title}</p>
                         <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                          {thread.input.platform === "google_display" ? "Google Display" : "Meta"}
+                          {thread.input?.platform === "google_display" ? "Google Display" : "Meta"}
                         </p>
                       </div>
                       <span
@@ -759,7 +762,7 @@ export default function CreativesPage() {
                     <div className="rounded-[12px] bg-muted/35 px-3 py-2.5">
                       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Offer</p>
                       <p className="mt-1 text-sm leading-relaxed text-foreground/88 line-clamp-2">
-                        {thread.input.offer || thread.input.campaignIdea || "No offer added"}
+                        {thread.input?.offer || thread.input?.campaignIdea || "No offer added"}
                       </p>
                     </div>
 
@@ -767,7 +770,7 @@ export default function CreativesPage() {
                       <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Versions</p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
-                          {thread.versions.length} version{thread.versions.length === 1 ? "" : "s"}
+                          {Array.isArray(thread.versions) ? thread.versions.length : 0} version{(Array.isArray(thread.versions) ? thread.versions.length : 0) === 1 ? "" : "s"}
                         </p>
                       </div>
                       <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">

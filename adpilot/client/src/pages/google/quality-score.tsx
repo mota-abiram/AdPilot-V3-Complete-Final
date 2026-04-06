@@ -21,8 +21,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowUpDown, ChevronDown, ChevronUp, Search, AlertTriangle, CheckCircle, XCircle, BarChart2 } from "lucide-react";
-import { formatINR, formatPct, truncate } from "@/lib/format";
+import {
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  BarChart2,
+  RefreshCcw,
+  Info
+} from "lucide-react";
+import { formatINR, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   BarChart,
@@ -34,26 +45,27 @@ import {
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
 } from "recharts";
+import { Button } from "@/components/ui/button";
 
-// ─── Types ───────────────────────────────────────────────────────────
+// ─── 1. DATA CONTRACT ────────────────────────────────────────────────
 
 interface QsKeyword {
-  keyword_id?: string;
+  keyword_id: string;
   keyword_text: string;
-  campaign_name?: string;
-  ad_group_name?: string;
-  match_type?: string;
+  campaign_name: string;
+  ad_group_name: string;
+  match_type: string;
   quality_score: number;
   expected_ctr: string;
   landing_page_experience: string;
   ad_relevance: string;
-  impressions?: number;
-  clicks?: number;
-  conversions?: number;
-  cost?: number;
-  cpc?: number;
-  cpl?: number;
-  optimization_actions?: string[];
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  cost: number;
+  cpc: number;
+  cpl: number;
+  optimization_actions: string[];
 }
 
 interface QsCampaignSummary {
@@ -64,193 +76,216 @@ interface QsCampaignSummary {
   below_6: number;
 }
 
-interface QsAnalysis {
-  summary?: {
-    avg_qs: number;
-    total_keywords?: number;
-    excellent_8_10?: number;
-    good_6_7?: number;
-    poor_1_5?: number;
-    needs_attention?: string[];
-  };
-  account_average_qs?: number;
+interface QualityScoreData {
   keywords: QsKeyword[];
-  per_campaign?: QsCampaignSummary[];
-  alerts?: string[];
-  qs_distribution?: Record<string, number>;
+  campaigns: Array<{ id: string; name: string }>;
+  perCampaign: QsCampaignSummary[];
+  alerts: string[];
+  distribution: Array<{ score: string; count: number }>;
+  summary: {
+    total: number;
+    avgQs: number;
+    below4: number;
+    below6: number;
+    excellentPct: number;
+    poorPct: number;
+  };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+// ─── 2. UTILITIES ────────────────────────────────────────────────────
 
-type SortKey = "keyword_text" | "quality_score" | "expected_ctr" | "ad_relevance" | "landing_page_experience" | "impressions" | "clicks" | "conversions" | "cost";
-type SortDir = "asc" | "desc";
+const safeArray = <T,>(arr: any): T[] => (Array.isArray(arr) ? arr : []);
+const safeNumber = (val: any): number => (typeof val === "number" && !isNaN(val) ? val : 0);
+const safeString = (val: any, fallback = "—"): string => (typeof val === "string" ? val : fallback);
+
+/**
+ * Normalization Layer: Converts raw API data into a strict, crash-proof object.
+ */
+function normalizeQualityScore(rawData: any): QualityScoreData {
+  const analysis = rawData?.quality_score_analysis || {};
+  const rawKeywords = safeArray<any>(analysis.keywords);
+  const rawCampaigns = safeArray<any>(rawData?.campaigns);
+
+  // Normalize Keywords
+  const keywords: QsKeyword[] = rawKeywords.map(k => ({
+    keyword_id: safeString(k?.keyword_id),
+    keyword_text: safeString(k?.keyword_text, "Unknown Keyword"),
+    campaign_name: safeString(k?.campaign_name, "Unknown Campaign"),
+    ad_group_name: safeString(k?.ad_group_name, "Unknown Ad Group"),
+    match_type: safeString(k?.match_type, "BROAD"),
+    quality_score: safeNumber(k?.quality_score),
+    expected_ctr: safeString(k?.expected_ctr, "AVERAGE"),
+    landing_page_experience: safeString(k?.landing_page_experience, "AVERAGE"),
+    ad_relevance: safeString(k?.ad_relevance, "AVERAGE"),
+    impressions: safeNumber(k?.impressions),
+    clicks: safeNumber(k?.clicks),
+    conversions: safeNumber(k?.conversions),
+    cost: safeNumber(k?.cost),
+    cpc: safeNumber(k?.cpc),
+    cpl: safeNumber(k?.cpl),
+    optimization_actions: safeArray(k?.optimization_actions),
+  }));
+
+  // Normalize Campaign Options
+  const campaigns = rawCampaigns
+    .filter((c: any) => c && (c.campaign_type === "branded" || c.campaign_type === "location"))
+    .map((c: any) => ({
+      id: safeString(c.campaign_id || c.id || c.name),
+      name: safeString(c.name)
+    }));
+
+  // Build Score Distribution
+  const distribution = Array.from({ length: 10 }, (_, i) => {
+    const score = i + 1;
+    return {
+      score: String(score),
+      count: keywords.filter(k => Math.round(k.quality_score) === score).length
+    };
+  });
+
+  // Calculate Aggregates
+  const total = keywords.length;
+  const avgQs = total > 0 ? keywords.reduce((s, k) => s + k.quality_score, 0) / total : 0;
+  const below4 = keywords.filter(k => k.quality_score < 4).length;
+  const below6 = keywords.filter(k => k.quality_score < 6).length;
+  const excellentCount = keywords.filter(k => k.quality_score >= 7).length;
+  const poorCount = keywords.filter(k => k.quality_score < 5).length;
+
+  return {
+    keywords,
+    campaigns,
+    perCampaign: safeArray<any>(analysis.per_campaign).map(pc => ({
+      campaign_name: safeString(pc?.campaign_name),
+      avg_qs: safeNumber(pc?.avg_qs),
+      keyword_count: safeNumber(pc?.keyword_count),
+      below_4: safeNumber(pc?.below_4),
+      below_6: safeNumber(pc?.below_6),
+    })),
+    alerts: safeArray(analysis.alerts),
+    distribution,
+    summary: {
+      total,
+      avgQs,
+      below4,
+      below6,
+      excellentPct: total > 0 ? (excellentCount / total) * 100 : 0,
+      poorPct: total > 0 ? (poorCount / total) * 100 : 0,
+    }
+  };
+}
+
+// ─── 3. UI HELPERS ───────────────────────────────────────────────────
 
 function subFactorBadge(value: string) {
-  const v = (value || "").toUpperCase();
+  const v = value.toUpperCase();
   if (v === "ABOVE_AVERAGE") return { label: "Above Avg", cls: "bg-emerald-500/15 text-emerald-400" };
   if (v === "AVERAGE") return { label: "Average", cls: "bg-amber-500/15 text-amber-400" };
   if (v === "BELOW_AVERAGE") return { label: "Below Avg", cls: "bg-red-500/15 text-red-400" };
   return { label: value || "—", cls: "bg-gray-500/15 text-gray-400" };
 }
 
-function qsColor(qs: number): string {
-  if (qs > 6) return "text-emerald-400";
-  if (qs >= 4) return "text-amber-400";
-  return "text-red-400";
-}
-
-function qsBgColor(qs: number): string {
-  if (qs > 6) return "bg-emerald-500";
-  if (qs >= 4) return "bg-amber-500";
-  return "bg-red-500";
-}
-
-function qsBarBg(qs: number): string {
-  if (qs > 6) return "bg-emerald-500/20";
-  if (qs >= 4) return "bg-amber-500/20";
-  return "bg-red-500/20";
-}
+const qsColor = (qs: number) => qs > 6 ? "text-emerald-400" : qs >= 4 ? "text-amber-400" : "text-red-400";
+const qsBgColor = (qs: number) => qs > 6 ? "bg-emerald-500" : qs >= 4 ? "bg-amber-500" : "bg-red-500";
+const qsBarBg = (qs: number) => qs > 6 ? "bg-emerald-500/20" : qs >= 4 ? "bg-amber-500/20" : "bg-red-500/20";
 
 const ALL_CAMPAIGNS = "__all__";
 
-// ─── Component ───────────────────────────────────────────────────────
+// ─── 4. COMPONENT ────────────────────────────────────────────────────
 
 export default function GoogleQualityScorePage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading } = useClient();
+  const { analysisData: rawData, isLoadingAnalysis: isLoading } = useClient();
 
+  // Normalized Data Access
+  const data = useMemo(() => normalizeQualityScore(rawData), [rawData]);
+
+  // Viewport State
   const [selectedCampaign, setSelectedCampaign] = useState(ALL_CAMPAIGNS);
-  const [sortKey, setSortKey] = useState<SortKey>("quality_score");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortKey, setSortKey] = useState<keyof QsKeyword>("quality_score");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [openAdGroups, setOpenAdGroups] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Reset page when filters change
-  useEffect(() => { setPage(1); }, [selectedCampaign, searchTerm]);
+  // Sync Log for Debugging
+  useEffect(() => {
+    if (rawData) console.log("[GQS] Raw Data Update:", rawData);
+  }, [rawData]);
 
-  const qsData: QsAnalysis | null = useMemo(() => {
-    if (!data) return null;
-    return (data as any).quality_score_analysis || null;
-  }, [data]);
-
-  // Build campaign options from analysis campaigns (Search only — branded + location)
-  const campaignOptions = useMemo(() => {
-    if (!data) return [];
-    const campaigns = (data as any).campaigns || [];
-    return campaigns
-      .filter((c: any) => c.campaign_type === "branded" || c.campaign_type === "location")
-      .map((c: any) => ({ id: c.campaign_id || c.id || c.name, name: c.name }));
-  }, [data]);
-
-  // Filter keywords by selected campaign and search term
+  // Derived: Filtered Keywords
   const filteredKeywords = useMemo(() => {
-    if (!qsData?.keywords) return [];
-    let list = [...qsData.keywords];
+    let list = [...data.keywords];
 
     if (selectedCampaign !== ALL_CAMPAIGNS) {
-      const campOption = campaignOptions.find((c: any) => c.id === selectedCampaign);
-      if (campOption) {
-        list = list.filter((k) => k.campaign_name === campOption.name);
-      }
+      const camp = data.campaigns.find(c => c.id === selectedCampaign);
+      if (camp) list = list.filter(k => k.campaign_name === camp.name);
     }
 
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
-      list = list.filter(
-        (k) =>
-          k.keyword_text.toLowerCase().includes(q) ||
-          (k.campaign_name || "").toLowerCase().includes(q) ||
-          (k.ad_group_name || "").toLowerCase().includes(q)
+      list = list.filter(k =>
+        k.keyword_text.toLowerCase().includes(q) ||
+        k.ad_group_name.toLowerCase().includes(q)
       );
     }
 
-    list.sort((a, b) => {
-      const aVal = a[sortKey as keyof QsKeyword];
-      const bVal = b[sortKey as keyof QsKeyword];
+    return list.sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
       if (typeof aVal === "number" && typeof bVal === "number") {
         return sortDir === "asc" ? aVal - bVal : bVal - aVal;
       }
       return sortDir === "asc"
-        ? String(aVal || "").localeCompare(String(bVal || ""))
-        : String(bVal || "").localeCompare(String(aVal || ""));
+        ? String(aVal).localeCompare(String(bVal))
+        : String(bVal).localeCompare(String(aVal));
     });
-    return list;
-  }, [qsData, selectedCampaign, campaignOptions, sortKey, sortDir, searchTerm]);
+  }, [data, selectedCampaign, searchTerm, sortKey, sortDir]);
 
-  // Group keywords by ad group for expandable sections
+  // Derived: Grouped Map
   const adGroupMap = useMemo(() => {
     const map: Record<string, QsKeyword[]> = {};
-    for (const kw of filteredKeywords) {
-      const ag = kw.ad_group_name || "Unknown Ad Group";
-      if (!map[ag]) map[ag] = [];
-      map[ag].push(kw);
-    }
+    filteredKeywords.forEach(kw => {
+      if (!map[kw.ad_group_name]) map[kw.ad_group_name] = [];
+      map[kw.ad_group_name].push(kw);
+    });
     return map;
   }, [filteredKeywords]);
 
-  // Summary stats for current filter
-  const summaryStats = useMemo(() => {
-    const kws = filteredKeywords;
-    const total = kws.length;
-    const below4 = kws.filter((k) => k.quality_score < 4).length;
-    const below6 = kws.filter((k) => k.quality_score < 6).length;
-    const avgQs = total > 0 ? kws.reduce((s, k) => s + k.quality_score, 0) / total : 0;
-    return { total, below4, below6, avgQs };
-  }, [filteredKeywords]);
+  // ─── RENDER GUARDS ────────────────────────────────────────────────
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(key === "quality_score" ? "asc" : "desc");
-    }
-  }
-
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
-    return sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
-  }
-
-  function toggleAdGroup(name: string) {
-    setOpenAdGroups((prev) => ({ ...prev, [name]: !prev[name] }));
-  }
-
-  // Loading state
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-6 space-y-4">
         <Skeleton className="h-8 w-56 mb-4" />
         <div className="grid grid-cols-3 gap-4 mb-6">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-md" />)}
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-md" />)}
         </div>
-        <Skeleton className="h-[500px] rounded-md" />
+        <Skeleton className="h-[400px] rounded-md" />
       </div>
     );
   }
 
-  // Empty/unavailable state
-  if (!qsData || !qsData.keywords || qsData.keywords.length === 0) {
+  if (data.keywords.length === 0) {
     return (
       <div className="p-6 space-y-4 max-w-[1800px]">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Search className="w-5 h-5" />
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Search className="w-5 h-5 text-primary" />
             Quality Score Analysis
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Keyword-level Quality Score monitoring and optimization
-          </p>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <RefreshCcw className="w-3 h-3 mr-2" /> Refresh Data
+          </Button>
         </div>
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <AlertTriangle className="w-10 h-10 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
-              Quality Score data requires keyword-level API access (keyword_view).
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              The Pipedream Google Ads connector may not support keyword_view. Data will appear after the next agent run with keyword data collection enabled.
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="p-3 rounded-full bg-muted mb-4 text-muted-foreground">
+              <Info className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-semibold">No keyword data found</h3>
+            <p className="text-sm text-muted-foreground max-w-md mt-2">
+              Quality Score monitoring is active, but we couldn't find keywords for this client.
+              Ensure 'keyword_view' is enabled in your Google Ads agent configuration.
             </p>
           </CardContent>
         </Card>
@@ -260,405 +295,216 @@ export default function GoogleQualityScorePage() {
 
   return (
     <div className="p-6 space-y-4 max-w-[1800px]">
-      {/* Header + Campaign Filter */}
+      {/* ─── Header ─── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Search className="w-5 h-5" />
-            Quality Score Analysis
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-primary" />
+            Quality Score Explorer
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Search campaigns only (Branded + Location) · {summaryStats.total} keywords
+          <p className="type-xs text-muted-foreground mt-1">
+            Analyzing {data.summary.total} keywords across {data.campaigns.length} search campaigns
           </p>
         </div>
 
-        <Select value={selectedCampaign} onValueChange={setSelectedCampaign} data-testid="select-campaign-qs">
-          <SelectTrigger className="w-[320px] h-9 text-xs bg-background" data-testid="select-campaign-qs-trigger">
-            <SelectValue placeholder="All Search Campaigns" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_CAMPAIGNS}>
-              <span className="font-medium">All Search Campaigns</span>
-            </SelectItem>
-            {campaignOptions.map((c: any) => (
-              <SelectItem key={c.id} value={c.id}>
-                {truncate(c.name, 40)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search keywords or ad groups..."
+              className="pl-8 pr-3 py-2 text-xs rounded-lg border bg-background w-64 focus:ring-1 ring-primary/30 outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+            <SelectTrigger className="w-[300px] h-9 text-xs">
+              <SelectValue placeholder="All Campaigns" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CAMPAIGNS}>All Search Campaigns</SelectItem>
+              {data.campaigns.map(c => (
+                <SelectItem key={c.id} value={c.id}>{truncate(c.name, 40)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* ─── KPI Overview ─── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Avg Quality Score</p>
-            <p className={cn("text-2xl font-bold tabular-nums mt-1", qsColor(summaryStats.avgQs))}>
-              {summaryStats.avgQs.toFixed(1)}
-              <span className="text-xs text-muted-foreground ml-1">/ 10</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card className={summaryStats.below4 > 0 ? "border-red-500/30" : ""}>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Critical (QS &lt; 4)</p>
-            <p className={cn("text-2xl font-bold tabular-nums mt-1", summaryStats.below4 > 0 ? "text-red-400" : "text-emerald-400")}>
-              {summaryStats.below4}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className={summaryStats.below6 > 0 ? "border-amber-500/30" : ""}>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Below Average (QS &lt; 6)</p>
-            <p className={cn("text-2xl font-bold tabular-nums mt-1", summaryStats.below6 > 0 ? "text-amber-400" : "text-emerald-400")}>
-              {summaryStats.below6}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Keywords</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground mt-1">{summaryStats.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">QS &ge; 7</p>
-            <p className={cn("text-2xl font-bold tabular-nums mt-1",
-              summaryStats.total > 0 && (filteredKeywords.filter(k => k.quality_score >= 7).length / summaryStats.total * 100) >= 50 ? "text-emerald-400" : "text-amber-400"
-            )}>
-              {summaryStats.total > 0 ? `${(filteredKeywords.filter(k => k.quality_score >= 7).length / summaryStats.total * 100).toFixed(0)}%` : "—"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">QS &lt; 5</p>
-            <p className={cn("text-2xl font-bold tabular-nums mt-1",
-              summaryStats.total > 0 && (filteredKeywords.filter(k => k.quality_score < 5).length / summaryStats.total * 100) > 20 ? "text-red-400" : "text-emerald-400"
-            )}>
-              {summaryStats.total > 0 ? `${(filteredKeywords.filter(k => k.quality_score < 5).length / summaryStats.total * 100).toFixed(0)}%` : "—"}
-            </p>
-          </CardContent>
-        </Card>
+        {[
+          { label: "Avg QS", value: data.summary.avgQs.toFixed(1), color: qsColor(data.summary.avgQs), suffix: "/ 10" },
+          { label: "Critical (< 4)", value: data.summary.below4, color: data.summary.below4 > 0 ? "text-red-400" : "text-emerald-400" },
+          { label: "Poor (< 6)", value: data.summary.below6, color: data.summary.below6 > 0 ? "text-amber-400" : "text-emerald-400" },
+          { label: "Total Keywords", value: data.summary.total, color: "text-foreground" },
+          { label: "Green Ratio (7+)", value: `${data.summary.excellentPct.toFixed(0)}%`, color: data.summary.excellentPct > 50 ? "text-emerald-400" : "text-amber-400" },
+          { label: "Red Ratio (< 5)", value: `${data.summary.poorPct.toFixed(0)}%`, color: data.summary.poorPct > 20 ? "text-red-400" : "text-emerald-400" },
+        ].map((kpi, i) => (
+          <Card key={i} className="hover:border-primary/20 transition-colors">
+            <CardContent className="p-4">
+              <p className="text-[10px] uppercase font-bold tracking-[0.08em] text-muted-foreground">{kpi.label}</p>
+              <p className={cn("text-2xl font-black mt-1 tabular-nums", kpi.color)}>
+                {kpi.value}
+                {kpi.suffix && <span className="text-xs font-medium ml-1 text-muted-foreground">{kpi.suffix}</span>}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* GQS-03: QS Distribution Chart — score 1–10 breakdown from keyword data */}
+      {/* ─── Distribution & Campaign View ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+        <Card className="bg-card/50">
           <CardContent className="p-4">
-            <p className="text-xs font-medium text-foreground flex items-center gap-1.5 mb-3">
-              <BarChart2 className="w-3.5 h-3.5 text-primary" />
-              QS Score Distribution
-            </p>
-            {(() => {
-              // Build distribution from keyword data (score 1–10)
-              const dist = Array.from({ length: 10 }, (_, i) => {
-                const score = i + 1;
-                const count = filteredKeywords.filter((k) => Math.round(k.quality_score) === score).length;
-                return { score: String(score), count };
-              });
-              return (
-                <div style={{ height: 160 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dist} barCategoryGap="20%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" vertical={false} />
-                      <XAxis dataKey="score" tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }} axisLine={false} tickLine={false} allowDecimals={false} width={24} />
-                      <RechartsTooltip
-                        contentStyle={{ background: "hsl(260, 12%, 10%)", border: "1px solid hsl(260, 12%, 18%)", borderRadius: 6, fontSize: 11 }}
-                        formatter={(v: any) => [`${v} keywords`, "Count"]}
-                      />
-                      <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-                        {dist.map((entry) => {
-                          const s = Number(entry.score);
-                          const fill = s >= 8 ? "hsl(142, 70%, 45%)" : s >= 6 ? "hsl(47, 100%, 47%)" : s >= 4 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
-                          return <Cell key={entry.score} fill={fill} />;
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              );
-            })()}
-            <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />8–10 Excellent</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary inline-block" />6–7 Good</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />4–5 Average</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500 inline-block" />1–3 Poor</span>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">QS Distribution</p>
+              <Badge variant="secondary" className="bg-primary/5 text-primary">Live Scan</Badge>
+            </div>
+            <div style={{ height: 160 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.distribution} barCategoryGap="15%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.4} />
+                  <XAxis dataKey="score" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <RechartsTooltip cursor={{ fill: "transparent" }} content={<CustomTooltip />} />
+                  <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+                    {data.distribution.map((entry, idx) => (
+                      <Cell key={idx} fill={qsBgColor(Number(entry.score))} opacity={0.8} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Per-campaign QS breakdown */}
-        {qsData.per_campaign && qsData.per_campaign.length > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs font-medium text-foreground mb-3">QS by Campaign</p>
-              <div className="space-y-2.5">
-                {qsData.per_campaign.map((c: QsCampaignSummary, i: number) => (
-                  <div key={i}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[11px] text-foreground truncate max-w-[180px]" title={c.campaign_name}>{truncate(c.campaign_name, 28)}</span>
-                      <span className={cn("text-xs font-bold tabular-nums ml-2 shrink-0",
-                        c.avg_qs >= 7 ? "text-emerald-400" : c.avg_qs >= 5 ? "text-amber-400" : "text-red-400"
-                      )}>
-                        {c.avg_qs.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-muted/40">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${(c.avg_qs / 10) * 100}%`,
-                          backgroundColor: c.avg_qs >= 7 ? "hsl(142, 70%, 45%)" : c.avg_qs >= 5 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)"
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                      <span>{c.keyword_count} kw</span>
-                      {c.below_4 > 0 && <span className="text-red-400">{c.below_4} critical</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Alerts */}
-      {qsData.alerts && qsData.alerts.length > 0 && (
-        <Card className="border-amber-500/30">
+        <Card className="bg-card/50 max-h-[220px] overflow-y-auto">
           <CardContent className="p-4">
-            <p className="text-xs font-medium text-amber-400 flex items-center gap-1.5 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Quality Score Alerts
-            </p>
-            <ul className="space-y-1">
-              {qsData.alerts.map((alert, i) => (
-                <li key={i} className="text-xs text-muted-foreground">- {alert}</li>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">QS by Campaign</p>
+            <div className="space-y-4">
+              {data.perCampaign.slice(0, 5).map((pc, i) => (
+                <div key={i} className="group">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">{pc.campaign_name}</span>
+                    <span className={cn("text-xs font-bold", qsColor(pc.avg_qs))}>{pc.avg_qs.toFixed(1)}</span>
+                  </div>
+                  <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn("h-full transition-all duration-700", qsBgColor(pc.avg_qs))}
+                      style={{ width: `${(pc.avg_qs / 10) * 100}%` }}
+                    />
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Search */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search keywords..."
-            className="pl-8 pr-3 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50 text-foreground w-60"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            data-testid="input-search-keywords"
-          />
-        </div>
-        <span className="text-[10px] text-muted-foreground">
-          {filteredKeywords.length} keywords · {Object.keys(adGroupMap).length} ad groups
-        </span>
       </div>
 
-      {/* Expandable Ad Group Sections */}
-      <div className="space-y-2">
+      {/* ─── Alerts Banner ─── */}
+      {data.alerts.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 flex gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">Strategic Alerts</p>
+            {data.alerts.map((a, i) => <p key={i} className="text-xs text-amber-200/70 mt-0.5">· {a}</p>)}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Ad Group Sections ─── */}
+      <div className="space-y-2 pt-2">
         {(() => {
-          // Paginate the flattened keyword list
           const allEntries = Object.entries(adGroupMap);
-          const flatKeywords = allEntries.flatMap(([, kws]) => kws);
-          const paginatedKeywords = pageSize >= flatKeywords.length ? flatKeywords : flatKeywords.slice((page - 1) * pageSize, page * pageSize);
-          // Regroup paginated keywords by ad group
-          const paginatedMap = new Map<string, typeof flatKeywords>();
-          for (const kw of paginatedKeywords) {
-            const ag = kw.ad_group_name || "Unknown Ad Group";
-            if (!paginatedMap.has(ag)) paginatedMap.set(ag, []);
-            paginatedMap.get(ag)!.push(kw);
-          }
-          return Array.from(paginatedMap.entries());
-        })().map(([agName, keywords]) => {
-          const agAvgQs = keywords.reduce((s, k) => s + k.quality_score, 0) / keywords.length;
-          const agBelow4 = keywords.filter((k) => k.quality_score < 4).length;
-          const isOpen = openAdGroups[agName] !== false; // default open
-          return (
-            <Collapsible key={agName} open={isOpen} onOpenChange={() => toggleAdGroup(agName)}>
-              <Card>
-                <CollapsibleTrigger asChild>
-                  <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors" data-testid={`ag-trigger-${agName}`}>
-                    <div className={cn("w-8 h-1.5 rounded-full", qsBarBg(agAvgQs))}>
-                      <div className={cn("h-full rounded-full", qsBgColor(agAvgQs))} style={{ width: `${(agAvgQs / 10) * 100}%` }} />
+          const paginated = allEntries.slice((page - 1) * pageSize, page * pageSize);
+
+          return paginated.map(([name, keywords]) => {
+            const agAvg = keywords.reduce((s, k) => s + k.quality_score, 0) / keywords.length;
+            const agCritical = keywords.filter(k => k.quality_score < 4).length;
+            const isOpen = openAdGroups[name] !== false;
+
+            return (
+              <Collapsible key={name} open={isOpen} onOpenChange={() => setOpenAdGroups(p => ({ ...p, [name]: !p[name] }))}>
+                <Card className={cn("transition-all border-l-4",
+                  agAvg >= 7 ? "border-l-emerald-500" : agAvg >= 5 ? "border-l-amber-500" : "border-l-red-500"
+                )}>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-muted/20">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-foreground">{name}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase font-medium">{keywords.length} keywords</span>
+                      </div>
+                      <div className="flex items-center gap-4 ml-auto">
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase font-bold text-muted-foreground">AG Score</p>
+                          <p className={cn("text-sm font-black", qsColor(agAvg))}>{agAvg.toFixed(1)}</p>
+                        </div>
+                        {agCritical > 0 && (
+                          <Badge variant="destructive" className="bg-red-500/10 text-red-400 h-6 px-2">{agCritical} Alert</Badge>
+                        )}
+                        <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                      </div>
                     </div>
-                    <span className={cn("text-sm font-medium tabular-nums", qsColor(agAvgQs))}>{agAvgQs.toFixed(1)}</span>
-                    <span className="text-xs font-medium text-foreground">{agName}</span>
-                    <span className="text-[10px] text-muted-foreground">{keywords.length} keywords</span>
-                    {agBelow4 > 0 && (
-                      <Badge variant="secondary" className="text-[10px] bg-red-500/15 text-red-400">
-                        {agBelow4} critical
-                      </Badge>
-                    )}
-                    <ChevronDown className={cn("w-4 h-4 ml-auto text-muted-foreground transition-transform", isOpen && "rotate-180")} />
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-x-auto border-t border-border/40">
+                      <table className="w-full text-xs text-left">
                         <thead>
-                          <tr className="border-b border-border/50">
-                            {[
-                              { key: "keyword_text" as SortKey, label: "Keyword", align: "left" },
-                              { key: "quality_score" as SortKey, label: "QS", align: "left" },
-                              { key: "expected_ctr" as SortKey, label: "Exp. CTR", align: "left" },
-                              { key: "ad_relevance" as SortKey, label: "Ad Relevance", align: "left" },
-                              { key: "landing_page_experience" as SortKey, label: "LP Exp.", align: "left" },
-                              { key: "impressions" as SortKey, label: "Impr", align: "right" },
-                              { key: "clicks" as SortKey, label: "Clicks", align: "right" },
-                              { key: "conversions" as SortKey, label: "Conv", align: "right" },
-                              { key: "cost" as SortKey, label: "Cost", align: "right" },
-                            ].map((col) => (
-                              <th
-                                key={col.key}
-                                className={cn(
-                                  "p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap",
-                                  col.align === "right" ? "text-right" : "text-left"
-                                )}
-                                onClick={() => toggleSort(col.key)}
-                              >
-                                <span className="inline-flex items-center gap-1">
-                                  {col.label}
-                                  <SortIcon col={col.key} />
-                                </span>
-                              </th>
+                          <tr className="bg-muted/30">
+                            {["Keyword", "Score", "Exp CTR", "Relevance", "LP Exp", "Conv", "CPL"].map(h => (
+                              <th key={h} className="p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {keywords.map((kw, idx) => {
-                            const ectr = subFactorBadge(kw.expected_ctr);
-                            const adrel = subFactorBadge(kw.ad_relevance);
-                            const lp = subFactorBadge(kw.landing_page_experience);
-                            const kwCpl = kw.cpl ?? (kw.conversions && kw.conversions > 0 ? (kw.cost || 0) / kw.conversions : 0);
-                            return (
-                              <tr
-                                key={kw.keyword_id || `${kw.keyword_text}-${idx}`}
-                                className="border-b border-border/30 hover:bg-muted/30 transition-colors"
-                                data-testid={`row-keyword-${idx}`}
-                              >
-                                <td className="p-3 max-w-[250px]">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="cursor-default">
-                                        <span className="text-foreground block truncate">{truncate(kw.keyword_text, 35)}</span>
-                                        {kw.match_type && (
-                                          <span className="text-[10px] text-muted-foreground">{kw.match_type}</span>
-                                        )}
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
-                                      <p className="text-xs">{kw.keyword_text}</p>
-                                      {kw.match_type && <p className="text-[10px] text-muted-foreground mt-0.5">Match: {kw.match_type}</p>}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </td>
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className={cn("w-10 h-1.5 rounded-full", qsBarBg(kw.quality_score))}>
-                                      <div className={cn("h-full rounded-full", qsBgColor(kw.quality_score))} style={{ width: `${(kw.quality_score / 10) * 100}%` }} />
-                                    </div>
-                                    <span className={cn("tabular-nums font-medium", qsColor(kw.quality_score))}>{kw.quality_score}</span>
+                          {keywords.map((kw, idx) => (
+                            <tr key={idx} className="border-b last:border-0 hover:bg-muted/10">
+                              <td className="p-3">
+                                <p className="font-semibold text-foreground">{kw.keyword_text}</p>
+                                <p className="text-[10px] text-muted-foreground">{kw.match_type}</p>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className={cn("w-12 h-1.5 rounded-full", qsBarBg(kw.quality_score))}>
+                                    <div className={cn("h-full rounded-full", qsBgColor(kw.quality_score))} style={{ width: `${(kw.quality_score / 10) * 100}%` }} />
                                   </div>
-                                </td>
-                                <td className="p-3">
-                                  <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0", ectr.cls)}>{ectr.label}</Badge>
-                                </td>
-                                <td className="p-3">
-                                  <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0", adrel.cls)}>{adrel.label}</Badge>
-                                </td>
-                                <td className="p-3">
-                                  <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0", lp.cls)}>{lp.label}</Badge>
-                                </td>
-                                <td className="p-3 text-right tabular-nums text-muted-foreground">
-                                  {kw.impressions != null ? kw.impressions.toLocaleString() : "—"}
-                                </td>
-                                <td className="p-3 text-right tabular-nums text-muted-foreground">
-                                  {kw.clicks != null ? kw.clicks.toLocaleString() : "—"}
-                                </td>
-                                <td className="p-3 text-right tabular-nums">
-                                  <span className={(kw.conversions ?? 0) > 0 ? "text-emerald-400" : "text-muted-foreground"}>
-                                    {kw.conversions ?? "—"}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-right tabular-nums text-muted-foreground">
-                                  {kw.cost != null ? formatINR(kw.cost, 0) : "—"}
-                                  {kwCpl > 0 && (
-                                    <span className="text-[10px] block text-muted-foreground">CPL {formatINR(kwCpl, 0)}</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                  <span className={cn("font-bold", qsColor(kw.quality_score))}>{kw.quality_score}</span>
+                                </div>
+                              </td>
+                              <td className="p-3"><FactorBadge val={kw.expected_ctr} /></td>
+                              <td className="p-3"><FactorBadge val={kw.ad_relevance} /></td>
+                              <td className="p-3"><FactorBadge val={kw.landing_page_experience} /></td>
+                              <td className="p-3 font-semibold text-foreground">{kw.conversions}</td>
+                              <td className="p-3 font-bold text-foreground/80">{kw.cpl > 0 ? formatINR(kw.cpl, 0) : "—"}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
-                    {/* SOP Recommendations for low-QS keywords */}
-                    {(() => {
-                      const lowQsKeywords = keywords.filter(k => k.quality_score < 6);
-                      if (lowQsKeywords.length === 0) return null;
-                      const hasLowAdRelevance = lowQsKeywords.some(k => (k.ad_relevance || "").toUpperCase() === "BELOW_AVERAGE");
-                      const hasLowExpCtr = lowQsKeywords.some(k => (k.expected_ctr || "").toUpperCase() === "BELOW_AVERAGE");
-                      const hasLowLp = lowQsKeywords.some(k => (k.landing_page_experience || "").toUpperCase() === "BELOW_AVERAGE");
-                      return (
-                        <div className="px-4 py-3 border-t border-border/30 space-y-2">
-                          <p className="text-[10px] font-medium uppercase tracking-wider text-amber-400">SOP Recommendations</p>
-                          <div className="space-y-1.5">
-                            {hasLowAdRelevance && (
-                              <div className="flex items-start gap-2 text-[11px]">
-                                <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
-                                <div>
-                                  <span className="text-foreground font-medium">Ad Relevance Below Average:</span>
-                                  <span className="text-muted-foreground ml-1">Inject exact keyword terms into H1/H2/D1 of RSA assets. Ensure ad copy directly mirrors search intent.</span>
-                                </div>
-                              </div>
-                            )}
-                            {hasLowExpCtr && (
-                              <div className="flex items-start gap-2 text-[11px]">
-                                <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
-                                <div>
-                                  <span className="text-foreground font-medium">Expected CTR Below Average:</span>
-                                  <span className="text-muted-foreground ml-1">Add action hooks and benefit-first headlines. Use numbers, urgency, and clear CTAs in RSA assets.</span>
-                                </div>
-                              </div>
-                            )}
-                            {hasLowLp && (
-                              <div className="flex items-start gap-2 text-[11px]">
-                                <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
-                                <div>
-                                  <span className="text-foreground font-medium">LP Experience Below Average:</span>
-                                  <span className="text-muted-foreground ml-1">Check LCP &lt;2.5s, ensure mobile UX is smooth, improve form clarity and above-fold visibility.</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                    {/* SOP Section */}
+                    {agAvg < 6 && (
+                      <div className="bg-primary/5 p-4 flex gap-4 border-t">
+                        <Info className="w-5 h-5 text-primary shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold text-primary uppercase">AdPilot SOP Recommendation</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            This ad group has a sub-optimal QS. Ensure your RSA ad copy contains these keywords in headlines 1-3
+                            and that the landing page H1 precisely matches the high-volume terms in this set.
+                          </p>
                         </div>
-                      );
-                    })()}
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          );
-        })}
-        {Object.keys(adGroupMap).length === 0 && (
-          <Card>
-            <CardContent className="p-8 text-center text-xs text-muted-foreground">
-              No keywords match the current filters.
-            </CardContent>
-          </Card>
-        )}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            );
+          });
+        })()}
+
         <DataTablePagination
-          totalItems={filteredKeywords.length}
+          totalItems={Object.keys(adGroupMap).length}
           pageSize={pageSize}
           currentPage={page}
           onPageChange={setPage}
@@ -667,4 +513,25 @@ export default function GoogleQualityScorePage() {
       </div>
     </div>
   );
+}
+
+function FactorBadge({ val }: { val: string }) {
+  const b = subFactorBadge(val);
+  return (
+    <Badge variant="secondary" className={cn("px-1.5 py-0 text-[10px]", b.cls)}>
+      {b.label}
+    </Badge>
+  );
+}
+
+function CustomTooltip({ active, payload }: any) {
+  if (active && payload?.[0]) {
+    return (
+      <div className="bg-card border border-border px-3 py-2 rounded-lg shadow-xl shadow-black/50">
+        <p className="type-xs font-bold text-foreground">Score {payload[0].payload.score}</p>
+        <p className="type-xs text-primary">{payload[0].value} keywords</p>
+      </div>
+    );
+  }
+  return null;
 }
