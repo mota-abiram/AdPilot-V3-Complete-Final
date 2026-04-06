@@ -909,17 +909,22 @@ export default function DashboardPage() {
                 { label: "CPQL", score: healthScoreComponents.cpql, weight: "20%" },
                 { label: "CPL", score: healthScoreComponents.cpl, weight: "20%" },
                 { label: "Creative", score: healthScoreComponents.creative, weight: "10%" },
-              ]).map((item) => (
+              ]).map((item) => {
+                const maxWeight = parseInt(item.weight);
+                const pct = (item.score / maxWeight) * 100;
+                const color = pct >= 75 ? "hsl(142, 70%, 45%)" : pct >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)";
+                
+                return (
                 <div key={item.label} className="text-center">
                   <p className="text-[11px] font-semibold text-black uppercase">{item.label} ({item.weight})</p>
                   <div className="w-full h-1.5 rounded-full bg-muted/50 mt-1.5">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(item.score, 100)}%`, backgroundColor: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }} />
                   </div>
-                  <p className="text-[11px] font-semibold tabular-nums mt-1" style={{ color: item.score >= 75 ? "hsl(142, 70%, 45%)" : item.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)" }}>
+                  <p className="text-[11px] font-semibold tabular-nums mt-1" style={{ color: color }}>
                     {Math.round(item.score)}
                   </p>
                 </div>
-              ))}
+              );})}
             </div>
           </CardContent>
         </Card>
