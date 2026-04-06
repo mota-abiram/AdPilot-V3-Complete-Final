@@ -1,154 +1,164 @@
 ==========================================================================================
   MOJO PERFORMANCE AGENT — ADVANCED META ADS AUDIT
   Deevyashakti Amara | Account: act_391022327028566
-  Generated: 2026-04-05 15:51:27
+  Generated: 2026-04-06 10:55:59
   Alert Thresholds: CPL Alert ₹936 (target ₹720 × 1.3) | Critical ₹1080 (× 1.5)
 ==========================================================================================
 
 ==================================================
   EXECUTIVE SUMMARY
 ==================================================
-  * Spend: ₹50,834 | 83 leads | CPL: ₹612.46
-  * CPL ₹612.46 is WITHIN target range (₹720)
-  * 2 active playbooks: Thumb Stop Recovery — First 3 Seconds Fix, Volume Drop with Stable CPL — Scale & Learning Reset
+  * Spend: ₹50,268 | 78 leads | CPL: ₹644.46
+  * CPL ₹644.46 is WITHIN target range (₹720)
+  * 3 active playbooks: CTR Drop Recovery — Hook & Messaging Refresh, Thumb Stop Recovery — First 3 Seconds Fix, Volume Drop with Stable CPL — Scale & Learning Reset
   * 1 IMMEDIATE actions required
   * 1 campaigns in Learning Limited
-  * Monthly Pacing (Day 4/30): Leads 41/278 [AHEAD] | Spend ₹26,679/₹2.00 L [ON TRACK] | CPL ₹650.72 vs ₹720.00 target [ON TARGET]
+  * Monthly Pacing (Day 5/30): Leads 53/278 [AHEAD] | Spend ₹35,334/₹2.00 L [ON TRACK] | CPL ₹666.69 vs ₹720.00 target [ON TARGET]
 
 
 ==================================================
   MONTHLY TARGET PACING (2026-04)
 ==================================================
-  Day 4 of 30 (13%) | 25 days remaining
-  BUDGET:  MTD      ₹26,679 /      ₹2.00 L  [##..................] 13%  [ON TRACK]
-  LEADS:   MTD       41     /      278      [##..................] 15%  [AHEAD]
-  CPL:     MTD      ₹650.72 /      ₹720.00  [ON TARGET]
+  Day 5 of 30 (17%) | 24 days remaining
+  BUDGET:  MTD      ₹35,334 /      ₹2.00 L  [###.................] 18%  [ON TRACK]
+  LEADS:   MTD       53     /      278      [###.................] 19%  [AHEAD]
+  CPL:     MTD      ₹666.69 /      ₹720.00  [ON TARGET]
 
-  Projected EOM: Spend ₹2.00 L | Leads 308 | CPL ₹650.72
-  Daily Needed: 9.5 leads/day | ₹6,933/day
+  Projected EOM: Spend ₹2.12 L | Leads 318 | CPL ₹666.69
+  Daily Needed: 9.4 leads/day | ₹6,861/day
 
 ----------------------------------------------------------------------
   [PULSE] ACCOUNT PULSE
 ----------------------------------------------------------------------
-  Spend:     ₹50,834  [DOWN -17.2%]
-  Leads:     83  [DOWN -26.8%]
-  CPL:       ₹612.46  (target: ₹720 | alert: ₹936)
-  CTR:       0.65%  [STABLE]  (SOP: 0.7-1.5%)
-  CPM:       ₹94.48  (SOP: ₹300-520)
-  CPC:       ₹14.59
-  Reach:     362,615
+  Spend:     ₹50,268  [STABLE +2.8%]
+  Leads:     78  [DOWN -21.1%]
+  CPL:       ₹644.46  (target: ₹720 | alert: ₹936)
+  CTR:       0.59%  [DOWN]  (SOP: 0.7-1.5%)
+  CPM:       ₹89.81  (SOP: ₹300-520)
+  CPC:       ₹15.15
+  Reach:     377,199
 
 ----------------------------------------------------------------------
   [CAMPAIGNS] CAMPAIGN PERFORMANCE (by health score)
 ----------------------------------------------------------------------
 
   [W+] DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sep
-    Score: 89.3/100 [WINNER] | Layer: TOFU
-    Spend: ₹33,424 | Leads: 57 | CPL: ₹586.38
-    CPM: ₹95.29 | CTR: 0.68% | Freq: 1.38
+    Score: 87.8/100 [WINNER] | Layer: TOFU
+    Spend: ₹33,470 | Leads: 55 | CPL: ₹608.54
+    CPM: ₹94.13 | CTR: 0.68% | Freq: 1.35
 
   [W+] DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-D [LEARNING_LIMITED]
-    Score: 74.4/100 [WINNER] | Layer: TOFU
-    Spend: ₹17,410 | Leads: 26 | CPL: ₹669.63
-    CPM: ₹213.13 | CTR: 0.64% | Freq: 1.67
+    Score: 70.2/100 [WINNER] | Layer: TOFU
+    Spend: ₹16,798 | Leads: 23 | CPL: ₹730.34
+    CPM: ₹197.61 | CTR: 0.52% | Freq: 1.61
 
 ----------------------------------------------------------------------
   [ADSETS] ADSET PERFORMANCE
 ----------------------------------------------------------------------
 
   DM Amara | Adv+ OT
-    Score: 89.0/100 [WINNER] | Campaign: DM Amara | Adv+OT | [HNIs Narrowed by Re
-    Spend: ₹25,037 | Leads: 41 | CPL: ₹610.65
-    CPM: ₹89.98 | CTR: 0.76% | Freq: 1.43
+    Score: 86.9/100 [WINNER] | Campaign: DM Amara | Adv+OT | [HNIs Narrowed by Re
+    Spend: ₹25,126 | Leads: 39 | CPL: ₹644.25
+    CPM: ₹88.24 | CTR: 0.77% | Freq: 1.36
 
   DM Amara | Adv+ OT_2
-    Score: 85.2/100 [WINNER] | Campaign: DM Amara | Adv+OT | [HNIs Narrowed by Re
-    Spend: ₹8,387 | Leads: 16 | CPL: ₹524.20
-    CPM: ₹115.00 | CTR: 0.41% | Freq: 1.08
+    Score: 85.0/100 [WINNER] | Campaign: DM Amara | Adv+OT | [HNIs Narrowed by Re
+    Spend: ₹8,344 | Leads: 16 | CPL: ₹521.50
+    CPM: ₹117.80 | CTR: 0.31% | Freq: 1.09
 
   DM Amara | Adv+ OT
-    Score: 84.0/100 [WINNER] | Campaign: DM-23/03/2026-500-AL-MO-LED-(Jobtitles_i
-    Spend: ₹10,441 | Leads: 18 | CPL: ₹580.08
-    CPM: ₹198.19 | CTR: 0.67% | Freq: 1.57
+    Score: 81.4/100 [WINNER] | Campaign: DM-23/03/2026-500-AL-MO-LED-(Jobtitles_i
+    Spend: ₹10,146 | Leads: 17 | CPL: ₹596.80
+    CPM: ₹200.78 | CTR: 0.57% | Freq: 1.51
 
-  DM Amara | Adv+ OT_2
-    Score: 57.9/100 [WATCH] | Campaign: DM-23/03/2026-500-AL-MO-LED-(Jobtitles_i
-    Spend: ₹6,969 | Leads: 8 | CPL: ₹871.11
-    CPM: ₹237.38 | CTR: 0.59% | Freq: 1.36
+  DM Amara | Adv+ OT_2 [LEARNING_LIMITED] >>> AUTO-PAUSE
+    Score: 43.7/100 [WATCH] | Campaign: DM-23/03/2026-500-AL-MO-LED-(Jobtitles_i
+    Spend: ₹6,652 | Leads: 6 | CPL: ₹1,109
+    CPM: ₹192.96 | CTR: 0.44% | Freq: 1.37
+    !! LEARNING_LIMITED: Only 6 conversions in period (need ~50/week for stable learning)
 
 ----------------------------------------------------------------------
   [CREATIVE] CREATIVE HEALTH
 ----------------------------------------------------------------------
 
-  * DM_Static_your_city_gives_traffic
-    Score: 91.8/100 [WINNER] [STATIC]
-    Spend: ₹6,006 | CTR: 0.74% | CPM: ₹120.09 | Freq: 1.45
-    Leads: 9 | CPL: ₹667.29
-
   * DM_Static_Your home has better amenities
-    Score: 83.9/100 [WINNER] [VIDEO]
-    Spend: ₹18,222 | CTR: 0.92% | CPM: ₹113.01 | Freq: 1.37
-    Leads: 34 | CPL: ₹535.94
-    [VIDEO] TSR: 0.7% | VHR: 53.3% | FFR: 0.0%
-    !! [VIDEO] Thumb-stop 0.7% < 5% target. Fix first 3s: add motion/contrast/face.
+    Score: 85/100 [WINNER] [VIDEO]
+    Spend: ₹14,952 | CTR: 1.04% | CPM: ₹115.45 | Freq: 1.30
+    Leads: 28 | CPL: ₹534.02
+    [VIDEO] TSR: 0.6% | VHR: 44.3% | FFR: 0.0%
+    !! [VIDEO] Thumb-stop 0.6% < 5% target. Fix first 3s: add motion/contrast/face.
     !! [VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
-    !! Creative running 209 days [CRITICAL] but performance score 83.9/100 — PERFORMING_WELL, no refresh needed.
+    !! Creative running 210 days [CRITICAL] but performance score 85/100 — PERFORMING_WELL, no refresh needed.
+
+  * DM_Static_your_city_gives_traffic
+    Score: 80.4/100 [WINNER] [STATIC]
+    Spend: ₹7,269 | CTR: 0.40% | CPM: ₹126.59 | Freq: 1.31
+    Leads: 12 | CPL: ₹605.74
+    !! [STATIC] CTR 0.40% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy.
 
   * DM_Influencer - 2
-    Score: 70.4/100 [WINNER] [VIDEO]
-    Spend: ₹7,026 | CTR: 0.41% | CPM: ₹114.95 | Freq: 1.08
-    Leads: 14 | CPL: ₹501.85
-    [VIDEO] TSR: 10.0% | VHR: 42.4% | FFR: 0.5%
+    Score: 70/100 [WINNER] [VIDEO]
+    Spend: ₹6,909 | CTR: 0.31% | CPM: ₹116.09 | Freq: 1.09
+    Leads: 14 | CPL: ₹493.53
+    [VIDEO] TSR: 9.9% | VHR: 49.6% | FFR: 0.5%
     !! [VIDEO] First Frame Rate 0.5% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
-    !! Creative running 144 days [CRITICAL] but performance score 70.4/100 — PERFORMING_WELL, no refresh needed.
-
-  * DM_23/03/2026_Saurabh_Ten Months early_pocession
-    Score: 66.0/100 [WATCH] [VIDEO]
-    Spend: ₹704.60 | CTR: 1.10% | CPM: ₹914.62 | Freq: 1.14
-    [VIDEO] TSR: 13.7% | VHR: 50.0% | FFR: 0.6%
-    !! [VIDEO] First Frame Rate 0.6% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
-    !! Spent ₹705 with ZERO leads. Review targeting & creative relevance.
-
-  * DM_Haripriya_Video_Telugu
-    Score: 64.2/100 [WATCH] [STATIC]
-    Spend: ₹1,361 | CTR: 0.00% | CPM: ₹147.00 | Freq: 1.18
-    Leads: 2 | CPL: ₹680.62
-    !! [STATIC] CTR 0.00% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy.
-    !! Creative running 40 days [WARNING]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).
+    !! Creative running 145 days [CRITICAL] but performance score 70/100 — PERFORMING_WELL, no refresh needed.
 
   * DM_23/03/2026_70%_open_space
-    Score: 63.1/100 [WATCH] [VIDEO]
-    Spend: ₹4,436 | CTR: 0.63% | CPM: ₹251.29 | Freq: 1.38
-    Leads: 9 | CPL: ₹492.87
-    [VIDEO] TSR: 0.5% | VHR: 66.7% | FFR: 0.0%
-    !! [VIDEO] Thumb-stop 0.5% < 5% target. Fix first 3s: add motion/contrast/face.
+    Score: 63.5/100 [WATCH] [VIDEO]
+    Spend: ₹2,877 | CTR: 0.71% | CPM: ₹263.13 | Freq: 1.38
+    Leads: 5 | CPL: ₹575.37
+    [VIDEO] TSR: 0.4% | VHR: 75.0% | FFR: 0.0%
+    !! [VIDEO] Thumb-stop 0.4% < 5% target. Fix first 3s: add motion/contrast/face.
     !! [VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
 
   * DM_23/03/2026static_better_architecture
-    Score: 54.3/100 [WATCH] [STATIC]
-    Spend: ₹4,508 | CTR: 0.58% | CPM: ₹217.62 | Freq: 1.35
-    Leads: 6 | CPL: ₹751.31
-    !! [STATIC] CTR 0.58% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy.
+    Score: 60.4/100 [WATCH] [STATIC]
+    Spend: ₹3,151 | CTR: 0.43% | CPM: ₹148.09 | Freq: 1.33
+    Leads: 4 | CPL: ₹787.70
+    !! [STATIC] CTR 0.43% below 0.7% threshold. Improve headline, CTA visibility, visual hierarchy.
 
-  * DM_31/03/2026_Ai-visual_video
-    Score: 44.0/100 [WATCH] [VIDEO]
-    Spend: ₹1,756 | CTR: 1.64% | CPM: ₹2,511 | Freq: 1.02
-    Leads: 2 | CPL: ₹878.22
-    [VIDEO] TSR: 9.8% | VHR: 50.0% | FFR: 0.0%
-    !! [VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
+  * DM_23/03/2026_Saurabh_Ten Months early_pocession
+    Score: 55.1/100 [WATCH] [VIDEO]
+    Spend: ₹538.14 | CTR: 0.55% | CPM: ₹543.53 | Freq: 1.27
+    [VIDEO] TSR: 13.7% | VHR: 46.9% | FFR: 2.9%
+    !! [VIDEO] First Frame Rate 2.9% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
+    !! Spent ₹538 with ZERO leads. Review targeting & creative relevance.
 
   * DM_Influencer
-    Score: 43.5/100 [WATCH] [VIDEO] >>> AUTO-PAUSE
-    Spend: ₹6,815 | CTR: 0.44% | CPM: ₹45.40 | Freq: 1.26
-    Leads: 7 | CPL: ₹973.52
-    [VIDEO] TSR: 10.1% | VHR: 37.0% | FFR: 0.2%
-    !! [VIDEO] First Frame Rate 0.2% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
-    !! Creative running 172 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).
-    !! [AUTO-PAUSE] CPL ₹974 is >30% above target ₹720
+    Score: 45.8/100 [WATCH] [VIDEO]
+    Spend: ₹10,173 | CTR: 0.36% | CPM: ₹46.82 | Freq: 1.24
+    Leads: 11 | CPL: ₹924.85
+    [VIDEO] TSR: 10.4% | VHR: 36.3% | FFR: 0.1%
+    !! [VIDEO] First Frame Rate 0.1% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
+    !! Creative running 173 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).
+
+  * DM_31/03/2026_Ai-visual_video
+    Score: 30/100 [LOSER] [VIDEO] >>> AUTO-PAUSE
+    Spend: ₹2,963 | CTR: 1.64% | CPM: ₹2,511 | Freq: 1.02
+    Leads: 2 | CPL: ₹1,482
+    [VIDEO] TSR: 9.5% | VHR: 50.0% | FFR: 0.0%
+    !! [VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
+    !! [AUTO-PAUSE] CPL ₹1,482 is >30% above target ₹720
+
+  * DM_Haripriya_Video_Telugu
+    Score: 25.2/100 [LOSER] [VIDEO]
+    Spend: ₹1,435 | CTR: 0.00% | CPM: ₹556.83 | Freq: 1.28
+    Leads: 2 | CPL: ₹717.30
+    [VIDEO] TSR: 7.4% | VHR: 0.0% | FFR: 0.0%
+    !! [VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.
+    !! Creative running 41 days [WARNING]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).
 
 ----------------------------------------------------------------------
   [PLAYBOOKS] ACTIVE SOP PLAYBOOKS
 ----------------------------------------------------------------------
+
+  CTR Drop Recovery — Hook & Messaging Refresh
+  Trigger: Account CTR trending DOWN (-12.3% over 7d)
+    -> Change primary text: add value-driven hook or problem statement
+    -> Make offer + CTA visible in first two lines of ad copy
+    -> Use emotional triggers: FOMO, urgency, social proof, scarcity
+    -> Rework thumbnail for Reels/videos (clean, bright, no clutter)
 
   Thumb Stop Recovery — First 3 Seconds Fix
   Trigger: 2 video ads with thumb-stop < 5%
@@ -158,7 +168,7 @@
     -> Use pattern interrupts (camera shakes, cuts, quick zooms)
 
   Volume Drop with Stable CPL — Scale & Learning Reset
-  Trigger: Leads trending DOWN (-27%) while CPL ₹612 is within range
+  Trigger: Leads trending DOWN (-21%) while CPL ₹644 is within range
     -> Duplicate campaign to refresh learning
     -> Increase budget by 20-25%
     -> Add secondary ad variants to increase variety
@@ -179,14 +189,14 @@
 
   2. ICE: 8.3 | Scale Winners
      Action: Increase budget on 'DM Amara | Adv+OT | [HNIs Narrowed by Re' by 20-25%
-     Score: 89.3/100, CPL: ₹586 (within target), 57 leads. SOP: Scale max 25%.
+     Score: 87.8/100, CPL: ₹609 (within target), 55 leads. SOP: Scale max 25%.
 
   3. ICE: 7.3 | Combat Learning Limited
      Action: Scale 'DM-23/03/2026-500-AL-MO-LED-(Jobtitles_i' out of Learning Limited
-     Campaign has 26 leads (need ~50/week for stable learning). Budget: ₹2500/day.
+     Campaign has 23 leads (need ~50/week for stable learning). Budget: ₹2500/day.
      ROOT CAUSES (2 identified):
        [Media Buyer] Insufficient conversion volume
-         Evidence: 26 leads in period
+         Evidence: 23 leads in period
          Solution: Increase budget by 20-25% to ₹3125/day
        [Media Buyer] Too many adsets splitting volume
          Evidence: Check if multiple adsets compete for same audience
@@ -197,49 +207,28 @@
      Static ads with CTR < 0.7%. Improve headline visibility, CTA contrast, visual
      hierarchy. Add price overlay, benefit callout, or social proof.
 
+  5. ICE: 7.0 | Creative Strategy
+     Action: Double down on winning creative formats
+     'Static' format appears more in top performers (1/2) than bottom (0/2).
+
   --- STRATEGIC ---
 
-  5. ICE: 6.0 | Funnel Balance
+  6. ICE: 6.0 | Funnel Balance
      Action: Adjust funnel budget split
      TOFU is over-indexed: 100% actual vs 55% target (+45pp). MOFU is under-indexed:
      0% actual vs 35% target (-35pp).
 
-----------------------------------------------------------------------
-  [INTELLECT] PERFORMANCE MARKETER INSIGHTS (Beyond SOPs)
-----------------------------------------------------------------------
-
-  [INFO] BEST_PERFORMING_AD
-  Entity: DM_23/03/2026_70%_open_space
-    Best performing ad: 'DM_23/03/2026_70%_open_space' — CPL ₹493, 9 leads, ₹4,436
-    spend, CTR 0.63%.
-
-  [HIGH] WORST_PERFORMING_AD
-  Entity: DM_23/03/2026_Saurabh_Ten Months early_pocession
-    Worst performing ad: 'DM_23/03/2026_Saurabh_Ten Months early_pocession' — ₹705
-    spent with ZERO leads.
-
-  [INFO] ADS_ANALYZED
-  Entity: Account-wide
-    Total ads analyzed: 9. Winners: 3, Losers: 0, Watch: 6.
-
-  [MEDIUM] BUDGET_EFFICIENCY
-  Entity: Account-wide
-    Budget efficiency: 27% of budget (₹13,784) going to ads with CPL > target or
-    zero leads.
-
-  [HIGH] CPL_TREND
-  Entity: Account-wide
-    CPL trending UP over last 3 days: ₹621, ₹716, ₹932.
 
 ----------------------------------------------------------------------
   [PATTERNS] DEEP PATTERN ANALYSIS
 ----------------------------------------------------------------------
-    [METRIC_COMPARISON] Top 2 ads: avg CPL ₹497, CTR 0.52%, CPM ₹183, Freq 1.23
-    [METRIC_COMPARISON] Bottom 2 ads: avg CPL ₹926, CTR 1.04%, CPM ₹1278, Freq 1.14
-    [CPL_GAP] Bottom performers cost 1.9x more per lead (₹926 vs ₹497).
+    [METRIC_COMPARISON] Top 2 ads: avg CPL ₹514, CTR 0.68%, CPM ₹116, Freq 1.20
+    [METRIC_COMPARISON] Bottom 2 ads: avg CPL ₹1203, CTR 1.00%, CPM ₹1279, Freq 1.13
+    [CPL_GAP] Bottom performers cost 2.3x more per lead (₹1203 vs ₹514).
+    [FORMAT_WINNER] 'Static' format appears more in top performers (1/2) than bottom (0/2).
     [FORMAT_LOSER] 'Video' format appears more in bottom performers (1/2) than top (0/2).
     [VIDEO_VS_STATIC] Top performers: 100% video, 0% static. Bottom: 100% video, 0% static.
-    [VIDEO_HOOK_QUALITY] Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating — check copy/CTA instead.
+    [VIDEO_HOOK_QUALITY] Top video TSR: 5.2% vs bottom: 9.9%. Top video VHR: 46.9% vs bottom: 43.1%. Hook quality not differentiating — check copy/CTA instead.
 
 ----------------------------------------------------------------------
   [NOTIFY] NOTIFICATION TRIGGERS

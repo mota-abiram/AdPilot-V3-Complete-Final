@@ -69,6 +69,38 @@
       "total_leads": 83,
       "avg_cpl": 612.4592771084336,
       "overall_ctr": 0.6473544521184457
+    },
+    {
+      "date": "2026-04-06",
+      "cadence": "multi_cadence",
+      "total_leads": 78,
+      "avg_cpl": 644.4558974358976,
+      "overall_ctr": 0.592835587287804,
+      "strategic_narrative": "Strategic insights unavailable (API Key missing)."
+    },
+    {
+      "date": "2026-04-06",
+      "cadence": "multi_cadence",
+      "total_leads": 78,
+      "avg_cpl": 644.4565384615385,
+      "overall_ctr": 0.5928345280551168,
+      "strategic_narrative": "Strategic analysis failed: HTTP Error 403: Forbidden"
+    },
+    {
+      "date": "2026-04-06",
+      "cadence": "multi_cadence",
+      "total_leads": 78,
+      "avg_cpl": 644.4565384615385,
+      "overall_ctr": 0.5928345280551168,
+      "strategic_narrative": "Strategic analysis failed: HTTP Error 403: Forbidden"
+    },
+    {
+      "date": "2026-04-06",
+      "cadence": "multi_cadence",
+      "total_leads": 78,
+      "avg_cpl": 644.4565384615385,
+      "overall_ctr": 0.5928345280551168,
+      "strategic_narrative": "Mojo's Take: Current CPL of \u20b9667 is unsustainable, indicating poor conversion rates and high customer acquisition costs. Immediate optimization of targeting and creative is critical to improve CVR and lower CPL before MTD spend reaches its limit."
     }
   ],
   "patterns": [
@@ -136,36 +168,40 @@
       "top_patterns": [
         "Top video TSR: 5.3% vs bottom: 10.0%. Top video VHR: 54.5% vs bottom: 43.5%. Hook quality not differentiating \u2014 check copy/CTA instead."
       ]
+    },
+    {
+      "date": "2026-04-06",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 5.2% vs bottom: 9.9%. Top video VHR: 46.9% vs bottom: 43.1%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-06",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 5.2% vs bottom: 9.9%. Top video VHR: 46.9% vs bottom: 43.1%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-06",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 5.2% vs bottom: 9.9%. Top video VHR: 46.9% vs bottom: 43.1%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-06",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 5.2% vs bottom: 9.9%. Top video VHR: 46.9% vs bottom: 43.1%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
     }
   ],
   "fatigue_timelines": {},
   "audience_saturation": {},
   "campaign_cpl_history": {
     "120242148702000466": [
-      {
-        "date": "2026-04-01",
-        "cpl": 699.3337499999999,
-        "leads": 24,
-        "spend": 16784.01
-      },
-      {
-        "date": "2026-04-02",
-        "cpl": 703.9072,
-        "leads": 25,
-        "spend": 17597.68
-      },
-      {
-        "date": "2026-04-03",
-        "cpl": 701.5234615384616,
-        "leads": 26,
-        "spend": 18239.61
-      },
-      {
-        "date": "2026-04-03",
-        "cpl": 701.5234615384616,
-        "leads": 26,
-        "spend": 18239.61
-      },
       {
         "date": "2026-04-03",
         "cpl": 701.5665384615385,
@@ -201,33 +237,33 @@
         "cpl": 669.6273076923078,
         "leads": 26,
         "spend": 17410.31
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 730.3356521739131,
+        "leads": 23,
+        "spend": 16797.72
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 730.3356521739131,
+        "leads": 23,
+        "spend": 16797.72
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 730.3356521739131,
+        "leads": 23,
+        "spend": 16797.72
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 730.3356521739131,
+        "leads": 23,
+        "spend": 16797.72
       }
     ],
     "120231984866140466": [
-      {
-        "date": "2026-04-01",
-        "cpl": 578.8433898305085,
-        "leads": 59,
-        "spend": 34151.76
-      },
-      {
-        "date": "2026-04-02",
-        "cpl": 589.1296363636363,
-        "leads": 55,
-        "spend": 32402.13
-      },
-      {
-        "date": "2026-04-03",
-        "cpl": 571.483103448276,
-        "leads": 58,
-        "spend": 33146.020000000004
-      },
-      {
-        "date": "2026-04-03",
-        "cpl": 571.483103448276,
-        "leads": 58,
-        "spend": 33146.020000000004
-      },
       {
         "date": "2026-04-03",
         "cpl": 571.5075862068966,
@@ -263,6 +299,30 @@
         "cpl": 586.3826315789473,
         "leads": 57,
         "spend": 33423.81
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 608.5425454545456,
+        "leads": 55,
+        "spend": 33469.840000000004
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 608.5434545454546,
+        "leads": 55,
+        "spend": 33469.89
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 608.5434545454546,
+        "leads": 55,
+        "spend": 33469.89
+      },
+      {
+        "date": "2026-04-06",
+        "cpl": 608.5434545454546,
+        "leads": 55,
+        "spend": 33469.89
       }
     ],
     "120240639389720466": [

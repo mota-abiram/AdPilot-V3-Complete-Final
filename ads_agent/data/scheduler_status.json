@@ -1,11 +1,33 @@
 {
-  "lastRun": "2026-04-05T10:23:17.009Z",
+  "lastRun": "2026-04-06T05:28:39.488Z",
   "lastRunSuccess": true,
-  "lastRunDuration": 110243,
+  "lastRunDuration": 160592,
   "lastError": null,
-  "nextRun": "2026-04-06T03:30:00.000Z",
+  "nextRun": "2026-04-07T03:30:00.000Z",
   "isRunning": false,
   "runHistory": [
+    {
+      "timestamp": "2026-04-06T05:28:39.488Z",
+      "success": true,
+      "duration": 160592
+    },
+    {
+      "timestamp": "2026-04-06T05:14:42.708Z",
+      "success": true,
+      "duration": 117527
+    },
+    {
+      "timestamp": "2026-04-06T05:07:24.056Z",
+      "success": false,
+      "duration": 61290,
+      "error": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py --client amara --multi-cadence\n/Users/apple/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020\n  warnings.warn(\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3754, in <module>\n    cadence_results = run_multi_cadence_analysis()\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3698, in run_multi_cadence_analysis\n    result = run_analysis(cname)\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/google_ads_agent_v2.py\", line 3414, in run_analysis\n    ctx_msg = f\"GOOGLE ADS: Spend ₹{account_pulse.get('latest_daily_spend'):,.0f}, CPL ₹{account_pulse.get('overall_cpl'):,.0f}. MTD Pacing: {account_pulse.get('mtd_pacing', {}).get('pacing_spend_pct', 0):.0f}% spend vs {account_pulse.get('mtd_pacing', {}).get('pacing_leads_pct', 0):.0f}% leads.\"\nTypeError: unsupported format string passed to NoneType.__format__\n"
+    },
+    {
+      "timestamp": "2026-04-06T04:45:42.954Z",
+      "success": false,
+      "duration": 54153,
+      "error": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py --multi-cadence\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 3282, in <module>\n    main()\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 3169, in main\n    result = _run_analysis_for_cadence(\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 2928, in _run_analysis_for_cadence\n    ctx_msg = f\"META ADS: Spend ₹{latest_spend:,.0f}, CPL ₹{overall_cpl:,.0f}. MTD Pacing: {pacing_ratio*100:.0f}% spend relative to linear target.\"\nNameError: name 'latest_spend' is not defined\n"
+    },
     {
       "timestamp": "2026-04-05T10:23:17.009Z",
       "success": true,
