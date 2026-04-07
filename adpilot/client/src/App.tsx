@@ -1,4 +1,4 @@
-import { Switch, Route, Router } from "wouter";
+import { Switch, Route, Router, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,7 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClientProvider, useClient } from "@/lib/client-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { LogOut } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -78,6 +78,7 @@ function AppLayout() {
   useLiveUpdates();
   const { analysisData, activeClient, activePlatformInfo, syncState } = useClient();
   const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const [terminalOpen, setTerminalOpen] = useState(false);
   useNow();
 
@@ -140,6 +141,15 @@ function AppLayout() {
               </span>
               <Button size="icon" variant="outline" onClick={logout} aria-label="Log out" data-testid="button-logout">
                 <LogOut className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="flex items-center gap-2 h-8 px-3 sm:px-4 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95"
+                onClick={() => setLocation("/ads")}
+              >
+                <Sparkles className="w-3.5 h-3.5 sm:mr-0.5" />
+                <span className="hidden sm:inline">Creative Generation</span>
               </Button>
               <CommandTerminalToggle onClick={() => setTerminalOpen((o) => !o)} isOpen={terminalOpen} />
             </div>

@@ -421,9 +421,6 @@ function GoogleBenchmarks() {
         <button className={cn("px-4 py-2 text-xs font-medium transition-colors border-b-2", activeTab === "actuals" ? "text-primary border-primary bg-primary/5" : "text-muted-foreground border-transparent hover:text-foreground")} onClick={() => setActiveTab("actuals")}>
           <BarChart3 className="w-3.5 h-3.5 inline mr-1.5" />Actuals vs Targets
         </button>
-        <button className={cn("px-4 py-2 text-xs font-medium transition-colors border-b-2", activeTab === "mtd" ? "text-primary border-primary bg-primary/5" : "text-muted-foreground border-transparent hover:text-foreground")} onClick={() => setActiveTab("mtd")}>
-          <FileText className="w-3.5 h-3.5 inline mr-1.5" />MTD Deliverables
-        </button>
       </div>
 
       {activeTab === "targets" && (
@@ -488,39 +485,7 @@ function GoogleBenchmarks() {
         </>
       )}
 
-      {activeTab === "mtd" && (
-        <>
-          <EditableSection section={GOOGLE_MTD} form={form} onFieldChange={handleFieldChange} />
-          <Card className="bg-muted/20 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">Google Ads Monthly Pacing</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div>
-                  <span className="text-[10px] text-muted-foreground">SVs MTD</span>
-                  <p className="text-lg font-bold tabular-nums">{form.google_svs_mtd || 0}</p>
-                  <span className="text-[9px] text-muted-foreground">Target: {form.google_svs_low || 0}–{form.google_svs_high || 0}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground">Positive Leads MTD</span>
-                  <p className="text-lg font-bold tabular-nums">{form.google_positive_leads_mtd || 0}</p>
-                  <span className="text-[9px] text-muted-foreground">Target: {form.google_positive_lead_target || 0}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground">Closures MTD</span>
-                  <p className="text-lg font-bold tabular-nums">{form.google_closures_mtd || 0}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground">Days Remaining</span>
-                  <p className="text-lg font-bold tabular-nums">{new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+
 
       {/* Save Button */}
       {isAdmin ? (
@@ -687,21 +652,9 @@ function MetaBenchmarks() {
           <Target className="w-3.5 h-3.5 inline mr-1.5" />
           Targets & Thresholds
         </button>
-        <button
-          className={cn(
-            "px-4 py-2 text-xs font-medium transition-colors border-b-2",
-            activeTab === "mtd"
-              ? "text-primary border-primary bg-primary/5"
-              : "text-muted-foreground border-transparent hover:text-foreground"
-          )}
-          onClick={() => setActiveTab("mtd")}
-        >
-          <FileText className="w-3.5 h-3.5 inline mr-1.5" />
-          MTD Deliverables
-        </button>
       </div>
 
-      {activeTab === "targets" ? (
+      {activeTab === "targets" && (
         <>
           {/* Section 1: Lead & Revenue Targets */}
           <EditableSection
@@ -752,51 +705,9 @@ function MetaBenchmarks() {
               </div>
             </CardContent>
           </Card>
-
-        </>
-      ) : (
-        /* MTD Deliverables Tab */
-        <>
-          <EditableSection
-            section={MTD_DELIVERABLES}
-            form={form}
-            onFieldChange={handleFieldChange}
-          />
-
-          {/* Show computed pacing if data available */}
-          <Card className="bg-muted/20 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">Monthly Pacing</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div>
-                  <span className="text-[10px] text-muted-foreground">SVs MTD</span>
-                  <p className="text-lg font-bold tabular-nums">{form.svs_mtd || 0}</p>
-                  <span className="text-[9px] text-muted-foreground">Target: {form.svs_low || 0}–{form.svs_high || 0}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground">Positive Leads MTD</span>
-                  <p className="text-lg font-bold tabular-nums">{form.positive_leads_mtd || 0}</p>
-                  <span className="text-[9px] text-muted-foreground">Target: {form.positive_lead_target || 0}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground">Closures MTD</span>
-                  <p className="text-lg font-bold tabular-nums">{form.closures_mtd || 0}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground">Days Remaining</span>
-                  <p className="text-lg font-bold tabular-nums">
-                    {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate()}
-                  </p>
-                  <span className="text-[9px] text-muted-foreground">Day {new Date().getDate()} of month</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </>
       )}
+
 
       {/* Save Button */}
       {isAdmin ? (
@@ -827,7 +738,6 @@ function MetaBenchmarks() {
           <div className="text-xs text-muted-foreground space-y-1">
             <p><strong>Reference Values:</strong> Benchmarks act as dynamic comparison references across Dashboard, Campaigns, Adsets, and MTD modules — changes apply instantly.</p>
             <p><strong>Not Scoring:</strong> Benchmarks do not influence health scores or campaign scoring — they are display-only comparison targets.</p>
-            <p><strong>MTD Deliverables:</strong> Enter SVs, positive leads, and closures manually. The agent calculates total leads, spend, and other metrics from API data automatically.</p>
           </div>
         </CardContent>
       </Card>

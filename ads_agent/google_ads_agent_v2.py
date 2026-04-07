@@ -629,12 +629,12 @@ def extract_campaign(row):
     # CTR MUST be recalculated: Clicks / Impressions
     ctr = (safe_div(clicks, impressions) * 100) if impressions > 0 else 0
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
-    avg_cpm = micros_to_inr(metrics.get("averageCpm"))
+    cpm = micros_to_inr(metrics.get("averageCpm"))
     # Derive CPC/CPM when API returns 0 (common with auto-bidding strategies)
     if avg_cpc == 0 and clicks > 0:
         avg_cpc = safe_div(cost, clicks)
-    if avg_cpm == 0 and impressions > 0:
-        avg_cpm = safe_div(cost, impressions) * 1000
+    if cpm == 0 and impressions > 0:
+        cpm = safe_div(cost, impressions) * 1000
     cost_per_conv = micros_to_inr(metrics.get("costPerConversion"))
     cvr = safe_div(conversions, clicks) * 100
 
@@ -670,7 +670,7 @@ def extract_campaign(row):
         "all_conversions": all_conversions,
         "ctr": round(ctr, 2),
         "avg_cpc": round(avg_cpc, 2),
-        "avg_cpm": round(avg_cpm, 2),
+        "cpm": round(cpm, 2),
         "cpl": round(cost_per_conv, 2) if cost_per_conv else round(safe_div(cost, conversions), 2),
         "cvr": round(cvr, 2),
         # IS metrics (use `is not None` to preserve 0 values; None means truly unavailable)
@@ -713,6 +713,7 @@ def extract_ad_group(row):
         "conversions": conversions,
         "ctr": round(ctr, 2),
         "avg_cpc": round(avg_cpc, 2),
+        "cpm": round(micros_to_inr(metrics.get("averageCpm")) or (safe_div(cost, impressions) * 1000 if impressions > 0 else 0), 2),
         "cvr": round(cvr, 2),
         "cpl": round(cpl, 2),
     }
@@ -733,6 +734,10 @@ def extract_ad(row):
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
     cvr = safe_div(conversions, clicks) * 100
     cpl = safe_div(cost, conversions)
+
+    cpm = micros_to_inr(metrics.get("averageCpm"))
+    if cpm == 0 and impressions > 0:
+        cpm = safe_div(cost, impressions) * 1000
 
     # Determine ad type
     ad_type = "UNKNOWN"
@@ -793,6 +798,7 @@ def extract_ad(row):
         "conversions": conversions,
         "ctr": round(ctr, 2),
         "avg_cpc": round(avg_cpc, 2),
+        "cpm": round(cpm, 2),
         "cvr": round(cvr, 2),
         "cpl": round(cpl, 2),
         "video_metrics": video_metrics,
@@ -1198,7 +1204,7 @@ def analyze_impression_share_campaign(c, ctype, bench):
 
 def analyze_dg_campaign_health(c, bench):
     """Analyze Demand Gen campaign health."""
-    cpm = c.get("avg_cpm", 0)
+    cpm = c.get("cpm", 0)
     cpm_baseline = bench.get("cpm_baseline", 120)
     freq_cap = bench.get("freq_warn", 4)
 
@@ -3354,6 +3360,7 @@ def run_analysis(cadence="twice_weekly"):
         ca["health_score"] = scored["score"]
         ca["score"] = scored["score"]
         ca["score_breakdown"] = scored.get("breakdown", {})
+        ca["score_bands"] = scored.get("bands", {})
         s = scored["score"]
         ca["classification"] = "Excellent" if s >= 80 else "Good" if s >= 60 else "Average" if s >= 40 else "Poor"
         print(f"  {ca['name'][:40]}: {ca['campaign_type']} | CPL {fmt_inr(ca['cpl'])} | CTR {ca['ctr']}% | CVR {ca['cvr']}% | {ca['cost_stack']['overall']} | Score: {ca['health_score']:.0f}")

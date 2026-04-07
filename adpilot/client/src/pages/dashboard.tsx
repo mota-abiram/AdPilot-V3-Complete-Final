@@ -46,7 +46,18 @@ import {
   UserCheck,
   Home,
   Star,
+  Check,
+  ChevronDown,
+  Facebook,
+  Globe,
+  Plus,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   formatINR,
   formatPct,
@@ -77,8 +88,14 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { cn } from "@/lib/utils";
 import { ExecutionButton } from "@/components/execution-button";
 import { UnifiedActions } from "@/components/unified-actions";
+
+export const calculateCTR = (clicks: number, impressions: number) => {
+  if (!impressions || impressions === 0) return 0;
+  return (clicks / impressions) * 100;
+};
 
 function KpiCard({
   title,
@@ -103,7 +120,10 @@ function KpiCard({
     className?: string;
   };
 }) {
+  const { activeCadence } = useClient();
   const trendInfo = trend ? getTrendInfo(trend, isInverse) : null;
+  const hideTrend = activeCadence === "daily";
+
   return (
     <Card className="relative overflow-hidden border-border/70 shadow-lg before:absolute before:inset-x-0 before:top-0 before:h-1 before:rounded-t-[10px] before:bg-primary/80">
       <CardContent className="p-3.5">
@@ -124,7 +144,7 @@ function KpiCard({
         {/* Trend + subtitle on one line, badge below */}
         <div className="mt-1.5 space-y-0.5">
           <div className="flex items-center justify-between gap-1">
-            {trendInfo && trendValue ? (
+            {trendInfo && trendValue && !hideTrend ? (
               <span className={`text-[11px] font-medium tabular-nums shrink-0 ${trendInfo.color}`}>
                 {trendInfo.arrow} {trendValue}
               </span>
@@ -245,11 +265,14 @@ export default function DashboardPage() {
     analysisError,
     activeClient,
     activeClientId,
+    clients,
+    setActiveClientId,
+    setActivePlatform,
     activePlatformInfo,
     activePlatform,
     activeCadence,
     syncState,
-    benchmarks, // global context — auto-refreshes when benchmarks are saved
+    benchmarks,
   } = useClient();
   const now = useNow();
 
@@ -325,6 +348,7 @@ export default function DashboardPage() {
       leads: number;
       qualified_leads: number;
       svs: number;
+      closures: number;
       cpl: number;
       cpql: number;
       cpsv: number;
@@ -372,37 +396,37 @@ export default function DashboardPage() {
     return rawCampaignAudit.find((c: any) => c.campaign_id === selectedCampaignId);
   }, [selectedCampaignId, rawCampaignAudit]);
 
-  const campaignAudit = useMemo(() => 
+  const campaignAudit = useMemo(() =>
     selectedCampaignId === "ALL" ? rawCampaignAudit : rawCampaignAudit.filter((c: any) => c.campaign_id === selectedCampaignId),
     [rawCampaignAudit, selectedCampaignId]
   );
 
-  const fatigueAlerts = useMemo(() => 
+  const fatigueAlerts = useMemo(() =>
     selectedCampaignId === "ALL" ? rawFatigueAlerts : rawFatigueAlerts.filter((f: any) => f.campaign === filteredCampaign?.campaign_name),
     [rawFatigueAlerts, selectedCampaignId, filteredCampaign]
   );
 
-  const adRecommendations = useMemo(() => 
+  const adRecommendations = useMemo(() =>
     selectedCampaignId === "ALL" ? rawAdRecommendations : rawAdRecommendations.filter((r: any) => r.campaign === filteredCampaign?.campaign_name || r.campaign_id === selectedCampaignId),
     [rawAdRecommendations, selectedCampaignId, filteredCampaign]
   );
 
-  const adsetAnalysis = useMemo(() => 
+  const adsetAnalysis = useMemo(() =>
     selectedCampaignId === "ALL" ? rawAdsetAnalysis : rawAdsetAnalysis.filter((a: any) => a.campaign_id === selectedCampaignId || a.campaign_name === filteredCampaign?.campaign_name),
     [rawAdsetAnalysis, selectedCampaignId, filteredCampaign]
   );
 
-  const creativeHealth = useMemo(() => 
+  const creativeHealth = useMemo(() =>
     selectedCampaignId === "ALL" ? rawCreativeHealth : rawCreativeHealth.filter((c: any) => c.campaign_name === filteredCampaign?.campaign_name),
     [rawCreativeHealth, selectedCampaignId, filteredCampaign]
   );
 
-  const intellectInsights = useMemo(() => 
+  const intellectInsights = useMemo(() =>
     selectedCampaignId === "ALL" ? rawIntellectInsights : rawIntellectInsights.filter((i: any) => i.entity && i.entity.includes(filteredCampaign?.campaign_name || "")),
     [rawIntellectInsights, selectedCampaignId, filteredCampaign]
   );
 
-  const autoPauseCandidates = useMemo(() => 
+  const autoPauseCandidates = useMemo(() =>
     selectedCampaignId === "ALL" ? rawAutoPauseCandidates : rawAutoPauseCandidates.filter((c: any) => c.campaign_name === filteredCampaign?.campaign_name || c.campaign_id === selectedCampaignId),
     [rawAutoPauseCandidates, selectedCampaignId, filteredCampaign]
   );
@@ -628,13 +652,17 @@ export default function DashboardPage() {
     ? videoCreatives.reduce((s: number, c: any) => s + c.hold_rate_pct * c.impressions, 0) / totalVideoImpressions
     : null;
 
-  const multiMetricChartData = (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((ctr: number, i: number) => ({
-    day: dayLabels[i],
-    ctr: typeof ctr === "number" ? parseFloat(ctr.toFixed(2)) : 0,
-    tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
-    vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
-    cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
-  }));
+  const multiMetricChartData = (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((_: number, i: number) => {
+    const dailyClick = ap.daily_clicks?.[i] || 0;
+    const dailyImp = ap.daily_impressions?.[i] || 0;
+    return {
+      day: dayLabels[i],
+      ctr: parseFloat(calculateCTR(dailyClick, dailyImp).toFixed(2)),
+      tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
+      vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
+      cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
+    };
+  });
 
   const funnelData = costStack?.funnel_split_actual
     ? Object.entries(costStack.funnel_split_actual)
@@ -652,16 +680,37 @@ export default function DashboardPage() {
   const backendHealthScore = (data as any)?.account_health_score;
   const backendBreakdown = (data as any)?.account_health_breakdown;
 
-  const healthScoreComponents = {
-    cpsv: backendBreakdown?.cpsv ?? 70,
-    pacing_budget: backendBreakdown?.budget ?? 70,
-    cpql: backendBreakdown?.cpql ?? 70,
-    cpl: backendBreakdown?.cpl ?? 70,
-    creative: backendBreakdown?.creative ?? 70,
-    campaign: backendBreakdown?.campaign ?? 70,
+  // Use MTD data for static account health calculation
+  const mtdStats = (mtdData as any)?.mtd;
+  const healthTargetCpl = benchmarks?.cpl || 700;
+  const healthTargetCpsv = benchmarks?.cpsv_high || 24999;
+  const healthTargetCpql = benchmarks?.cpql || 2950;
+
+  const todayDate = new Date();
+  const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+  const daysPassed = mp?.days_elapsed ?? Math.max(0, todayDate.getDate() - 1);
+  const healthTargetBudget = (benchmarks?.budget || 200000);
+  const proRatedBudgetThreshold = Math.round((healthTargetBudget / daysInMonth) * daysPassed);
+
+  const getHealthScore = (val: number, target: number) => {
+    if (!val || val <= 0) return 70; // Neutral starting score if no data
+    if (val <= target) return 100;
+    // Linear regression above target: 10% penalty for every 10% over target, capped at 0
+    return Math.max(0, Math.round(100 * (target / val)));
   };
 
-  const accountHealthScore = backendHealthScore ?? Math.round(
+  const healthScoreComponents = {
+    cpsv: mtdStats?.cpsv ? getHealthScore(mtdStats.cpsv, healthTargetCpsv) : (backendBreakdown?.cpsv ?? 70),
+    pacing_budget: mtdStats?.spend && proRatedBudgetThreshold > 0 
+      ? getHealthScore(mtdStats.spend, proRatedBudgetThreshold) 
+      : (backendBreakdown?.budget ?? 70),
+    cpql: mtdStats?.cpql ? getHealthScore(mtdStats.cpql, healthTargetCpql) : (backendBreakdown?.cpql ?? 70),
+    cpl: mtdStats?.cpl ? getHealthScore(mtdStats.cpl, healthTargetCpl) : (backendBreakdown?.cpl ?? 70),
+    creative: (data as any)?.creative_health_score ?? (backendBreakdown?.creative || 70),
+    campaign: (data as any)?.campaign_health_score ?? (backendBreakdown?.campaign || 70),
+  };
+
+  const accountHealthScore = Math.round(
     healthScoreComponents.cpsv * 0.25 +
     healthScoreComponents.pacing_budget * 0.25 +
     healthScoreComponents.cpql * 0.20 +
@@ -674,18 +723,18 @@ export default function DashboardPage() {
   const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25 },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 20 },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20 },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 10 },
-    { label: "Campaign", score: healthScoreComponents.campaign, weight: 15 },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
+    { label: "CPSV", score: healthScoreComponents.cpsv * 0.25, weight: 25, value: mtdStats?.cpsv },
+    { label: "Budget", score: healthScoreComponents.pacing_budget * 0.20, weight: 20, value: mtdStats?.spend },
+    { label: "CPQL", score: healthScoreComponents.cpql * 0.20, weight: 20, value: mtdStats?.cpql },
+    { label: "CPL", score: healthScoreComponents.cpl * 0.10, weight: 10, value: mtdStats?.cpl },
+    { label: "Campaign", score: healthScoreComponents.campaign * 0.15, weight: 15 },
+    { label: "Creative", score: healthScoreComponents.creative * 0.10, weight: 10 },
   ] : [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25 },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25 },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20 },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 20 },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
+    { label: "CPSV", score: healthScoreComponents.cpsv * 0.25, weight: 25, value: mtdStats?.cpsv },
+    { label: "Budget", score: healthScoreComponents.pacing_budget * 0.25, weight: 25, value: mtdStats?.spend },
+    { label: "CPQL", score: healthScoreComponents.cpql * 0.20, weight: 20, value: mtdStats?.cpql },
+    { label: "CPL", score: healthScoreComponents.cpl * 0.20, weight: 20, value: mtdStats?.cpl },
+    { label: "Creative", score: healthScoreComponents.creative * 0.10, weight: 10 },
   ];
 
   // ─── 10. Missing Derived Variables ──────────────────────────────────
@@ -751,6 +800,7 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+
           <div className="flex items-center gap-2">
             <select
               value={selectedCampaignId}
@@ -870,30 +920,35 @@ export default function DashboardPage() {
           />
 
           <KpiCard
-            title="Avg CPSV"
-            value={formatINR(cpsvMtd, 0)}
+            title="Avg CPSV (MTD)"
+            value={formatINR(mtdStats?.cpsv || 0, 0)}
             icon={Zap}
             isInverse
             status={
-              cpsvMtd > 0
-                ? cpsvMtd <= targetCpsvValue
+              (mtdStats?.cpsv || 0) > 0
+                ? (mtdStats?.cpsv || 0) <= healthTargetCpsv
                   ? { label: "On Target", variant: "success" }
-                  : cpsvMtd <= targetCpsvValue * 1.3
+                  : (mtdStats?.cpsv || 0) <= healthTargetCpsv * 1.3
                     ? { label: "Watch", variant: "warning" }
                     : { label: "Alert", variant: "destructive" }
                 : { label: "Awaiting Data", variant: "secondary" }
             }
-            subtitle="vs target"
+            subtitle={`vs benchmark (${formatINR(healthTargetCpsv, 0)})`}
           />
           <KpiCard
             title="Monthly Pacing"
-            value={mp ? `${mp.pacing.spend_pct.toFixed(0)}%` : "—"}
+            value={mtdStats?.spend && proRatedBudgetThreshold > 0 ? `${Math.round((mtdStats.spend / proRatedBudgetThreshold) * 100)}%` : "—"}
             icon={Gauge}
-            status={mp ? {
-              label: pacingSpendStatus,
-              variant: pacingSpendStatus === "ON_TRACK" ? "success" : pacingSpendStatus === "AHEAD" ? "warning" : "destructive",
-            } : undefined}
-            subtitle={mp ? `Leads: ${mp.pacing.leads_pct.toFixed(0)}%` : "No pacing data"}
+            status={
+              mtdStats?.spend && proRatedBudgetThreshold > 0 
+                ? (mtdStats.spend / proRatedBudgetThreshold) >= 0.9 && (mtdStats.spend / proRatedBudgetThreshold) <= 1.1
+                  ? { label: "On Track", variant: "success" }
+                  : (mtdStats.spend / proRatedBudgetThreshold) > 1.1
+                    ? { label: "Ahead", variant: "warning" }
+                    : { label: "Behind", variant: "destructive" }
+                : { label: "Awaiting Data", variant: "secondary" }
+            }
+            subtitle={proRatedBudgetThreshold > 0 ? `Target: ${formatINR(proRatedBudgetThreshold, 0)}` : "No pacing data"}
           />
           <KpiCard
             title="Active Alerts"
@@ -1031,9 +1086,9 @@ export default function DashboardPage() {
                 <TooltipTrigger asChild>
                   <AlertCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs text-xs space-y-1.5">
-                  <p className="font-semibold">Performance Intelligence Score</p>
-                  <div className="space-y-1">
+                <TooltipContent side="top" className="max-w-xs text-xs space-y-2 p-3">
+                  <p className="font-semibold text-foreground border-b border-border/40 pb-1.5">Weighted Analysis Logic</p>
+                  <div className="space-y-1 text-muted-foreground">
                     {isGoogle ? (
                       <>
                         <p>• 25% CPSV (Cost Per Site Visit)</p>
@@ -1053,6 +1108,7 @@ export default function DashboardPage() {
                       </>
                     )}
                   </div>
+                  <p className="pt-1 text-[10px] italic">Hover individual metrics for target details</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -1066,14 +1122,13 @@ export default function DashboardPage() {
                 </div>
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] ${
-                    accountHealthScore > 80 ? "bg-emerald-500/10 text-emerald-400" :
-                    accountHealthScore > 60 ? "bg-emerald-500/10 text-emerald-400" :
-                    accountHealthScore > 40 ? "bg-amber-500/10 text-amber-400" :
-                    "bg-red-500/10 text-red-400"
-                  }`}
+                  className={`text-[10px] ${accountHealthScore >= 85 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                    accountHealthScore >= 70 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                      accountHealthScore >= 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                        "bg-red-500/10 text-red-400 border-red-500/20"
+                    }`}
                 >
-                  {accountHealthScore > 80 ? "Excellent" : accountHealthScore > 60 ? "Good" : accountHealthScore > 40 ? "Watch" : "Poor"}
+                  {accountHealthScore >= 85 ? "Excellent" : accountHealthScore >= 70 ? "Good" : accountHealthScore >= 40 ? "Watch" : "Poor"}
                 </Badge>
               </div>
               <div className="mt-3 flex items-center gap-2">
@@ -1088,27 +1143,34 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Weighted composite score
+                MTD-based static health analysis
               </p>
             </div>
           </CardContent>
         </Card>
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardContent className="p-4">
-            <h3 className="text-[13px] font-large text-black uppercase tracking-wider text-muted-foreground mb-3">Health Score Breakdown</h3>
+            <h3 className="text-[13px] font-bold text-foreground uppercase tracking-wider mb-3">Health Score Breakdown (MTD Only)</h3>
             <div className={`grid gap-3 ${isGoogle ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {healthBreakdownItems.map((item) => {
                 const pct = item.weight > 0 ? (item.score / item.weight) * 100 : 0;
                 const normalized = Math.max(0, Math.min(pct, 100));
-                return (
-                  <div key={item.label} className="flex items-center gap-3 rounded-md border border-border/30 bg-card p-3">
+
+                let targetDisplay = null;
+                if (item.label === "CPSV") targetDisplay = formatINR(healthTargetCpsv, 0);
+                else if (item.label === "Budget") targetDisplay = formatINR(proRatedBudgetThreshold, 0);
+                else if (item.label === "CPQL") targetDisplay = formatINR(healthTargetCpql, 0);
+                else if (item.label === "CPL") targetDisplay = formatINR(healthTargetCpl, 0);
+
+                const cardContent = (
+                  <div key={item.label} className="flex items-center gap-3 rounded-md border border-border/30 bg-card p-3 shadow-xs hover:border-primary/20 transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                          {item.label} ({item.weight}%)
+                          {item.label} ({item.weight})
                         </p>
                         <p className="text-sm font-semibold tabular-nums text-foreground">
-                          {typeof item.score === "number" ? item.score.toFixed(1) : String(item.score)}
+                          {Math.round(item.score)}
                         </p>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
@@ -1125,17 +1187,39 @@ export default function DashboardPage() {
                     </div>
                     <Badge
                       variant="secondary"
-                      className={`text-[9px] ${
-                        normalized > 80 ? "bg-emerald-500/10 text-emerald-400" :
-                        normalized > 60 ? "bg-emerald-500/10 text-emerald-400" :
-                        normalized > 40 ? "bg-amber-500/10 text-amber-400" :
-                        "bg-red-500/10 text-red-400"
-                      }`}
+                      className={`text-[9px] ${normalized >= 85 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                        normalized >= 70 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                          normalized >= 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                            "bg-red-500/10 text-red-400 border-red-500/20"
+                        }`}
                     >
-                      {normalized > 80 ? "Excellent" : normalized > 60 ? "Good" : normalized > 40 ? "Watch" : "Poor"}
+                      {normalized >= 85 ? "Excellent" : normalized >= 70 ? "Good" : normalized >= 40 ? "Watch" : "Poor"}
                     </Badge>
                   </div>
                 );
+
+                if (targetDisplay) {
+                  return (
+                    <Tooltip key={item.label}>
+                      <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs p-2.5">
+                        <p className="font-semibold">{item.label} Intelligence</p>
+                        <div className="mt-1.5 space-y-1">
+                          <div className="flex justify-between gap-6">
+                            <span className="text-muted-foreground">Current MTD:</span>
+                            <span className="font-bold">{formatINR(item.value || 0, 0)}</span>
+                          </div>
+                          <div className="flex justify-between gap-6">
+                            <span className="text-muted-foreground">Target Threshold:</span>
+                            <span className="font-bold">{targetDisplay}</span>
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return cardContent;
               })}
             </div>
           </CardContent>
@@ -1226,12 +1310,12 @@ export default function DashboardPage() {
                         />
                       </div>
                     </div>
-                    <Badge
+                    {/* <Badge
                       variant="secondary"
                       className="text-[9px] text-foreground bg-muted"
                     >
                       Share
-                    </Badge>
+                    </Badge> */}
                   </div>
                 ))}
               </div>
@@ -1271,7 +1355,7 @@ export default function DashboardPage() {
             if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
             const ratio = div(delivered, target);
             if (ratio >= 1.0) return { label: "ON TRACK", cls: "text-emerald-400" };
-            if (ratio >= 0.9) return { label: "SLIGHTLY BEHIND", cls: "text-amber-400" };
+            if (ratio >= 0.8) return { label: "SLIGHTLY BEHIND", cls: "text-amber-400" };
             return { label: "OFF TRACK", cls: "text-red-400" };
           }
           // Status logic — cost metrics (lower is better)
@@ -1279,7 +1363,7 @@ export default function DashboardPage() {
             if (target <= 0 || delivered <= 0) return { label: "—", cls: "text-muted-foreground" };
             const ratio = div(delivered, target);
             if (ratio <= 1.0) return { label: "ON TARGET", cls: "text-emerald-400" };
-            if (ratio <= 1.1) return { label: "SLIGHTLY HIGH", cls: "text-amber-400" };
+            if (ratio <= 1.15) return { label: "SLIGHTLY HIGH", cls: "text-amber-400" };
             return { label: "OFF TARGET", cls: "text-red-400" };
           }
           // Budget status — on track when within ±10%
@@ -1295,12 +1379,14 @@ export default function DashboardPage() {
           // ─── Data from MTD Deliverables API (authoritative source) ──
           const mtdSpend = mtdData?.mtd?.spend ?? mp?.mtd?.spend ?? 0;
           const mtdLeads = mtdData?.mtd?.leads ?? mp?.mtd?.leads ?? 0;
+          const mtdImpressions = mtdData?.mtd?.impressions ?? 0;
           const mtdQLeads = mtdData?.mtd?.qualified_leads ?? 0;
           const mtdSvs = mtdData?.mtd?.svs ?? 0;
           const mtdCpl = mtdLeads > 0 ? div(mtdSpend, mtdLeads) : 0;
           const mtdCpql = mtdQLeads > 0 ? div(mtdSpend, mtdQLeads) : 0;
           const mtdCpsv = mtdSvs > 0 ? div(mtdSpend, mtdSvs) : 0;
-          const mtdClosures = benchmarks?.closures_mtd ?? 0;
+          const mtdCpm = mtdImpressions > 0 ? div(mtdSpend, mtdImpressions) * 1000 : 0;
+          const mtdClosures = mtdData?.mtd?.closures ?? 0;
           const projectedSpend = projected(mtdSpend);
           const projectedLeads = projected(mtdLeads);
           const projectedQLeads = projected(mtdQLeads);
@@ -1310,6 +1396,7 @@ export default function DashboardPage() {
           const budgetTargetMonthly = benchmarks?.budget ?? mp?.targets?.budget ?? 0;
           const leadsTargetMonthly = benchmarks?.leads ?? mp?.targets?.leads ?? 0;
           const cplTargetVal = benchmarks?.cpl ?? mp?.targets?.cpl ?? 0;
+          const cpmTargetVal = benchmarks?.cpm_max || 450;
           const cpqlTargetVal = benchmarks?.cpql_target ?? 0;
           const svsTargetLow = benchmarks?.svs_low ?? mp?.targets?.svs?.low ?? 0;
           const svsTargetHigh = benchmarks?.svs_high ?? mp?.targets?.svs?.high ?? 0;
@@ -1373,6 +1460,13 @@ export default function DashboardPage() {
             projected: projectedRatio(projectedSpend, projectedSvs),
             status: costStatus(mtdCpsv, cpsvTargetHigh),
           };
+          const cpm = {
+            target: cpmTargetVal,
+            mtdTarget: cpmTargetVal,
+            delivered: mtdCpm,
+            projected: mtdCpm, // Projected CPM usually matches current
+            status: costStatus(mtdCpm, cpmTargetVal),
+          };
 
           const Dash = () => <span className="text-muted-foreground">—</span>;
 
@@ -1413,6 +1507,15 @@ export default function DashboardPage() {
               delivered: <span className="font-semibold">{cpl.delivered > 0 ? formatINR(cpl.delivered, 0) : <Dash />}</span>,
               projectedNode: cpl.projected > 0 ? formatINR(cpl.projected, 0) : <Dash />,
               status: cpl.status,
+              daily: <Dash />,
+            },
+            {
+              label: "CPM",
+              target: formatINR(cpm.target, 0),
+              mtdTarget: formatINR(cpm.mtdTarget, 0),
+              delivered: <span className="font-semibold">{cpm.delivered > 0 ? formatINR(cpm.delivered, 0) : <Dash />}</span>,
+              projectedNode: <Dash />,
+              status: cpm.status,
               daily: <Dash />,
             },
             {
@@ -1506,32 +1609,38 @@ export default function DashboardPage() {
                       <tr className="border-b border-border/50">
                         <th className="p-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground sticky left-0 bg-card">Metric</th>
                         <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">MTD Target</th>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs max-w-[200px]">
-                            (Monthly Target ÷ Total Days) × Days Elapsed
-                          </TooltipContent>
-                        </Tooltip>
+                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>MTD Target</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[200px]">
+                              (Monthly Target ÷ Total Days) × Days Elapsed
+                            </TooltipContent>
+                          </Tooltip>
+                        </th>
                         <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">Projected</th>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs max-w-[200px]">
-                            (MTD Delivered ÷ Days Elapsed) × Total Days
-                          </TooltipContent>
-                        </Tooltip>
+                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>Projected</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[200px]">
+                              (MTD Delivered ÷ Days Elapsed) × Total Days
+                            </TooltipContent>
+                          </Tooltip>
+                        </th>
                         <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">Daily Needed</th>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs max-w-[200px]">
-                            (Monthly Target − MTD Delivered) ÷ Remaining Days
-                          </TooltipContent>
-                        </Tooltip>
+                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>Daily Needed</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[200px]">
+                              (Monthly Target − MTD Delivered) ÷ Remaining Days
+                            </TooltipContent>
+                          </Tooltip>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2377,11 +2486,12 @@ export default function DashboardPage() {
 
       {/* ─── MV2-N04: Acquisition Funnel visualization (Enhanced) ─────── */}
       {(() => {
-        const impressions: number = (ap as any).total_impressions ?? (ap as any).impressions ?? 0;
-        const clicks: number = (ap as any).total_clicks ?? (ap as any).clicks ?? Math.round(impressions * (ap.overall_ctr / 100));
-        const leads: number = ap.total_leads_30d ?? 0;
-        const svsMtd: number = benchmarks?.svs_mtd ?? 0;
-        const posLeads: number = benchmarks?.positive_leads_mtd ?? 0;
+        // Use strictly MTD data for the funnel
+        const impressions: number = mp.mtd?.impressions ?? (ap as any).total_impressions ?? 0;
+        const clicks: number = mp.mtd?.clicks ?? (ap as any).total_clicks ?? 0;
+        const leads: number = mp.mtd?.leads ?? ap.total_leads_30d ?? 0;
+        const svsMtd: number = mp.mtd?.svs ?? benchmarks?.svs_mtd ?? 0;
+        const posLeads: number = mp.mtd?.qualified_leads ?? benchmarks?.positive_leads_mtd ?? 0;
 
         const steps = [
           {
@@ -2441,11 +2551,11 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Filter className="w-4 h-4 text-primary" />
-                  Acquisition Funnel
+                  MTD Acquisition Funnel
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-medium border-primary/20 text-primary/80">
-                  Performance Layer
-                </Badge>
+                <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">MTD (Month-To-Date)</span>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-5">

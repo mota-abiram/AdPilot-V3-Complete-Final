@@ -2228,6 +2228,7 @@ export async function registerRoutes(
 
     let totalSpend = 0;
     let totalLeads = 0;
+    let totalImpressions = 0;
     let dataComplete = true;
     let manualInputMissing = false;
     let trackingIssueFlag = false;
@@ -2248,6 +2249,7 @@ export async function registerRoutes(
           const mtd = data.monthly_pacing?.mtd || data.mtd_pacing || {};
           totalSpend += mtd.spend ?? mtd.spend_mtd ?? 0;
           totalLeads += mtd.leads ?? mtd.leads_mtd ?? 0;
+          totalImpressions += mtd.impressions ?? mtd.impressions_mtd || (data.account_pulse?.total_impressions_mtd || data.account_pulse?.total_impressions || 0);
           
           if (!lastAnalysisUpdate || (data.generated_at && data.generated_at > lastAnalysisUpdate)) {
             lastAnalysisUpdate = data.generated_at;
@@ -2294,6 +2296,7 @@ export async function registerRoutes(
     const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const cpql = qCount > 0 ? totalSpend / qCount : 0;
     const cpsv = svs > 0 ? totalSpend / svs : 0;
+    const cpm = totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0;
     const posPct = totalLeads > 0 ? (qLeads / totalLeads) * 100 : 0;
     const svPct = totalLeads > 0 ? (svs / totalLeads) * 100 : 0;
 
@@ -2309,11 +2312,14 @@ export async function registerRoutes(
       mtd: {
         spend: totalSpend,
         leads: totalLeads,
+        impressions: totalImpressions,
         qualified_leads: qCount,
         svs: svs,
+        closures: manual.closures_achieved || 0,
         cpl: Math.round(cpl),
         cpql: Math.round(cpql),
         cpsv: Math.round(cpsv),
+        cpm: Math.round(cpm),
         positive_pct: Number(posPct.toFixed(1)),
         sv_pct: Number(svPct.toFixed(1))
       },
@@ -2356,7 +2362,7 @@ export async function registerRoutes(
       if (mtdTgt <= 0) return "—";
       const r = div(delivered, mtdTgt);
       if (r >= 1.0) return "ON TRACK";
-      if (r >= 0.9) return "SLIGHTLY BEHIND";
+      if (r >= 0.8) return "SLIGHTLY BEHIND";
       return "OFF TRACK";
     };
     // Status for cost metrics (lower = better)
@@ -2364,7 +2370,7 @@ export async function registerRoutes(
       if (target <= 0 || delivered <= 0) return "—";
       const r = div(delivered, target);
       if (r <= 1.0) return "ON TARGET";
-      if (r <= 1.1) return "SLIGHTLY HIGH";
+      if (r <= 1.15) return "SLIGHTLY HIGH";
       return "OFF TARGET";
     };
     // Status for budget (within ±10% of MTD target = on track)

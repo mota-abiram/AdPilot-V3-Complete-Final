@@ -804,6 +804,66 @@
       "playbooks_triggered": 11,
       "recommendations_count": 40,
       "strategic_narrative": "Mojo's Take: A shocking 50% spend pacing against a mere 18% lead generation reveals a disastrous CPL of \u20b92,360, risking overall ROAS. Immediate shift towards TOFU strategies is imperative to enhance lead acquisition and drive efficiency in spend."
+    },
+    {
+      "timestamp": "2026-04-07 10:37:32.228563",
+      "cadence": "daily",
+      "total_spend": 16742.42,
+      "total_leads": 3.0,
+      "overall_cpl": 5580.81,
+      "overall_cvr": 0.23,
+      "auto_pause_count": 13,
+      "playbooks_triggered": 7,
+      "recommendations_count": 22,
+      "strategic_narrative": "Mojo's Take: The Google Ads spend of \u20b916,742 with a disastrous CPL of \u20b95,581 and mere 1% lead generation signals a critical inefficiency at play, jeopardizing our tCPA and overall ROAS. Immediate overhaul of TOFU tactics is essential to rectify the lead acquisition process and optimize our spend."
+    },
+    {
+      "timestamp": "2026-04-07 10:37:32.228563",
+      "cadence": "twice_weekly",
+      "total_spend": 116619.29,
+      "total_leads": 50.987571,
+      "overall_cpl": 2287.21,
+      "overall_cvr": 0.47,
+      "auto_pause_count": 15,
+      "playbooks_triggered": 12,
+      "recommendations_count": 40,
+      "strategic_narrative": "Mojo's Take: Google Ads is operating at a perilous 62% spend with only 23% lead generation, resulting in a troubling CPL of \u20b92,287 that undermines our tCPA and ROAS. Immediate optimization of targeting and TOFU strategies is crucial to convert this spend into viable leads and rectify performance."
+    },
+    {
+      "timestamp": "2026-04-07 10:37:32.228563",
+      "cadence": "weekly",
+      "total_spend": 211735.77,
+      "total_leads": 108.997126,
+      "overall_cpl": 1942.58,
+      "overall_cvr": 0.64,
+      "auto_pause_count": 11,
+      "playbooks_triggered": 11,
+      "recommendations_count": 35,
+      "strategic_narrative": "Mojo's Take: Google Ads is overspending at 113% with only 50% lead generation, leading to a concerning CPL of \u20b91,943 that jeopardizes our tCPA and ROAS. Immediate recalibration of targeting and TOFU strategies is essential to improve conversion rates and mitigate financial risk."
+    },
+    {
+      "timestamp": "2026-04-07 10:37:32.228563",
+      "cadence": "biweekly",
+      "total_spend": 378051.68,
+      "total_leads": 226.531673,
+      "overall_cpl": 1668.87,
+      "overall_cvr": 0.53,
+      "auto_pause_count": 11,
+      "playbooks_triggered": 9,
+      "recommendations_count": 33,
+      "strategic_narrative": "Mojo's Take: Google Ads is currently overspending at 202% with a questionable CPL of \u20b91,669, directly impacting our lead volume and overall ROI. Immediate optimization of targeting and improvement of CVR are critical to avoid excessive waste and enhance performance."
+    },
+    {
+      "timestamp": "2026-04-07 10:37:32.228563",
+      "cadence": "monthly",
+      "total_spend": 103130.0,
+      "total_leads": 39.985668,
+      "overall_cpl": 2579.17,
+      "overall_cvr": 0.4,
+      "auto_pause_count": 16,
+      "playbooks_triggered": 12,
+      "recommendations_count": 41,
+      "strategic_narrative": "Mojo's Take: Google Ads is drastically overspending with a CPL of \u20b92,579 and a troubling MTD pacing of only 18% leads, indicating severe inefficiency. Immediate reduction of spend and aggressive optimization on targeting and CVR is essential to salvage lead generation and prevent further budget wastage."
     }
   ],
   "patterns": [],

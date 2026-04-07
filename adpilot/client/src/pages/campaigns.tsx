@@ -162,6 +162,15 @@ export default function CampaignsPage() {
     });
   }, [campaigns, isGoogle]);
 
+  const getScoreColor = (c: any, metric: string, rawValColor?: string) => {
+    const score = c.score_breakdown?.[metric];
+    if (score == null) return rawValColor || "text-foreground";
+    if (score >= 85) return "text-emerald-400";
+    if (score >= 70) return "text-emerald-400"; // Good
+    if (score >= 40) return "text-amber-400"; // Watch
+    return "text-red-400"; // Poor
+  };
+
   const dgCampaigns = useMemo(() => {
     if (!isGoogle) return [];
     return campaigns.filter((c: any) => {
@@ -392,13 +401,13 @@ export default function CampaignsPage() {
           </td>
           <td className="p-3 text-right tabular-nums">{formatINR(c.spend || c.cost || 0, 0)}</td>
           <td className="p-3 text-right tabular-nums">{c.leads ?? c.conversions ?? 0}</td>
-          <td className={`p-3 text-right tabular-nums ${(c.cpl || 0) > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
+          <td className={`p-3 text-right tabular-nums ${getScoreColor(c, "cpl", (c.cpl || 0) > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground")}`}>
             {(c.cpl || 0) > 0 ? formatINR(c.cpl, 0) : "—"}
             {(c.cpl || 0) > 0 && benchmarks?.cpl && (
               <BenchmarkBadge value={c.cpl} benchmark={benchmarks.cpl} label="CPL Target" />
             )}
           </td>
-          <td className={`p-3 text-right tabular-nums ${getCtrColor(c.ctr || 0)}`}>
+          <td className={`p-3 text-right tabular-nums ${getScoreColor(c, "ctr", getCtrColor(c.ctr || 0))}`}>
             {formatPct(c.ctr || 0)}
           </td>
           <td className="p-3 text-right tabular-nums">
@@ -420,7 +429,7 @@ export default function CampaignsPage() {
               formatPct(c.vhr || 0)
             )}
           </td>
-          <td className="p-3 text-right tabular-nums">
+          <td className={`p-3 text-right tabular-nums ${getScoreColor(c, "cpm")}`}>
             {sectionType === "search" ? (
               (() => {
                 const val = c.search_impression_share;
@@ -534,12 +543,21 @@ export default function CampaignsPage() {
                 {c.score_breakdown ? (
                   <div className="flex flex-wrap gap-3">
                     {Object.entries(c.score_breakdown).map(([metric, score]) => {
-                      const band = c.score_bands?.[metric] || "unknown";
+                      let band = (c.score_bands?.[metric] || "UNKNOWN").toUpperCase();
+                      
+                      // Fallback: Calculate band from score if unknown
+                      if (band === "UNKNOWN" && typeof score === "number") {
+                        if (score >= 85) band = "EXCELLENT";
+                        else if (score >= 70) band = "GOOD";
+                        else if (score >= 40) band = "WATCH";
+                        else band = "POOR";
+                      }
+
                       const bandColor =
-                        band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10" :
-                        band === "GOOD" ? "text-emerald-400 bg-emerald-500/10" :
-                        band === "WATCH" ? "text-amber-400 bg-amber-500/10" :
-                        band === "POOR" ? "text-red-400 bg-red-500/10" :
+                        band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
+                        band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                        band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                        band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
                         "text-muted-foreground bg-muted/50";
                       return (
                         <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
@@ -989,12 +1007,31 @@ export default function CampaignsPage() {
                               <TooltipContent side="top" className="max-w-xs">
                                 <div className="text-xs space-y-1">
                                   <p className="font-medium">Score Breakdown</p>
-                                  {c.score_breakdown && Object.entries(c.score_breakdown).map(([k, v]) => (
-                                    <div key={k} className="flex items-center justify-between gap-3">
-                                      <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-                                      <span className="tabular-nums font-medium">{typeof v === "number" ? v.toFixed(1) : String(v)}</span>
-                                    </div>
-                                  ))}
+                                  {c.score_breakdown && Object.entries(c.score_breakdown).map(([k, v]) => {
+                                    let band = (c.score_bands?.[k] || "UNKNOWN").toUpperCase();
+                                    if (band === "UNKNOWN" && typeof v === "number") {
+                                      if (v >= 85) band = "EXCELLENT";
+                                      else if (v >= 70) band = "GOOD";
+                                      else if (v >= 40) band = "WATCH";
+                                      else band = "POOR";
+                                    }
+
+                                    const bColor = 
+                                      band === "EXCELLENT" || band === "GOOD" ? "text-emerald-400" :
+                                      band === "WATCH" ? "text-amber-400" :
+                                      band === "POOR" ? "text-red-400" : 
+                                      "text-muted-foreground";
+
+                                    return (
+                                      <div key={k} className="flex items-center justify-between gap-3">
+                                        <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`text-[9px] font-bold ${bColor}`}>{band}</span>
+                                          <span className="tabular-nums font-medium">{typeof v === "number" ? v.toFixed(1) : String(v)}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </TooltipContent>
                             </Tooltip>
@@ -1091,12 +1128,21 @@ export default function CampaignsPage() {
                                 </p>
                                 <div className="flex flex-wrap gap-3">
                                   {Object.entries(c.score_breakdown).map(([metric, score]) => {
-                                    const band = c.score_bands?.[metric] || "unknown";
+                                    let band = (c.score_bands?.[metric] || "UNKNOWN").toUpperCase();
+
+                                    // Fallback: Calculate band from score if unknown
+                                    if (band === "UNKNOWN" && typeof score === "number") {
+                                      if (score >= 85) band = "EXCELLENT";
+                                      else if (score >= 70) band = "GOOD";
+                                      else if (score >= 40) band = "WATCH";
+                                      else band = "POOR";
+                                    }
+
                                     const bandColor =
-                                      band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10" :
-                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10" :
-                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10" :
-                                      band === "POOR" ? "text-red-400 bg-red-500/10" :
+                                      band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
+                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                                      band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
                                       "text-muted-foreground bg-muted/50";
                                     return (
                                       <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">

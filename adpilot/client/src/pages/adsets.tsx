@@ -966,12 +966,23 @@ export default function AdsetsPage() {
                               </p>
                               <div className="flex flex-wrap gap-3">
                                 {Object.entries(a.score_breakdown).map(([metric, score]) => {
-                                  const band = (a.score_bands as Record<string, string>)?.[metric] || "unknown";
+                                  let band = (a.score_bands as Record<string, string>)?.[metric] || "UNKNOWN";
                                   const bandUpper = band.toUpperCase();
+                                  
+                                  // Fallback: Resolve unknown bands
+                                  let finalBand = bandUpper;
+                                  if (finalBand === "UNKNOWN" && typeof score === "number") {
+                                    if (score >= 85) finalBand = "EXCELLENT";
+                                    else if (score >= 70) finalBand = "GOOD";
+                                    else if (score >= 40) finalBand = "WATCH";
+                                    else finalBand = "POOR";
+                                  }
+
                                   const bandColor =
-                                    bandUpper === "EXCELLENT" || bandUpper === "GOOD" ? "text-emerald-400 bg-emerald-500/10" :
-                                    bandUpper === "WATCH" ? "text-amber-400 bg-amber-500/10" :
-                                    bandUpper === "POOR" ? "text-red-400 bg-red-500/10" :
+                                    finalBand === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
+                                    finalBand === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                                    finalBand === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                                    finalBand === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
                                     "text-muted-foreground bg-muted/50";
                                   return (
                                     <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
@@ -980,7 +991,7 @@ export default function AdsetsPage() {
                                         <p className="text-sm font-semibold tabular-nums text-foreground">{typeof score === "number" ? score.toFixed(1) : String(score)}</p>
                                       </div>
                                       <Badge variant="secondary" className={`text-[9px] ${bandColor}`}>
-                                        {bandUpper}
+                                        {finalBand}
                                       </Badge>
                                     </div>
                                   );

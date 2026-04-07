@@ -24,8 +24,11 @@ function scoreLinear(actual: number, target: number, weight: number, lowerIsBett
   }
 }
 
-function normalizeScore(scores: Record<string, number>): number {
-  const total = Object.values(scores).reduce((s, v) => s + v, 0);
+function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
+  let total = 0;
+  for (const k in scores) {
+    total += (scores[k] * (weights[k] || 0)) / 100;
+  }
   return Math.round(Math.max(0, Math.min(100, total)) * 10) / 10;
 }
 
@@ -49,47 +52,58 @@ function recomputeHealthScore(data: any): { score: number; breakdown: Record<str
   const totalLeads = dailyLeads.reduce((s: number, v: number) => s + v, 0);
   const windowCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
+  const weights: Record<string, number> = { cpsv: 25, budget: 25, cpql: 20, cpl: 20, creative: 10 };
+
   // CPL target
   const cplTarget = thresholds.cpl_target || targets.cpl || 850;
 
-  // CPL score (weight 20, lower is better)
-  const cplScore = scoreLinear(windowCpl, cplTarget, 20, true);
+  // CPL score (0-100, lower is better)
+  const cplScore = scoreLinear(windowCpl, cplTarget, 100, true);
 
-  // Budget pacing score (weight 25): how close spend pacing is to 100%
+  // Budget pacing score (0-100): how close spend pacing is to 100%
   const pacingPct = mp.pacing?.spend_pct ?? 100;
   const pacingDev = Math.abs(pacingPct / 100 - 1);
-  const budgetScore = Math.round(25 * Math.max(0, 1 - pacingDev * 2) * 100) / 100;
+  const budgetScore = Math.round(100 * Math.max(0, 1 - pacingDev * 2) * 100) / 100;
 
-  // CPQL score (weight 20): use existing breakdown if cadence-specific data unavailable
-  // (qualified leads aren't in daily arrays, so carry over from existing breakdown)
+  // CPQL score (0-100): use existing breakdown if cadence-specific data unavailable
   const existingBreakdown = data.account_health_breakdown || {};
-  const cpqlScore = existingBreakdown.cpql ?? scoreLinear(0, targets.cpql || 1500, 20, true);
+  
+  // Convert existing weighted scores back to 0-100 if we have them
+  const to100 = (val: number, w: number) => (val / w) * 100;
 
-  // CPSV score (weight 25): carry from existing (site visits not in daily arrays)
-  const cpsvScore = existingBreakdown.cpsv ?? 25 * 0.5;
+  const cpqlScore = existingBreakdown.cpql 
+    ? to100(existingBreakdown.cpql, weights.cpql)
+    : scoreLinear(0, targets.cpql || 1500, 100, true);
 
-  // Creative score (weight 10): average of creative_health scores in this cadence window
+  // CPSV score (0-100)
+  const cpsvScore = existingBreakdown.cpsv 
+    ? to100(existingBreakdown.cpsv, weights.cpsv)
+    : 50;
+
+  // Creative score (0-100)
   const creativeHealth: any[] = data.creative_health || [];
-  let creativeScore = existingBreakdown.creative ?? 0;
+  let creativeScore = existingBreakdown.creative 
+    ? to100(existingBreakdown.creative, weights.creative)
+    : 0;
+    
   if (creativeHealth.length > 0) {
     const validScores = creativeHealth
       .map((c: any) => c.creative_score ?? c.performance_score ?? 0)
       .filter((s: number) => s > 0);
     if (validScores.length > 0) {
-      const avgCreative = validScores.reduce((s: number, v: number) => s + v, 0) / validScores.length;
-      creativeScore = Math.round(avgCreative * (10 / 100) * 100) / 100;
+      creativeScore = validScores.reduce((s: number, v: number) => s + v, 0) / validScores.length;
     }
   }
 
   const breakdown = {
-    cpsv: cpsvScore,
-    budget: budgetScore,
-    cpql: cpqlScore,
-    cpl: cplScore,
-    creative: creativeScore,
+    cpsv: Math.round(cpsvScore * 100) / 100,
+    budget: Math.round(budgetScore * 100) / 100,
+    cpql: Math.round(cpqlScore * 100) / 100,
+    cpl: Math.round(cplScore * 100) / 100,
+    creative: Math.round(creativeScore * 100) / 100,
   };
 
-  return { score: normalizeScore(breakdown), breakdown };
+  return { score: normalizeScore(breakdown, weights), breakdown };
 }
 
 // ── Main normalizer ───────────────────────────────────────────────────────────

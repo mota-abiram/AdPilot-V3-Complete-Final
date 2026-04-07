@@ -78,7 +78,7 @@ if _client_creds:
         os.environ["META_ACCESS_TOKEN"] = _client_creds["access_token"]
 
 # Final Configuration
-AD_ACCOUNT_ID = os.environ.get("META_AD_ACCOUNT_ID", "391022327028566")
+AD_ACCOUNT_ID = os.environ.get("META_AD_ACCOUNT_ID", "391022327028566").replace("act_", "")
 ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN", "")
 
 # Legacy Fallback (optional)
@@ -426,6 +426,11 @@ def api_get(endpoint, params=None):
         with urlopen(req, timeout=45) as resp:
             return json.loads(resp.read().decode())
     except (HTTPError, URLError, Exception) as e:
+        if hasattr(e, 'read'):
+            try:
+                print(f"  [API WARN] {endpoint} debug: {e.read().decode()}")
+            except:
+                pass
         print(f"  [API WARN] {endpoint}: {e}")
         return None
 
@@ -441,6 +446,11 @@ def fetch_all_pages(endpoint, params=None):
             with urlopen(req, timeout=45) as resp:
                 data = json.loads(resp.read().decode())
         except (HTTPError, URLError, Exception) as e:
+            if hasattr(e, 'read'):
+                try:
+                    print(f"  [API WARN] paginate debug: {e.read().decode()}")
+                except:
+                    pass
             print(f"  [API WARN] paginate: {e}")
             break
         results.extend(data.get("data", []))
@@ -1049,7 +1059,7 @@ def score_meta_campaign(campaign_data, cpl_target):
     result = scoring_engine.score_meta_campaign_module(campaign_data, cpl_target)
     result["total_score"] = result["score"]
     result["scores"] = result.get("breakdown", {})
-    result["bands"] = {}
+    result["bands"] = result.get("bands", {})
     score = result["score"]
     if score >= SOP.get("winner_threshold", 70):
         result["classification"] = "WINNER"
@@ -1093,6 +1103,8 @@ def analyze_creative_health(ad_insights, active_ads):
         ctr = sf(ad.get("ctr"))
         cpc = sf(ad.get("cpc"))
         cpm = sf(ad.get("cpm"))
+        if cpm == 0 and impressions > 0:
+            cpm = (spend / impressions) * 1000
         frequency = sf(ad.get("frequency"))
         leads = get_action_value(ad.get("actions"), LEAD_ACTION_TYPES)
         cpl = spend / leads if leads > 0 else 0

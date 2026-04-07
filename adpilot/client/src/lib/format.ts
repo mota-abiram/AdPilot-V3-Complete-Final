@@ -77,24 +77,24 @@ export function formatCompact(num: number): string {
  * Get health score color
  */
 export function getHealthColor(score: number): string {
-  if (score <= 40) return "text-red-500";
-  if (score <= 60) return "text-amber-500";
-  if (score <= 80) return "text-emerald-500";
-  return "text-emerald-400";
+  if (score >= 85) return "text-emerald-400";
+  if (score >= 70) return "text-emerald-500";
+  if (score >= 40) return "text-amber-500";
+  return "text-red-500";
 }
 
 export function getHealthBgColor(score: number): string {
-  if (score <= 40) return "bg-red-500";
-  if (score <= 60) return "bg-amber-500";
-  if (score <= 80) return "bg-emerald-500";
-  return "bg-emerald-400";
+  if (score >= 85) return "bg-emerald-400";
+  if (score >= 70) return "bg-emerald-500";
+  if (score >= 40) return "bg-amber-500";
+  return "bg-red-500";
 }
 
 export function getHealthBarBg(score: number): string {
-  if (score <= 40) return "bg-red-500/20";
-  if (score <= 60) return "bg-amber-500/20";
-  if (score <= 80) return "bg-emerald-500/20";
-  return "bg-emerald-400/20";
+  if (score >= 85) return "bg-emerald-400/20";
+  if (score >= 70) return "bg-emerald-500/20";
+  if (score >= 40) return "bg-amber-500/20";
+  return "bg-red-500/20";
 }
 
 /**
@@ -192,6 +192,7 @@ export function getVideoMetricColor(metric: "tsr" | "vhr" | "ffr", value: number
 export function getCtrColor(ctr: number): string {
   if (ctr < 0.4) return "text-red-400";
   if (ctr < 0.7) return "text-amber-400";
+  if (ctr >= 1.0) return "text-emerald-400";
   return "text-foreground";
 }
 
@@ -199,9 +200,9 @@ export function getCtrColor(ctr: number): string {
  * Get frequency color
  */
 export function getFrequencyColor(freq: number): string {
-  if (freq > 3) return "text-red-400";
-  if (freq > 2.5) return "text-amber-400";
-  return "text-foreground";
+  if (freq > 2.5) return "text-red-400";
+  if (freq > 1.8) return "text-amber-400";
+  return "text-emerald-400";
 }
 
 /**

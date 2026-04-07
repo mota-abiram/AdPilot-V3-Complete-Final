@@ -55,26 +55,37 @@ import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 
 
-// ─── Navigation groups — grouped by workflow, not alphabetically ───────────────
+const MetaLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <path fill="#0668E1" d="M16.51 5.3s-1.02.01-1.92.51l-4.52 3.1c-.26.18-.4.47-.4.79v4.61c0 .32.14.61.39.79l4.53 3.1c.9.52 1.92.52 1.92.52s3.68-.31 3.68-4.59v-3.74c0-4.28-3.68-4.59-3.68-4.59zM8.49 5.3s1.02.01 1.92.51l4.52 3.1c.26.18.41.47.41.79v4.61c0 .32-.15.61-.41.79l-4.52 3.1c-.9.52-1.92.52-1.92.52s-3.68-.31-3.68-4.59v-3.74c0-4.28 3.68-4.59 3.68-4.59z"/>
+  </svg>
+);
 
+const GoogleLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+);
+
+// ─── Navigation groups — grouped by workflow, not alphabetically ───────────────
 const coreNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Campaigns", url: "/campaigns", icon: Megaphone },
-  // Meta uses the generic audiences page; Google gets a dedicated one under /google/audiences
-  { title: "Audiences", url: "/audiences", icon: Users },
   { title: "Ads Panel", url: "/analytics/ads", icon: Clapperboard },
+  { title: "Breakdowns", url: "/breakdowns", icon: BarChart3 },
 ];
 
 const metaNavItems = [
   { title: "Adsets", url: "/adsets", icon: Layers },
-  { title: "Ads", url: "/ads", icon: Sparkles },
 ];
 
 const googleNavItems = [
   { title: "Bidding Intel", url: "/google/bidding", icon: Brain },
   { title: "Ad Groups", url: "/adsets", icon: Layers },
   { title: "Keywords", url: "/keywords", icon: Search },
-  { title: "Ads", url: "/ads", icon: Sparkles },
   { title: "Quality Score", url: "/google/quality-score", icon: BarChart3 },
   { title: "Search Terms", url: "/google/search-terms", icon: Target },
   { title: "Audiences", url: "/google/audiences", icon: Users },
@@ -82,7 +93,6 @@ const googleNavItems = [
 ];
 
 const planningNavItems = [
-  { title: "Breakdowns", url: "/breakdowns", icon: BarChart3 },
   { title: "Creative Calendar", url: "/creative-calendar", icon: CalendarClock },
   { title: "MTD Deliverables", url: "/mtd-deliverables", icon: FileBarChart },
 ];
@@ -200,12 +210,12 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
         </div>
 
         {/* ── Unified Workspace Switcher ──────────────────────────────── */}
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center justify-between px-1">
             Workspace
             {syncState?.sync_status === "loading" && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
           </p>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -219,86 +229,102 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 transition-transform group-hover:scale-105 border border-primary/20">
-                    {activePlatform === "google" ? <Globe className="size-4" /> : <Facebook className="size-4" />}
+                    <Zap className="size-4" />
                   </div>
                   <div className="grid flex-1 text-left leading-tight">
                     <span className="truncate font-bold text-[14px] leading-none">{activeClient?.shortName || activeClient?.name || "Select Client"}</span>
                     <span className="truncate text-[10px] text-muted-foreground capitalize mt-1 flex items-center gap-1.5 leading-none">
-                      {activePlatform} · <span className="opacity-70">{lastSynced || "Never synced"}</span>
+                      Client <span className="opacity-70">· {lastSynced || "Never"}</span>
                     </span>
                   </div>
                 </div>
                 <ChevronDown className="ml-auto size-3.5 text-muted-foreground shrink-0" />
               </button>
             </DropdownMenuTrigger>
-            
+
             <DropdownMenuContent className="w-[260px] rounded-xl bg-background/95 backdrop-blur-xl border-border/60 shadow-2xl p-2" align="start" sideOffset={8}>
               <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                Switch Account
+                Switch Client
               </div>
-              
-              <div className="max-h-[350px] overflow-y-auto space-y-3 py-1">
-                {clients.map((client) => (
-                  <div key={client.id} className="space-y-1">
-                    <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground/45 flex items-center gap-2 uppercase tracking-tight">
-                      {client.shortName || client.name}
-                    </div>
-                    {client.platforms.map((p) => {
-                      const isSelected = client.id === activeClientId && p.id === activePlatform;
-                      const isEnabled = p.enabled && p.hasData;
-                      
-                      return (
-                        <DropdownMenuItem
-                          key={`${client.id}-${p.id}`}
-                          onClick={() => {
-                            if (isEnabled) {
-                              setActiveClientId(client.id);
-                              setActivePlatform(p.id);
-                            }
-                          }}
-                          disabled={!isEnabled}
-                          className={cn(
-                            "flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150",
-                            isSelected 
-                              ? "bg-primary/16 text-primary ring-1 ring-primary/30" 
-                              : "hover:bg-accent/60"
-                          )}
-                        >
-                          <div className={cn(
-                            "size-6 flex items-center justify-center rounded-md border text-[10px] font-bold",
-                            isSelected ? "border-primary/30 bg-primary/20 text-primary" : "border-border/40 bg-muted/40 text-muted-foreground"
-                          )}>
-                            {p.id === "google" ? <Globe className="size-3.5" /> : <Facebook className="size-3.5" />}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[13px] font-medium leading-tight">{p.label}</span>
-                            <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                              {p.hasData ? "Active Connected" : "Not Integrated"}
-                            </span>
-                          </div>
-                          {isSelected && <Check className="ml-auto size-3.5 text-primary" />}
-                          {!isEnabled && (
-                            <Badge variant="outline" className="ml-auto text-[9px] px-1 py-0 opacity-50 border-muted-foreground/30">
-                              Soon
-                            </Badge>
-                          )}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </div>
-                ))}
+
+              <div className="max-h-[350px] overflow-y-auto space-y-1 py-1">
+                {clients.map((client) => {
+                  const isSelected = client.id === activeClientId;
+                  return (
+                    <DropdownMenuItem
+                      key={client.id}
+                      onClick={() => {
+                        setActiveClientId(client.id);
+                        // Also try to find a valid platform if the current one isn't valid for the new client
+                        if (!client.platforms.find(p => p.id === activePlatform && p.enabled && p.hasData)) {
+                          const validPlatform = client.platforms.find(p => p.enabled && p.hasData);
+                          if (validPlatform) setActivePlatform(validPlatform.id);
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150",
+                        isSelected
+                          ? "bg-primary/16 text-primary ring-1 ring-primary/30"
+                          : "hover:bg-accent/60"
+                      )}
+                    >
+                      <div className={cn(
+                        "size-6 flex items-center justify-center rounded-md border text-[10px] font-bold",
+                        isSelected ? "border-primary/30 bg-primary/20 text-primary" : "border-border/40 bg-muted/40 text-muted-foreground"
+                      )}>
+                        <Zap className="size-3.5" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-medium leading-tight">{client.shortName || client.name}</span>
+                      </div>
+                      {isSelected && <Check className="ml-auto size-3.5 text-primary" />}
+                    </DropdownMenuItem>
+                  );
+                })}
               </div>
-              
+
               <div className="border-t border-border/40 my-2" />
-              <DropdownMenuItem 
-                onClick={() => setLocation("/manage-clients")} 
+              <DropdownMenuItem
+                onClick={() => setLocation("/manage-clients")}
                 className="text-primary font-semibold flex items-center gap-2 px-2.5 py-2 hover:bg-primary/5 rounded-lg"
               >
-                <Plus className="size-4" /> 
+                <Plus className="size-4" />
                 <span className="text-[13px]">Manage Client Registry</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Platform Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: "meta", label: "Meta", icon: MetaLogo },
+              { id: "google", label: "Google", icon: GoogleLogo }
+            ].map(p => {
+              const platformConfig = activeClient?.platforms.find(cp => cp.id === p.id);
+              const isEnabled = platformConfig?.enabled && platformConfig?.hasData;
+              const isActiveLocal = activePlatform === p.id && isEnabled;
+              const Icon = p.icon;
+
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => isEnabled && setActivePlatform(p.id)}
+                  className={cn(
+                    "flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200",
+                    isActiveLocal
+                      ? "bg-primary/16 text-primary border-primary/35 shadow-xs"
+                      : isEnabled
+                        ? "bg-card/65 text-muted-foreground border-border/60 hover:bg-accent/70 hover:text-foreground"
+                        : "bg-muted/30 text-muted-foreground/40 border-border/30 cursor-not-allowed"
+                  )}
+                  disabled={!isEnabled}
+                >
+                  <Icon className="size-4" />
+                  <span className="text-[12px] font-semibold">{p.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
 

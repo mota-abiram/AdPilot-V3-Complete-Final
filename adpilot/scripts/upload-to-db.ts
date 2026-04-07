@@ -12,90 +12,63 @@ const __dirname = dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-const DATA_BASE = path.resolve(__dirname, "../../../ads_agent/data");
+const DATA_BASE = path.resolve(__dirname, "../../ads_agent/data");
 const USERS_FILE = path.join(DATA_BASE, "access_users.json");
 
 async function syncLocalToDb() {
   console.log("🚀 Starting One-Time Data Sync to PostgreSQL...");
 
-  // 0. Sync Users
-  console.log("  Syncing Users...");
-  if (fs.existsSync(USERS_FILE)) {
-    const rawUsers = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
-    for (const [email, uData] of Object.entries(rawUsers) as any) {
-      const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (!existing) {
-        await db.insert(users).values({
-          id: uData.id,
-          email: uData.email || email,
-          name: uData.name,
-          passwordHash: uData.passwordHash,
-          role: uData.role || "admin",
-          status: uData.status || "active",
-          createdAt: new Date(uData.createdAt),
-          updatedAt: new Date(uData.updatedAt),
-        });
-      }
-    }
-  }
-
-  // 1. Sync Clients Registry
-  console.log("  Syncing Clients...");
-  const registryFile = path.join(DATA_BASE, "clients_registry.json");
-  if (fs.existsSync(registryFile)) {
-    const clientsData = JSON.parse(fs.readFileSync(registryFile, "utf-8"));
-    for (const c of clientsData) {
-      await db.insert(clients).values({
-        id: c.id,
-        name: c.name,
-        shortName: c.shortName,
-        project: c.project,
-        location: c.location,
-        targetLocations: c.targetLocations || [],
-        platforms: c.platforms || {},
-        targets: c.targets || {},
-      }).onConflictDoUpdate({ target: clients.id, set: { updatedAt: new Date() } });
-    }
-  }
-
-  // 2. Sync Creative Hub (SOPs & Threads)
-  console.log("  Syncing Creative Hub (SOPs & Threads)...");
-  const hubFile = path.join(DATA_BASE, "creative_hub.json");
-  if (fs.existsSync(hubFile)) {
-    const hubData = JSON.parse(fs.readFileSync(hubFile, "utf-8"));
-    for (const [clientId, data] of Object.entries(hubData)) {
-      await db.insert(creativeHubs).values({
-        clientId,
-        setup: (data as any).setup || null,
-        threads: (data as any).threads || [],
-      }).onConflictDoUpdate({ target: creativeHubs.clientId, set: { updatedAt: new Date() } });
-    }
-  }
+// Skipped for force sync
 
   // 3. Sync Latest Analysis (Dashboard Data)
   console.log("  Syncing Dashboard Snapshots...");
-  if (fs.existsSync(DATA_BASE)) {
-    const clientDirs = fs.readdirSync(DATA_BASE).filter(f => fs.lstatSync(path.join(DATA_BASE, f)).isDirectory());
+  const CLIENTS_BASE = path.join(DATA_BASE, "clients");
+  if (fs.existsSync(CLIENTS_BASE)) {
+    const clientDirs = fs.readdirSync(CLIENTS_BASE).filter(f => fs.lstatSync(path.join(CLIENTS_BASE, f)).isDirectory());
     
     for (const clientId of clientDirs) {
-      const metaPath = path.join(DATA_BASE, clientId, "meta", "analysis.json");
+      const metaPath = path.join(CLIENTS_BASE, clientId, "meta");
       if (fs.existsSync(metaPath)) {
-        const data = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-        await db.insert(analysisSnapshots).values({
-          clientId,
-          platform: "meta",
-          data,
-        });
+        // Read all cadences in meta directory
+        const files = fs.readdirSync(metaPath);
+        for (const f of files) {
+          const match = f.match(/^analysis(?:_(.+))?\.json$/);
+          if (match) {
+            const cadence = match[1] || "twice_weekly";
+            const data = JSON.parse(fs.readFileSync(path.join(metaPath, f), "utf-8"));
+            await db.insert(analysisSnapshots).values({
+              clientId,
+              platform: "meta",
+              cadence,
+              data,
+            }).onConflictDoUpdate({
+              target: [analysisSnapshots.clientId, analysisSnapshots.platform, analysisSnapshots.cadence],
+              set: { data, createdAt: new Date() },
+            });
+          }
+        }
       }
 
-      const googlePath = path.join(DATA_BASE, clientId, "google", "analysis.json");
+      const googlePath = path.join(CLIENTS_BASE, clientId, "google");
       if (fs.existsSync(googlePath)) {
-        const data = JSON.parse(fs.readFileSync(googlePath, "utf-8"));
-        await db.insert(analysisSnapshots).values({
-          clientId,
-          platform: "google",
-          data,
-        });
+        // Read all cadences in google directory
+        const files = fs.readdirSync(googlePath);
+        for (const f of files) {
+          const match = f.match(/^analysis(?:_(.+))?\.json$/);
+          if (match) {
+            const cadence = match[1] || "twice_weekly";
+            const data = JSON.parse(fs.readFileSync(path.join(googlePath, f), "utf-8"));
+            await db.insert(analysisSnapshots).values({
+              clientId,
+              platform: "google",
+              cadence,
+              data,
+            }).onConflictDoUpdate({
+              target: [analysisSnapshots.clientId, analysisSnapshots.platform, analysisSnapshots.cadence],
+              set: { data, createdAt: new Date() },
+            });
+          }
+        }
       }
     }
   }
