@@ -141,6 +141,14 @@
       "avg_cpl": 644.4565384615385,
       "overall_ctr": 0.5928345280551168,
       "strategic_narrative": "Mojo's Take: The current CPL of \u20b9667 is unsustainable and threatening overall ROAS, revealing a critical need to enhance CVR at the TOFU stage. Immediate optimization of targeting and creative is required to reduce CPL or risk further budget degradation."
+    },
+    {
+      "date": "2026-04-07",
+      "cadence": "multi_cadence",
+      "total_leads": 61,
+      "avg_cpl": 691.467868852459,
+      "overall_ctr": 0.585887384176764,
+      "strategic_narrative": "Strategic analysis failed: HTTP Error 401: Unauthorized"
     }
   ],
   "patterns": [
@@ -271,6 +279,14 @@
         "'Static' format appears more in top performers (1/2) than bottom (0/2).",
         "Top video TSR: 5.2% vs bottom: 9.9%. Top video VHR: 46.9% vs bottom: 43.1%. Hook quality not differentiating \u2014 check copy/CTA instead."
       ]
+    },
+    {
+      "date": "2026-04-07",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/2) than bottom (0/2).",
+        "'Influencer' format appears more in top performers (1/2) than bottom (0/2).",
+        "Top video TSR: 9.8% vs bottom: 4.9%. Top video VHR: 50.4% vs bottom: 50.0%. Strong hooks = lower CPL."
+      ]
     }
   ],
   "fatigue_timelines": {},
@@ -278,12 +294,6 @@
   "campaign_cpl_history": {
     "120242148702000466": [
       {
-        "date": "2026-04-05",
-        "cpl": 669.6273076923078,
-        "leads": 26,
-        "spend": 17410.31
-      },
-      {
         "date": "2026-04-06",
         "cpl": 730.3356521739131,
         "leads": 23,
@@ -336,15 +346,15 @@
         "cpl": 730.3356521739131,
         "leads": 23,
         "spend": 16797.72
+      },
+      {
+        "date": "2026-04-07",
+        "cpl": 760.5355555555557,
+        "leads": 18,
+        "spend": 13689.640000000001
       }
     ],
     "120231984866140466": [
-      {
-        "date": "2026-04-05",
-        "cpl": 586.3826315789473,
-        "leads": 57,
-        "spend": 33423.81
-      },
       {
         "date": "2026-04-06",
         "cpl": 608.5425454545456,
@@ -398,6 +408,12 @@
         "cpl": 608.5434545454546,
         "leads": 55,
         "spend": 33469.89
+      },
+      {
+        "date": "2026-04-07",
+        "cpl": 662.5558139534884,
+        "leads": 43,
+        "spend": 28489.9
       }
     ],
     "120240639389720466": [

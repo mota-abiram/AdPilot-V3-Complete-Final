@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-04-06T18:52:18.303332",
-  "strategic_narrative": "Mojo's Take: Current CPL of \u20b9667 is unsustainable and undermining ROAS, with urgent corrective measures needed at TOFU to enhance CVR. Focus on refining targeting and optimizing creative assets to prevent continued budget bleed.",
-  "account_health_score": 80.6,
+  "generated_at": "2026-04-07T05:26:00.000132",
+  "strategic_narrative": "Strategic analysis failed: HTTP Error 401: Unauthorized",
+  "account_health_score": 74.3,
   "account_health_breakdown": {
     "cpsv": 25,
-    "budget": 19.17,
+    "budget": 12.86,
     "cpql": 20,
     "cpl": 16.4,
     "creative": 0.0
@@ -13,10 +13,10 @@
   "cadence": "monthly",
   "date_range": {
     "since": "2026-04-01",
-    "until": "2026-04-05"
+    "until": "2026-04-06"
   },
   "benchmarks_loaded": true,
-  "benchmarks_source": "/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/data/clients/amara/benchmarks.json",
+  "benchmarks_source": "/home/runner/work/AdPilot-V3-Complete-Final/AdPilot-V3-Complete-Final/ads_agent/data/clients/amara/benchmarks.json",
   "dynamic_thresholds": {
     "cpl_target": 720,
     "cpl_alert": 936,
@@ -29,12 +29,12 @@
   "period": {
     "primary": {
       "start": "2026-04-01",
-      "end": "2026-04-05",
+      "end": "2026-04-06",
       "cadence": "monthly"
     },
     "mtd": {
       "start": "2026-04-01",
-      "end": "2026-04-05"
+      "end": "2026-04-06"
     }
   },
   "sop_benchmarks": {
@@ -106,65 +106,73 @@
   },
   "account_pulse": {
     "total_spend_30d": 35334.46,
-    "daily_avg_spend": 7066.892,
-    "latest_daily_spend": 8654.5,
-    "spend_ratio": 1.2246543459274601,
-    "spend_status": "NORMAL",
-    "spend_trend": "STABLE",
-    "spend_change_pct": 5.093381826454313,
+    "daily_avg_spend": 6233.798333333333,
+    "latest_daily_spend": 2068.33,
+    "spend_ratio": 0.3317928956636657,
+    "spend_status": "LOW_ANOMALY",
+    "spend_trend": "DOWN",
+    "spend_change_pct": -14.459059526419743,
     "total_leads_30d": 53,
-    "avg_daily_leads": 10.6,
-    "latest_daily_leads": 12,
+    "avg_daily_leads": 9.166666666666666,
+    "latest_daily_leads": 2,
     "leads_trend": "DOWN",
-    "leads_change_pct": -25.33333333333333,
+    "leads_change_pct": -38.235294117647065,
     "zero_lead_days": 0,
     "total_impressions": 442799,
     "total_clicks": 2532,
     "total_reach": 292939,
     "overall_ctr": 0.5718170095235084,
     "ctr_trend": "DOWN",
-    "ctr_change_pct": -12.36559139784946,
+    "ctr_change_pct": -16.483516483516482,
     "overall_cpc": 13.955157977883095,
     "overall_cpm": 79.79796702341243,
     "overall_cpl": 666.6879245283019,
     "not_spending_campaigns": [],
-    "alerts": [],
+    "alerts": [
+      "Spend anomaly: today \u20b92,068 vs 7d avg \u20b96,234 (33.2%)"
+    ],
     "daily_spends": [
       6266.97,
       7447.69,
       6444.12,
       6521.18,
-      8654.5
+      8654.5,
+      2068.33
     ],
     "daily_leads": [
       13,
       12,
       9,
       7,
-      12
+      12,
+      2
     ],
     "daily_ctrs": [
       0.59,
       0.65,
       0.58,
       0.69,
-      0.36
+      0.36,
+      0.47
     ],
     "daily_cpms": [
       80.34,
       77.32,
       82.73,
       70.11,
-      88.7
+      88.7,
+      112.01
     ],
     "daily_tsrs": [
       3.22,
       1.13,
       4.94,
       2.18,
-      9.09
+      9.09,
+      9.94
     ],
     "daily_vhrs": [
+      0.0,
       0.0,
       0.0,
       0.0,
@@ -176,14 +184,16 @@
       96318,
       77889,
       93017,
-      97572
+      97572,
+      18465
     ],
     "daily_clicks": [
       464,
       625,
       454,
       642,
-      347
+      347,
+      87
     ]
   },
   "cost_stack": {
@@ -504,7 +514,7 @@
       "thumb_stop_pct": 0,
       "hold_rate_pct": 0,
       "first_frame_rate": 0,
-      "creative_age_days": 14,
+      "creative_age_days": 15,
       "creative_score": 93.8,
       "performance_score": 93.8,
       "age_score": 100,
@@ -551,7 +561,7 @@
       "thumb_stop_pct": 0,
       "hold_rate_pct": 0,
       "first_frame_rate": 0,
-      "creative_age_days": 14,
+      "creative_age_days": 15,
       "creative_score": 91.0,
       "performance_score": 91.0,
       "age_score": 100,
@@ -600,7 +610,7 @@
       "thumb_stop_pct": 0.23970393818932037,
       "hold_rate_pct": 47.368421052631575,
       "first_frame_rate": 0.008691555010681465,
-      "creative_age_days": 210,
+      "creative_age_days": 211,
       "creative_score": 78.4,
       "performance_score": 78.4,
       "age_score": 100,
@@ -608,7 +618,7 @@
       "health_signals": [
         "[VIDEO] Thumb-stop 0.2% < 5% target. Fix first 3s: add motion/contrast/face.",
         "[VIDEO] First Frame Rate 0.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 210 days [CRITICAL] but performance score 78.4/100 \u2014 PERFORMING_WELL, no refresh needed."
+        "Creative running 211 days [CRITICAL] but performance score 78.4/100 \u2014 PERFORMING_WELL, no refresh needed."
       ],
       "should_pause": false,
       "auto_pause_reasons": [],
@@ -653,14 +663,14 @@
       "thumb_stop_pct": 9.803266642172417,
       "hold_rate_pct": 40.0,
       "first_frame_rate": 0.06680249841344066,
-      "creative_age_days": 145,
+      "creative_age_days": 146,
       "creative_score": 64.5,
       "performance_score": 64.5,
       "age_score": 100,
       "classification": "WATCH",
       "health_signals": [
         "[VIDEO] First Frame Rate 0.1% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 145 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d)."
+        "Creative running 146 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d)."
       ],
       "should_pause": false,
       "auto_pause_reasons": [],
@@ -705,14 +715,14 @@
       "thumb_stop_pct": 10.58715302775778,
       "hold_rate_pct": 34.104046242774565,
       "first_frame_rate": 0.13838892888568916,
-      "creative_age_days": 173,
+      "creative_age_days": 174,
       "creative_score": 35,
       "performance_score": 35,
       "age_score": 100,
       "classification": "LOSER",
       "health_signals": [
         "[VIDEO] First Frame Rate 0.1% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 173 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).",
+        "Creative running 174 days [CRITICAL]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).",
         "[AUTO-PAUSE] CPL \u20b91,102 is >30% above target \u20b9720"
       ],
       "should_pause": true,
@@ -760,14 +770,14 @@
       "thumb_stop_pct": 7.430340557275541,
       "hold_rate_pct": 36.08247422680412,
       "first_frame_rate": 1.001031991744066,
-      "creative_age_days": 41,
+      "creative_age_days": 42,
       "creative_score": 35,
       "performance_score": 35,
       "age_score": 100,
       "classification": "LOSER",
       "health_signals": [
         "[VIDEO] First Frame Rate 1.0% < 80% target. Improve contrast, thumbnail, motion at 0-1s.",
-        "Creative running 41 days [WARNING]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).",
+        "Creative running 42 days [WARNING]. Refresh recommended (OK: <30d, Watch: 30-35d, Warning: 35-45d, Critical: >45d).",
         "[AUTO-PAUSE] CPL \u20b91,118 is >30% above target \u20b9720"
       ],
       "should_pause": true,
@@ -815,7 +825,7 @@
       "thumb_stop_pct": 0,
       "hold_rate_pct": 0,
       "first_frame_rate": 0,
-      "creative_age_days": 14,
+      "creative_age_days": 15,
       "creative_score": 30,
       "performance_score": 30,
       "age_score": 100,
@@ -866,7 +876,7 @@
       "thumb_stop_pct": 9.475517312026223,
       "hold_rate_pct": 47.368421052631575,
       "first_frame_rate": 0.1946322474902684,
-      "creative_age_days": 6,
+      "creative_age_days": 7,
       "creative_score": 24.4,
       "performance_score": 24.4,
       "age_score": 100,
@@ -907,7 +917,7 @@
     {
       "playbook": 2,
       "title": "CTR Drop Recovery \u2014 Hook & Messaging Refresh",
-      "trigger": "Account CTR trending DOWN (-12.4% over 7d)",
+      "trigger": "Account CTR trending DOWN (-16.5% over 7d)",
       "diagnosis": [
         "Compare CTR across creatives to identify drops by asset",
         "Check for offer relevance (expired/repetitive?)",
@@ -947,7 +957,7 @@
     {
       "playbook": 10,
       "title": "Volume Drop with Stable CPL \u2014 Scale & Learning Reset",
-      "trigger": "Leads trending DOWN (-25%) while CPL \u20b9667 is within range",
+      "trigger": "Leads trending DOWN (-38%) while CPL \u20b9667 is within range",
       "actions": [
         "Duplicate campaign to refresh learning",
         "Increase budget by 20-25%",
@@ -1153,9 +1163,11 @@
     }
   ],
   "budget_pacing": {
-    "avg_7d_spend": 7066.892,
-    "latest_spend": 8654.5,
-    "spend_anomalies": [],
+    "avg_7d_spend": 6233.798333333333,
+    "latest_spend": 2068.33,
+    "spend_anomalies": [
+      "Today's spend \u20b92,068 is only 33% of 7d avg (\u20b96,234)."
+    ],
     "exhausted_budgets": [],
     "under_spending": [
       {
@@ -1178,14 +1190,15 @@
       7447.69,
       6444.12,
       6521.18,
-      8654.5
+      8654.5,
+      2068.33
     ]
   },
   "monthly_pacing": {
     "month": "2026-04",
-    "days_elapsed": 5,
-    "days_remaining": 24,
-    "pct_through_month": 16.666666666666664,
+    "days_elapsed": 6,
+    "days_remaining": 23,
+    "pct_through_month": 20.0,
     "targets": {
       "budget": 199998,
       "leads": 278,
@@ -1199,7 +1212,7 @@
         "high": 20000
       }
     },
-    "data_source": "MTD (2026-04-01 to 2026-04-06)",
+    "data_source": "MTD (2026-04-01 to 2026-04-07)",
     "mtd": {
       "spend": 35334.46,
       "leads": 53,
@@ -1211,24 +1224,24 @@
       "clicks": 2532
     },
     "expected": {
-      "spend": 33333.0,
-      "leads": 46.33333333333333
+      "spend": 39999.600000000006,
+      "leads": 55.6
     },
     "projected_eom": {
-      "spend": 212006.76,
-      "leads": 318.0,
-      "cpl": 666.6879245283019
+      "spend": 176672.30000000002,
+      "leads": 265.0,
+      "cpl": 666.687924528302
     },
     "pacing": {
-      "spend_pct": 106.00444004440044,
-      "spend_status": "ON TRACK",
-      "leads_pct": 114.38848920863312,
-      "leads_status": "AHEAD",
+      "spend_pct": 88.33703337033369,
+      "spend_status": "SLIGHTLY BEHIND",
+      "leads_pct": 95.32374100719424,
+      "leads_status": "ON TRACK",
       "cpl_status": "ON TARGET"
     },
     "daily_needed": {
-      "leads": 9.375,
-      "spend": 6860.980833333334
+      "leads": 9.782608695652174,
+      "spend": 7159.2843478260875
     },
     "alerts": []
   },
@@ -1337,7 +1350,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-06T18:52:18.303332",
+    "verified_at": "2026-04-07T05:26:00.000132",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 10,
     "verification_status": "MATCH"
