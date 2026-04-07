@@ -13,6 +13,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -53,6 +54,109 @@ import { UnifiedActions, type UnifiedActionItem, type ActionState } from "@/comp
 const ACCOUNT_OVERVIEW = "all";
 const META_TABS = ["Age", "Gender", "Placement", "Device", "Region"] as const;
 type MetaTabType = (typeof META_TABS)[number];
+
+const META_COLUMN_CONFIG = [
+  {
+    column: "Dimension",
+    source: "Meta API",
+    type: "API",
+    description: "Breakdown value (age, gender, placement, device, region)",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "Per active tab"
+  },
+  {
+    column: "Score",
+    source: "Agent",
+    type: "COMPUTED",
+    description: "Composite score = CPL (50) + CTR (20) + Volume (20) + Spend Util (10)",
+    green: ">= 70",
+    yellow: "40–69",
+    red: "< 40",
+    action: "Click to expand breakdown"
+  },
+  {
+    column: "Spend",
+    source: "Meta API",
+    type: "API",
+    description: "Spend for this segment",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "-"
+  },
+  {
+    column: "Spend %",
+    source: "Agent",
+    type: "COMPUTED",
+    description: "% contribution to total spend",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "Render as progress bar"
+  },
+  {
+    column: "Impressions",
+    source: "Meta API",
+    type: "API",
+    description: "Impressions for segment",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "-"
+  },
+  {
+    column: "Clicks",
+    source: "Meta API",
+    type: "API",
+    description: "Clicks for segment",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "-"
+  },
+  {
+    column: "CTR",
+    source: "Meta API",
+    type: "API",
+    description: "Click-through rate",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "-"
+  },
+  {
+    column: "Leads",
+    source: "Meta API",
+    type: "API",
+    description: "Conversions for segment",
+    green: "-",
+    yellow: "-",
+    red: "-",
+    action: "-"
+  },
+  {
+    column: "CPL",
+    source: "Meta API",
+    type: "COMPUTED",
+    description: "Cost per lead = Spend / Leads",
+    green: "<= Target",
+    yellow: "Near target",
+    red: "> Alert threshold",
+    action: "Color code vs thresholds"
+  },
+  {
+    column: "Recommendation",
+    source: "Agent",
+    type: "COMPUTED",
+    description: "Action based on score + CPL + volume",
+    green: "Scale budget",
+    yellow: "Monitor / Review",
+    red: "Reduce spend / Exclude",
+    action: "Geo alerts for region tab"
+  }
+];
 
 const GOOGLE_TABS = ["Age", "Gender", "Device", "Location", "Placement"] as const;
 type GoogleTabType = (typeof GOOGLE_TABS)[number];
@@ -105,22 +209,42 @@ function formatNumber(n: number) {
 
 function ScoreExpansion({ score, row, cplTarget, ctrTarget }: any) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-      <div className="p-2 rounded-md bg-background border border-border/50">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">CPL vs Target</p>
-        <p className="text-xs font-semibold">{score.cplScore}/50</p>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">CPL Efficiency (50)</p>
+        <div className="flex items-end gap-2">
+          <p className="text-sm font-bold">{score.cplScore}</p>
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
+            <div className={`h-full ${score.cplScore >= 35 ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${(score.cplScore/50)*100}%` }} />
+          </div>
+        </div>
       </div>
-      <div className="p-2 rounded-md bg-background border border-border/50">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">CTR Efficiency</p>
-        <p className="text-xs font-semibold">{score.ctrScore}/20</p>
+      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">CTR Impact (20)</p>
+        <div className="flex items-end gap-2">
+          <p className="text-sm font-bold">{score.ctrScore}</p>
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
+            <div className={`h-full ${score.ctrScore >= 14 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${(score.ctrScore/20)*100}%` }} />
+          </div>
+        </div>
       </div>
-      <div className="p-2 rounded-md bg-background border border-border/50">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Lead Volume</p>
-        <p className="text-xs font-semibold">{score.volumeScore}/20</p>
+      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Lead Volume (20)</p>
+        <div className="flex items-end gap-2">
+          <p className="text-sm font-bold">{score.volumeScore}</p>
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
+            <div className={`h-full bg-primary`} style={{ width: `${(score.volumeScore/20)*100}%` }} />
+          </div>
+        </div>
       </div>
-      <div className="p-2 rounded-md bg-background border border-border/50">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Spend Util</p>
-        <p className="text-xs font-semibold">{score.efficiencyScore}/10</p>
+      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Spend Util (10)</p>
+        <div className="flex items-end gap-2">
+          <p className="text-sm font-bold">{score.efficiencyScore}</p>
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
+            <div className={`h-full bg-blue-500`} style={{ width: `${(score.efficiencyScore/10)*100}%` }} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -142,28 +266,28 @@ function computeBreakdownScore(row: any, target: number, ctrBenchmark: number, t
   let cplScore = 0;
   if (row.leads > 0) {
     const ratio = target / row.cpl;
-    cplScore = Math.min(50, Math.max(0, ratio * 25));
-  } else if (row.spend > 500) {
+    cplScore = Math.min(50, Math.max(0, ratio * 35)); // High weight on CPL
+  } else if (row.spend > 1000) {
     cplScore = 5;
   } else {
-    cplScore = 20; // neutral if low spend / no data
+    cplScore = 25; // neutral
   }
 
   let ctrScore = 0;
   if (row.ctr > 0) {
     const ratio = row.ctr / ctrBenchmark;
-    ctrScore = Math.min(20, Math.max(0, ratio * 10));
+    ctrScore = Math.min(20, Math.max(0, ratio * 15));
   }
 
   let volumeScore = 0;
   if (totalLeads > 0) {
-    volumeScore = Math.min(20, (row.leads / totalLeads) * 100);
+    volumeScore = Math.min(20, (row.leads / totalLeads) * 40);
   }
 
   let efficiencyScore = 0;
   if (totalSpend > 0) {
     const spendPct = (row.spend / totalSpend) * 100;
-    efficiencyScore = Math.min(10, spendPct > 10 ? 10 : spendPct);
+    efficiencyScore = Math.min(10, spendPct > 15 ? 10 : spendPct);
   }
 
   return {
@@ -177,13 +301,13 @@ function computeBreakdownScore(row: any, target: number, ctrBenchmark: number, t
 
 function getRecommendationType(row: any, score: number, tabName: string, isTarget?: boolean) {
   if (tabName === "Region" && isTarget === false && row.spend > 0) {
-    return { type: "exclude", text: "OUTSIDE TARGET LOCATION", color: "text-red-400" };
+    return { type: "exclude", text: "Exclude Segment", color: "text-red-400", reason: "Outside target geography" };
   }
-  if (score >= 75) return { type: "scale", text: "SCALE BUDGET", color: "text-emerald-400" };
-  if (score >= 60) return { type: "monitor", text: "MONITOR & OPTIMIZE", color: "text-emerald-300" };
-  if (score >= 40) return { type: "flag", text: "NEEDS REVIEW", color: "text-amber-400" };
-  if (score > 0) return { type: "reduce", text: "REDUCE SPEND", color: "text-red-400" };
-  return { type: "none", text: "INSUFFICIENT DATA", color: "text-muted-foreground" };
+  if (score >= 75) return { type: "scale", text: "Scale Budget", color: "text-emerald-400", reason: "Top tier performance" };
+  if (score >= 60) return { type: "monitor", text: "Monitor Pacing", color: "text-emerald-300", reason: "Healthy efficiency" };
+  if (score >= 40) return { type: "flag", text: "Optimization Needed", color: "text-amber-400", reason: "Average performance" };
+  if (score > 0) return { type: "reduce", text: "Reduce Spend", color: "text-red-400", reason: "Severe inefficiency" };
+  return { type: "none", text: "Needs Data", color: "text-muted-foreground", reason: "Insufficient impressions" };
 }
 
 // ─── Main Component ────────────────────────────────────────────────
@@ -234,8 +358,6 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   const [activeTab, setActiveTab] = useState<MetaTabType>("Age");
   const [selectedCampaign, setSelectedCampaign] = useState(ACCOUNT_OVERVIEW);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [actionStates, setActionStates] = useState<Record<string, ActionState>>({});
-  const [columnSize, setColumnSize] = useState<"compact" | "normal" | "wide">("normal");
   const [sortKey, setSortKey] = useState<string>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -247,8 +369,8 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   function toggleExpand(id: string) { setExpandedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
 
   const thresholds = analysisData?.dynamic_thresholds;
-  const cplTarget = thresholds?.cpl_target ?? 0;
-  const ctrTarget = thresholds?.ctr_min ?? 0.7;
+  const cplTarget = thresholds?.cpl_target ?? 1000;
+  const ctrTarget = thresholds?.ctr_min ?? 0.8;
 
   const campaigns = useMemo(() => {
     if (!analysisData?.campaign_audit) return [];
@@ -292,8 +414,6 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
         agg.leads += row.leads;
         agg.cpl = agg.leads > 0 ? agg.spend / agg.leads : 0;
         agg.ctr = agg.impressions > 0 ? (agg.clicks / agg.impressions) * 100 : 0;
-        agg.cpc = agg.clicks > 0 ? agg.spend / agg.clicks : 0;
-        agg.cpm = agg.impressions > 0 ? (agg.spend / agg.impressions) * 1000 : 0;
       }
     });
     return Object.values(aggregated);
@@ -308,73 +428,33 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
     });
   }, [rawRows, sortKey, sortDir]);
 
-  const geoAlerts = data?.geo_alerts || [];
-  const targetLocations = data?.target_locations || [];
   const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
   const totalLeads = rows.reduce((s, r) => s + r.leads, 0);
 
-  const rowsWithLeads = rows.filter(r => r.leads > 0);
-  const best = rowsWithLeads.length > 0 ? rowsWithLeads.reduce((a, b) => (a.cpl < b.cpl ? a : b)) : null;
-  const worst = rowsWithLeads.length > 0 ? rowsWithLeads.reduce((a, b) => (a.cpl > b.cpl ? a : b)) : null;
-
   const scoredRows = useMemo(() => {
-    return rows.map((row) => ({
-      row,
-      score: computeBreakdownScore(row, cplTarget, ctrTarget, totalLeads, totalSpend),
-      recommendation: getRecommendationType(row, computeBreakdownScore(row, cplTarget, ctrTarget, totalLeads, totalSpend).total, activeTab, row.is_target_location),
-    }));
+    return rows.map((row) => {
+      const score = computeBreakdownScore(row, cplTarget, ctrTarget, totalLeads, totalSpend);
+      const rec = getRecommendationType(row, score.total, activeTab, row.is_target_location);
+      return { row, score, rec };
+    });
   }, [rows, cplTarget, ctrTarget, totalLeads, totalSpend, activeTab]);
 
-  if (isLoading) return <div className="p-12 text-center text-muted-foreground"><Clock className="w-8 h-8 mx-auto mb-2 animate-spin opacity-20" /><p>Analyzing demographics...</p></div>;
-
-  if (!data?.available) {
-    return (
-      <Card className="m-6 bg-muted/20 border-border/50">
-        <CardContent className="p-12 text-center">
-          <Clock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {data?.message || "Demographic data is currently being synthesized for this account. Check back after the next agent run."}
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
-      <Card className="m-6 bg-muted/20 border-border/50">
-        <CardContent className="p-12 text-center">
-          <Clock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            No {activeTab.toLowerCase()} breakdown data available for this selection.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const columns = [
-    { key: "dimension", label: activeTab, align: "left" },
-    { key: "score", label: "Score", align: "center" },
-    { key: "spend", label: "Spend", align: "right" },
-    { key: "spendPct", label: "Spend %", align: "right" },
-    { key: "impressions", label: "Impr.", align: "right" },
-    { key: "clicks", label: "Clicks", align: "right" },
-    { key: "ctr", label: "CTR", align: "right" },
-    { key: "leads", label: "Leads", align: "right" },
-    { key: "cpl", label: "CPL", align: "right" },
-    { key: "actions", label: "Standard Actions", align: "center" },
-  ];
+  if (isLoading) return <div className="p-12 text-center text-muted-foreground"><Clock className="w-8 h-8 mx-auto mb-2 animate-spin opacity-20" /><p>Synthesizing Meta Ads Breakdowns...</p></div>;
 
   return (
-    <div className="p-6 space-y-4 max-w-[1600px]">
+    <div className="p-6 space-y-6 max-w-[1600px]">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <BarChart3 className="w-6 h-6 text-primary" />
-          <h2 className="text-xl font-bold tracking-tight">Meta Breakdown Intelligence</h2>
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+            <BarChart3 className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Meta Breakdowns Engine</h2>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Performance Audit Layer</p>
+          </div>
         </div>
         <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-          <SelectTrigger className="w-[340px] h-10 bg-card border-border/50">
+          <SelectTrigger className="w-[340px] h-11 bg-card border-border/60 shadow-md">
             <SelectValue placeholder="Campaign Selection" />
           </SelectTrigger>
           <SelectContent>
@@ -386,94 +466,82 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
         </Select>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <MetricCard icon={IndianRupee} label="Total Spend" value={formatINR(totalSpend, 0)} color="text-primary" />
-        <MetricCard icon={Trophy} label="Best Performance" value={best ? best.dimension : "—"} subValue={best ? `CPL ${formatINR(best.cpl, 0)}` : ""} color="text-emerald-400" />
-        <MetricCard icon={ThumbsDown} label="Worst Performance" value={worst ? worst.dimension : "—"} subValue={worst ? `CPL ${formatINR(worst.cpl, 0)}` : ""} color="text-red-400" />
-        <MetricCard icon={MapPin} label="Geo Accuracy" value={geoAlerts.length === 0 ? "Targeted" : "Alert"} subValue={geoAlerts.length > 0 ? `${formatINR(geoAlerts.reduce((s, a) => s + a.spend, 0), 0)} leakage` : "Clean"} color={geoAlerts.length > 0 ? "text-red-400" : "text-emerald-400"} />
-      </div>
-
-      <div className="flex items-center gap-1 border-b border-border/50">
+      <div className="flex items-center gap-1 bg-muted/20 p-1 rounded-xl border border-border/40 w-fit">
         {META_TABS.map(tab => (
           <button key={tab} onClick={() => { setActiveTab(tab); setExpandedIds(new Set()); }}
-            className={cn("px-4 py-2.5 text-xs font-bold uppercase tracking-widest border-b-2 transition-all", activeTab === tab ? "text-primary border-primary bg-primary/5" : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/50")}>
+            className={cn("px-6 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all", activeTab === tab ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground")}>
             {tab}
           </button>
         ))}
       </div>
 
-      <Card className="border-border/40 shadow-sm overflow-hidden bg-card/30">
+      <Card className="border-border/60 shadow-2xl overflow-hidden bg-card/40 backdrop-blur-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-muted/20 border-b border-border/50">
-                <th className="p-3 w-10">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6"><SlidersHorizontal className="h-3.5 w-3.5" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setColumnSize("normal")}>Regular Width</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide View</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </th>
-                {columns.map(col => (
-                  <th key={col.key} onClick={() => col.key !== "actions" && toggleSort(col.key)}
-                    className={cn("p-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none",
-                      col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
-                      columnSize === "compact" ? "px-1" : columnSize === "wide" ? "px-6" : "px-3")}>
-                    <div className="flex items-center gap-1">{col.label} {sortKey === col.key && (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+              <tr className="bg-muted/30 border-b border-border/60">
+                {META_COLUMN_CONFIG.map((col, idx) => (
+                  <th key={idx} className={cn("p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-left")}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                          {col.column} <Info className="w-3 h-3 opacity-40" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
+                          <p className="font-bold border-b border-border/50 pb-1">{col.column} SOP</p>
+                          <p className="text-[10px] leading-relaxed text-muted-foreground">{col.description}</p>
+                          <div className="grid grid-cols-3 gap-1 pt-1 border-t border-border/50">
+                            <div className="text-emerald-400 font-bold">G: {col.green}</div>
+                            <div className="text-amber-400 font-bold">Y: {col.yellow}</div>
+                            <div className="text-red-400 font-bold">R: {col.red}</div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {scoredRows.map(({ row, score, recommendation: rec }, i) => {
+              {scoredRows.map(({ row, score, rec }, i) => {
                 const isExpanded = expandedIds.has(row.dimension);
                 const spendPct = totalSpend > 0 ? (row.spend / totalSpend) * 100 : 0;
-                const itemId = `meta-${activeTab}-${row.dimension}`;
                 return (
                   <React.Fragment key={i}>
-                    <tr className={cn("border-b border-border/30 hover:bg-muted/20 transition-all cursor-pointer", isExpanded && "bg-primary/5")} onClick={() => toggleExpand(row.dimension)}>
-                      <td className="p-3"><Button variant="ghost" size="sm" className="h-6 w-6 p-0">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</Button></td>
-                      <td className={cn("p-3 font-semibold text-foreground", columnSize === "compact" ? "px-1" : columnSize === "wide" ? "px-6" : "px-3")}>
-                        {row.dimension}
-                        {row.classification && <Badge variant="outline" className={cn("ml-2 text-[9px] font-black tracking-tighter", row.classification === "WINNER" ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5" : "border-red-500/30 text-red-400 bg-red-500/5")}>{row.classification}</Badge>}
+                    <tr className={cn("border-b border-border/20 hover:bg-muted/30 transition-all cursor-pointer group", isExpanded && "bg-primary/5")} onClick={() => toggleExpand(row.dimension)}>
+                      <td className="p-4 font-bold text-foreground text-sm tracking-tight">{row.dimension}</td>
+                      <td className="p-4">
+                        <span className={cn("inline-flex items-center justify-center min-w-[32px] h-8 rounded-lg font-bold text-xs border shadow-sm", getScoreBg(score.total), getScoreColor(score.total))}>
+                          {score.total}
+                        </span>
                       </td>
-                      <td className="p-3 text-center">
-                        <Tooltip>
-                          <TooltipTrigger asChild><span className={cn("inline-flex items-center justify-center w-7 h-7 rounded font-black text-[11px] border", getScoreBg(score.total), getScoreColor(score.total))}>{score.total}</span></TooltipTrigger>
-                          <TooltipContent side="left" className="p-2 space-y-1 text-[10px]">
-                            <p className="font-bold border-b border-border/50 pb-1 mb-1">Score Anatomy ({score.total})</p>
-                            <div className="flex justify-between gap-4"><span>CPL Score:</span> <span>{score.cplScore}/50</span></div>
-                            <div className="flex justify-between gap-4"><span>CTR Score:</span> <span>{score.ctrScore}/20</span></div>
-                            <div className="flex justify-between gap-4"><span>Volume:</span> <span>{score.volumeScore}/20</span></div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-                      <td className="p-3 text-right tabular-nums font-medium">{formatINR(row.spend, 0)}</td>
-                      <td className="p-3 text-right"><ProgressBar pct={spendPct} color="bg-primary/60" /></td>
-                      <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.impressions)}</td>
-                      <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.clicks)}</td>
-                      <td className="p-3 text-right tabular-nums">{formatPct(row.ctr)}</td>
-                      <td className="p-3 text-right tabular-nums font-bold text-foreground">{row.leads}</td>
-                      <td className={cn("p-3 text-right tabular-nums font-bold", getCplColor(row.cpl, thresholds))}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
-                      <td className="p-3">
-                        <UnifiedActions compact item={{ id: itemId, description: `Scale ${activeTab}: ${row.dimension}`, autoExecutable: false }}
-                          entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
-                          recommendation={rec.text} onStateChange={() => { }} />
+                      <td className="p-4 tabular-nums font-bold text-foreground/80">{formatINR(row.spend, 0)}</td>
+                      <td className="p-4"><ProgressBar pct={spendPct} color="bg-primary" /></td>
+                      <td className="p-4 tabular-nums text-muted-foreground font-medium">{formatNumber(row.impressions)}</td>
+                      <td className="p-4 tabular-nums text-muted-foreground font-medium">{formatNumber(row.clicks)}</td>
+                      <td className="p-4 tabular-nums font-bold text-foreground/70">{formatPct(row.ctr)}</td>
+                      <td className="p-4 tabular-nums font-bold text-foreground">{row.leads}</td>
+                      <td className={cn("p-4 tabular-nums font-bold", getCplColor(row.cpl, thresholds))}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
+                      <td className="p-4">
+                        <div className={cn("flex items-center gap-2 font-bold uppercase text-[9px] tracking-wider", rec.color)}>
+                          <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", rec.type === 'scale' ? 'bg-emerald-500' : rec.type === 'monitor' ? 'bg-emerald-300' : rec.type === 'flag' ? 'bg-amber-400' : 'bg-red-500')} />
+                          {rec.text}
+                        </div>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-muted/10">
-                        <td colSpan={11} className="p-6 border-b border-primary/20">
-                          <div className="max-w-[700px] space-y-4">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Strategic Analysis Breakdown</h4>
+                        <td colSpan={10} className="p-8 border-b border-primary/20 space-y-6">
+                          <div className="space-y-4">
+                            <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary underline underline-offset-8">AI Strategic Audit Breakdown</h4>
                             <ScoreExpansion score={score} row={row} cplTarget={cplTarget} ctrTarget={ctrTarget} />
-                            <div className="p-4 rounded border border-border/50 bg-background/50 space-y-2">
-                              <p className="text-xs text-foreground leading-relaxed">Intelligence layer indicates <strong>{rec.text}</strong>. Performance efficiency is {score.total >= 70 ? "high" : "suboptimal"}. CPL variance vs account benchmark: {row.cpl > 0 ? `${((row.cpl / cplTarget - 1) * 100).toFixed(0)}%` : "N/A"}.</p>
+                            <div className="p-5 rounded-2xl border border-primary/20 bg-background/80 shadow-inner space-y-2">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Expert Recommendation:</p>
+                              <p className="text-sm font-bold text-foreground leading-relaxed">
+                                System indicates <span className={cn("font-bold", rec.color)}>{rec.text}</span> because {rec.reason.toLowerCase()}. 
+                                Efficiency Score of <span className="text-primary font-bold">{score.total}/100</span> suggests this segment is 
+                                {score.total >= 70 ? " prime for budget acceleration." : " currently underperforming relative to account-wide benchmarks."}
+                              </p>
                             </div>
                           </div>
                         </td>

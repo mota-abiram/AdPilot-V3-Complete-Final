@@ -671,9 +671,9 @@ export async function registerRoutes(
         ? targetLocations.filter(Boolean)
         : existing.targetLocations,
       platforms: {
-        ...existing.platforms,
-        meta: { ...existing.platforms.meta, enabled: enableMeta !== undefined ? Boolean(enableMeta) : (existing.platforms as any).meta?.enabled },
-        google: { ...existing.platforms.google, enabled: enableGoogle !== undefined ? Boolean(enableGoogle) : (existing.platforms as any).google?.enabled },
+        ...(existing.platforms as Record<string, any>),
+        meta: { ...((existing.platforms as Record<string, any>).meta || {}), enabled: enableMeta !== undefined ? Boolean(enableMeta) : (existing.platforms as any).meta?.enabled },
+        google: { ...((existing.platforms as Record<string, any>).google || {}), enabled: enableGoogle !== undefined ? Boolean(enableGoogle) : (existing.platforms as any).google?.enabled },
       },
       targets: targets !== undefined ? targets : existing.targets,
     };
@@ -2249,7 +2249,7 @@ export async function registerRoutes(
           const mtd = data.monthly_pacing?.mtd || data.mtd_pacing || {};
           totalSpend += mtd.spend ?? mtd.spend_mtd ?? 0;
           totalLeads += mtd.leads ?? mtd.leads_mtd ?? 0;
-          totalImpressions += mtd.impressions ?? mtd.impressions_mtd || (data.account_pulse?.total_impressions_mtd || data.account_pulse?.total_impressions || 0);
+          totalImpressions += (mtd.impressions ?? mtd.impressions_mtd ?? (data.account_pulse?.total_impressions_mtd || data.account_pulse?.total_impressions || 0));
           
           if (!lastAnalysisUpdate || (data.generated_at && data.generated_at > lastAnalysisUpdate)) {
             lastAnalysisUpdate = data.generated_at;

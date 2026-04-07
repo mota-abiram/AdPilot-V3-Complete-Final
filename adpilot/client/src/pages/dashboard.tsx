@@ -7,12 +7,21 @@ import { useNow } from "@/hooks/use-now";
 import { formatHoursAgo, parseSyncTimestamp } from "@/lib/sync-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Link } from "wouter";
 import {
   IndianRupee,
@@ -73,6 +82,137 @@ import {
   getFrequencyColor,
   truncate,
 } from "@/lib/format";
+
+const FIX_SUGGESTIONS: Record<string, string[]> = {
+  CPL: [
+    "Consolidate winning adsets to pool conversion data and exit learning phase faster.",
+    "Shift budget from underperforming layers (MOFU/BOFU) to high-performing TOFU campaigns.",
+    "Refresh creative variants if frequency is high (>3.0) to combat audience fatigue.",
+    "Verify lead form completion rates and ensure tracking pixel is firing correctly."
+  ],
+  CTR: [
+    "Sharpen the first 3 seconds of video ads to improve 'Thumb-Stop' rates.",
+    "Test high-contrast headlines and clearer Call-to-Action (CTA) overlays.",
+    "Audit audience alignment — ensuring creative messaging matches segment intent.",
+    "A/B test different 'Hook' variations to identify higher engagement patterns."
+  ],
+  PACING: [
+    "Increase daily budget by 15-20% to reach target lead volume by end of month.",
+    "Review 'Total Spend' vs 'Target' — you are currently underspending by significant margin.",
+    "Consider broadening targeting parameters to increase available impression inventory.",
+    "Check for delivery constraints like low bid limits or restrictive scheduling."
+  ],
+  "AUTO-PAUSE": [
+    "Review the 10+ ads flagged — they have high spend but zero conversions in the last 7 days.",
+    "Apply auto-pause to losers to instantly recapture ~15% of wasted budget.",
+    "Check if these ads are in 'Learning Limited' status — they may need a reset.",
+    "Evaluate if the creative offer is still relevant to the target audience."
+  ],
+  AGENT: [
+    "Check Mojo's full strategic narrative for deep-dive technical recommendations.",
+    "Review historical performance benchmarks to see if this is a seasonal trend.",
+    "Ensure all platform syncs are healthy (last sync was successful).",
+    "Compare with last 30 days to identify if this is a sudden drop or gradual decline."
+  ],
+  DEFAULT: [
+    "Audit technical configuration (Pixel, API) for any data drop-offs.",
+    "Compare desktop vs mobile performance to identify device-specific issues.",
+    "Check if recent changes in ad account triggered a performance fluctuation.",
+    "Consult the SOP documentation for standard optimization checklists."
+  ]
+};
+
+function FixSuggestionModal({ alert, onClose }: { alert: any; onClose: () => void }) {
+  if (!alert) return null;
+  const suggestions = FIX_SUGGESTIONS[alert.metric] || FIX_SUGGESTIONS.AGENT || FIX_SUGGESTIONS.DEFAULT;
+
+  return (
+    <Dialog open={!!alert} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl">
+        <div className="relative p-8 pt-10">
+          {/* Subtle gradient background for the header area */}
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-primary/[0.03] to-transparent pointer-events-none" />
+          
+          <DialogHeader className="relative text-left space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 shadow-sm shadow-amber-500/5">
+                <Zap className="w-5 h-5 text-amber-500" />
+              </div>
+              <div className="flex flex-col">
+                <DialogTitle className="text-xl font-bold tracking-tight">Fix Strategy: {alert.metric}</DialogTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="text-[8px] uppercase tracking-widest bg-muted/50 border-border/40 h-4 px-1.5 font-bold">Optimization Protocol</Badge>
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-black opacity-60">Verified Baseline</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="pt-2">
+              <p className="text-[13px] text-muted-foreground leading-relaxed">
+                Objective: Address <span className="font-semibold text-foreground italic">"{alert.summary}"</span> through targeted adjustments to platform parameters and creative strategy.
+              </p>
+            </div>
+          </DialogHeader>
+
+          <div className="relative py-6 space-y-6">
+            <div className="space-y-5">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
+                Strategic Recommendations
+                <div className="h-px flex-1 bg-border/40" />
+              </h4>
+              
+              <div className="space-y-4">
+                {suggestions.map((s, i) => (
+                  <div key={i} className="flex gap-4 group">
+                    <div className="mt-0.5 flex flex-col items-center gap-2 shrink-0">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shadow-sm group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                        {i + 1}
+                      </div>
+                      {/* Vertical connector line */}
+                      {i < suggestions.length - 1 && <div className="w-[1.5px] flex-1 bg-gradient-to-b from-border/60 to-transparent rounded-full min-h-[0.75rem] opacity-50" />}
+                    </div>
+                    <div>
+                      <p className="text-[13px] leading-[1.6] text-foreground/80 font-medium group-hover:text-foreground transition-colors">
+                        {s}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {alert.campaigns.length > 0 && (
+              <div className="p-4 rounded-xl bg-muted/40 border border-border/50 shadow-inner">
+                <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.15em] mb-3">Affected Campaign Context:</p>
+                <div className="flex flex-wrap gap-2">
+                  {alert.campaigns.map((c: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-background border border-border/80 shadow-sm text-[10px] font-semibold text-foreground/70">
+                      <div className="w-1 h-1 rounded-full bg-primary/50" />
+                      {truncate(c.name, 35)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="px-8 py-5 bg-muted/20 border-t border-border/40 flex flex-col sm:flex-row items-center gap-4 sm:gap-0 sm:justify-between">
+          <div className="flex items-center gap-2 opacity-70">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="text-[11px] text-muted-foreground font-medium">Standard baseline assessment</span>
+          </div>
+          <Button 
+            className="w-full sm:w-auto min-w-[140px] h-10 px-6 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.97]"
+            onClick={onClose}
+          >
+            Acknowledge & Start Fix
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 import {
   ComposedChart,
   Area,
@@ -237,6 +377,7 @@ function getCadencePeriodLabel(cadence: string): string {
 
 export default function DashboardPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("ALL");
+  const [activeFixAlert, setActiveFixAlert] = useState<any>(null);
 
   // ─── 1. Helper Functions ─────────────────────────────────────────
 
@@ -504,48 +645,143 @@ export default function DashboardPage() {
   }, [ap, filteredCampaign]);
 
   const criticalAlerts = useMemo(() => {
-    const alerts: string[] = [];
+    type AlertItem = { message: string; level: "critical" | "warning"; metric: string; value?: string | number; benchmark?: string | number; campaignId?: string; campaignName?: string };
+    const raw: AlertItem[] = [];
     const cplCrit = t_cpl_critical;
     const ctrM = t_ctr_min;
 
+    // 1. Account Level
     if (selectedCampaignId === "ALL") {
       if (cplCrit > 0 && ap.overall_cpl > cplCrit) {
-        alerts.push(`Account Avg CPL ₹${Math.round(ap.overall_cpl)} exceeds critical threshold ₹${Math.round(cplCrit)}`);
+        raw.push({
+          metric: "CPL",
+          message: "Account Avg CPL exceeds critical threshold",
+          value: `₹${Math.round(ap.overall_cpl)}`,
+          benchmark: `₹${Math.round(cplCrit)}`,
+          level: "critical"
+        });
       }
       if (!isGoogle && ap.overall_ctr < ctrM) {
-        alerts.push(`Account CTR ${formatPct(ap.overall_ctr)} is critically low (< ${ctrM}%)`);
+        raw.push({
+          metric: "CTR",
+          message: "Account CTR is critically low",
+          value: `${formatPct(ap.overall_ctr)}`,
+          benchmark: `${ctrM}%`,
+          level: "critical"
+        });
       }
       if (isGoogle && mp && mp.pacing.leads_pct < 50) {
-        alerts.push(`Lead pacing at ${mp.pacing.leads_pct.toFixed(0)}% — projected ${Math.round(mp.projected_eom?.leads || 0)} vs ${mp.targets?.leads || 0} target. Significant shortfall.`);
+        raw.push({
+          metric: "PACING",
+          message: "Lead pacing shortfall detected",
+          value: `${mp.pacing.leads_pct.toFixed(0)}%`,
+          benchmark: "100%",
+          level: "critical"
+        });
       }
     }
 
+    // 2. Intellect Insights
     intellectInsights
       .filter((i: any) => i.severity === "HIGH" || i.confidence === "high")
       .forEach((i: any) => {
         const detail = i.detail || i.observation || i.title;
-        const matchesCampaign = !filteredCampaign || detail.includes(filteredCampaign.campaign_name) || (i.entity && i.entity.includes(filteredCampaign.campaign_name));
-        if (matchesCampaign) alerts.push(detail);
+        const campaign = campaignAudit.find((c: any) => detail.includes(c.campaign_name) || (i.entity && i.entity.includes(c.campaign_name)));
+        const matchesCampaign = !filteredCampaign || (campaign && campaign.campaign_id === filteredCampaign.campaign_id);
+        
+        if (matchesCampaign) {
+          raw.push({
+            metric: "AGENT",
+            message: detail,
+            level: "critical",
+            campaignId: campaign?.campaign_id,
+            campaignName: campaign?.campaign_name
+          });
+        }
       });
 
+    // 3. Campaign Level
     const campaignsToCheck = filteredCampaign ? [filteredCampaign] : campaignAudit;
     campaignsToCheck.forEach((c: any) => {
       const name = c.campaign_name || "Unknown Campaign";
       if (c.status === "ACTIVE" || c.status === "ENABLED") {
         if (cplCrit > 0 && c.cpl > cplCrit) {
-          alerts.push(`Campaign "${name}": CPL ₹${Math.round(c.cpl)} is CRITICAL (Threshold: ₹${Math.round(cplCrit)})`);
+          raw.push({
+            metric: "CPL",
+            message: "Campaign CPL is critical",
+            value: `₹${Math.round(c.cpl)}`,
+            benchmark: `₹${Math.round(cplCrit)}`,
+            level: "critical",
+            campaignId: c.campaign_id,
+            campaignName: name
+          });
         }
         if (c.should_pause || c.classification === "LOSER") {
-          alerts.push(`Campaign "${name}": Flagged for review/pause due to ${c.classification.toLowerCase()} performance.`);
+          raw.push({
+            metric: "STATUS",
+            message: `Flagged for review due to ${c.classification.toLowerCase()} performance`,
+            level: "critical",
+            campaignId: c.campaign_id,
+            campaignName: name
+          });
         }
       }
     });
 
     if (isGoogle && autoPauseCandidates.length > 10 && selectedCampaignId === "ALL") {
-      alerts.push(`${autoPauseCandidates.length} ads/ad groups flagged for auto-pause. Review required.`);
+      raw.push({
+        metric: "AUTO-PAUSE",
+        message: `${autoPauseCandidates.length} ads/ad groups flagged for auto-pause`,
+        level: "warning"
+      });
     }
 
-    return alerts;
+    // --- GROUPING LOGIC ---
+    const grouped: Array<{ 
+      metric: string; 
+      summary: string; 
+      level: "critical" | "warning"; 
+      value?: string | number; 
+      benchmark?: string | number;
+      campaigns: Array<{ id: string; name: string; value?: string | number }>;
+      isGeneric?: boolean;
+    }> = [];
+
+    raw.forEach(item => {
+      // Find existing group for same metric AND message (to group campaign alerts)
+      let group = grouped.find(g => g.metric === item.metric && g.summary === item.message && !item.campaignId === !g.campaigns.length);
+      
+      if (item.campaignId) {
+        // Look for group with this metric and message
+        let campaignGroup = grouped.find(g => g.metric === item.metric && g.summary === item.message && g.campaigns.length > 0);
+        if (campaignGroup) {
+          campaignGroup.campaigns.push({ id: item.campaignId, name: item.campaignName!, value: item.value });
+          // Promote to critical if any item is critical
+          if (item.level === "critical") campaignGroup.level = "critical";
+        } else {
+          grouped.push({
+            metric: item.metric,
+            summary: item.message,
+            level: item.level,
+            benchmark: item.benchmark,
+            campaigns: [{ id: item.campaignId, name: item.campaignName!, value: item.value }]
+          });
+        }
+      } else {
+        // Account level - single entry
+        grouped.push({
+          metric: item.metric,
+          summary: item.message,
+          level: item.level,
+          value: item.value,
+          benchmark: item.benchmark,
+          campaigns: [],
+          isGeneric: true
+        });
+      }
+    });
+
+    return grouped;
   }, [selectedCampaignId, filteredCampaign, ap, campaignAudit, t_cpl_critical, t_ctr_min, intellectInsights, isGoogle, mp, autoPauseCandidates]);
 
   // ─── 6. Data Loading & Errors (Below hooks) ─────────────────────────
@@ -842,12 +1078,117 @@ export default function DashboardPage() {
       {criticalAlerts.length > 0 && (
         <section className="page-subsection" aria-labelledby="dashboard-critical-alerts">
           <h2 id="dashboard-critical-alerts" className="sr-only">Critical alerts</h2>
-          {criticalAlerts.map((alert, i) => (
-            <div key={i} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/30">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-              <span className="text-xs text-red-300 font-medium">{alert}</span>
-            </div>
-          ))}
+          <div className="space-y-3">
+            {criticalAlerts.map((group, i) => {
+              const isCritical = group.level === "critical";
+              const isWarning = group.level === "warning";
+              
+              return (
+                <div 
+                  key={i} 
+                  className={cn(
+                    "group relative flex flex-col gap-2 p-3.5 rounded-xl border transition-all hover:shadow-sm",
+                    isCritical ? "bg-red-500/[0.03] border-red-500/10" : 
+                    isWarning ? "bg-amber-500/[0.03] border-amber-500/10" : 
+                    "bg-blue-500/[0.03] border-blue-500/10"
+                  )}
+                >
+                  {/* Metric Tag & Summary */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-[9px] font-bold tracking-tight px-1.5 py-0 rounded h-4 border-0",
+                          isCritical ? "bg-red-500/15 text-red-500" : 
+                          isWarning ? "bg-amber-500/15 text-amber-600" : 
+                          "bg-blue-500/15 text-blue-600"
+                        )}
+                      >
+                        {group.metric}
+                      </Badge>
+                      <span className={cn(
+                        "text-[13px] font-semibold leading-tight",
+                        isCritical ? "text-red-900/90" : isWarning ? "text-amber-900/90" : "text-blue-900/90"
+                      )}>
+                        {group.summary}
+                        {group.campaigns.length > 1 && ` in ${group.campaigns.length} campaigns`}
+                      </span>
+                    </div>
+                    <AlertTriangle className={cn(
+                      "w-3.5 h-3.5 opacity-40 shrink-0",
+                      isCritical ? "text-red-500" : isWarning ? "text-amber-500" : "text-blue-500"
+                    )} />
+                  </div>
+
+                  {/* Context & Values */}
+                  <div className="flex flex-col gap-1.5 ml-1">
+                    {group.isGeneric ? (
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">{group.value}</span>
+                        {group.benchmark && (
+                          <>
+                            <ArrowRight className="w-2.5 h-2.5 opacity-30" />
+                            <span>Target: <span className="font-semibold text-foreground">{group.benchmark}</span></span>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {group.campaigns.map((camp, ci) => (
+                          <div key={ci} className="flex items-center justify-between group/line">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <div className="w-1 h-1 rounded-full bg-current opacity-20 shrink-0" />
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-[11px] text-muted-foreground truncate hover:text-foreground transition-colors cursor-help">
+                                    {truncate(camp.name, 35)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-[10px]">{camp.name}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            {camp.value && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[11px] font-bold text-foreground">{camp.value}</span>
+                                {group.benchmark && (
+                                  <span className="text-[10px] text-muted-foreground opacity-60">vs {group.benchmark}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Actions — subtle hover revealed */}
+                  <div className="absolute right-3 bottom-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-[9px] px-2 py-0 hover:bg-white/50"
+                      onClick={() => setActiveFixAlert(group)}
+                    >
+                      Fix Suggestion
+                    </Button>
+                    {group.campaigns.length === 1 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-[9px] px-2 py-0 hover:bg-white/50"
+                        onClick={() => setSelectedCampaignId(group.campaigns[0].id)}
+                      >
+                        View Campaign
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 
@@ -1076,8 +1417,9 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Account Health Score */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      {/* Main Breakdown Sections */}
+      <FixSuggestionModal alert={activeFixAlert} onClose={() => setActiveFixAlert(null)} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="h-full flex flex-col">
           <CardContent className="p-4 flex flex-col justify-center flex-1">
             <div className="flex items-center gap-1.5 mb-4">

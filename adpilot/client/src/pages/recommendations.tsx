@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import type { AnalysisData, Recommendation, RootCause, IntellectInsight } from "@shared/schema";
+import type { AnalysisData, Recommendation, RootCause, IntellectInsight, CreativeHealth } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,6 @@ function mapRecommendationToExecution(
     const campaign = campaigns.find((c: any) => {
       const campaignName = c.campaign_name || c.name || "";
       const campaignId = c.campaign_id || c.id || "";
-      // Match by campaign_id first (reliable), then by name in detail string
       if ((rec as any).campaign_id && campaignId === (rec as any).campaign_id) return true;
       return String(rec.detail || "").includes(campaignName);
     });
@@ -237,7 +236,6 @@ function intellectToAlerts(data: AnalysisData): AlertItem[] {
     });
   }
 
-  // Add fatigue alerts from creative_health
   const fatigued = (data.creative_health || []).filter((a: any) => (a.frequency ?? 0) > 2.5 || (a.fatigue_score ?? 0) > 70);
   for (const ad of fatigued.slice(0, 4)) {
     alerts.push({
@@ -249,39 +247,139 @@ function intellectToAlerts(data: AnalysisData): AlertItem[] {
     });
   }
 
-  // Sort: critical first
   return alerts.sort((a, b) => {
     const order = { critical: 0, warning: 1, info: 2 };
     return order[a.level] - order[b.level];
   });
 }
 
-function intellect_insightsToRecommendations(data: AnalysisData): EnrichedRec[] {
+// ─── Recommendations Engine Configuration (SOP) ──────────────────
+const RECOMMENDATION_SOP_CONFIG = [
+  { column: "Entity", description: "Campaign / Ad Set / Creative / Keyword name" },
+  { column: "Entity Type", description: "Campaign / Ad Set / Creative / Ad / Keyword" },
+  { column: "Issue", description: "Performance issue detected (e.g. high CPL, low CTR)" },
+  { column: "Root Cause", description: "Underlying cause (from defined root types)" },
+  { column: "Recommendation", description: "Actionable fix suggestion" },
+  { column: "Expected Impact", description: "Estimated improvement (e.g. -15% CPL)" },
+  { column: "Priority", description: "CRITICAL / HIGH / MEDIUM / LOW" },
+  { column: "Confidence", description: "High / Medium / Low" },
+  { column: "Category", description: "PERFORMANCE/BUDGET/AUDIENCE/CREATIVE/STRUCTURE" }
+];
+
+interface StructuredRecommendation extends EnrichedRec {
+  entityLabel: string;
+  entityTypeLabel: string;
+  issue: string;
+  rootCause: string;
+  expectedImpact: string;
+  confidence: "High" | "Medium" | "Low";
+  categoryLabel: string;
+}
+
+function generateStructuredRecommendations(data: AnalysisData, actionsData: any, isEntityPaused: any): StructuredRecommendation[] {
+  if (!data) return [];
+  
   const insights: IntellectInsight[] = (data as any).intellect_insights || [];
-  return insights
-    .filter((ins) => !ins.auto_action) // auto_action ones show in alerts
-    .map((ins, idx) => {
-      const priorityBand: PriorityBand =
-        ins.severity === "HIGH" ? "immediate" : ins.severity === "MEDIUM" ? "this_week" : "strategic";
-      const redirect_path = inferRedirectPath(ins.type, ins.entity, "");
-      return {
-        layer: "account",
-        category: ins.type.replace(/_/g, " "),
-        action: ins.detail,
-        detail: `Entity: ${ins.entity}\n${ins.detail}`,
-        ice_score: priorityBand === "immediate" ? 8 : priorityBand === "this_week" ? 6 : 4,
-        priority: priorityBand.toUpperCase(),
-        root_causes: [],
-        idx: 10000 + idx,
-        recId: `intellect-${idx}`,
-        priorityBand,
-        currentAction: undefined,
-        executionMapping: null,
-        isAutoExec: false,
-        redirect_path,
-        source: "intellect" as const,
-      };
+  const recs: Recommendation[] = (data as any).recommendations || [];
+  const creativeHealth: CreativeHealth[] = data.creative_health || [];
+
+  const structured: StructuredRecommendation[] = [];
+
+  insights.forEach((ins, idx) => {
+    const priorityBand = ins.severity === "HIGH" || ins.severity === "CRITICAL" ? "immediate" : ins.severity === "MEDIUM" ? "this_week" : "strategic";
+    
+    structured.push({
+      layer: "account",
+      category: ins.type,
+      action: ins.detail,
+      detail: ins.detail,
+      ice_score: ins.severity === "CRITICAL" ? 9 : ins.severity === "HIGH" ? 8 : 6,
+      priority: ins.severity as any,
+      root_causes: [],
+      idx: 20000 + idx,
+      recId: `intellect-${idx}`,
+      priorityBand,
+      currentAction: actionsData?.[`intellect-${idx}`]?.action,
+      executionMapping: null,
+      isAutoExec: ins.auto_action,
+      redirect_path: inferRedirectPath(ins.type, ins.entity, ""),
+      source: "intellect",
+      
+      entityLabel: ins.entity,
+      entityTypeLabel: ins.type.includes("CAMPAIGN") ? "Campaign" : ins.type.includes("ADSET") ? "Ad Set" : "Account",
+      issue: ins.type.replace(/_/g, " "),
+      rootCause: ins.recommendation || "System detection",
+      recommendation: ins.detail,
+      expectedImpact: ins.score_impact ? `+${ins.score_impact} Health Score` : "Efficiency optimization",
+      confidence: ins.severity === "CRITICAL" ? "High" : "Medium",
+      categoryLabel: ins.type.includes("CREATIVE") ? "CREATIVE" : ins.type.includes("BUDGET") ? "BUDGET" : "PERFORMANCE"
     });
+  });
+
+  recs.forEach((rec, idx) => {
+    const enrichedRec = normalizeRecommendationShape(rec);
+    const executionMapping = mapRecommendationToExecution(enrichedRec, data);
+    const priorityBand = classifyPriority(enrichedRec);
+    
+    structured.push({
+      ...enrichedRec,
+      idx,
+      recId: `rec-${idx}`,
+      priorityBand,
+      currentAction: actionsData?.[`rec-${idx}`]?.action,
+      executionMapping,
+      isAutoExec: isAutoExecutable(executionMapping),
+      redirect_path: inferRedirectPath(rec.category, "", rec.action),
+      source: "sop",
+      
+      entityLabel: rec.layer,
+      entityTypeLabel: "Layer / Audience",
+      issue: (rec as any).insight || "Met KPI Deviation",
+      rootCause: rec.root_causes?.[0]?.cause || "Algorithm benchmark miss",
+      recommendation: rec.action,
+      expectedImpact: (rec as any).impact || "CPL Stabilization",
+      confidence: rec.ice_score > 7 ? "High" : "Medium",
+      categoryLabel: rec.category.toUpperCase() as any
+    });
+  });
+
+  creativeHealth.filter(ad => ad.should_pause || ad.creative_score < 40).forEach((ad, idx) => {
+    structured.push({
+      layer: "creative",
+      category: "CREATIVE_REFRESH",
+      action: `Refresh fatigued ad: ${ad.ad_name}`,
+      detail: `CTR is low (${(ad.ctr * 100).toFixed(2)}%) despite high spend. Fatigue detected.`,
+      ice_score: ad.creative_score < 30 ? 9 : 7,
+      priority: ad.should_pause ? "CRITICAL" : "HIGH",
+      root_causes: [{ cause: "Creative Fatigue", evidence: `Score: ${ad.creative_score}`, solution: "Refresh", ice_score: 8, approval_level: "High" }],
+      idx: 30000 + idx,
+      recId: `creative-${idx}`,
+      priorityBand: ad.should_pause ? "immediate" : "this_week",
+      currentAction: actionsData?.[`creative-${idx}`]?.action,
+      executionMapping: { 
+        action: "PAUSE_AD", entityType: "ad", entityId: ad.ad_id, entityName: ad.ad_name, 
+        description: `Pause fatigued ad "${ad.ad_name}"`, 
+        currentMetrics: { spend: ad.spend, ctr: ad.ctr, cpl: ad.cpl } 
+      },
+      isAutoExec: ad.should_pause,
+      redirect_path: "/creative-calendar",
+      source: "intellect",
+      
+      entityLabel: ad.ad_name,
+      entityTypeLabel: "Ad (Creative)",
+      issue: "Creative Fatigue / Low Score",
+      rootCause: "Diminishing returns on creative assets",
+      recommendation: `Pause and rotate in top-performing hooks from ${ad.campaign_name}`,
+      expectedImpact: "CTR Improvement (+20%)",
+      confidence: "High",
+      categoryLabel: "CREATIVE"
+    });
+  });
+
+  return structured.filter(r => {
+     if (r.executionMapping && isEntityPaused(r.executionMapping.entityId)) return false;
+     return true;
+  }).sort((a, b) => b.ice_score - a.ice_score);
 }
 
 // ─── Priority classification ────────────────────────────────────
@@ -550,51 +648,9 @@ export default function RecommendationsPage() {
 
   // ─── Build enriched recommendation list ────────────────────────
 
-  const enriched: EnrichedRec[] = useMemo(() => {
-    if (!data) return [];
+  const enriched: StructuredRecommendation[] = useMemo(() => generateStructuredRecommendations(data as AnalysisData, actionsData, isEntityPaused), [data, actionsData, isEntityPaused]);
 
-    // SOP recommendations
-    const rawRecommendations = Array.isArray((data as any).recommendations) ? (data as any).recommendations : [];
-    const sopRecs: EnrichedRec[] = rawRecommendations.map((rawRec: any, idx: number) => {
-      const rec = normalizeRecommendationShape(rawRec);
-      const executionMapping = mapRecommendationToExecution(rec, data);
-      const priorityBand = classifyPriority(rec);
-      const redirect_path = inferRedirectPath(rec.category, "", rec.action);
-      return {
-        ...rec,
-        idx,
-        recId: `rec-${idx}`,
-        priorityBand,
-        currentAction: actionsData?.[`rec-${idx}`]?.action,
-        executionMapping,
-        isAutoExec: isAutoExecutable(executionMapping),
-        redirect_path,
-        source: "sop" as const,
-      };
-    }).filter((rec: EnrichedRec) => {
-      if (rec.executionMapping && isEntityPaused(rec.executionMapping.entityId)) return false;
-      return true;
-    });
-
-    // Intellect insights converted to recommendations (non-auto_action ones)
-    const intellectRecs = intellect_insightsToRecommendations(data).map((r) => ({
-      ...r,
-      currentAction: actionsData?.[r.recId]?.action,
-    }));
-
-    // Deduplicate by category+action combo (same entity+issue)
-    const seen = new Set<string>();
-    const all = [...sopRecs, ...intellectRecs].filter((r) => {
-      const key = `${r.category}:${r.action.slice(0, 40)}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    return all;
-  }, [data, actionsData, isEntityPaused]);
-
-  const sections: Record<PriorityBand, EnrichedRec[]> = {
+  const sections: Record<PriorityBand, StructuredRecommendation[]> = {
     immediate: enriched.filter((r) => r.priorityBand === "immediate"),
     this_week: enriched.filter((r) => r.priorityBand === "this_week"),
     strategic: enriched.filter((r) => r.priorityBand === "strategic"),
@@ -680,8 +736,7 @@ export default function RecommendationsPage() {
   const dialogConfig = getDialogConfig();
 
   return (
-    <div className="p-6 space-y-6 max-w-[1200px]">
-      {/* Strategic Call Dialog — used for ALL actions */}
+    <div className="p-6 space-y-6 max-w-[1400px]">
       <StrategicCallDialog
         open={dialogState.open}
         onOpenChange={(open) => {
@@ -698,299 +753,193 @@ export default function RecommendationsPage() {
         titleOverride={dialogConfig.titleOverride}
       />
 
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Recommendations</h1>
-        <p className="text-xs text-muted-foreground">
-          {activeClient?.name} · {activePlatformInfo?.label} · {enriched.length} actions · Prioritized by urgency
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Recommendations Master</h1>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+            {activeClient?.name} · {activePlatformInfo?.label} · {enriched.length} Intelligence Items
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+           <Badge variant="outline" className="bg-card py-1.5 px-3 flex items-center gap-2 border-border/60">
+             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+             <span className="text-[10px] font-bold uppercase tracking-widest">Agent-v3 Active</span>
+           </Badge>
+        </div>
       </div>
 
-      {/* Priority Band Summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         {(["immediate", "this_week", "strategic"] as PriorityBand[]).map((band) => {
           const cfg = PRIORITY_CONFIG[band];
           const Icon = cfg.icon;
           const items = sections[band];
-          const autoExecCount = items.filter((r) => r.isAutoExec).length;
           return (
-            <div key={band} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-md border", cfg.borderColor, cfg.bg)}>
-              <Icon className={cn("w-4 h-4 shrink-0", cfg.color)} />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold tabular-nums">{items.length}</span>
-                  <span className={cn("text-[10px] font-medium", cfg.color)}>{cfg.label}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {autoExecCount > 0 && (
-                    <Badge variant="secondary" className="text-[9px] text-emerald-400 bg-emerald-500/10 gap-0.5">
-                      <Zap className="w-2.5 h-2.5" /> {autoExecCount} auto
-                    </Badge>
-                  )}
-                  <span className="text-[9px] text-muted-foreground">
-                    {items.length - autoExecCount} manual
-                  </span>
-                </div>
+            <button 
+              key={band} 
+              onClick={() => toggleSection(band)}
+              className={cn("flex flex-col gap-1 px-4 py-3 rounded-xl border transition-all text-left group", 
+                collapsedSections[band] ? 'opacity-50 grayscale' : '',
+                cfg.borderColor, cfg.bg
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <Icon className={cn("w-4 h-4", cfg.color)} />
+                <span className="text-xl font-bold tabular-nums">{items.length}</span>
               </div>
-            </div>
+              <span className={cn("text-[10px] font-black uppercase tracking-widest", cfg.color)}>{cfg.label}</span>
+            </button>
           );
         })}
       </div>
 
-      {/* Alert System — replaces Active Playbooks */}
-      <AlertSystemPanel alerts={alerts} onNavigate={navigate} />
+      {alerts.length > 0 && <AlertSystemPanel alerts={alerts} onNavigate={navigate} />}
 
-      {/* Render each priority band */}
       {(["immediate", "this_week", "strategic"] as PriorityBand[]).map((band) => {
         const cfg = PRIORITY_CONFIG[band];
-        const Icon = cfg.icon;
         const items = sections[band].sort((a, b) => b.ice_score - a.ice_score);
         const isCollapsed = collapsedSections[band];
         if (items.length === 0) return null;
 
         return (
-          <div key={band} className="space-y-3">
-            <div className={cn("rounded-md p-3", cfg.bg, `border ${cfg.borderColor}`)}>
-              <button
-                className="flex items-center gap-2 w-full text-left"
-                onClick={() => toggleSection(band)}
-                data-testid={`section-toggle-${band}`}
-              >
-                <Icon className={cn("w-4 h-4", cfg.color)} />
-                <span className={cn("text-sm font-semibold", cfg.color)}>{cfg.label}</span>
-                <Badge variant="secondary" className="text-[10px] ml-1">{items.length}</Badge>
-                <span className="text-[10px] text-muted-foreground ml-2">{cfg.description}</span>
-                <span className="ml-auto">
-                  {isCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
-                </span>
-              </button>
+          <div key={band} className="space-y-4">
+            <div className={cn("flex items-center gap-2 px-1")}>
+               <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", cfg.color)}>{cfg.label} Priority Feed</span>
+               <div className="flex-1 h-px bg-border/40" />
             </div>
 
             {!isCollapsed && (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-4">
                 {items.map((rec) => {
-                  const { recId, currentAction, idx, executionMapping, isAutoExec, redirect_path, source } = rec;
-                  const layer = getLayerColor(rec.layer);
+                  const { recId, currentAction, idx, executionMapping, isAutoExec, redirect_path } = rec;
                   const execState = executionStates[recId];
                   const actionTimestamp = actionsData?.[recId]?.timestamp;
 
                   return (
-                    <Card
-                      key={recId}
-                      className={cn("transition-all",
-                        execState === "done" ? "border-emerald-500/30 bg-emerald-500/5"
-                        : execState === "failed" ? "border-red-500/30 bg-red-500/5"
-                        : currentAction === "approved" ? "border-emerald-500/30 bg-emerald-500/5"
-                        : currentAction === "rejected" ? "border-red-500/30 bg-red-500/5 opacity-60"
-                        : currentAction === "deferred" ? "border-amber-500/30 bg-amber-500/5 opacity-75"
-                        : ""
-                      )}
-                      data-testid={`card-recommendation-${idx}`}
-                    >
-                      <CardContent className="p-4 space-y-3">
-                        {/* Header row */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold tabular-nums text-primary">ICE {rec.ice_score}</span>
-                            <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", cfg.bg, cfg.color)}>
-                              {cfg.label.toUpperCase()}
-                            </span>
-                            <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", layer.bg, layer.text)}>
-                              {rec.layer}
-                            </span>
-                            {source === "intellect" && (
-                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-purple-400 bg-purple-500/10 gap-0.5">
-                                <Brain className="w-2.5 h-2.5" /> AI Insight
-                              </Badge>
-                            )}
-                            {isAutoExec ? (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-emerald-400 bg-emerald-500/10 gap-0.5">
-                                <Zap className="w-2.5 h-2.5" /> Auto-Executable
-                              </Badge>
-                            ) : executionMapping ? (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-primary bg-primary/10">Executable</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-muted-foreground bg-muted/50">
-                                <Wrench className="w-2.5 h-2.5 mr-0.5" /> Manual Only
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Status + timestamp */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {actionTimestamp && (
-                              <span className="text-[9px] text-muted-foreground/60">{timeAgo(actionTimestamp)}</span>
-                            )}
-                            {execState === "executing" && (
-                              <Badge variant="secondary" className="text-[10px] text-blue-400">
-                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />Executing
-                              </Badge>
-                            )}
-                            {execState === "done" && (
-                              <Badge variant="secondary" className="text-[10px] text-emerald-400">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />Executed
-                              </Badge>
-                            )}
-                            {execState === "failed" && (
-                              <Badge variant="secondary" className="text-[10px] text-red-400">
-                                <XCircle className="w-3 h-3 mr-1" />Failed
-                              </Badge>
-                            )}
-                            {currentAction && !execState && (
-                              <Badge variant="secondary" className={cn("text-[10px]",
-                                currentAction === "approved" ? "text-emerald-400"
-                                : currentAction === "rejected" ? "text-red-400"
-                                : "text-amber-400"
-                              )}>
-                                {currentAction === "approved" ? "Executed" : currentAction === "rejected" ? "Rejected" : "Deferred"}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-2 pb-3">
-                          <div className="space-y-1.5 border-r border-border/20 pr-4">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-60">
-                              <Search className="w-3.5 h-3.5" /> Insight
-                            </span>
-                            <p className="text-[12px] text-foreground font-semibold leading-snug">
-                              {rec.insight || rec.category}
-                            </p>
-                            {rec.detail && !rec.insight && (
-                                <p className="text-[10.5px] text-muted-foreground italic leading-tight mt-1">
-                                    {rec.detail.split('\n')[0]}
-                                </p>
-                            )}
-                          </div>
-                          <div className="space-y-1.5 border-r border-border/20 pr-4">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-60">
-                              <Zap className="w-3.5 h-3.5 text-primary" /> Action
-                            </span>
-                            <p className="text-[12px] text-primary/90 font-bold leading-snug underline underline-offset-4 decoration-primary/20">
-                              {rec.action}
-                            </p>
-                          </div>
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-60">
-                              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> Impact
-                            </span>
-                            <p className="text-[12px] text-emerald-300 font-semibold leading-snug">
-                              {rec.impact || "Expected to improve CPL efficiency and stabilize performance."}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Root Causes */}
-                        {rec.root_causes && rec.root_causes.length > 0 && (
-                          <div className="space-y-2 pt-2 border-t border-border/30">
-                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                              Root Causes ({rec.root_causes.length})
-                            </span>
-                            {rec.root_causes.map((rc: RootCause, rcIdx: number) => (
-                              <div key={rcIdx} className="p-2.5 rounded-md bg-muted/30 border border-border/30 space-y-1.5">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="space-y-1 flex-1">
-                                    <p className="text-[11px] font-medium text-foreground">{rc.cause}</p>
-                                    <p className="text-[10px] text-muted-foreground">{rc.evidence}</p>
-                                    <p className="text-[10px] text-primary/80">{rc.solution}</p>
+                    <Card key={recId} className={cn("overflow-hidden border-border/60 hover:shadow-2xl hover:shadow-primary/5 transition-all group", 
+                      currentAction === 'approved' ? 'bg-emerald-500/5' : currentAction === 'rejected' ? 'opacity-50' : '')}>
+                      <CardContent className="p-0">
+                        {/* THE 9-COLUMN SOP MASTER ROW */}
+                        <div className="flex flex-col md:flex-row">
+                          {/* Main Intelligence Block */}
+                          <div className="flex-1 p-6 space-y-4">
+                            <div className="flex items-start justify-between">
+                               <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                     <Badge variant="secondary" className="text-[10px] font-black uppercase bg-muted/50">{rec.categoryLabel}</Badge>
+                                     <Badge variant="outline" className={cn("text-[10px] uppercase font-bold", cfg.color, cfg.borderColor)}>{rec.priority.toUpperCase()}</Badge>
+                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{rec.entityTypeLabel}</span>
                                   </div>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <Badge variant="secondary" className="text-[9px] px-1 py-0">ICE {rc.ice_score}</Badge>
-                                    <Badge variant="secondary" className={cn("text-[9px] px-1 py-0",
-                                      rc.approval_level === "auto" ? "text-emerald-400" : "text-amber-400"
-                                    )}>
-                                      {rc.approval_level}
-                                    </Badge>
+                                  <h3 className="text-lg font-bold tracking-tight">{rec.entityLabel}</h3>
+                               </div>
+                               <div className="text-right">
+                                  <div className="flex items-center gap-1.5 justify-end mb-1">
+                                     <span className="text-[9px] font-bold uppercase tracking-tighter text-muted-foreground/60">Confidence</span>
+                                     <Badge variant={rec.confidence === 'High' ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0">{rec.confidence}</Badge>
                                   </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                                  <div className="text-2xl font-black text-primary/80 tabular-nums">ICE {rec.ice_score}</div>
+                               </div>
+                            </div>
 
-                        {/* Actions */}
-                        {!currentAction && !execState && (
-                          <div className="pt-2 border-t border-border/30 space-y-2">
-                            {/* Auto-execute button */}
-                            {executionMapping && (
-                              <div className="flex items-center justify-between gap-2 rounded-md p-2.5 bg-primary/5 border border-primary/10">
-                                <div className="text-[11px] text-primary/80 flex items-center gap-1.5">
-                                  <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
-                                  <span>{executionMapping.description}</span>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  className="text-[10px] h-7 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 gap-1"
-                                  onClick={() => openDialog(recId, executionMapping, "execute", rec)}
-                                  disabled={isExecuting || actionMutation.isPending}
-                                  data-testid={`button-auto-exec-${idx}`}
-                                >
-                                  <Zap className="w-3 h-3" /> Auto-Execute
-                                </Button>
-                              </div>
-                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/10 rounded-xl p-5 border border-border/40">
+                               <div className="space-y-1">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Detected Issue</p>
+                                  <p className="text-xs font-bold text-red-400 leading-snug">{rec.issue}</p>
+                               </div>
+                               <div className="space-y-1">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Root Cause</p>
+                                  <p className="text-xs font-semibold text-foreground/80 leading-snug">{rec.rootCause}</p>
+                               </div>
+                            </div>
 
-                            {/* Action row */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {executionMapping && (
-                                <Button
-                                  size="sm"
-                                  className="text-[10px] h-7 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                                  onClick={() => openDialog(recId, executionMapping, "execute", rec)}
-                                  disabled={isExecuting || actionMutation.isPending}
-                                  data-testid={`button-execute-${idx}`}
-                                >
-                                  <Play className="w-3 h-3" /> Execute
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-[10px] h-7 text-blue-400 border-blue-500/30 hover:bg-blue-500/10 gap-1"
-                                onClick={() => openDialog(recId, null, "complete", rec)}
-                                disabled={actionMutation.isPending}
-                                data-testid={`button-complete-${idx}`}
-                              >
-                                <CheckCircle2 className="w-3 h-3" /> Mark Complete
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-[10px] h-7 text-red-400 border-red-500/30 hover:bg-red-500/10 gap-1"
-                                onClick={() => openDialog(recId, null, "reject", rec)}
-                                disabled={actionMutation.isPending}
-                                data-testid={`button-reject-${idx}`}
-                              >
-                                <XCircle className="w-3 h-3" /> Reject
-                              </Button>
-
-                              {/* Navigate to relevant page */}
-                              {redirect_path && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-[10px] h-7 text-muted-foreground hover:text-foreground gap-1 ml-auto"
-                                  onClick={() => navigate(redirect_path)}
-                                >
-                                  <ExternalLink className="w-3 h-3" /> View
-                                </Button>
-                              )}
+                            <div className="space-y-3">
+                               <div className="flex items-start gap-4">
+                                  <div className="mt-1 p-2 rounded-lg bg-primary/10 text-primary">
+                                     <Zap className="w-4 h-4" />
+                                  </div>
+                                  <div className="space-y-1">
+                                     <p className="text-[9px] font-black uppercase tracking-widest text-primary">Fix Recommendation</p>
+                                     <p className="text-sm font-bold text-foreground leading-relaxed">{rec.recommendation}</p>
+                                  </div>
+                               </div>
                             </div>
                           </div>
-                        )}
 
-                        {/* Completed/rejected state — show navigate button */}
-                        {(currentAction || execState === "done") && redirect_path && (
-                          <div className="pt-2 border-t border-border/30">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-[10px] h-7 text-muted-foreground hover:text-foreground gap-1"
-                              onClick={() => navigate(redirect_path)}
-                            >
-                              <ExternalLink className="w-3 h-3" /> View in {redirect_path.replace("/", "").replace("-", " ")}
-                            </Button>
+                          {/* Impact & Action Panel */}
+                          <div className="w-full md:w-80 bg-muted/20 border-l border-border/40 p-6 flex flex-col justify-between gap-6">
+                            <div className="space-y-4">
+                               <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1">
+                                  <div className="flex items-center gap-1.5">
+                                     <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                                     <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Expected Impact</span>
+                                  </div>
+                                  <p className="text-sm font-black text-emerald-300">{rec.expectedImpact}</p>
+                               </div>
+
+                               {actionTimestamp && (
+                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>Actioned {timeAgo(actionTimestamp)}</span>
+                                 </div>
+                               )}
+                            </div>
+
+                            <div className="space-y-2">
+                               {isAutoExec ? (
+                                  <Button 
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 shadow-lg shadow-emerald-900/20 gap-2"
+                                    onClick={() => openDialog(recId, executionMapping, "execute", rec)}
+                                    disabled={isExecuting || actionMutation.isPending || !!currentAction}
+                                  >
+                                    <Zap className="w-4 h-4 fill-current" />
+                                    {execState === 'executing' ? 'Executing...' : 'Auto-Execute Fix'}
+                                  </Button>
+                               ) : executionMapping ? (
+                                  <Button 
+                                    variant="default"
+                                    className="w-full font-bold h-11 gap-2"
+                                    onClick={() => openDialog(recId, executionMapping, "execute", rec)}
+                                    disabled={isExecuting || actionMutation.isPending || !!currentAction}
+                                  >
+                                    <Play className="w-4 h-4" />
+                                    Manual Sync
+                                  </Button>
+                               ) : (
+                                  <Button 
+                                    variant="outline"
+                                    className="w-full h-11 border-dashed text-muted-foreground font-bold hover:text-foreground"
+                                    onClick={() => openDialog(recId, null, "complete", rec)}
+                                    disabled={!!currentAction}
+                                  >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Mark Complete
+                                  </Button>
+                               )}
+
+                               <div className="grid grid-cols-2 gap-2 mt-2">
+                                  {!currentAction && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] font-bold uppercase"
+                                      onClick={() => openDialog(recId, null, "reject", rec)}
+                                    >
+                                      Reject
+                                    </Button>
+                                  )}
+                                  {redirect_path && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase ml-auto"
+                                      onClick={() => navigate(redirect_path)}
+                                    >
+                                      Explore <ExternalLink className="w-3 h-3 ml-1" />
+                                    </Button>
+                                  )}
+                               </div>
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -1002,12 +951,15 @@ export default function RecommendationsPage() {
       })}
 
       {enriched.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400/30 mb-3" />
-            <p className="text-sm text-muted-foreground">No recommendations at this time. Account is performing within targets.</p>
-          </CardContent>
-        </Card>
+         <div className="py-24 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto border border-emerald-500/20">
+               <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <div className="space-y-1">
+               <h3 className="text-lg font-bold italic tracking-tight">System in Equilibrium</h3>
+               <p className="text-sm text-muted-foreground max-w-xs mx-auto">No performance anomalies detected. All funnels are operating within target benchmarks.</p>
+            </div>
+         </div>
       )}
     </div>
   );

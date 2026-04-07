@@ -21,6 +21,8 @@ import {
   Play,
   Zap,
   BarChart3,
+  AlertCircle,
+  Info,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -118,161 +120,135 @@ export function StrategicCallDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[620px] !overflow-visible !max-h-none gap-4 p-6" data-testid="strategic-call-dialog">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-primary" />
-            {titleOverride || "Strategic Call Required"}
-          </DialogTitle>
-          <DialogDescription className="type-sm">
-            Document your rationale before acting. This builds your decision-learning database.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Action being taken */}
-        <div className="flex items-center gap-3 rounded-[10px] p-4 border border-border/70 bg-card/82 shadow-xs">
-          <div className={`p-2 rounded-lg ${actionDisplay.bgColor}`}>
-            <ActionIcon className={`w-3.5 h-3.5 ${actionDisplay.color}`} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <Badge
-                variant={
-                  actionType.startsWith("PAUSE")
-                    ? "destructive"
-                    : actionType.includes("SCALE_BUDGET_DOWN")
-                    ? "warning"
-                    : "success"
-                }
-                className="text-[10px]"
-              >
-                {actionDisplay.label}
-              </Badge>
-              <Badge variant="outline" className="text-[10px]">
-                {platform === "google" ? "Google" : "Meta"}
-              </Badge>
-            </div>
-            <p className="text-base font-semibold text-foreground mt-1 truncate" title={entityName}>
-              {entityName}
-            </p>
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{entityType}</p>
-          </div>
-        </div>
-
-        {/* Before Metrics - compact inline */}
-        {hasMetrics && (
-          <div className="rounded-[10px] border border-border/70 bg-muted/25 p-3.5">
-            <div className="flex items-center gap-1.5 mb-2">
-              <BarChart3 className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Current Metrics
-              </span>
-            </div>
-            <div className="grid grid-cols-4 gap-x-3 gap-y-1.5">
-              {metrics.spend != null && (
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">Spend</p>
-                  <p className="text-sm font-semibold tabular-nums">{formatINR(metrics.spend, 0)}</p>
-                </div>
-              )}
-              {metrics.leads != null && (
-                <div>
-                  <p className="text-[9px] text-muted-foreground">Leads</p>
-                  <p className="text-xs font-semibold tabular-nums">{metrics.leads}</p>
-                </div>
-              )}
-              {metrics.cpl != null && metrics.cpl > 0 && (
-                <div>
-                  <p className="text-[9px] text-muted-foreground">CPL</p>
-                  <p className="text-xs font-semibold tabular-nums">{formatINR(metrics.cpl, 0)}</p>
-                </div>
-              )}
-              {metrics.ctr != null && (
-                <div>
-                  <p className="text-[9px] text-muted-foreground">CTR</p>
-                  <p className="text-xs font-semibold tabular-nums">{metrics.ctr.toFixed(2)}%</p>
-                </div>
-              )}
-              {metrics.impressions != null && (
-                <div>
-                  <p className="text-[9px] text-muted-foreground">Impressions</p>
-                  <p className="text-xs font-semibold tabular-nums">
-                    {metrics.impressions.toLocaleString("en-IN")}
-                  </p>
-                </div>
-              )}
-              {metrics.cpc != null && metrics.cpc > 0 && (
-                <div>
-                  <p className="text-[9px] text-muted-foreground">CPC</p>
-                  <p className="text-xs font-semibold tabular-nums">{formatINR(metrics.cpc, 0)}</p>
-                </div>
-              )}
-              {metrics.cvr != null && (
-                <div>
-                  <p className="text-[9px] text-muted-foreground">CVR</p>
-                  <p className="text-xs font-semibold tabular-nums">{metrics.cvr.toFixed(2)}%</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Strategic Rationale Input */}
-        <div className="space-y-2 rounded-[10px] p-4 border border-primary/30 bg-primary/10">
-          <label className="text-xs font-bold uppercase tracking-[0.08em] text-foreground flex items-center gap-1.5">
-            <Brain className="w-3 h-3" />
-            What's your strategic rationale?
-          </label>
-          <Textarea
-            value={rationale}
-            onChange={(e) => setRationale(e.target.value)}
-            placeholder={getPlaceholderText(actionType)}
-            className="min-h-[120px] text-sm bg-background border-primary/20 focus-visible:ring-primary/45 placeholder:text-muted-foreground/55 resize-none"
-            data-testid="input-strategic-rationale"
-          />
+      <DialogContent 
+        className="sm:max-w-2xl bg-white rounded-2xl shadow-2xl p-0 overflow-hidden border-none" 
+        data-testid="strategic-call-dialog"
+      >
+        {/* Premium Header */}
+        <div className="p-8 pb-6 space-y-2">
           <div className="flex items-center justify-between">
-            <span
-              className={`text-[9px] ${
-                rationale.trim().length >= MIN_RATIONALE_LENGTH
-                  ? "text-emerald-500"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {rationale.trim().length}/{MIN_RATIONALE_LENGTH} min chars
-            </span>
-            {rationale.trim().length > 0 && rationale.trim().length < MIN_RATIONALE_LENGTH && (
-              <span className="text-[10px] text-primary">
-                {MIN_RATIONALE_LENGTH - rationale.trim().length} more needed
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+               <div className="p-2 rounded-xl bg-primary/5 text-primary border border-primary/10">
+                  <Brain className="w-5 h-5" />
+               </div>
+               <DialogTitle className="text-xl font-bold tracking-tight text-slate-800">
+                  {titleOverride || "Strategic Decision Audit"}
+               </DialogTitle>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${actionDisplay.bgColor} ${actionDisplay.color} border border-border/40`}>
+                {actionDisplay.label}
+            </div>
           </div>
+          <DialogDescription className="text-sm text-slate-500 font-medium">
+            AI is recommending an intervention. Please provide the strategic bridge to finalize this action.
+          </DialogDescription>
         </div>
 
-        <DialogFooter className="gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenChange(false)}
-            disabled={isExecuting}
-            data-testid="button-strategic-cancel"
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={handleConfirm}
-            disabled={!isValid || isExecuting}
-            data-testid="button-strategic-execute"
-          >
-            {isExecuting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {confirmLabel || "Execute with Rationale"}
-          </Button>
-        </DialogFooter>
+        <div className="px-8 space-y-6">
+           {/* Context Layer: Entity & Platform */}
+           <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl shadow-sm border border-slate-200">
+                 {platform === 'google' ? (
+                   <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Google_Ads_logo.svg" className="w-6 h-6" alt="Google" />
+                 ) : (
+                   <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Logo_Meta_Platforms.svg" className="w-6 h-6" alt="Meta" />
+                 )}
+                 <span className="text-[9px] font-bold uppercase mt-1 text-slate-400">{platform}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">{entityType}</p>
+                 <h4 className="text-lg font-bold text-slate-800 truncate leading-tight">{entityName}</h4>
+              </div>
+           </div>
+
+           {/* Metrics Grid */}
+           {hasMetrics && (
+             <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                   <BarChart3 className="w-3.5 h-3.5 text-slate-400" />
+                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Decision Parameters</span>
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                   {metrics.spend != null && (
+                     <div className="space-y-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Spend</p>
+                        <p className="text-sm font-bold text-slate-700 tabular-nums">{formatINR(metrics.spend, 0)}</p>
+                     </div>
+                   )}
+                   {metrics.cpl != null && metrics.cpl > 0 && (
+                     <div className="space-y-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">CPL</p>
+                        <p className="text-sm font-bold text-slate-700 tabular-nums">{formatINR(metrics.cpl, 0)}</p>
+                     </div>
+                   )}
+                   {metrics.ctr != null && (
+                     <div className="space-y-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">CTR</p>
+                        <p className="text-sm font-bold text-slate-700 tabular-nums">{metrics.ctr.toFixed(2)}%</p>
+                     </div>
+                   )}
+                   {metrics.leads != null && (
+                     <div className="space-y-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Leads</p>
+                        <p className="text-sm font-bold text-slate-700 tabular-nums">{metrics.leads}</p>
+                     </div>
+                   )}
+                </div>
+             </div>
+           )}
+
+           {/* Strategic Rationale Input */}
+           <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Executive Rationale</span>
+                 </div>
+                 <span className={`text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
+                    {rationale.trim().length}/{MIN_RATIONALE_LENGTH}
+                 </span>
+              </div>
+              <div className="relative group">
+                 <Textarea
+                    value={rationale}
+                    onChange={(e) => setRationale(e.target.value)}
+                    placeholder={getPlaceholderText(actionType)}
+                    className="min-h-[140px] p-5 text-sm font-medium bg-slate-50 border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all placeholder:text-slate-400 resize-none shadow-inner"
+                    data-testid="input-strategic-rationale"
+                 />
+                 {rationale.trim().length > 0 && rationale.trim().length < MIN_RATIONALE_LENGTH && (
+                    <div className="absolute right-4 bottom-4 flex items-center gap-1.5 px-3 py-1 bg-white/80 backdrop-blur rounded-lg border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                       <Info className="w-3 h-3 text-primary" strokeWidth={3} />
+                       <span className="text-[10px] font-bold text-primary">Provide {MIN_RATIONALE_LENGTH - rationale.trim().length} more chars</span>
+                    </div>
+                 )}
+              </div>
+           </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="mt-10 p-8 pt-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+           <Button
+              variant="ghost"
+              className="text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-100"
+              onClick={() => handleOpenChange(false)}
+              disabled={isExecuting}
+           >
+              Dismiss
+           </Button>
+           <Button
+              className="h-12 px-8 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xl shadow-slate-900/10 transition-all active:scale-95 disabled:scale-100 gap-2 overflow-hidden relative"
+              onClick={handleConfirm}
+              disabled={!isValid || isExecuting}
+           >
+              {isExecuting ? (
+                 <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                 <Play className="w-4 h-4 fill-current" />
+              )}
+              <span className="relative z-10">{confirmLabel || "Authorize Action"}</span>
+           </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

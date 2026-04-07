@@ -24,6 +24,8 @@ import {
   Activity,
   ArrowUpRight,
   TrendingDown,
+  Info,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   BarChart,
@@ -37,8 +39,15 @@ import {
   Cell,
   ReferenceLine,
 } from "recharts";
-import { formatINR, formatNumber } from "@/lib/format";
+import { formatINR, formatNumber, formatPct } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -104,19 +113,19 @@ function DeliverablesChart({ data, view }: { data: ConsolidatedMtdData['mtd'], v
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.3)" />
-          <XAxis 
-            dataKey="name" 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-          />
-          <YAxis 
-            hide={view === 'volume'} // Volumes vary too much for a single axis (Spend vs Count)
-            axisLine={false} 
+          <XAxis
+            dataKey="name"
+            axisLine={false}
             tickLine={false}
             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
           />
-          <RechartsTooltip 
+          <YAxis
+            hide={view === 'volume'} // Volumes vary too much for a single axis (Spend vs Count)
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+          />
+          <RechartsTooltip
             cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
             content={({ active, payload }: any) => {
               if (!active || !payload?.length) return null;
@@ -240,315 +249,379 @@ export default function MtdDeliverablesPage() {
   const status = mtdData?.status;
   const targets = activeClient?.targets?.[activePlatform];
 
+  // Calculate month progress locally
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysElapsed = now.getDate();
+  const pctThroughMonth = (daysElapsed / daysInMonth) * 100;
+
+  // ─── MTD Deliverables Engine Configuration ──────────────────────
+  const MTD_SOP_CONFIG = [
+    {
+      label: "Total Spend",
+      value: mtd?.spend || 0,
+      target: targets?.budget,
+      mtdTarget: (targets?.budget || 0) * (pctThroughMonth / 100),
+      isCurrency: true,
+      description: "MTD spend across campaigns",
+      source: "API",
+      type: "COMPUTED"
+    },
+    {
+      label: "Total Leads",
+      value: mtd?.leads || 0,
+      target: targets?.leads,
+      mtdTarget: (targets?.leads || 0) * (pctThroughMonth / 100),
+      description: "MTD leads count",
+      source: "API",
+      type: "COMPUTED"
+    },
+    {
+      label: "Qualified Leads",
+      value: qualityLeadCount,
+      target: (targets?.leads || 0) * 0.4,
+      mtdTarget: ((targets?.leads || 0) * 0.4) * (pctThroughMonth / 100),
+      description: "Quality leads (manual input)",
+      source: "Manual",
+      type: "MANUAL"
+    },
+    {
+      label: "Site Visits",
+      value: svsAchieved,
+      target: targets?.svs?.low,
+      mtdTarget: (targets?.svs?.low || 0) * (pctThroughMonth / 100),
+      description: "Actual visits",
+      source: "Manual",
+      type: "MANUAL"
+    },
+    {
+      label: "CPL",
+      value: mtd?.cpl || 0,
+      target: targets?.cpl,
+      isCurrency: true,
+      isInverse: true,
+      description: "Spend / Leads",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "CPQL",
+      value: qualityLeadCount > 0 ? (mtd?.spend || 0) / qualityLeadCount : 0,
+      target: (targets?.cpl || 0) * 2.5,
+      isCurrency: true,
+      isInverse: true,
+      description: "Spend / Qualified Leads",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "CPSV",
+      value: svsAchieved > 0 ? (mtd?.spend || 0) / svsAchieved : 0,
+      target: targets?.cpsv?.high,
+      isCurrency: true,
+      isInverse: true,
+      description: "Spend / Site Visits",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "Positive %",
+      value: mtd?.leads && mtd.leads > 0 ? (qualityLeadCount / mtd.leads) * 100 : 0,
+      target: 25,
+      isPct: true,
+      description: "Qualified Leads / Total Leads × 100",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "SV %",
+      value: mtd?.leads && mtd.leads > 0 ? (svsAchieved / mtd.leads) * 100 : 0,
+      target: 10,
+      isPct: true,
+      description: "Site Visits / Total Leads × 100",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "Closures",
+      value: closures,
+      description: "Deals closed (manual tracking)",
+      source: "Manual",
+      type: "MANUAL"
+    }
+  ];
+
+  function getStatus(kpi: any) {
+    if (kpi.isInverse) {
+      if (!kpi.target) return { label: "Awaiting", variant: "secondary" };
+      if (kpi.value <= kpi.target) return { label: "Good", variant: "success" };
+      if (kpi.value <= kpi.target * 1.3) return { label: "Watch", variant: "warning" };
+      return { label: "Poor", variant: "destructive" };
+    }
+
+    if (kpi.isPct) {
+      if (kpi.value >= kpi.target) return { label: "Target Met", variant: "success" };
+      if (kpi.value >= kpi.target * 0.7) return { label: "Moderate", variant: "warning" };
+      return { label: "At Risk", variant: "destructive" };
+    }
+
+    if (kpi.mtdTarget) {
+      if (kpi.value >= kpi.mtdTarget) return { label: "On Track", variant: "success" };
+      if (kpi.value >= kpi.mtdTarget * 0.8) return { label: "Watch", variant: "warning" };
+      return { label: "Behind", variant: "destructive" };
+    }
+
+    return kpi.value > 0 ? { label: "Recorded", variant: "success" } : { label: "Pending", variant: "secondary" };
+  }
+
   return (
-    <div className="p-6 space-y-6 max-w-[1200px]">
+    <div className="p-6 space-y-6 max-w-[1400px]">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/20">
-            <Target className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+            <BarChart3 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-foreground tracking-tight">MTD Deliverables Master</h1>
-            <p className="text-xs text-muted-foreground flex items-center gap-2">
-              <Activity className="w-3 h-3 text-emerald-400" />
-              {activePlatform === "google" ? "Google Ads" : "Meta Ads"} source of truth (API + Manual) · Last Sync: {mtdData?.last_updated ? new Date(mtdData.last_updated).toLocaleTimeString() : 'Never'}
-            </p>
+            <h1 className="text-xl font-bold tracking-tight">MTD Deliverables Master</h1>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Marketing-to-Sales Performance Engine</p>
           </div>
         </div>
-
-        {status?.tracking_issue_flag && (
-          <Badge variant="destructive" className="gap-1 px-3 py-1 animate-pulse">
-            <AlertTriangle className="w-3 h-3" /> Tracking Issue Detected
-          </Badge>
-        )}
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="bg-card py-1 text-[10px] border-border/60">Updated: {mtdData?.last_updated ? new Date(mtdData.last_updated).toLocaleTimeString() : 'Never'}</Badge>
+          {status?.tracking_issue_flag && (
+            <Badge variant="destructive" className="gap-1 px-3 py-1 animate-pulse">
+              <AlertTriangle className="w-3 h-3" /> Tracking Alert
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* ─── Performance Monitoring Section ────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Graph Card */}
-        <Card className="lg:col-span-2 border-border/60 shadow-md">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                Performance Snapshot ({viewMode.toUpperCase()})
-              </CardTitle>
-              <div className="flex bg-muted/30 p-1 rounded-md border border-border/40">
-                <button 
-                  onClick={() => setViewMode('volume')}
-                  className={`px-3 py-1 text-[10px] uppercase tracking-wider font-bold rounded-sm transition-all ${viewMode === 'volume' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Volume
-                </button>
-                <button 
-                  onClick={() => setViewMode('efficiency')}
-                  className={`px-3 py-1 text-[10px] uppercase tracking-wider font-bold rounded-sm transition-all ${viewMode === 'efficiency' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  Efficiency
-                </button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {mtd && <DeliverablesChart data={mtd} view={viewMode} />}
-          </CardContent>
-        </Card>
+      <Card className="border-border/60 shadow-xl bg-card/40 backdrop-blur-md overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-primary/40 to-primary/5" />
+        <CardContent className="p-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-x divide-y divide-border/20">
+            {MTD_SOP_CONFIG.map((kpi, i) => {
+              const kpiStatus = getStatus(kpi);
+              return (
+                <div key={i} className="p-6 hover:bg-muted/5 transition-all group relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors overflow-hidden truncate max-w-[120px]">
+                          {kpi.label}
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
+                          <p className="font-bold border-b border-border/50 pb-1">{kpi.label} SOP</p>
+                          <p className="text-[10px] leading-relaxed text-muted-foreground">{kpi.description}</p>
+                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50 text-[10px]">
+                            <div><span className="opacity-50">Source:</span> <br />{kpi.source}</div>
+                            <div><span className="opacity-50">Type:</span> <br />{kpi.type}</div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Badge variant={kpiStatus.variant as any} className="text-[9px] px-1.5 py-0 font-bold uppercase tabular-nums">
+                      {kpiStatus.label}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold tabular-nums tracking-tight mb-1">
+                      {kpi.isCurrency ? formatINR(kpi.value, 0) : kpi.isPct ? `${kpi.value.toFixed(1)}%` : formatNumber(kpi.value)}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {kpi.mtdTarget ? (
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          Expected: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.mtdTarget, 0) : formatNumber(Math.round(kpi.mtdTarget))}</span>
+                        </p>
+                      ) : kpi.target ? (
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          Target: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.target, 0) : kpi.isPct ? `${kpi.target}%` : formatNumber(kpi.target)}</span>
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground font-medium">Manual Tracking</p>
+                      )}
+                    </div>
+                  </div>
+                  {kpi.mtdTarget && (
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-muted/30">
+                      <div
+                        className={cn("h-full transition-all", kpiStatus.variant === 'success' ? 'bg-emerald-500' : kpiStatus.variant === 'warning' ? 'bg-amber-400' : 'bg-red-500')}
+                        style={{ width: `${Math.min((kpi.value / kpi.mtdTarget) * 100, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Anomaly & Status Panel */}
-        <div className="space-y-4">
-          <Card className="bg-card/40 border-border/40">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">MTD Anomalies</CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Input Master */}
+          <Card className="border-primary/20 shadow-lg overflow-hidden bg-gradient-to-br from-card to-card/60">
+            <div className="h-1 bg-primary/40" />
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Manual Performance Sync
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {mtd && mtd.positive_pct < 15 && (
-                <div className="p-3 rounded-lg bg-red-950/20 border border-red-500/30 text-xs text-red-300">
-                  <p className="font-bold flex items-center gap-1.5 mb-1">
-                    <TrendingDown className="w-3.5 h-3.5" /> Quality Alert
-                  </p>
-                  Positive % is only {mtd.positive_pct}% — leads may be low quality.
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-xs font-bold text-primary uppercase tracking-[0.2em] px-1">Update Attribution</label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                    <Input
+                      value={userName}
+                      onChange={e => { setUserName(e.target.value); markChanged(); }}
+                      className="pl-10 h-12 bg-primary/5 font-bold border-primary/20 focus:border-primary/50"
+                      placeholder="Enter your name (e.g., Marketing Lead)"
+                    />
+                  </div>
                 </div>
-              )}
-              {mtd && mtd.cpl > (targets?.cpl || 1000) * 1.2 && (
-                <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/30 text-xs text-amber-300">
-                  <p className="font-bold flex items-center gap-1.5 mb-1">
-                    <ArrowUpRight className="w-3.5 h-3.5" /> High CPL
-                  </p>
-                  Current CPL ₹{mtd.cpl} is {Math.round((mtd.cpl / (targets?.cpl || 1)) * 100 - 100)}% above target.
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Actual SVs Achieved</label>
+                  <div className="relative">
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      value={svsAchieved}
+                      onChange={e => { setSvsAchieved(Number(e.target.value)); markChanged(); }}
+                      className="pl-10 h-12 bg-background/50 text-base font-bold border-border/60 focus:border-primary/50"
+                      placeholder="Enter site visits count"
+                    />
+                  </div>
                 </div>
-              )}
-              {status?.manual_input_missing && (
-                <div className="p-3 rounded-lg bg-blue-950/20 border border-blue-500/30 text-xs text-blue-300">
-                  <p className="font-bold flex items-center gap-1.5 mb-1">
-                    <Clock className="w-3.5 h-3.5" /> Input Missing
-                  </p>
-                  Qualified Leads or SV data hasn't been updated for this month.
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Qualified Leads (Positive)</label>
+                  <div className="relative">
+                    <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      value={qualityLeadCount}
+                      onChange={e => { setQualityLeadCount(Number(e.target.value)); markChanged(); }}
+                      className="pl-10 h-12 bg-background/50 text-base font-bold border-border/60 focus:border-primary/50"
+                      placeholder="Enter QL count"
+                    />
+                  </div>
                 </div>
-              )}
-              {!status?.tracking_issue_flag && mtd && mtd.positive_pct >= 25 && (
-                <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-xs text-emerald-300">
-                  <p className="font-bold flex items-center gap-1.5 mb-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Optimal Delivery
-                  </p>
-                  Funnel quality is healthy ({mtd.positive_pct}% conversion).
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Closures (Deals Done)</label>
+                  <div className="relative">
+                    <CheckCircle2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      value={closures}
+                      onChange={e => { setClosures(Number(e.target.value)); markChanged(); }}
+                      className="pl-10 h-12 bg-background/50 text-base font-bold border-border/60 focus:border-primary/50"
+                      placeholder="Enter closures count"
+                    />
+                  </div>
                 </div>
-              )}
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Performance Feedback</label>
+                  <Textarea
+                    value={notes}
+                    onChange={e => { setNotes(e.target.value); markChanged(); }}
+                    className="bg-background/50 border-border/60 min-h-[48px] focus:border-primary/50"
+                    placeholder="Marketing context, feedback, or observations..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-6 border-t border-border/40">
+                <div className="flex items-center gap-2">
+                  {hasChanges && <Badge variant="warning" className="animate-pulse">Unsaved Changes</Badge>}
+                  <p className="text-[10px] text-muted-foreground">Manual inputs update real-time efficiency metrics above.</p>
+                </div>
+                {isAdmin ? (
+                  <Button
+                    onClick={handleSave}
+                    disabled={!hasChanges || saveMutation.isPending}
+                    className="px-8 shadow-lg shadow-primary/20 font-bold uppercase tracking-widest gap-2"
+                  >
+                    {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Publish Updates
+                  </Button>
+                ) : (
+                  <Badge variant="outline" className="h-10 px-4 bg-muted/30 border-border text-muted-foreground uppercase tracking-widest text-[10px]">
+                    Read Only
+                  </Badge>
+                )}
+              </div>
             </CardContent>
           </Card>
-
-          {/* Efficiency Summary */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-card/60 border border-border/60">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Positive %</p>
-              <p className={`text-xl font-black ${mtd && mtd.positive_pct > 25 ? 'text-emerald-400' : 'text-foreground'}`}>
-                {mtd ? `${mtd.positive_pct}%` : '—'}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-card/60 border border-border/60">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">SV %</p>
-              <p className="text-xl font-black">
-                {mtd ? `${mtd.sv_pct}%` : '—'}
-              </p>
-            </div>
-          </div>
         </div>
-      </div>
 
-      {/* ─── Detailed Stats Summary ────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Spend', value: formatINR(mtd?.spend || 0, 0), icon: IndianRupee, color: 'text-blue-400' },
-          { label: 'Total Leads', value: mtd?.leads || 0, icon: Users, color: 'text-emerald-400' },
-          { label: 'Qualified Leads', value: mtd?.qualified_leads || 0, icon: TrendingUp, color: 'text-purple-400' },
-          { label: 'Site Visits', value: mtd?.svs || 0, icon: Zap, color: 'text-amber-400' },
-        ].map((kpi, i) => (
-          <div key={i} className="bg-card p-4 rounded-xl border border-border/60 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
-              <span className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground">{kpi.label}</span>
-            </div>
-            <p className="text-2xl font-black tabular-nums">{kpi.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ─── Input Master ─────────────────────────────────────────── */}
-      <Card className="border-primary/20 shadow-lg overflow-hidden bg-gradient-to-br from-card to-card/60">
-        <div className="h-1 bg-primary/40" />
-        <CardHeader className="pb-4">
-          <CardTitle className="text-sm font-black flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            Manual Performance Sync
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Updater Info */}
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-black text-primary uppercase tracking-[0.2em] px-1">Update Attribution</label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                <Input 
-                  value={userName} 
-                  onChange={e => { setUserName(e.target.value); markChanged(); }}
-                  className="pl-10 h-12 bg-primary/5 font-black border-primary/20 focus:border-primary/50"
-                  placeholder="Enter your name (e.g., Marketing Lead)"
-                />
+        <div className="space-y-4">
+          {/* Funnel Health Audit */}
+          <Card className="bg-gradient-to-br from-card to-card/50 border-border/60 shadow-xl overflow-hidden">
+            <div className="h-1 bg-primary/20" />
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" />
+                Funnel Health Audit
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/40 group hover:border-primary/20 transition-colors">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Positive %</p>
+                  </div>
+                  <p className={`text-2xl font-bold tabular-nums ${mtd && (qualityLeadCount / (mtd.leads || 1)) * 100 >= 25 ? 'text-emerald-400' : 'text-foreground'}`}>
+                    {mtd ? `${((qualityLeadCount / (mtd.leads || 1)) * 100).toFixed(1)}%` : '—'}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/40 group hover:border-primary/20 transition-colors">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Zap className="w-3 h-3 text-amber-400" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">SV %</p>
+                  </div>
+                  <p className="text-2xl font-bold tabular-nums">
+                    {mtd ? `${((svsAchieved / (mtd.leads || 1)) * 100).toFixed(1)}%` : '—'}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* SVs */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Actual SVs Achieved</label>
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  type="number" 
-                  value={svsAchieved} 
-                  onChange={e => { setSvsAchieved(Number(e.target.value)); markChanged(); }}
-                  className="pl-10 h-12 bg-background/50 text-base font-bold border-border/60 focus:border-primary/50"
-                  placeholder="Enter site visits count"
-                />
+              {/* Update History Log */}
+              <div className="space-y-2 pt-4 border-t border-border/40">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Update History</p>
+                  <Clock className="w-3 h-3 text-muted-foreground/40" />
+                </div>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {history.length > 0 ? (
+                    history.slice(0, 5).map((entry) => (
+                      <div key={entry.id} className="p-3 rounded-xl border border-border/40 bg-muted/10 space-y-2">
+                        <div className="flex justify-between items-center text-[9px] uppercase font-bold tracking-tight">
+                          <span className="text-primary">{entry.updated_by || 'System'}</span>
+                          <span className="text-muted-foreground">{entry.updated_at ? new Date(entry.updated_at).toLocaleDateString() : '—'}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 text-[10px] font-bold tabular-nums">
+                          <div className="text-emerald-400">QL: {entry.quality_lead_count}</div>
+                          <div className="text-amber-400">SV: {entry.svs_achieved}</div>
+                          <div className="text-blue-400">D: {entry.closures_achieved}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[10px] text-center text-muted-foreground py-4">No recent updates</p>
+                  )}
+                </div>
               </div>
-            </div>
-
-            {/* Q Leads */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Qualified Leads (Positive)</label>
-              <div className="relative">
-                <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  type="number" 
-                  value={positiveLeads} 
-                  onChange={e => { setPositiveLeads(Number(e.target.value)); markChanged(); }}
-                  className="pl-10 h-12 bg-background/50 text-base font-bold border-border/60 focus:border-primary/50"
-                  placeholder="Enter QL count"
-                />
-              </div>
-            </div>
-
-            {/* Closures */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Closures (Deals Done)</label>
-              <div className="relative">
-                <CheckCircle2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  type="number" 
-                  value={closures} 
-                  onChange={e => { setClosures(Number(e.target.value)); markChanged(); }}
-                  className="pl-10 h-12 bg-background/50 text-base font-bold border-border/60 focus:border-primary/50"
-                  placeholder="Enter closures count"
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Performance Feedback</label>
-              <Textarea 
-                value={notes} 
-                onChange={e => { setNotes(e.target.value); markChanged(); }}
-                className="bg-background/50 border-border/60 min-h-[48px] focus:border-primary/50"
-                placeholder="Marketing context, feedback, or observations..."
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-6 border-t border-border/40">
-            <div className="flex items-center gap-2">
-              {hasChanges && <Badge variant="warning" className="animate-pulse">Unsaved Changes</Badge>}
-              <p className="text-[10px] text-muted-foreground">Manual inputs update real-time efficiency metrics above.</p>
-            </div>
-            {isAdmin ? (
-              <Button 
-                onClick={handleSave} 
-                disabled={!hasChanges || saveMutation.isPending}
-                className="px-8 shadow-lg shadow-primary/20 font-black uppercase tracking-widest gap-2"
-              >
-                {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Publish Updates
-              </Button>
-            ) : (
-              <Badge variant="outline" className="h-10 px-4 bg-muted/30 border-border text-muted-foreground uppercase tracking-widest text-[10px]">
-                Read Only
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ─── Update History ────────────────────────────────────────── */}
-      <Card className="border-border/60">
-        <CardHeader className="pb-3 border-b border-border/40">
-          <CardTitle className="text-sm font-black flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            Update Log & History
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-muted/30">
-                  <th className="p-3 text-[10px] uppercase font-bold text-muted-foreground border-b border-border/40">Date</th>
-                  <th className="p-3 text-[10px] uppercase font-bold text-muted-foreground border-b border-border/40">User</th>
-                  <th className="p-3 text-[10px] uppercase font-bold text-muted-foreground border-b border-border/40">SVs</th>
-                  <th className="p-3 text-[10px] uppercase font-bold text-muted-foreground border-b border-border/40">Pos Leads</th>
-                  <th className="p-3 text-[10px] uppercase font-bold text-muted-foreground border-b border-border/40">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.length > 0 ? (
-                  history.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-muted/10 transition-colors border-b border-border/40">
-                      <td className="p-3 text-xs tabular-nums text-muted-foreground">
-                        {entry.updated_at ? new Date(entry.updated_at).toLocaleString() : '—'}
-                      </td>
-                      <td className="p-3 text-xs font-semibold text-foreground">
-                        {entry.updated_by || 'System User'}
-                      </td>
-                      <td className="p-3 text-xs font-bold tabular-nums">
-                        {entry.svs_achieved}
-                      </td>
-                      <td className="p-3 text-xs font-bold tabular-nums">
-                        {entry.positive_leads_achieved}
-                      </td>
-                      <td className="p-3 text-xs text-muted-foreground max-w-[200px] truncate" title={entry.notes}>
-                        {entry.notes || '—'}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
-                      No update history available for this month.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Comparison Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { label: 'CPL (Overall)', value: formatINR(mtd?.cpl || 0, 0), target: targets?.cpl },
-          { label: 'CPQL (Qualified)', value: formatINR(mtd?.cpql || 0, 0), target: (targets?.cpl || 0) * 2.5 },
-          { label: 'CPSV (Site Visit)', value: formatINR(mtd?.cpsv || 0, 0), target: targets?.cpsv?.high },
-        ].map((eff, i) => (
-          <div key={i} className="p-4 rounded-xl bg-card border border-border/60">
-            <p className="text-[10px] uppercase font-extrabold text-muted-foreground mb-1">{eff.label}</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-black">{eff.value}</p>
-              {eff.target && (
-                <span className="text-[10px] text-muted-foreground font-medium">Target: ₹{formatNumber(eff.target as number)}</span>
-              )}
-            </div>
-          </div>
-        ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
