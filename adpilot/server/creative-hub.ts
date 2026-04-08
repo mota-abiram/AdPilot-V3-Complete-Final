@@ -10,12 +10,14 @@ const AI_CONFIG_FILE = path.join(DATA_BASE, "ai_config.json");
 const CREATIVE_SOP_FILE = path.resolve(import.meta.dirname, "../../docs/creative-video-creation-sop.md");
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+import Anthropic from "@anthropic-ai/sdk";
 // Image generation models (tried in order):
 // 1. gemini-2.0-flash-exp-image-generation — Gemini native (generateContent + responseModalities)
 // 2. imagen-3.0-generate-002              — Imagen 3 (predict endpoint)
 
 interface AiConfig {
   openapiApiKey?: string;
+  anthropicApiKey?: string;
   geminiModel?: string;
   geminiImageModel?: string;
   groqApiKey?: string;
@@ -38,6 +40,10 @@ function readAiConfig(): AiConfig {
 
 function getOpenapiApiKey(): string {
   return readAiConfig().openapiApiKey || process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "";
+}
+
+function getAnthropicApiKey(): string {
+  return readAiConfig().anthropicApiKey || process.env.ANTHROPIC_API_KEY || "";
 }
 
 function getGeminiModel(): string {
@@ -423,13 +429,23 @@ Image Rules:
 
 function getCreativeAiConfig():
   | { provider: "openai" | "gemini"; apiKey: string; model: string; baseUrl: string }
+  | { provider: "claude"; apiKey: string; model: string }
   | { provider: "groq"; apiKey: string; model: string; baseUrl: string }
   | null {
+  const anthropicApiKey = getAnthropicApiKey();
+  if (anthropicApiKey && anthropicApiKey.trim() !== "" && !anthropicApiKey.trim().startsWith("YOUR_")) {
+    return {
+      provider: "claude",
+      apiKey: anthropicApiKey.trim(),
+      model: "claude-3-5-sonnet-20240620",
+    };
+  }
+
   const openapiApiKey = getOpenapiApiKey();
-  if (openapiApiKey) {
+  if (openapiApiKey && openapiApiKey.trim() !== "" && !openapiApiKey.trim().startsWith("YOUR_")) {
     const trimmedKey = openapiApiKey.trim();
     const isSk = trimmedKey.startsWith("sk-");
-    console.log(`[Debug] Chat Config detected: ${isSk ? "OpenAI" : "Gemini"} (Key begins with ${trimmedKey.slice(0, 10)})`);
+    console.log(`[Creative Hub] Using ${isSk ? "OpenAI" : "Gemini"} as requested by .env.`);
     return {
       provider: isSk ? "openai" : "gemini",
       apiKey: trimmedKey,
@@ -439,10 +455,10 @@ function getCreativeAiConfig():
   }
 
   const groqApiKey = getGroqApiKey();
-  if (groqApiKey) {
+  if (groqApiKey && groqApiKey.trim() !== "" && !groqApiKey.trim().startsWith("YOUR_")) {
     return {
       provider: "groq",
-      apiKey: groqApiKey,
+      apiKey: groqApiKey.trim(),
       model: getGroqModel(),
       baseUrl: GROQ_BASE_URL,
     };
@@ -460,6 +476,21 @@ async function requestJsonChatCompletion({
 }): Promise<any | null> {
   const aiConfig = getCreativeAiConfig();
   if (!aiConfig) return null;
+
+  if (aiConfig.provider === "claude") {
+    const anthropic = new Anthropic({ apiKey: aiConfig.apiKey });
+    const msg = await anthropic.messages.create({
+      model: aiConfig.model,
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const content = msg.content
+      .filter(c => c.type === 'text')
+      .map(c => (c as any).text)
+      .join("\n");
+    return content ? parseJsonFromResponse(content) : null;
+  }
 
   const response = await fetch(`${aiConfig.baseUrl}/chat/completions`, {
     method: "POST",

@@ -64,6 +64,7 @@ interface ConsolidatedMtdData {
     cpsv: number;
     positive_pct: number;
     sv_pct: number;
+    closures: number;
   };
   status: {
     data_complete: boolean;
@@ -133,7 +134,7 @@ function DeliverablesChart({ data, view }: { data: ConsolidatedMtdData['mtd'], v
               return (
                 <div className="rounded-md border border-border/50 bg-card p-2 shadow-xl backdrop-blur-sm">
                   <p className="text-xs font-bold text-foreground mb-1">{entry.name}</p>
-                  <p className="text-lg font-extrabold tabular-nums" style={{ color: entry.color }}>
+                  <p className="t-page-title tabular-nums" style={{ color: entry.color }}>
                     {entry.isCurrency ? formatINR(entry.value, 0) : formatNumber(entry.value)}
                   </p>
                 </div>
@@ -278,7 +279,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "Qualified Leads",
-      value: qualityLeadCount,
+      value: mtd?.qualified_leads || 0,
       target: (targets?.leads || 0) * 0.4,
       mtdTarget: ((targets?.leads || 0) * 0.4) * (pctThroughMonth / 100),
       description: "Quality leads (manual input)",
@@ -287,7 +288,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "Site Visits",
-      value: svsAchieved,
+      value: mtd?.svs || 0,
       target: targets?.svs?.low,
       mtdTarget: (targets?.svs?.low || 0) * (pctThroughMonth / 100),
       description: "Actual visits",
@@ -306,7 +307,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "CPQL",
-      value: qualityLeadCount > 0 ? (mtd?.spend || 0) / qualityLeadCount : 0,
+      value: mtd?.cpql || 0,
       target: (targets?.cpl || 0) * 2.5,
       isCurrency: true,
       isInverse: true,
@@ -316,7 +317,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "CPSV",
-      value: svsAchieved > 0 ? (mtd?.spend || 0) / svsAchieved : 0,
+      value: mtd?.cpsv || 0,
       target: targets?.cpsv?.high,
       isCurrency: true,
       isInverse: true,
@@ -326,7 +327,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "Positive %",
-      value: mtd?.leads && mtd.leads > 0 ? (qualityLeadCount / mtd.leads) * 100 : 0,
+      value: mtd?.positive_pct || 0,
       target: 25,
       isPct: true,
       description: "Qualified Leads / Total Leads × 100",
@@ -335,7 +336,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "SV %",
-      value: mtd?.leads && mtd.leads > 0 ? (svsAchieved / mtd.leads) * 100 : 0,
+      value: mtd?.sv_pct || 0,
       target: 10,
       isPct: true,
       description: "Site Visits / Total Leads × 100",
@@ -344,7 +345,7 @@ export default function MtdDeliverablesPage() {
     },
     {
       label: "Closures",
-      value: closures,
+      value: mtd?.closures || 0,
       description: "Deals closed (manual tracking)",
       source: "Manual",
       type: "MANUAL"
@@ -399,7 +400,7 @@ export default function MtdDeliverablesPage() {
 
       <Card className="border-border/60 shadow-xl bg-card/40 backdrop-blur-md overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-primary/40 to-primary/5" />
-        <CardContent className="p-0">
+        <CardContent className="card-content-premium p-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-x divide-y divide-border/20">
             {MTD_SOP_CONFIG.map((kpi, i) => {
               const kpiStatus = getStatus(kpi);
@@ -421,7 +422,7 @@ export default function MtdDeliverablesPage() {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <Badge variant={kpiStatus.variant as any} className="text-[9px] px-1.5 py-0 font-bold uppercase tabular-nums">
+                    <Badge variant={kpiStatus.variant as any} className="t-micro px-1.5 py-0 font-bold uppercase tabular-nums">
                       {kpiStatus.label}
                     </Badge>
                   </div>
@@ -485,7 +486,7 @@ export default function MtdDeliverablesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Actual SVs Achieved</label>
+                  <label className="t-label">Actual SVs Achieved</label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -499,7 +500,7 @@ export default function MtdDeliverablesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Qualified Leads (Positive)</label>
+                  <label className="t-label">Qualified Leads (Positive)</label>
                   <div className="relative">
                     <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -513,7 +514,7 @@ export default function MtdDeliverablesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Closures (Deals Done)</label>
+                  <label className="t-label">Closures (Deals Done)</label>
                   <div className="relative">
                     <CheckCircle2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -527,7 +528,7 @@ export default function MtdDeliverablesPage() {
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Performance Feedback</label>
+                  <label className="t-label">Performance Feedback</label>
                   <Textarea
                     value={notes}
                     onChange={e => { setNotes(e.target.value); markChanged(); }}
@@ -540,7 +541,7 @@ export default function MtdDeliverablesPage() {
               <div className="flex items-center justify-between pt-6 border-t border-border/40">
                 <div className="flex items-center gap-2">
                   {hasChanges && <Badge variant="warning" className="animate-pulse">Unsaved Changes</Badge>}
-                  <p className="text-[10px] text-muted-foreground">Manual inputs update real-time efficiency metrics above.</p>
+                  <p className="t-label">Manual inputs update real-time efficiency metrics above.</p>
                 </div>
                 {isAdmin ? (
                   <Button
@@ -559,11 +560,9 @@ export default function MtdDeliverablesPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="space-y-4">
           {/* Funnel Health Audit */}
-          <Card className="bg-gradient-to-br from-card to-card/50 border-border/60 shadow-xl overflow-hidden">
+          <Card className="bg-gradient-to-br from-card to-card/50 border-border/60 shadow-xl overflow-hidden mt-6">
             <div className="h-1 bg-primary/20" />
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -578,8 +577,8 @@ export default function MtdDeliverablesPage() {
                     <TrendingUp className="w-3 h-3 text-emerald-400" />
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Positive %</p>
                   </div>
-                  <p className={`text-2xl font-bold tabular-nums ${mtd && (qualityLeadCount / (mtd.leads || 1)) * 100 >= 25 ? 'text-emerald-400' : 'text-foreground'}`}>
-                    {mtd ? `${((qualityLeadCount / (mtd.leads || 1)) * 100).toFixed(1)}%` : '—'}
+                  <p className={`text-2xl font-bold tabular-nums ${mtd && (mtd.positive_pct || 0) >= 25 ? 'text-emerald-400' : 'text-foreground'}`}>
+                    {mtd ? `${(mtd.positive_pct || 0).toFixed(1)}%` : '—'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30 border border-border/40 group hover:border-primary/20 transition-colors">
@@ -588,7 +587,7 @@ export default function MtdDeliverablesPage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">SV %</p>
                   </div>
                   <p className="text-2xl font-bold tabular-nums">
-                    {mtd ? `${((svsAchieved / (mtd.leads || 1)) * 100).toFixed(1)}%` : '—'}
+                    {mtd ? `${(mtd.sv_pct || 0).toFixed(1)}%` : '—'}
                   </p>
                 </div>
               </div>
@@ -622,6 +621,7 @@ export default function MtdDeliverablesPage() {
             </CardContent>
           </Card>
         </div>
+
       </div>
     </div>
   );

@@ -1162,7 +1162,7 @@ function ChecklistItemCard({
             <div className="rounded-md p-2.5 bg-primary/5 border border-primary/10">
               <div className="flex items-center gap-1.5 mb-1">
                 <Zap className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[10px] font-medium text-primary uppercase tracking-wider">Recommended Action</span>
+                <span className="t-label font-bold text-primary uppercase tracking-wider">Recommended Action</span>
               </div>
               <p className="text-[11px] text-foreground/80">{result.recommendation}</p>
             </div>
@@ -1246,7 +1246,7 @@ export default function AuditPage() {
             <Activity className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">SOP Audit Panel</h1>
+            <h1 className="t-page-title text-foreground">SOP Audit Panel</h1>
             <p className="text-xs text-muted-foreground">
               Structured audit checklist aligned to {isGoogle ? "Google Ads" : "Meta Ads"} SOPs · Review each item, execute or dismiss
             </p>

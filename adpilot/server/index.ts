@@ -122,12 +122,12 @@ app.use((req, res, next) => {
   const buildPath = path.resolve(import.meta.dirname, isProduction ? "public" : "../dist/public");
   const hasBuild = fs.existsSync(buildPath);
 
-  if (isProduction || !!process.env.RENDER || hasBuild) {
-    if (!isProduction && hasBuild) {
-      log("Build directory found, serving static files even in dev mode");
-    }
+  if (isProduction || !!process.env.RENDER) {
     serveStatic(app);
   } else {
+    if (hasBuild) {
+      log("Build directory exists, but prioritizing Vite HMR for development");
+    }
     log("Starting Vite development server...");
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);

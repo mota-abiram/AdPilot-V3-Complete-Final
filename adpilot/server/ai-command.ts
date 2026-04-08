@@ -1,47 +1,32 @@
 /**
- * AI Command Engine — GPT-style natural language → structured action pipeline
+ * AI Command Engine — Mojo AdCortex Integration
  *
  * Flow:
  *   1. Receive natural language command from user
- *   2. Build context from active campaign analysis data
- *   3. Send to Perplexity API with rich system prompt
- *   4. Parse HUMAN RESPONSE + ACTION JSON from response
- *   5. Run safety checks on the action plan
- *   6. Execute actions via existing execution engines
- *   7. Log everything to learning-data.csv
+ *   2. Route through AdCortex 4-layer intelligence engine
+ *   3. Map ranked recommendations to backward-compatible response
+ *   4. Apply safety checks on the top action
+ *   5. Execute actions via existing execution engines
+ *   6. Log everything to database
+ *
+ * PRESERVED from v1: ActionPlan, ExecutionOutcome types, getCampaignMetrics(),
+ * applyFilters(), runSafetyChecks(), executeActionPlan(), logExecutionToDb(),
+ * updateCooldownLog(), sanitizeClientCredentials()
  */
 
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import { executeAction, type ExecutionRequest, type ExecutionActionType } from "./meta-execution";
 import { executeGoogleAction, type GoogleExecutionRequest, type GoogleExecutionActionType } from "./google-execution";
 import { db } from "./db";
-import { executionLogs, executionOutcomes, type ExecutionLog } from "@shared/schema";
+import { executionLogs, executionOutcomes } from "@shared/schema";
+import { processQuery, type IntelligenceResult } from "./intelligence-engine";
+import type { AdCortexRecommendation } from "./prompt-templates";
+import { recordExecution, updateOutcomes, triggerOutcomeUpdate } from "./execution-learning";
 
-// Groq — free tier covers ~14,400 req/day, no credit card needed.
-// Get a free key at: https://console.groq.com
-const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
-
-function getOpenapiApiKey(): string {
-  return process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "";
-}
-
-function getGeminiModel(): string {
-  return process.env.GEMINI_MODEL || "gemini-1.5-flash";
-}
-
-function getGroqApiKey(): string {
-  return process.env.GROQ_API_KEY || "";
-}
-
-function getGroqModel(): string {
-  return process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-}
+// ─── Constants ────────────────────────────────────────────────────
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
-const LEARNING_CSV = path.join(DATA_BASE, "learning-data.csv");
 const COOLDOWN_LOG = path.join(DATA_BASE, "ai_command_cooldown.json");
 
 function isPlaceholderSecret(value?: string): boolean {
@@ -74,15 +59,15 @@ function sanitizeClientCredentials(credentials: { meta?: any; google?: any }) {
   return next;
 }
 
-// ─── Types ────────────────────────────────────────────────────────
+// ─── Types (PRESERVED — backward compatible) ──────────────────────
 
 export interface AICommandRequest {
   command: string;
   clientId: string;
   platform: "meta" | "google" | "all";
-  analysisData: any; // the full analysis JSON for context
+  analysisData: any;
   clientTargets?: { cpl?: number; budget?: number; leads?: number };
-  provider?: "groq" | "gemini" | "auto";
+  provider?: "groq" | "gemini" | "claude" | "auto"; // kept for API compat, ignored internally
 }
 
 export interface AICommandResponse {
@@ -91,6 +76,11 @@ export interface AICommandResponse {
   executionResults: ExecutionOutcome[];
   safetyWarnings: string[];
   requiresConfirmation: boolean;
+
+  // New AdCortex fields (non-breaking additions)
+  rankedRecommendations?: AdCortexRecommendation[];
+  layerContributions?: Record<string, any>;
+  conflicts?: string[];
 }
 
 interface ActionFilter {
@@ -123,92 +113,14 @@ interface ExecutionOutcome {
   newValue?: any;
 }
 
-// ─── System Prompt ────────────────────────────────────────────────
-
-function buildSystemPrompt(clientTargets: any): string {
-  const targetCPL = clientTargets?.cpl || 800;
-  const targetBudget = clientTargets?.budget || 0;
-
-  return `You are Mojo, an expert AI performance marketing agent for AdPilot — a Meta Ads & Google Ads intelligence platform.
-
-Your job is to interpret natural language commands from media buyers and convert them into precise, safe campaign actions.
-
-## INTELLIGENCE RULES
-
-Map vague language to precise metrics:
-- "losers" / "bad campaigns" / "underperformers" → CPL > ${targetCPL} OR CTR < 1.0% OR CVR < 1.0% OR (spend > 500 AND leads == 0)
-- "winners" / "good campaigns" / "top performers" → CPL < ${targetCPL * 0.8} AND conversions >= 3
-- "spending money but no leads" → spend > 500 AND leads == 0
-- "scale" → increase budget by 25% (default, range 20-30%)
-- "pause" → set campaign status to PAUSED
-- "high CPL" → CPL > ${targetCPL}
-- "low CTR" → CTR < 1.0%
-- Default time range → last 3 days
-
-## PLATFORM RULES
-- If user says "meta" or "facebook" → platform: "meta"
-- If user says "google" → platform: "google"
-- If platform unclear → use the currently active platform passed in context
-- If no platform context → platform: "all"
-
-## OUTPUT FORMAT — MANDATORY
-
-You MUST respond in EXACTLY this format with no deviation:
-
-### HUMAN RESPONSE
-[Write a clear, friendly explanation like ChatGPT. Explain what you're about to do, why, and what to expect. 2-4 sentences.]
-
-### ACTION JSON
-\`\`\`json
-{
-  "intent": "brief description of the intent",
-  "platform": "meta | google | all",
-  "filters": [
-    { "metric": "cpl", "operator": ">", "value": ${targetCPL}, "unit": "INR" }
-  ],
-  "action": {
-    "type": "pause | scale | adjust_budget | unpause | clarify",
-    "parameters": {
-      "scale_percent": 25,
-      "reason": "why this action is being taken"
-    }
-  },
-  "execution_plan": [
-    "Step 1: ...",
-    "Step 2: ..."
-  ],
-  "strategic_rationale": "One sentence explaining the strategic reasoning.",
-  "risk_checks": [
-    "Check minimum 3 conversions before acting",
-    "Skip campaigns in learning phase (< 50 impressions or < 3 days old)"
-  ]
-}
-\`\`\`
-
-## SAFETY RULES (always include in risk_checks)
-1. Never act on campaigns with < 3 conversions (insufficient data)
-2. Never act on campaigns in learning phase (< 50 impressions)
-3. Never pause campaigns with active leads in the last 24 hours unless explicitly asked
-4. For budget increases > 50%, require explicit user confirmation
-5. Always add strategic_rationale explaining the business logic
-
-## CLARIFICATION RULE
-If the command is too ambiguous or dangerous, set action.type = "clarify" and ask a specific clarifying question in HUMAN RESPONSE.
-
-## CAMPAIGN DATA CONTEXT
-You will receive real campaign data. Use it to identify specific campaigns that match the filters. Reference campaign names in your HUMAN RESPONSE.`;
-}
-
-// ─── Campaign Filter Engine ───────────────────────────────────────
+// ─── Campaign Filter Engine (PRESERVED) ───────────────────────────
 
 function getCampaignMetrics(campaign: any): Record<string, number> {
-  // Normalise field names across Meta (campaign_audit) and Google (campaign_performance)
   const spend = campaign.spend || campaign.cost || campaign.amount_spent || 0;
   const leads = campaign.leads || campaign.conversions || campaign.results || 0;
   const impressions = campaign.impressions || 0;
   const clicks = campaign.clicks || 0;
 
-  // Use pre-computed values from the analysis JSON if available (more accurate)
   const cpl = campaign.cpl ?? (leads > 0 ? spend / leads : spend > 0 ? 99999 : 0);
   const ctr = campaign.ctr ?? (impressions > 0 ? (clicks / impressions) * 100 : 0);
   const cvr = campaign.cvr ?? (clicks > 0 ? (leads / clicks) * 100 : 0);
@@ -217,12 +129,35 @@ function getCampaignMetrics(campaign: any): Record<string, number> {
 }
 
 function applyFilters(campaigns: any[], filters: ActionFilter[]): any[] {
+  // Separate string-based filters (campaign_name, name, id, etc.) from numeric metric filters
+  const stringFields = ["campaign_name", "name", "campaign_id", "id", "status", "classification"];
+
   return campaigns.filter((campaign) => {
     const metrics = getCampaignMetrics(campaign);
     return filters.every((filter) => {
-      const value = metrics[filter.metric.toLowerCase()];
+      const metricKey = filter.metric.toLowerCase();
+
+      // Handle string-based filters (campaign name, id, status)
+      if (stringFields.includes(metricKey)) {
+        const fieldValue = String(
+          campaign[metricKey] || campaign.campaign_name || campaign.name || ""
+        ).toLowerCase();
+        const filterValue = String(filter.value).toLowerCase();
+        const op = normalizeOperator(filter.operator);
+
+        if (op === "==" || op === "===") return fieldValue === filterValue;
+        if (op === "!=") return fieldValue !== filterValue;
+        // Fuzzy: "contains" match for name-based filters
+        if (op === "contains" || op === "includes") return fieldValue.includes(filterValue);
+        // Default: exact or partial match for string fields
+        return fieldValue === filterValue || fieldValue.includes(filterValue);
+      }
+
+      // Standard numeric metric filter
+      const value = metrics[metricKey];
       if (value === undefined) return false;
-      switch (filter.operator) {
+      const op = normalizeOperator(filter.operator);
+      switch (op) {
         case ">":  return value > filter.value;
         case "<":  return value < filter.value;
         case ">=": return value >= filter.value;
@@ -235,7 +170,72 @@ function applyFilters(campaigns: any[], filters: ActionFilter[]): any[] {
   });
 }
 
-// ─── Safety Checks ────────────────────────────────────────────────
+/** Normalize operator variants that Claude might produce */
+function normalizeOperator(op: string): string {
+  const cleaned = op.trim();
+  const map: Record<string, string> = {
+    "greater_than": ">", "gt": ">", "above": ">",
+    "less_than": "<", "lt": "<", "below": "<",
+    "gte": ">=", "greater_than_or_equal": ">=",
+    "lte": "<=", "less_than_or_equal": "<=",
+    "equals": "==", "eq": "==", "equal": "==", "===": "==",
+    "not_equals": "!=", "ne": "!=", "not_equal": "!=",
+    "contains": "contains", "includes": "contains",
+  };
+  return map[cleaned.toLowerCase()] || cleaned;
+}
+
+/**
+ * Fallback name matching — when filter-based matching fails, extract campaign
+ * names from the recommendation text and match against the campaign pool.
+ */
+function fallbackNameMatch(
+  campaigns: any[],
+  recommendation: { action: string; reasoning: string; action_payload: any },
+  actionPlan: { intent: string; strategic_rationale: string }
+): any[] {
+  // Collect all text that might contain campaign names
+  const textSources = [
+    recommendation.action,
+    recommendation.reasoning,
+    actionPlan.intent,
+    actionPlan.strategic_rationale,
+    JSON.stringify(recommendation.action_payload?.filters || []),
+  ].join(" ");
+
+  const matched: any[] = [];
+
+  for (const campaign of campaigns) {
+    const campName = (campaign.campaign_name || campaign.name || "").trim();
+    const campId = (campaign.campaign_id || campaign.id || "").trim();
+
+    if (!campName && !campId) continue;
+
+    // Check if the campaign name appears in any recommendation text
+    if (campName && textSources.includes(campName)) {
+      matched.push(campaign);
+      continue;
+    }
+
+    // Check campaign ID
+    if (campId && textSources.includes(campId)) {
+      matched.push(campaign);
+      continue;
+    }
+
+    // Fuzzy: check if a significant portion of the campaign name (first 20+ chars) appears
+    if (campName.length >= 15) {
+      const nameSegment = campName.substring(0, Math.min(25, campName.length));
+      if (textSources.toLowerCase().includes(nameSegment.toLowerCase())) {
+        matched.push(campaign);
+      }
+    }
+  }
+
+  return matched;
+}
+
+// ─── Safety Checks (PRESERVED) ────────────────────────────────────
 
 interface SafetyResult {
   safe: boolean;
@@ -249,7 +249,6 @@ function runSafetyChecks(campaigns: any[], actionType: string): SafetyResult {
   const skippedCampaigns: string[] = [];
   const approvedCampaigns: any[] = [];
 
-  // Load cooldown log
   let cooldownLog: Record<string, number> = {};
   if (fs.existsSync(COOLDOWN_LOG)) {
     try { cooldownLog = JSON.parse(fs.readFileSync(COOLDOWN_LOG, "utf-8")); } catch {}
@@ -263,21 +262,18 @@ function runSafetyChecks(campaigns: any[], actionType: string): SafetyResult {
     const name = campaign.campaign_name || campaign.name || campaignId;
     let skip = false;
 
-    // Rule 1: minimum conversion data
     if (metrics.leads < 3 && actionType !== "pause") {
       warnings.push(`"${name}" has < 3 conversions — insufficient data for ${actionType}. Skipped.`);
       skippedCampaigns.push(name);
       skip = true;
     }
 
-    // Rule 2: learning phase (very low impressions)
     if (metrics.impressions < 50 && !skip) {
       warnings.push(`"${name}" may be in learning phase (${metrics.impressions} impressions). Skipped.`);
       skippedCampaigns.push(name);
       skip = true;
     }
 
-    // Rule 3: cooldown — no action on same campaign within cooldownHours
     if (!skip && cooldownLog[campaignId]) {
       const hoursSinceLastAction = (now - cooldownLog[campaignId]) / (1000 * 60 * 60);
       if (hoursSinceLastAction < cooldownHours) {
@@ -290,12 +286,7 @@ function runSafetyChecks(campaigns: any[], actionType: string): SafetyResult {
     if (!skip) approvedCampaigns.push(campaign);
   }
 
-  return {
-    safe: approvedCampaigns.length > 0,
-    warnings,
-    skippedCampaigns,
-    approvedCampaigns,
-  };
+  return { safe: approvedCampaigns.length > 0, warnings, skippedCampaigns, approvedCampaigns };
 }
 
 function updateCooldownLog(campaignIds: string[]) {
@@ -323,7 +314,7 @@ async function logExecutionToDb(entry: {
   outcomes: Array<{ metric: string; preValue: number }>;
 }) {
   const logId = (globalThis as any).crypto?.randomUUID?.() || require("crypto").randomUUID();
-  
+
   await db.insert(executionLogs).values({
     id: logId,
     clientId: entry.clientId,
@@ -356,34 +347,12 @@ async function logExecutionToDb(entry: {
   console.log(`[AI Command] Logged execution ${logId} to database.`);
 }
 
-// ─── Claude Response Parser ───────────────────────────────────────
-
-function parseClaudeResponse(rawText: string): { humanResponse: string; actionJson: ActionPlan | null } {
-  let humanResponse = rawText;
-  let actionJson: ActionPlan | null = null;
-
-  try {
-    // Extract HUMAN RESPONSE section
-    const humanMatch = rawText.match(/###\s*HUMAN RESPONSE\s*\n([\s\S]*?)(?=###\s*ACTION JSON|$)/i);
-    if (humanMatch) humanResponse = humanMatch[1].trim();
-
-    // Extract JSON from code block
-    const jsonMatch = rawText.match(/```json\s*([\s\S]*?)```/i);
-    if (jsonMatch) {
-      actionJson = JSON.parse(jsonMatch[1].trim());
-    }
-  } catch (e) {
-    console.error("[AI Command] Failed to parse Claude response:", e);
-  }
-
-  return { humanResponse, actionJson };
-}
-
-// ─── Execution Router ─────────────────────────────────────────────
+// ─── Execution Router (PRESERVED) ─────────────────────────────────
 
 async function executeActionPlan(
   actionPlan: ActionPlan,
   campaigns: any[],
+  analysisData: any,
   clientId: string,
   credentials: { meta?: any; google?: any }
 ): Promise<ExecutionOutcome[]> {
@@ -405,6 +374,7 @@ async function executeActionPlan(
         const params: ExecutionRequest["params"] = {
           reason: action.parameters?.reason || actionPlan.strategic_rationale,
           scalePercent: action.parameters?.scale_percent,
+          currentBudget: campaign.daily_budget,
         };
 
         if (action.type === "pause") metaAction = "PAUSE_CAMPAIGN";
@@ -442,6 +412,27 @@ async function executeActionPlan(
             previousValue: result.previousValue,
             newValue: result.newValue,
           });
+
+          // ─── Learning Engine Integration ──────────────────────────
+          if (result.success) {
+            try {
+              recordExecution(
+                `meta-${campaignId}-${Date.now()}`,
+                clientId,
+                "meta",
+                campaignId,
+                campaignName,
+                "campaign",
+                metaAction,
+                action.parameters?.reason || actionPlan.strategic_rationale,
+                analysisData,
+                actionPlan.strategic_rationale,
+                "AI Agent"
+              );
+            } catch (err: any) {
+              console.warn(`[AI Command] Learning record failed: ${err.message}`);
+            }
+          }
         } finally {
           if (previousMetaAccessToken === undefined) delete process.env.META_ACCESS_TOKEN;
           else process.env.META_ACCESS_TOKEN = previousMetaAccessToken;
@@ -455,6 +446,7 @@ async function executeActionPlan(
         const params: GoogleExecutionRequest["params"] = {
           reason: action.parameters?.reason || actionPlan.strategic_rationale,
           scalePercent: action.parameters?.scale_percent,
+          currentBudget: campaign.daily_budget,
         };
 
         if (action.type === "pause") googleAction = "PAUSE_CAMPAIGN";
@@ -502,6 +494,27 @@ async function executeActionPlan(
             previousValue: result.previousValue,
             newValue: result.newValue,
           });
+
+          // ─── Learning Engine Integration ──────────────────────────
+          if (result.success) {
+            try {
+              recordExecution(
+                `google-${campaignId}-${Date.now()}`,
+                clientId,
+                "google",
+                campaignId,
+                campaignName,
+                "campaign",
+                googleAction,
+                action.parameters?.reason || actionPlan.strategic_rationale,
+                analysisData,
+                actionPlan.strategic_rationale,
+                "AI Agent"
+              );
+            } catch (err: any) {
+              console.warn(`[AI Command] Learning record failed: ${err.message}`);
+            }
+          }
         } finally {
           for (const [key, value] of Object.entries(previousGoogleEnv)) {
             if (value === undefined) delete process.env[key];
@@ -523,119 +536,67 @@ async function executeActionPlan(
   return outcomes;
 }
 
-// ─── Main Handler ─────────────────────────────────────────────────
+// ─── AdCortex → ActionPlan Mapper ─────────────────────────────────
+
+function mapRecommendationToActionPlan(rec: AdCortexRecommendation, platform: string): ActionPlan | null {
+  const payload = rec.action_payload;
+  if (!payload?.action) return null;
+
+  const actionType = payload.action.type;
+  if (!["pause", "scale", "adjust_budget", "unpause", "clarify"].includes(actionType)) {
+    return null;
+  }
+
+  return {
+    intent: payload.intent || rec.action,
+    platform: (payload.platform || platform) as ActionPlan["platform"],
+    filters: (payload.filters || []).map((f: any) => ({
+      metric: f.metric || "",
+      operator: f.operator || ">",
+      value: f.value || 0,
+      unit: f.unit,
+    })),
+    action: {
+      type: actionType as ActionPlan["action"]["type"],
+      parameters: payload.action.parameters || {},
+    },
+    execution_plan: payload.execution_plan || [],
+    strategic_rationale: payload.strategic_rationale || rec.reasoning,
+    risk_checks: payload.risk_checks || [],
+  };
+}
+
+// ─── Main Handler (REFACTORED) ────────────────────────────────────
 
 export async function handleAICommand(req: AICommandRequest): Promise<AICommandResponse> {
-  const { command, clientId, platform, analysisData, clientTargets, provider = "auto" } = req;
-
-  // Build campaign list from analysis data
-  // Meta uses campaign_audit; Google uses campaign_performance; fallback to campaigns
-  const campaigns: any[] = analysisData?.campaign_audit || analysisData?.campaign_performance || analysisData?.campaigns || [];
-
-  // Build context summary for Perplexity
-  const campaignSummary = campaigns.slice(0, 20).map((c: any) => {
-    const m = getCampaignMetrics(c);
-    return {
-      id: c.campaign_id || c.id,
-      name: c.campaign_name || c.name,
-      platform: c._sourcePlatform || platform,
-      status: c.status || c.effective_status || c.delivery_status,
-      classification: c.classification || null,
-      health_score: c.health_score || null,
-      spend: `₹${Number(m.spend).toFixed(0)}`,
-      leads: m.leads,
-      cpl: m.cpl > 99990 ? "∞" : `₹${Number(m.cpl).toFixed(0)}`,
-      ctr: `${Number(m.ctr).toFixed(2)}%`,
-      impressions: m.impressions,
-      daily_budget: c.daily_budget ? `₹${c.daily_budget}` : null,
-      learning_status: c.learning_status || null,
-    };
-  });
-
-  // Call Groq — OpenAI-compatible, free tier, very fast
-  const systemPrompt = buildSystemPrompt(clientTargets);
-  const userMessage = `
-Platform: ${platform}
-Client: ${clientId}
-Target CPL: ₹${clientTargets?.cpl || 800}
-
-Campaign Data (last analysis):
-${JSON.stringify(campaignSummary, null, 2)}
-
-User Command:
-"${command}"
-
-Analyse the campaigns and respond in the mandatory format.`;
-
-  let rawResponse = "";
+  const { command, clientId, platform, analysisData, clientTargets } = req;
+  
+  // ─── 0. Update learning outcomes before processing ────────────────
   try {
-    let baseUrl = GROQ_BASE_URL;
-    let apiKey = getGroqApiKey();
-    let model = getGroqModel();
-
-    if (provider === "gemini") {
-      const untrimmedKey = getOpenapiApiKey();
-      apiKey = untrimmedKey.trim();
-      const isSk = apiKey.startsWith("sk-");
-      console.log(`[Debug] AI Command: Detected ${isSk ? "OpenAI" : "Gemini"} key (begins with ${apiKey.slice(0, 10)})`);
-      baseUrl = isSk ? "https://api.openai.com/v1" : GEMINI_BASE_URL;
-      model = isSk ? "gpt-4o" : getGeminiModel();
-    } else if (provider === "groq") {
-      baseUrl = GROQ_BASE_URL;
-      apiKey = getGroqApiKey().trim();
-      model = getGroqModel();
-    } else {
-      const untrimmedKey = getOpenapiApiKey();
-      apiKey = untrimmedKey.trim();
-      if (apiKey) {
-        const isSk = apiKey.startsWith("sk-");
-        console.log(`[Debug] AI Command: Detected ${isSk ? "OpenAI" : "Gemini"} key (begins with ${apiKey.slice(0, 10)})`);
-        baseUrl = isSk ? "https://api.openai.com/v1" : GEMINI_BASE_URL;
-        model = isSk ? "gpt-4o" : getGeminiModel();
-      } else {
-        apiKey = getGroqApiKey().trim();
-        baseUrl = GROQ_BASE_URL;
-        model = getGroqModel();
-      }
+    const updatedCount = triggerOutcomeUpdate(analysisData);
+    if (updatedCount > 0) {
+      console.log(`[AI Command] Automatically updated ${updatedCount} historical learning outcomes using fresh analysis.`);
     }
-
-    if (!apiKey) {
-      throw new Error(
-        provider === "groq"
-          ? "No Groq API key found. Please check GROQ_API_KEY in the environment variables."
-          : provider === "gemini"
-          ? "No OpenAI API key found. Please check OPENAPI_API_KEY in the environment variables."
-          : "No AI API key found (OpenAPI or Groq). Please check your environment variables.",
-      );
-    }
-
-    const aiRes = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 1500,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      throw new Error(`AI API (${baseUrl}) ${aiRes.status}: ${errText}`);
-    }
-
-    const aiData = await aiRes.json() as any;
-    rawResponse = aiData?.choices?.[0]?.message?.content || "";
   } catch (err: any) {
-    console.error("[AI Command] AI error:", err.message);
+    console.warn(`[AI Command] Learning sync skipped: ${err.message}`);
+  }
+
+  console.log(`[AI Command] Processing via AdCortex: "${command.substring(0, 80)}..." | client=${clientId} platform=${platform}`);
+
+  // ─── 1. Run through AdCortex intelligence engine ───────────────
+  let result: IntelligenceResult;
+  try {
+    result = await processQuery({
+      type: "command",
+      clientId,
+      platform,
+      message: command,
+      analysisData,
+    });
+  } catch (err: any) {
+    console.error("[AI Command] AdCortex error:", err.message);
     return {
-      humanResponse: `AI service error: ${err.message}. Please check your OPENAPI_API_KEY or GROQ_API_KEY in the environment variables.`,
+      humanResponse: `AI service error: ${err.message}. Please check your ANTHROPIC_API_KEY in the environment variables.`,
       actionJson: null,
       executionResults: [],
       safetyWarnings: [],
@@ -643,67 +604,117 @@ Analyse the campaigns and respond in the mandatory format.`;
     };
   }
 
-  // Parse Ollama response
-  const { humanResponse, actionJson } = parseClaudeResponse(rawResponse);
+  // ─── 2. Map AdCortex response to backward-compatible format ────
+  const primaryRec = result.recommendations[0];
+  const actionJson = primaryRec ? mapRecommendationToActionPlan(primaryRec, platform) : null;
+
+  // Safety warnings from high-risk recommendations
+  const safetyWarnings: string[] = result.recommendations
+    .filter((r) => r.risk_level === "high")
+    .map((r) => `⚠️ High-risk: ${r.reasoning.substring(0, 120)}`);
+
+  // Requires confirmation if any recommendation says "confirm"
+  const requiresConfirmation = result.recommendations.some(
+    (r) => r.execution_type === "confirm"
+  );
 
   if (!actionJson || actionJson.action.type === "clarify") {
     return {
-      humanResponse,
+      humanResponse: result.humanResponse,
       actionJson,
       executionResults: [],
-      safetyWarnings: [],
+      safetyWarnings,
       requiresConfirmation: false,
+      // AdCortex additions
+      rankedRecommendations: result.recommendations,
+      layerContributions: result.layer_contributions,
+      conflicts: result.conflicts,
     };
   }
 
-  // Apply filters to find matching campaigns
+  // ─── 3. Apply filters to find matching campaigns (ENHANCED) ─────
+  const campaigns: any[] = analysisData?.campaign_audit || analysisData?.campaign_performance || analysisData?.campaigns || [];
   let matchedCampaigns = campaigns;
+
+  console.log(`[AI Command] Campaign pool: ${campaigns.length} campaigns. Filters: ${JSON.stringify(actionJson.filters)}`);
+
   if (actionJson.filters && actionJson.filters.length > 0) {
     matchedCampaigns = applyFilters(campaigns, actionJson.filters);
+    console.log(`[AI Command] Filter-matched: ${matchedCampaigns.length}/${campaigns.length} campaigns`);
+  }
+
+  // Fallback: If filters returned 0 matches, try to match by campaign name from recommendation
+  if (matchedCampaigns.length === 0 && primaryRec) {
+    console.log(`[AI Command] Filter match failed. Attempting name-based fallback...`);
+    matchedCampaigns = fallbackNameMatch(campaigns, primaryRec, actionJson);
+    if (matchedCampaigns.length > 0) {
+      console.log(`[AI Command] Name fallback matched: ${matchedCampaigns.length} campaigns`);
+    }
+  }
+
+  // Last resort: If still 0 matches but we have a valid action intent, apply to all campaigns
+  // matching just the numeric metric filters (ignore name/string filters)  
+  if (matchedCampaigns.length === 0 && actionJson.filters && actionJson.filters.length > 0) {
+    const numericOnly = actionJson.filters.filter(
+      (f) => !["campaign_name", "name", "campaign_id", "id", "status", "classification"].includes(f.metric.toLowerCase())
+    );
+    if (numericOnly.length > 0 && numericOnly.length < actionJson.filters.length) {
+      console.log(`[AI Command] Retrying with ${numericOnly.length} numeric-only filters (dropped string filters)`);
+      matchedCampaigns = applyFilters(campaigns, numericOnly);
+    }
   }
 
   if (matchedCampaigns.length === 0) {
     return {
-      humanResponse: humanResponse + "\n\n⚠️ No campaigns matched the specified criteria. No actions were taken.",
+      humanResponse: result.humanResponse + "\n\n⚠️ No campaigns matched the specified criteria. No actions were taken.",
       actionJson,
       executionResults: [],
-      safetyWarnings: ["No campaigns matched the filters — nothing to execute."],
+      safetyWarnings: [...safetyWarnings, "No campaigns matched the filters — nothing to execute."],
       requiresConfirmation: false,
+      rankedRecommendations: result.recommendations,
+      layerContributions: result.layer_contributions,
+      conflicts: result.conflicts,
     };
   }
 
-  // Safety checks
+  // ─── 4. Safety checks (PRESERVED) ─────────────────────────────
   const safety = runSafetyChecks(matchedCampaigns, actionJson.action.type);
-  const allWarnings = [...safety.warnings];
+  const allWarnings = [...safetyWarnings, ...safety.warnings];
 
-  // For scale > 50% — require confirmation
-  const requiresConfirmation =
+  // Confirmation for large budget increases
+  const budgetConfirmNeeded =
     actionJson.action.type === "scale" &&
     (actionJson.action.parameters?.scale_percent || 0) > 50;
 
-  if (requiresConfirmation) {
-    allWarnings.push(`Budget increase of ${actionJson.action.parameters?.scale_percent}% requires explicit confirmation.`);
+  if (requiresConfirmation || budgetConfirmNeeded) {
+    const pct = actionJson.action.parameters?.scale_percent || "large";
+    allWarnings.push(`Budget increase of ${pct}% requires explicit confirmation.`);
     return {
-      humanResponse: humanResponse + `\n\n⚠️ This action requires your confirmation because it involves a large budget change (${actionJson.action.parameters?.scale_percent}%). Please confirm to proceed.`,
+      humanResponse: result.humanResponse + `\n\n⚠️ This action requires your confirmation because it involves a ${budgetConfirmNeeded ? "large budget change" : "high-risk action"}. Please confirm to proceed.`,
       actionJson,
       executionResults: [],
       safetyWarnings: allWarnings,
       requiresConfirmation: true,
+      rankedRecommendations: result.recommendations,
+      layerContributions: result.layer_contributions,
+      conflicts: result.conflicts,
     };
   }
 
   if (!safety.safe) {
     return {
-      humanResponse: humanResponse + "\n\n⚠️ All matched campaigns were blocked by safety checks. No actions taken.",
+      humanResponse: result.humanResponse + "\n\n⚠️ All matched campaigns were blocked by safety checks. No actions taken.",
       actionJson,
       executionResults: [],
       safetyWarnings: allWarnings,
       requiresConfirmation: false,
+      rankedRecommendations: result.recommendations,
+      layerContributions: result.layer_contributions,
+      conflicts: result.conflicts,
     };
   }
 
-  // Execute actions
-  // Load credentials for this client
+  // ─── 5. Execute actions (PRESERVED) ────────────────────────────
   let credentials: { meta?: any; google?: any } = {};
   const credFile = path.join(DATA_BASE, "clients_credentials.json");
   if (fs.existsSync(credFile)) {
@@ -717,6 +728,7 @@ Analyse the campaigns and respond in the mandatory format.`;
   const executionResults = await executeActionPlan(
     actionJson,
     safety.approvedCampaigns,
+    analysisData,
     clientId,
     credentials
   );
@@ -737,7 +749,7 @@ Analyse the campaigns and respond in the mandatory format.`;
     successCount: executionResults.filter((r) => r.success).length,
     failureCount: executionResults.filter((r) => !r.success).length,
     safetyWarnings: allWarnings.join(" | "),
-    requestedBy: "mojo-ai",
+    requestedBy: "mojo-adcortex",
     outcomes: safety.approvedCampaigns.map((c: any) => {
       const m = getCampaignMetrics(c);
       return { metric: "cpl", preValue: m.cpl };
@@ -745,10 +757,14 @@ Analyse the campaigns and respond in the mandatory format.`;
   });
 
   return {
-    humanResponse,
+    humanResponse: result.humanResponse,
     actionJson,
     executionResults,
     safetyWarnings: allWarnings,
     requiresConfirmation: false,
+    // AdCortex additions
+    rankedRecommendations: result.recommendations,
+    layerContributions: result.layer_contributions,
+    conflicts: result.conflicts,
   };
 }

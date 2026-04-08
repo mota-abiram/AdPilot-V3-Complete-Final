@@ -282,7 +282,7 @@ export default function GoogleQualityScorePage() {
             <div className="p-3 rounded-full bg-muted mb-4 text-muted-foreground">
               <Info className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-semibold">No keyword data found</h3>
+            <h3 className="t-page-title">No keyword data found</h3>
             <p className="text-sm text-muted-foreground max-w-md mt-2">
               Quality Score monitoring is active, but we couldn't find keywords for this client.
               Ensure 'keyword_view' is enabled in your Google Ads agent configuration.
@@ -343,7 +343,7 @@ export default function GoogleQualityScorePage() {
           { label: "Red Ratio (< 5)", value: `${data.summary.poorPct.toFixed(0)}%`, color: data.summary.poorPct > 20 ? "text-red-400" : "text-emerald-400" },
         ].map((kpi, i) => (
           <Card key={i} className="hover:border-primary/20 transition-colors">
-            <CardContent className="p-4">
+            <CardContent className="card-content-premium">
               <p className="text-[10px] uppercase font-bold tracking-[0.08em] text-muted-foreground">{kpi.label}</p>
               <p className={cn("text-2xl font-black mt-1 tabular-nums", kpi.color)}>
                 {kpi.value}
@@ -357,7 +357,7 @@ export default function GoogleQualityScorePage() {
       {/* ─── Distribution & Campaign View ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="bg-card/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">QS Distribution</p>
               <Badge variant="secondary" className="bg-primary/5 text-primary">Live Scan</Badge>
@@ -381,7 +381,7 @@ export default function GoogleQualityScorePage() {
         </Card>
 
         <Card className="bg-card/50 max-h-[220px] overflow-y-auto">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">QS by Campaign</p>
             <div className="space-y-4">
               {data.perCampaign.slice(0, 5).map((pc, i) => (
@@ -450,11 +450,11 @@ export default function GoogleQualityScorePage() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="overflow-x-auto border-t border-border/40">
-                      <table className="w-full text-xs text-left">
+                      <table className="t-table w-full text-left">
                         <thead>
                           <tr className="bg-muted/30">
                             {["Keyword", "Score", "Exp CTR", "Relevance", "LP Exp", "Conv", "CPL"].map(h => (
-                              <th key={h} className="p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
+                              <th key={h} className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">{h}</th>
                             ))}
                           </tr>
                         </thead>

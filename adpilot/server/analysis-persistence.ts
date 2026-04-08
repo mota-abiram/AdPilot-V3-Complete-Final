@@ -37,6 +37,9 @@ export async function saveAnalysisSnapshot(clientId: string, platform: string, d
           target: [analysisSnapshots.clientId, analysisSnapshots.platform, analysisSnapshots.cadence],
           set: { data, createdAt: new Date() },
         });
+      console.log(`[Analysis] [DB] Successfully upserted ${platform} (${cadence}) snapshot for ${clientId}.`);
+    } else {
+      console.warn(`[Analysis] [DB] No DATABASE_URL found, skipping Postgres persistence for ${clientId}.`);
     }
 
     // Sync to local file for backward compatibility
@@ -50,9 +53,10 @@ export async function saveAnalysisSnapshot(clientId: string, platform: string, d
     // Bust cache so the next dashboard load fetches fresh data
     invalidateAnalysisCache(clientId, platform);
 
-    console.log(`[Analysis] Persisted ${platform} (${cadence}) snapshot for client ${clientId} to DB & file.`);
+    console.log(`[Analysis] [File] Persisted ${platform} (${cadence}) snapshot to local disk for ${clientId}.`);
   } catch (err) {
-    console.error("[Analysis] Error persisting snapshot:", err);
+    console.error(`[Analysis] [CRITICAL] Error persisting snapshot for ${clientId}/${platform}/${cadence}:`, err);
+    // Don't rethrow, ensure the scheduler continues even if persistence for one cadence fails
   }
 }
 

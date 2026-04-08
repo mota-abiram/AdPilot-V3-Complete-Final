@@ -110,7 +110,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
         {/* Campaign name + type */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="text-sm font-semibold text-foreground">{truncate(camp.name, 60)}</span>
+            <span className="t-page-title text-foreground">{truncate(camp.name, 60)}</span>
             <Badge variant="outline" className="text-[9px] px-1.5 py-0">{getDgCampaignLabel(camp)}</Badge>
             {camp.classification && (
               <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border", cls.cls)}>
@@ -172,7 +172,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
       {/* Expanded: ad groups */}
       {expanded && adGroups.length > 0 && (
         <div className="ml-7 mr-3 mb-3 rounded-lg border border-border/30 overflow-hidden bg-muted/5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 py-2 border-b border-border/20">
+          <p className="t-label font-bold uppercase tracking-wider text-muted-foreground px-3 py-2 border-b border-border/20">
             Ad Groups ({adGroups.length})
           </p>
           {adGroups.map((ag, i) => (
@@ -311,31 +311,31 @@ export default function GoogleAudiencesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <Card className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">DG Campaigns</p>
             <p className="text-2xl font-black text-foreground tabular-nums">{dgCampaigns.length}</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Lookalike</p>
             <p className="text-2xl font-black text-blue-400 tabular-nums">{lookalikes}</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">In-Market</p>
             <p className="text-2xl font-black text-purple-400 tabular-nums">{inMarket}</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Affinity</p>
             <p className="text-2xl font-black text-amber-400 tabular-nums">{affinity}</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Total Leads</p>
             <p className={cn("text-2xl font-black tabular-nums", totalLeads > 0 ? "text-emerald-400" : "text-foreground")}>
               {totalLeads}
@@ -343,7 +343,7 @@ export default function GoogleAudiencesPage() {
           </CardContent>
         </Card>
         <Card className={cn("border-border/50", avgCpl > 0 && avgCpl <= targetCpl ? "border-emerald-500/30" : avgCpl > targetCpl * 1.3 ? "border-red-500/30" : "")}>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Avg CPL</p>
             <p className={cn("text-2xl font-black tabular-nums", cplColor(avgCpl, targetCpl))}>
               {avgCpl > 0 ? formatINR(avgCpl, 0) : "—"}
@@ -351,7 +351,7 @@ export default function GoogleAudiencesPage() {
           </CardContent>
         </Card>
         <Card className={cn("border-border/50", highCpmCampaigns > 0 && "border-amber-500/30 bg-amber-500/3")}>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">High CPM Alert</p>
             <p className={cn("text-2xl font-black tabular-nums", highCpmCampaigns > 0 ? "text-amber-400" : "text-foreground")}>
               {highCpmCampaigns}
@@ -363,6 +363,7 @@ export default function GoogleAudiencesPage() {
       {/* Campaign Table */}
       <Card className="border-border/50 overflow-hidden">
         <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
+          <table className="t-table w-full" />
           <Eye className="w-4 h-4 text-primary" />
           <p className="text-sm font-bold text-foreground">Demand Gen Campaigns</p>
           <p className="text-[10px] text-muted-foreground ml-1">· Click to expand ad groups</p>
@@ -393,15 +394,15 @@ export default function GoogleAudiencesPage() {
       {/* CPM notes */}
       {highCpmCampaigns > 0 && (
         <Card className="bg-amber-500/5 border-amber-500/30">
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+          <CardContent className="card-content-premium p-4 space-y-1">
+            <p className="t-page-title text-amber-400 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" />
               High CPM Detected
             </p>
             {dgCampaigns
               .filter((c) => c.dg_health?.cpm_status === "high")
               .map((c, i) => (
-                <p key={i} className="text-[10px] text-muted-foreground ml-5">
+                <p key={i} className="t-label text-muted-foreground ml-5">
                   <span className="font-medium text-foreground">{truncate(c.name, 40)}</span>
                   {c.dg_health?.frequency_note ? ` — ${c.dg_health.frequency_note}` : " — CPM above baseline"}
                 </p>

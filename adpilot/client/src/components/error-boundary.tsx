@@ -9,6 +9,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  errorLocation?: string;
 }
 
 /**
@@ -26,14 +27,18 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.setState({ errorInfo });
+    // Extract component name from stack if possible
+    const componentMatch = errorInfo.componentStack?.match(/at\s+([A-Z][a-zA-Z0-9]+)/);
+    const errorLocation = componentMatch ? componentMatch[1] : "Unknown Component";
+    
+    this.setState({ errorInfo, errorLocation });
     // Log to console for debugging
-    console.error("[ErrorBoundary] Uncaught error:", error);
+    console.error(`[ErrorBoundary] Uncaught error in ${errorLocation}:`, error);
     console.error("[ErrorBoundary] Component stack:", errorInfo.componentStack);
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
+    this.setState({ hasError: false, error: null, errorInfo: null, errorLocation: undefined });
   };
 
   render() {
@@ -64,10 +69,10 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
             </div>
             <h2 className="text-lg font-bold text-foreground">
-              Something went wrong
+              Something went wrong {this.state.errorLocation ? `in ${this.state.errorLocation}` : ""}
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              An unexpected error occurred in the application. This has been
+              An unexpected error occurred. This has been
               logged for investigation.
             </p>
             {this.state.error && (

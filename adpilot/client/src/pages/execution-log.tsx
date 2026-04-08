@@ -258,9 +258,9 @@ function AuditLogTab({
         </div>
       )}
     <Card>
-      <CardContent className="p-0">
+      <CardContent className="card-content-premium p-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs" data-testid="table-audit-log">
+          <table className="t-table w-full" data-testid="table-audit-log">
             <thead>
               <tr className="border-b border-border/50">
                 <th className="text-left p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -446,7 +446,7 @@ function ManuallyCompletedDialog({
             <ClipboardCheck className="w-5 h-5 text-blue-400" />
             Record Manually Completed Action
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="t-label">
             Record a manual action you completed outside the dashboard (e.g., creative refresh, audience restructuring).
           </DialogDescription>
         </DialogHeader>
@@ -891,7 +891,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
 
                   {/* Entity name */}
                   <div>
-                    <p className="text-sm font-medium text-foreground">{entry.entityName}</p>
+                    <p className="t-page-title">{entry.entityName}</p>
                     <p className="text-[10px] text-muted-foreground">{entry.entityType}</p>
                   </div>
 
@@ -957,7 +957,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                             )}>
                               {afterCpl != null ? formatINR(afterCpl, 0) : "—"}
                               {cplChange != null && (
-                                <span className="text-[9px] ml-1">
+                                <span className="t-micro ml-1">
                                   ({cplChange > 0 ? "+" : ""}{cplChange.toFixed(0)}%)
                                 </span>
                               )}
@@ -1067,8 +1067,8 @@ export default function ExecutionLogPage() {
     <div className="p-6 space-y-4 max-w-[1400px]">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Execution Log</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="t-page-title text-foreground">Execution Log</h1>
+          <p className="t-label">
             {mergedEntries.length} recorded actions · auto-refreshes every 30s
           </p>
         </div>

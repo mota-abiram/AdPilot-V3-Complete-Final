@@ -121,76 +121,76 @@ export function StrategicCallDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent 
-        className="sm:max-w-2xl bg-white rounded-2xl shadow-2xl p-0 overflow-hidden border-none" 
+        className="sm:max-w-xl bg-card rounded-2xl shadow-2xl p-0 overflow-hidden border border-border/40" 
         data-testid="strategic-call-dialog"
       >
-        {/* Premium Header */}
-        <div className="p-8 pb-6 space-y-2">
+        {/* Header */}
+        <DialogHeader className="p-6 pb-4 bg-muted/30 border-b border-border/40">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-               <div className="p-2 rounded-xl bg-primary/5 text-primary border border-primary/10">
+            <div className="flex items-center gap-2.5">
+               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-inner">
                   <Brain className="w-5 h-5" />
                </div>
-               <DialogTitle className="text-xl font-bold tracking-tight text-slate-800">
-                  {titleOverride || "Strategic Decision Audit"}
-               </DialogTitle>
+               <div>
+                  <DialogTitle className="t-page-title text-foreground">
+                     {titleOverride || "Strategic Decision Audit"}
+                  </DialogTitle>
+                  <p className="t-label text-muted-foreground mt-0.5">Decision Intelligence Layer</p>
+               </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${actionDisplay.bgColor} ${actionDisplay.color} border border-border/40`}>
+            <div className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${actionDisplay.bgColor} ${actionDisplay.color} border border-border/30 shadow-xs`}>
                 {actionDisplay.label}
             </div>
           </div>
-          <DialogDescription className="text-sm text-slate-500 font-medium">
-            AI is recommending an intervention. Please provide the strategic bridge to finalize this action.
-          </DialogDescription>
-        </div>
+        </DialogHeader>
 
-        <div className="px-8 space-y-6">
-           {/* Context Layer: Entity & Platform */}
-           <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="p-6 space-y-5">
+           {/* Context Layer */}
+           <div className="flex items-center gap-4 p-4 bg-accent/30 rounded-xl border border-accent/40 shadow-xs">
+              <div className="flex flex-col items-center justify-center size-12 bg-card rounded-lg shadow-sm border border-border/60 shrink-0">
                  {platform === 'google' ? (
-                   <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Google_Ads_logo.svg" className="w-6 h-6" alt="Google" />
+                   <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Google_Ads_logo.svg" className="w-5 h-5" alt="Google" />
                  ) : (
-                   <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Logo_Meta_Platforms.svg" className="w-6 h-6" alt="Meta" />
+                   <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Logo_Meta_Platforms.svg" className="w-5 h-5" alt="Meta" />
                  )}
-                 <span className="text-[9px] font-bold uppercase mt-1 text-slate-400">{platform}</span>
+                 <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground/60">{platform}</span>
               </div>
               <div className="flex-1 min-w-0">
-                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-0.5">{entityType}</p>
-                 <h4 className="text-lg font-bold text-slate-800 truncate leading-tight">{entityName}</h4>
+                 <p className="t-label text-muted-foreground mb-0.5 tracking-wider">{entityType}</p>
+                 <h4 className="t-body-sm font-bold text-foreground truncate leading-tight">{entityName}</h4>
               </div>
            </div>
 
            {/* Metrics Grid */}
            {hasMetrics && (
-             <div className="space-y-3">
+             <div className="space-y-2.5 px-1">
                 <div className="flex items-center gap-2">
-                   <BarChart3 className="w-3.5 h-3.5 text-slate-400" />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Decision Parameters</span>
+                   <BarChart3 className="w-3.5 h-3.5 text-muted-foreground/60" />
+                   <span className="t-label text-muted-foreground uppercase tracking-widest">Decision Parameters</span>
                 </div>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-4 bg-muted/20 p-3.5 rounded-xl border border-border/30">
                    {metrics.spend != null && (
                      <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Spend</p>
-                        <p className="text-sm font-bold text-slate-700 tabular-nums">{formatINR(metrics.spend, 0)}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Spend</p>
+                        <p className="text-sm font-bold text-foreground tabular-nums">{formatINR(metrics.spend, 0)}</p>
                      </div>
                    )}
                    {metrics.cpl != null && metrics.cpl > 0 && (
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">CPL</p>
-                        <p className="text-sm font-bold text-slate-700 tabular-nums">{formatINR(metrics.cpl, 0)}</p>
+                     <div className="space-y-1 border-l border-border/30 pl-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">CPL</p>
+                        <p className="text-sm font-bold text-foreground tabular-nums">{formatINR(metrics.cpl, 0)}</p>
                      </div>
                    )}
                    {metrics.ctr != null && (
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">CTR</p>
-                        <p className="text-sm font-bold text-slate-700 tabular-nums">{metrics.ctr.toFixed(2)}%</p>
+                     <div className="space-y-1 border-l border-border/30 pl-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">CTR</p>
+                        <p className="text-sm font-bold text-foreground tabular-nums">{metrics.ctr.toFixed(2)}%</p>
                      </div>
                    )}
                    {metrics.leads != null && (
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Leads</p>
-                        <p className="text-sm font-bold text-slate-700 tabular-nums">{metrics.leads}</p>
+                     <div className="space-y-1 border-l border-border/30 pl-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Leads</p>
+                        <p className="text-sm font-bold text-foreground tabular-nums">{metrics.leads}</p>
                      </div>
                    )}
                 </div>
@@ -198,13 +198,13 @@ export function StrategicCallDialog({
            )}
 
            {/* Strategic Rationale Input */}
-           <div className="space-y-3 pt-2">
+           <div className="space-y-2.5 pt-1 px-1">
               <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
                     <Zap className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Executive Rationale</span>
+                    <span className="t-label text-muted-foreground uppercase tracking-widest">Executive Rationale</span>
                  </div>
-                 <span className={`text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
+                 <span className={`text-[10px] font-black tabular-nums px-2 py-0.5 rounded-full border ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-muted text-muted-foreground/60 border-border/40'}`}>
                     {rationale.trim().length}/{MIN_RATIONALE_LENGTH}
                  </span>
               </div>
@@ -213,31 +213,31 @@ export function StrategicCallDialog({
                     value={rationale}
                     onChange={(e) => setRationale(e.target.value)}
                     placeholder={getPlaceholderText(actionType)}
-                    className="min-h-[140px] p-5 text-sm font-medium bg-slate-50 border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all placeholder:text-slate-400 resize-none shadow-inner"
+                    className="min-h-[120px] p-4 t-body-sm font-medium bg-muted/40 border-border/60 rounded-xl focus:bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-muted-foreground/40 resize-none shadow-inner"
                     data-testid="input-strategic-rationale"
                  />
                  {rationale.trim().length > 0 && rationale.trim().length < MIN_RATIONALE_LENGTH && (
-                    <div className="absolute right-4 bottom-4 flex items-center gap-1.5 px-3 py-1 bg-white/80 backdrop-blur rounded-lg border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                    <div className="absolute right-3 bottom-3 flex items-center gap-1.5 px-2 py-1 bg-card/90 backdrop-blur rounded-lg border border-primary/20 shadow-sm animate-in fade-in slide-in-from-bottom-2">
                        <Info className="w-3 h-3 text-primary" strokeWidth={3} />
-                       <span className="text-[10px] font-bold text-primary">Provide {MIN_RATIONALE_LENGTH - rationale.trim().length} more chars</span>
+                       <span className="text-[9px] font-black text-primary uppercase">Min {MIN_RATIONALE_LENGTH-rationale.trim().length} chars</span>
                     </div>
                  )}
               </div>
            </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="mt-10 p-8 pt-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+        {/* Footer actions */}
+        <DialogFooter className="p-5 border-t border-border/40 bg-muted/30 gap-3">
            <Button
               variant="ghost"
-              className="text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-100"
+              className="t-label text-muted-foreground hover:bg-white/10"
               onClick={() => handleOpenChange(false)}
               disabled={isExecuting}
            >
               Dismiss
            </Button>
            <Button
-              className="h-12 px-8 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xl shadow-slate-900/10 transition-all active:scale-95 disabled:scale-100 gap-2 overflow-hidden relative"
+              className="h-10 px-6 bg-primary hover:bg-[#f5c723] text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:scale-100 gap-2 border border-primary-border"
               onClick={handleConfirm}
               disabled={!isValid || isExecuting}
            >
@@ -246,9 +246,9 @@ export function StrategicCallDialog({
               ) : (
                  <Play className="w-4 h-4 fill-current" />
               )}
-              <span className="relative z-10">{confirmLabel || "Authorize Action"}</span>
+              <span>{confirmLabel || "Authorize Action"}</span>
            </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

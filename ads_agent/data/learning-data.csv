@@ -1,0 +1,2 @@
+timestamp,clientId,platform,status,recommendation,context
+"2026-04-08T11:10:40.343Z","amara","meta","Accepted","Sharpen the first 3 seconds of video ads to improve 'Thumb-Stop' rates.","Metric: CTR, Summary: Account CTR is critically low"

@@ -102,34 +102,42 @@ RULES:
         import time
 
         providers = []
-        if self.groq_api_key:
-            providers.append({
-                "url": "https://api.groq.com/openai/v1/chat/completions",
-                "headers": {"Content-Type": "application/json", "Authorization": f"Bearer {self.groq_api_key}"},
-                "model": "llama-3.3-70b-versatile",
-            })
+        # OpenAI (Primary as requested by user)
         if self.openai_api_key:
             providers.append({
+                "name": "OpenAI",
                 "url": "https://api.openai.com/v1/chat/completions",
                 "headers": {"Content-Type": "application/json", "Authorization": f"Bearer {self.openai_api_key}"},
                 "model": "gpt-4o-mini",
+            })
+        # Groq (Fallback)
+        if self.groq_api_key:
+            providers.append({
+                "name": "Groq",
+                "url": "https://api.groq.com/openai/v1/chat/completions",
+                "headers": {"Content-Type": "application/json", "Authorization": f"Bearer {self.groq_api_key}"},
+                "model": "llama-3.3-70b-versatile",
             })
 
         last_error = None
         for provider in providers:
             for attempt in range(2):
                 try:
+                    print(f"[AI] Attempting analysis using {provider['name']} ({provider['model']})...")
                     body = json.dumps({
                         "model": provider["model"],
-                        "messages": [{"role": "user", "content": prompt}],
+                        "messages": [{"role": "system", "content": "You are Mojo, a blunt performance marketing expert."}, {"role": "user", "content": prompt}],
                         "max_tokens": 150
                     })
                     req = Request(provider["url"], data=body.encode(), headers=provider["headers"])
                     with urlopen(req, timeout=30) as resp:
                         data = json.loads(resp.read().decode())
-                        return data["choices"][0]["message"]["content"].strip()
+                        result = data["choices"][0]["message"]["content"].strip()
+                        print(f"[AI] Analysis successful using {provider['name']}.")
+                        return result
                 except Exception as e:
                     last_error = e
+                    print(f"[AI] Error with {provider['name']}: {str(e)}")
                     if attempt == 0:
                         time.sleep(2)
 

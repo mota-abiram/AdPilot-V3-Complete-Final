@@ -252,7 +252,7 @@ function SOPFormulaStrip() {
 
   return (
     <Card className="border-primary/20 bg-primary/3">
-      <CardContent className="p-4">
+      <CardContent className="card-content-premium">
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck className="w-3.5 h-3.5 text-primary" />
           <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
@@ -396,7 +396,7 @@ function ActionDialog({
         <div className="space-y-2">
           <div className="flex items-center gap-1.5">
             <PenLine className="w-3.5 h-3.5 text-primary" />
-            <label className="text-xs font-semibold text-foreground">
+            <label className="t-page-title text-foreground">
               Strategic Rationale <span className="text-red-400">*</span>
             </label>
           </div>
@@ -903,15 +903,15 @@ function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
           <span className="text-[10px] font-normal text-muted-foreground ml-1">· All decisions logged with rationale</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="card-content-premium p-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="t-table w-full">
             <thead>
               <tr className="border-b border-border/30 bg-muted/20">
                 {["Time", "Campaign", "Action", "Strategy", "Rationale", "Parameters"].map((h) => (
                   <th
                     key={h}
-                    className="p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-left"
+                    className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-left"
                   >
                     {h}
                   </th>
@@ -1373,7 +1373,7 @@ export default function GoogleBiddingPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Total Campaigns */}
         <Card className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <Layers className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Campaigns</p>
@@ -1390,7 +1390,7 @@ export default function GoogleBiddingPage() {
             criticalAlertCount > 0 ? "border-red-500/40" : totalAlerts > 0 ? "border-amber-500/30" : "border-emerald-500/30"
           )}
         >
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active Alerts</p>
@@ -1422,7 +1422,7 @@ export default function GoogleBiddingPage() {
 
         {/* tCPA Candidates */}
         <Card className={cn("border-border/50", tcpaCandidates > 0 && "border-emerald-500/40")}>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <Zap className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">tCPA Candidates</p>
@@ -1441,7 +1441,7 @@ export default function GoogleBiddingPage() {
 
         {/* Hold / Monitor */}
         <Card className={cn("border-border/50", holdCandidates > 0 && "border-amber-500/40")}>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <Ban className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hold / Monitor</p>

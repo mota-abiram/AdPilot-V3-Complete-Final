@@ -1,11 +1,36 @@
 {
-  "lastRun": "2026-04-07T05:10:57.785Z",
+  "lastRun": "2026-04-08T12:57:09.921Z",
   "lastRunSuccess": true,
-  "lastRunDuration": 274088,
+  "lastRunDuration": 162980,
   "lastError": null,
-  "nextRun": "2026-04-08T03:30:00.000Z",
+  "nextRun": "2026-04-09T03:30:00.000Z",
   "isRunning": false,
   "runHistory": [
+    {
+      "timestamp": "2026-04-08T12:57:09.921Z",
+      "success": true,
+      "duration": 162980
+    },
+    {
+      "timestamp": "2026-04-08T05:33:00.125Z",
+      "success": true,
+      "duration": 162762
+    },
+    {
+      "timestamp": "2026-04-08T05:06:14.839Z",
+      "success": true,
+      "duration": 43960
+    },
+    {
+      "timestamp": "2026-04-08T05:03:40.896Z",
+      "success": true,
+      "duration": 46199
+    },
+    {
+      "timestamp": "2026-04-08T05:02:39.913Z",
+      "success": true,
+      "duration": 55775
+    },
     {
       "timestamp": "2026-04-07T05:10:57.785Z",
       "success": true,

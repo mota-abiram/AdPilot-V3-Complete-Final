@@ -1,0 +1,88 @@
+[
+  {
+    "action": "ENABLE_CAMPAIGN",
+    "entityId": "22055144781",
+    "entityName": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024",
+    "entityType": "campaign",
+    "timestamp": "2026-04-08T11:03:18.169Z",
+    "requestedBy": "user",
+    "requestedByName": "Administrator",
+    "reason": "Bulk activate from Campaigns page",
+    "platform": "google",
+    "success": true,
+    "previousValue": "PAUSED",
+    "newValue": "ENABLED",
+    "googleApiResponse": {
+      "results": [
+        {
+          "resourceName": "customers/3120813693/campaigns/22055144781"
+        }
+      ]
+    },
+    "id": "mnpxwft3stari5"
+  },
+  {
+    "action": "ENABLE_CAMPAIGN",
+    "entityId": "22061347628",
+    "entityName": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024",
+    "entityType": "campaign",
+    "timestamp": "2026-04-08T11:03:16.743Z",
+    "requestedBy": "user",
+    "requestedByName": "Administrator",
+    "reason": "Bulk activate from Campaigns page",
+    "platform": "google",
+    "success": true,
+    "previousValue": "PAUSED",
+    "newValue": "ENABLED",
+    "googleApiResponse": {
+      "results": [
+        {
+          "resourceName": "customers/3120813693/campaigns/22061347628"
+        }
+      ]
+    },
+    "id": "mnpxwew7823rux"
+  },
+  {
+    "action": "PAUSE_CAMPAIGN",
+    "entityId": "22061347628",
+    "entityName": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+    "entityType": "campaign",
+    "timestamp": "2026-04-08T11:02:11.218Z",
+    "requestedBy": "agent",
+    "reason": "CPL ₹2520 exceeds critical threshold of ₹1080 by 133%",
+    "platform": "google",
+    "success": true,
+    "previousValue": "ENABLED",
+    "newValue": "PAUSED",
+    "googleApiResponse": {
+      "results": [
+        {
+          "resourceName": "customers/3120813693/campaigns/22061347628"
+        }
+      ]
+    },
+    "id": "mnpxv03cp92u1s"
+  },
+  {
+    "action": "PAUSE_CAMPAIGN",
+    "entityId": "22055144781",
+    "entityName": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+    "entityType": "campaign",
+    "timestamp": "2026-04-08T11:02:09.879Z",
+    "requestedBy": "agent",
+    "reason": "CPL ₹2520 exceeds critical threshold of ₹1080 by 133%",
+    "platform": "google",
+    "success": true,
+    "previousValue": "ENABLED",
+    "newValue": "PAUSED",
+    "googleApiResponse": {
+      "results": [
+        {
+          "resourceName": "customers/3120813693/campaigns/22055144781"
+        }
+      ]
+    },
+    "id": "mnpxuzgrjqlxr1"
+  }
+]

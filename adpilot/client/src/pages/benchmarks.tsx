@@ -330,11 +330,11 @@ function GoogleBenchmarks() {
 
   const saveMutation = useMutation({
     mutationFn: async (payload: Record<string, any>) => {
-      await apiRequest("PUT", `/api/clients/${activeClientId}/benchmarks`, payload);
+      await apiRequest("PUT", `/api/clients/${activeClientId}/benchmarks?platform=google`, payload);
     },
     onSuccess: () => {
       // Invalidate the canonical key — propagates to dashboard, campaigns, adsets, MTD
-      queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId) });
+      queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId, "google") });
       toast({ title: "Google Benchmarks Saved", description: "Benchmark values updated and applied across all modules." });
     },
     onError: (err: Error) => {
@@ -454,9 +454,9 @@ function GoogleBenchmarks() {
                     <p className="text-xs text-muted-foreground py-4 text-center">No active {config.label.toLowerCase()} campaigns</p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="t-table w-full">
                         <thead><tr className="border-b border-border/50">
-                          <th className="text-left py-2 pr-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Metric</th>
+                          <th className="text-left py-4 px-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Metric</th>
                           <th className="text-right py-2 px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
                           <th className="text-right py-2 px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actual</th>
                           <th className="text-center py-2 pl-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
@@ -508,7 +508,7 @@ function GoogleBenchmarks() {
             <p><strong>Branded Search:</strong> CTR 15–20%, CVR 6–8%, IS ≥70%, QS ≥7</p>
             <p><strong>Location Search:</strong> CTR 5–10%, CVR 3–5%, IS ≥20%, QS ≥6</p>
             <p><strong>Demand Gen:</strong> CPM ~₹150, CTR 0.7–1.2%, Frequency cap 28d</p>
-            <p><strong>Reference Only:</strong> Benchmarks are comparison references — they do not affect health scores or ad scoring weights.</p>
+            <p><strong>Active Thresholds:</strong> Benchmarks act as the active baseline for scoring. They directly drive CPL coloring, auto-pause rules, breakdown intelligence, MTD alerts, and recommendation severity.</p>
           </div>
         </CardContent>
       </Card>
@@ -594,11 +594,11 @@ function MetaBenchmarks() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
-      await apiRequest("PUT", `/api/clients/${activeClientId}/benchmarks`, data);
+      await apiRequest("PUT", `/api/clients/${activeClientId}/benchmarks?platform=meta`, data);
     },
     onSuccess: () => {
       // Invalidate canonical key — propagates to dashboard, campaigns, adsets, MTD
-      queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId) });
+      queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId, "meta") });
       toast({ title: "Benchmarks Saved", description: "Benchmark values updated and applied across all modules instantly." });
     },
     onError: (err: Error) => {
@@ -736,8 +736,8 @@ function MetaBenchmarks() {
         <CardContent className="p-4 flex items-start gap-3">
           <Info className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div className="text-xs text-muted-foreground space-y-1">
-            <p><strong>Reference Values:</strong> Benchmarks act as dynamic comparison references across Dashboard, Campaigns, Adsets, and MTD modules — changes apply instantly.</p>
-            <p><strong>Not Scoring:</strong> Benchmarks do not influence health scores or campaign scoring — they are display-only comparison targets.</p>
+            <p><strong>Active Thresholds:</strong> Benchmarks act as the active baseline for scoring across Dashboard, Campaigns, Adsets, and MTD modules — changes apply instantly.</p>
+            <p><strong>Agent Integration:</strong> Benchmarks directly drive CPL coloring, auto-pause rules, breakdown intelligence, MTD alerts, and recommendation logic.</p>
           </div>
         </CardContent>
       </Card>
@@ -758,7 +758,7 @@ export default function BenchmarksPage() {
           <SlidersHorizontal className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="t-page-title text-foreground">
             {isGoogle ? "Google Ads Benchmarks" : "Benchmarks & Targets"}
           </h1>
           <p className="text-xs text-muted-foreground">

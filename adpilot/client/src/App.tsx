@@ -50,7 +50,7 @@ function AppRouter() {
       <Route path="/" component={DashboardPage} />
       <Route path="/campaigns" component={CampaignsPage} />
       <Route path="/adsets" component={AdsetsPage} />
-      <Route path="/ads" component={CreativesPage} />
+      <Route path="/creative-generation" component={CreativesPage} />
       <Route path="/audit" component={AuditPage} />
       <Route path="/recommendations" component={RecommendationsPage} />
       <Route path="/command-center" component={CommandCenterPage} />
@@ -146,7 +146,7 @@ function AppLayout() {
                 variant="default"
                 size="sm"
                 className="flex items-center gap-2 h-8 px-3 sm:px-4 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95"
-                onClick={() => setLocation("/ads")}
+                onClick={() => setLocation("/creative-generation")}
               >
                 <Sparkles className="w-3.5 h-3.5 sm:mr-0.5" />
                 <span className="hidden sm:inline">Creative Generation</span>

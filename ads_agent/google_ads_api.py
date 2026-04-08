@@ -50,7 +50,7 @@ AD_GROUP_FIELDS = """
 
 AD_FIELDS = """
     ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status,
-    ad_group_ad.ad.type, ad_group_ad.ad.creation_date_time,
+    ad_group_ad.ad.type,
     ad_group_ad.ad.responsive_search_ad.headlines,
     ad_group_ad.ad.responsive_search_ad.descriptions,
     ad_group_ad.ad.final_urls,

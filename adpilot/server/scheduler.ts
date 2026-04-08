@@ -197,7 +197,11 @@ function loadEnabledClients(platform: string): string[] {
 }
 
 // Load clients registry and credentials for multi-client runs
-function loadClientsWithCredentials(): Array<{ id: string; googleCreds?: Record<string, string> }> {
+function loadClientsWithCredentials(): Array<{ 
+  id: string; 
+  googleCreds?: Record<string, string>; 
+  metaCreds?: Record<string, string>; 
+}> {
   try {
     const registry = JSON.parse(fs.readFileSync(path.join(DATA_BASE, "clients_registry.json"), "utf-8")) as any[];
     const credsPath = path.join(DATA_BASE, "clients_credentials.json");
@@ -206,41 +210,49 @@ function loadClientsWithCredentials(): Array<{ id: string; googleCreds?: Record<
       : [];
     const credsMap: Record<string, any> = Object.fromEntries(credsArr.map((c) => [c.clientId, c]));
 
-    return registry
-      .filter((c) => c.platforms?.google?.enabled)
-      .map((c) => {
-        const g = credsMap[c.id]?.google;
-        const hasValidClientGoogleCreds = Boolean(
-          g?.clientId &&
-          g?.clientSecret &&
-          g?.refreshToken &&
-          !String(g.clientId).startsWith("YOUR_") &&
-          !String(g.clientSecret).startsWith("YOUR_") &&
-          !String(g.refreshToken).startsWith("YOUR_")
-        );
+    return registry.map((c) => {
+      // 1. Google Credentials
+      const g = credsMap[c.id]?.google;
+      const hasValidClientGoogleCreds = Boolean(
+        g?.clientId && g?.clientSecret && g?.refreshToken &&
+        !String(g.clientId).startsWith("YOUR_")
+      );
 
-        const mergedGoogleCreds = hasValidClientGoogleCreds ? {
-          GOOGLE_CLIENT_ID: g.clientId || process.env.GOOGLE_CLIENT_ID || "",
-          GOOGLE_CLIENT_SECRET: g.clientSecret || process.env.GOOGLE_CLIENT_SECRET || "",
-          GOOGLE_REFRESH_TOKEN: g.refreshToken || process.env.GOOGLE_REFRESH_TOKEN || "",
-          GOOGLE_DEVELOPER_TOKEN: g.developerToken || process.env.GOOGLE_DEVELOPER_TOKEN || "",
-          GOOGLE_MCC_ID: g.mccId || process.env.GOOGLE_MCC_ID || "",
-          GOOGLE_CUSTOMER_ID: g.customerId || process.env.GOOGLE_CUSTOMER_ID || "",
-        } : (process.env.GOOGLE_REFRESH_TOKEN ? {
-          GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
-          GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
-          GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || "",
-          GOOGLE_DEVELOPER_TOKEN: process.env.GOOGLE_DEVELOPER_TOKEN || "",
-          GOOGLE_MCC_ID: process.env.GOOGLE_MCC_ID || "",
-          GOOGLE_CUSTOMER_ID: process.env.GOOGLE_CUSTOMER_ID || "",
-        } : undefined);
+      const googleCreds = hasValidClientGoogleCreds ? {
+        GOOGLE_CLIENT_ID: g.clientId || "",
+        GOOGLE_CLIENT_SECRET: g.clientSecret || "",
+        GOOGLE_REFRESH_TOKEN: g.refreshToken || "",
+        GOOGLE_DEVELOPER_TOKEN: g.developerToken || "",
+        GOOGLE_MCC_ID: g.mccId || "",
+        GOOGLE_CUSTOMER_ID: g.customerId || "",
+      } : (process.env.GOOGLE_REFRESH_TOKEN ? {
+        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
+        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
+        GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || "",
+        GOOGLE_DEVELOPER_TOKEN: process.env.GOOGLE_DEVELOPER_TOKEN || "",
+        GOOGLE_MCC_ID: process.env.GOOGLE_MCC_ID || "",
+        GOOGLE_CUSTOMER_ID: process.env.GOOGLE_CUSTOMER_ID || "",
+      } : undefined);
 
-        return {
-          id: c.id,
-          googleCreds: mergedGoogleCreds,
-        };
-      });
-  } catch {
+      // 2. Meta Credentials
+      const m = credsMap[c.id]?.meta;
+      const hasValidClientMetaCreds = Boolean(
+        m?.accessToken && m?.adAccountId &&
+        !String(m.accessToken).startsWith("YOUR_")
+      );
+
+      const metaCreds = hasValidClientMetaCreds ? {
+        META_ACCESS_TOKEN: m.accessToken || "",
+        META_AD_ACCOUNT_ID: m.adAccountId || "",
+      } : (process.env.META_ACCESS_TOKEN ? {
+        META_ACCESS_TOKEN: process.env.META_ACCESS_TOKEN || "",
+        META_AD_ACCOUNT_ID: process.env.META_AD_ACCOUNT_ID || "",
+      } : undefined);
+
+      return { id: c.id, googleCreds, metaCreds };
+    });
+  } catch (err) {
+    log(`[Credentials] Error loading registry: ${err}`, "scheduler");
     return [];
   }
 }
@@ -264,29 +276,34 @@ async function runAgent(): Promise<void> {
     const clients = loadClientsWithCredentials();
 
     if (fs.existsSync(metaAgent)) {
-      log("Scheduler: Running Meta Ads Agent v2...", "scheduler");
-      const syncStartedAt = new Date().toISOString();
-      metaClients.forEach((clientId) => {
-        setPlatformSyncState(clientId, "meta", {
+      const metaClients = clients.filter((c) => c.metaCreds?.META_ACCESS_TOKEN);
+      if (metaClients.length === 0) {
+        log("Scheduler: No Meta clients with credentials configured — skipping Meta agent", "scheduler");
+      }
+      for (const client of metaClients) {
+        log(`Scheduler: Running Meta Ads Agent for client '${client.id}'...`, "scheduler");
+        const syncStartedAt = new Date().toISOString();
+        setPlatformSyncState(client.id, "meta", {
           last_synced_at: syncStartedAt,
           sync_status: "loading",
         });
-      });
-      try {
-        await execFileAsync("python3", [metaAgent, "--multi-cadence"], {
-          cwd: ADS_AGENT_DIR,
-          timeout: 600000,
-        });
-        const syncCompletedAt = new Date().toISOString();
-        for (const clientId of metaClients) {
-          setPlatformSyncState(clientId, "meta", {
+        try {
+          // Explicitly pass env variables to ensure agent has access tokens
+          await execFileAsync("python3", [metaAgent, "--client", client.id, "--multi-cadence"], {
+            cwd: ADS_AGENT_DIR,
+            timeout: 600000,
+            env: { ...process.env, ...client.metaCreds },
+          });
+
+          const syncCompletedAt = new Date().toISOString();
+          setPlatformSyncState(client.id, "meta", {
             last_synced_at: syncCompletedAt,
-            last_successful_fetch: getLatestAnalysisTimestamp(clientId, "meta"),
+            last_successful_fetch: getLatestAnalysisTimestamp(client.id, "meta"),
             sync_status: "success",
           });
 
           // PERSIST TO DB: Capture all cadence JSON files and push to Postgres
-          const metaDir = path.join(DATA_BASE, "clients", clientId, "meta");
+          const metaDir = path.join(DATA_BASE, "clients", client.id, "meta");
           const cadenceFiles = [
             { file: "analysis.json", cadence: "twice_weekly" },
             { file: "analysis_daily.json", cadence: "daily" },
@@ -299,21 +316,19 @@ async function runAgent(): Promise<void> {
             if (fs.existsSync(filePath)) {
               try {
                 const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-                await saveAnalysisSnapshot(clientId, "meta", data, cadence);
+                await saveAnalysisSnapshot(client.id, "meta", data, cadence);
               } catch (e) {
-                log(`[DB Push] Failed to persist Meta ${cadence} snapshot for ${clientId}: ${e}`, "scheduler");
+                log(`[DB Push] Failed to persist Meta ${cadence} snapshot for ${client.id}: ${e}`, "scheduler");
               }
             }
           }
-        }
-      } catch (error: any) {
-        metaClients.forEach((clientId) => {
-          setPlatformSyncState(clientId, "meta", {
+        } catch (error: any) {
+          setPlatformSyncState(client.id, "meta", {
             last_synced_at: new Date().toISOString(),
             sync_status: "failed",
           });
-        });
-        log(`Scheduler: Meta agent failed: ${error.message}`, "scheduler");
+          log(`Scheduler: Meta agent failed for client '${client.id}': ${error.message}`, "scheduler");
+        }
       }
     }
 

@@ -56,106 +56,13 @@ const META_TABS = ["Age", "Gender", "Placement", "Device", "Region"] as const;
 type MetaTabType = (typeof META_TABS)[number];
 
 const META_COLUMN_CONFIG = [
-  {
-    column: "Dimension",
-    source: "Meta API",
-    type: "API",
-    description: "Breakdown value (age, gender, placement, device, region)",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "Per active tab"
-  },
-  {
-    column: "Score",
-    source: "Agent",
-    type: "COMPUTED",
-    description: "Composite score = CPL (50) + CTR (20) + Volume (20) + Spend Util (10)",
-    green: ">= 70",
-    yellow: "40–69",
-    red: "< 40",
-    action: "Click to expand breakdown"
-  },
-  {
-    column: "Spend",
-    source: "Meta API",
-    type: "API",
-    description: "Spend for this segment",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "-"
-  },
-  {
-    column: "Spend %",
-    source: "Agent",
-    type: "COMPUTED",
-    description: "% contribution to total spend",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "Render as progress bar"
-  },
-  {
-    column: "Impressions",
-    source: "Meta API",
-    type: "API",
-    description: "Impressions for segment",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "-"
-  },
-  {
-    column: "Clicks",
-    source: "Meta API",
-    type: "API",
-    description: "Clicks for segment",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "-"
-  },
-  {
-    column: "CTR",
-    source: "Meta API",
-    type: "API",
-    description: "Click-through rate",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "-"
-  },
-  {
-    column: "Leads",
-    source: "Meta API",
-    type: "API",
-    description: "Conversions for segment",
-    green: "-",
-    yellow: "-",
-    red: "-",
-    action: "-"
-  },
-  {
-    column: "CPL",
-    source: "Meta API",
-    type: "COMPUTED",
-    description: "Cost per lead = Spend / Leads",
-    green: "<= Target",
-    yellow: "Near target",
-    red: "> Alert threshold",
-    action: "Color code vs thresholds"
-  },
-  {
-    column: "Recommendation",
-    source: "Agent",
-    type: "COMPUTED",
-    description: "Action based on score + CPL + volume",
-    green: "Scale budget",
-    yellow: "Monitor / Review",
-    red: "Reduce spend / Exclude",
-    action: "Geo alerts for region tab"
-  }
+  { column: "Dimension", description: "Breakdown segment (Age, Gender, etc.)" },
+  { column: "Health Score", description: "Score based on CPL, CTR, and conversion efficiency" },
+  { column: "Spend", description: "Spend for this segment" },
+  { column: "Leads", description: "Conversions for segment" },
+  { column: "CPL", description: "Cost per lead" },
+  { column: "CTR", description: "Click-through rate" },
+  { column: "Recommendation", description: "Action based on score" }
 ];
 
 const GOOGLE_TABS = ["Age", "Gender", "Device", "Location", "Placement"] as const;
@@ -250,44 +157,40 @@ function ScoreExpansion({ score, row, cplTarget, ctrTarget }: any) {
   );
 }
 
-function getScoreBg(s: number) {
-  if (s >= 70) return "bg-emerald-500/10 border-emerald-500/30";
-  if (s >= 40) return "bg-amber-500/10 border-amber-500/30";
-  return "bg-red-500/10 border-red-500/30";
-}
-
-function getScoreColor(s: number) {
-  if (s >= 70) return "text-emerald-400";
-  if (s >= 40) return "text-amber-400";
-  return "text-red-400";
+function getHealthStatus(s: number) {
+  if (s >= 75) return { label: "Excellent", color: "text-emerald-500", bg: "bg-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+  if (s >= 60) return { label: "Good", color: "text-emerald-400", bg: "bg-emerald-400", lightBg: "bg-emerald-400/10", border: "border-emerald-400/20" };
+  if (s >= 40) return { label: "Moderate", color: "text-amber-500", bg: "bg-amber-500", lightBg: "bg-amber-500/10", border: "border-amber-500/20" };
+  if (s >= 25) return { label: "Poor", color: "text-orange-500", bg: "bg-orange-500", lightBg: "bg-orange-500/10", border: "border-orange-500/20" };
+  return { label: "Critical", color: "text-red-500", bg: "bg-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20" };
 }
 
 function computeBreakdownScore(row: any, target: number, ctrBenchmark: number, totalLeads: number, totalSpend: number) {
   let cplScore = 0;
   if (row.leads > 0) {
     const ratio = target / row.cpl;
-    cplScore = Math.min(50, Math.max(0, ratio * 35)); // High weight on CPL
-  } else if (row.spend > 1000) {
+    cplScore = Math.min(50, Math.max(0, ratio * 25)); // High weight on CPL
+  } else if (row.spend > 500) {
     cplScore = 5;
   } else {
-    cplScore = 25; // neutral
+    cplScore = 20; // neutral
   }
 
   let ctrScore = 0;
   if (row.ctr > 0) {
     const ratio = row.ctr / ctrBenchmark;
-    ctrScore = Math.min(20, Math.max(0, ratio * 15));
+    ctrScore = Math.min(20, Math.max(0, ratio * 10));
   }
 
   let volumeScore = 0;
   if (totalLeads > 0) {
-    volumeScore = Math.min(20, (row.leads / totalLeads) * 40);
+    volumeScore = Math.min(20, (row.leads / totalLeads) * 100);
   }
 
   let efficiencyScore = 0;
   if (totalSpend > 0) {
     const spendPct = (row.spend / totalSpend) * 100;
-    efficiencyScore = Math.min(10, spendPct > 15 ? 10 : spendPct);
+    efficiencyScore = Math.min(10, spendPct > 10 ? 10 : spendPct);
   }
 
   return {
@@ -301,13 +204,12 @@ function computeBreakdownScore(row: any, target: number, ctrBenchmark: number, t
 
 function getRecommendationType(row: any, score: number, tabName: string, isTarget?: boolean) {
   if (tabName === "Region" && isTarget === false && row.spend > 0) {
-    return { type: "exclude", text: "Exclude Segment", color: "text-red-400", reason: "Outside target geography" };
+    return { type: "exclude", text: "Pause / Exclude", color: "text-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20", reason: "Outside target geography" };
   }
-  if (score >= 75) return { type: "scale", text: "Scale Budget", color: "text-emerald-400", reason: "Top tier performance" };
-  if (score >= 60) return { type: "monitor", text: "Monitor Pacing", color: "text-emerald-300", reason: "Healthy efficiency" };
-  if (score >= 40) return { type: "flag", text: "Optimization Needed", color: "text-amber-400", reason: "Average performance" };
-  if (score > 0) return { type: "reduce", text: "Reduce Spend", color: "text-red-400", reason: "Severe inefficiency" };
-  return { type: "none", text: "Needs Data", color: "text-muted-foreground", reason: "Insufficient impressions" };
+  if (score >= 75) return { type: "scale", text: "Scale / Increase budget", color: "text-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20", reason: "Top tier performance" };
+  if (score >= 40) return { type: "monitor", text: "Monitor / Optimize", color: "text-amber-500", lightBg: "bg-amber-500/10", border: "border-amber-500/20", reason: "Average performance" };
+  if (score > 0) return { type: "reduce", text: "Reduce spend / Pause", color: "text-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20", reason: "Severe inefficiency" };
+  return { type: "none", text: "Needs Data", color: "text-muted-foreground", lightBg: "bg-muted", border: "border-transparent", reason: "Insufficient impressions" };
 }
 
 // ─── Main Component ────────────────────────────────────────────────
@@ -477,11 +379,11 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
 
       <Card className="border-border/60 shadow-2xl overflow-hidden bg-card/40 backdrop-blur-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="t-table w-full">
             <thead>
               <tr className="bg-muted/30 border-b border-border/60">
                 {META_COLUMN_CONFIG.map((col, idx) => (
-                  <th key={idx} className={cn("p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-left")}>
+                  <th key={idx} className={cn("px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-left")}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger className="flex items-center gap-1.5 hover:text-foreground transition-colors">
@@ -490,11 +392,6 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                         <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
                           <p className="font-bold border-b border-border/50 pb-1">{col.column} SOP</p>
                           <p className="text-[10px] leading-relaxed text-muted-foreground">{col.description}</p>
-                          <div className="grid grid-cols-3 gap-1 pt-1 border-t border-border/50">
-                            <div className="text-emerald-400 font-bold">G: {col.green}</div>
-                            <div className="text-amber-400 font-bold">Y: {col.yellow}</div>
-                            <div className="text-red-400 font-bold">R: {col.red}</div>
-                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -505,42 +402,54 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
             <tbody>
               {scoredRows.map(({ row, score, rec }, i) => {
                 const isExpanded = expandedIds.has(row.dimension);
-                const spendPct = totalSpend > 0 ? (row.spend / totalSpend) * 100 : 0;
+                const health = getHealthStatus(score.total);
                 return (
                   <React.Fragment key={i}>
                     <tr className={cn("border-b border-border/20 hover:bg-muted/30 transition-all cursor-pointer group", isExpanded && "bg-primary/5")} onClick={() => toggleExpand(row.dimension)}>
                       <td className="p-4 font-bold text-foreground text-sm tracking-tight">{row.dimension}</td>
                       <td className="p-4">
-                        <span className={cn("inline-flex items-center justify-center min-w-[32px] h-8 rounded-lg font-bold text-xs border shadow-sm", getScoreBg(score.total), getScoreColor(score.total))}>
-                          {score.total}
-                        </span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="w-full max-w-[180px]">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", health.color)}>{health.label}</span>
+                                  <span className="text-[11px] font-bold text-foreground">{score.total}<span className="text-muted-foreground/60">/100</span></span>
+                                </div>
+                                <div className="h-1.5 w-full bg-border/40 rounded-full overflow-hidden">
+                                  <div className={cn("h-full rounded-full", health.bg)} style={{ width: `${score.total}%` }} />
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="bg-card border-border shadow-xl">
+                              <p className="text-xs">Based on CPL efficiency, CTR, and conversion volume.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </td>
                       <td className="p-4 tabular-nums font-bold text-foreground/80">{formatINR(row.spend, 0)}</td>
-                      <td className="p-4"><ProgressBar pct={spendPct} color="bg-primary" /></td>
-                      <td className="p-4 tabular-nums text-muted-foreground font-medium">{formatNumber(row.impressions)}</td>
-                      <td className="p-4 tabular-nums text-muted-foreground font-medium">{formatNumber(row.clicks)}</td>
-                      <td className="p-4 tabular-nums font-bold text-foreground/70">{formatPct(row.ctr)}</td>
                       <td className="p-4 tabular-nums font-bold text-foreground">{row.leads}</td>
                       <td className={cn("p-4 tabular-nums font-bold", getCplColor(row.cpl, thresholds))}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
+                      <td className="p-4 tabular-nums font-bold text-foreground/70">{formatPct(row.ctr)}</td>
                       <td className="p-4">
-                        <div className={cn("flex items-center gap-2 font-bold uppercase text-[9px] tracking-wider", rec.color)}>
-                          <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", rec.type === 'scale' ? 'bg-emerald-500' : rec.type === 'monitor' ? 'bg-emerald-300' : rec.type === 'flag' ? 'bg-amber-400' : 'bg-red-500')} />
-                          {rec.text}
+                        <div className={cn("inline-flex items-center gap-2 px-2.5 py-1 rounded border shadow-xs", rec.lightBg, rec.border, rec.color)}>
+                          <div className={cn("w-1.5 h-1.5 rounded-full", rec.color.replace('text-', 'bg-'))} />
+                          <span className="text-[10px] font-bold uppercase tracking-wider">{rec.text}</span>
                         </div>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-muted/10">
-                        <td colSpan={10} className="p-8 border-b border-primary/20 space-y-6">
+                        <td colSpan={7} className="p-8 border-b border-primary/20 space-y-6">
                           <div className="space-y-4">
                             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary underline underline-offset-8">AI Strategic Audit Breakdown</h4>
                             <ScoreExpansion score={score} row={row} cplTarget={cplTarget} ctrTarget={ctrTarget} />
-                            <div className="p-5 rounded-2xl border border-primary/20 bg-background/80 shadow-inner space-y-2">
+                            <div className={cn("p-5 rounded-xl border bg-background/80 shadow-sm space-y-2", health.border)}>
                               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Expert Recommendation:</p>
-                              <p className="text-sm font-bold text-foreground leading-relaxed">
+                              <p className="text-sm font-medium text-foreground leading-relaxed">
                                 System indicates <span className={cn("font-bold", rec.color)}>{rec.text}</span> because {rec.reason.toLowerCase()}. 
-                                Efficiency Score of <span className="text-primary font-bold">{score.total}/100</span> suggests this segment is 
-                                {score.total >= 70 ? " prime for budget acceleration." : " currently underperforming relative to account-wide benchmarks."}
+                                Efficiency Score of <span className={cn("font-bold", health.color)}>{score.total}/100</span> suggests this segment is 
+                                {score.total >= 60 ? " prime for budget acceleration or stabilization." : " currently underperforming relative to account-wide benchmarks and requires intervention."}
                               </p>
                             </div>
                           </div>
@@ -701,7 +610,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
 
       <Card className="border-border/40 shadow-sm overflow-hidden bg-card/30">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="t-table w-full">
             <thead>
               <tr className="bg-muted/20 border-b border-border/50">
                 <th className="p-3 w-10"></th>
@@ -757,7 +666,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
 function MetricCard({ icon: Icon, label, value, subValue, color }: any) {
   return (
     <Card className="bg-card/50 border-border/40">
-      <CardContent className="p-4">
+      <CardContent className="card-content-premium">
         <div className="flex items-center gap-2 mb-2">
           <Icon className={cn("w-4 h-4", color)} />
           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>

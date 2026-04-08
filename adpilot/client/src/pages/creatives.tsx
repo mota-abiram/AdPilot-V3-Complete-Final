@@ -502,7 +502,7 @@ export default function CreativesPage() {
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h1 id="creative-hub-title" className="text-2xl font-extrabold">Ads</h1>
+                <h1 id="creative-hub-title" className="text-2xl font-extrabold">Creative Generation</h1>
                 <p className="type-base text-muted-foreground">
                   Creative Intelligence + Generation Hub for {activeClient?.name || "this client"}
                 </p>
@@ -556,7 +556,7 @@ export default function CreativesPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <div>
                 <CardTitle id="creative-sop-title" className="text-base">Creative Client SOP</CardTitle>
-                <CardDescription className="text-xs">
+                <CardDescription className="t-caption">
                   This setup is reused across all generations to ensure platform-aware context.
                 </CardDescription>
               </div>
@@ -745,7 +745,7 @@ export default function CreativesPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-base font-semibold leading-tight text-foreground line-clamp-2">{thread.title}</p>
-                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        <p className="mt-1 t-label uppercase tracking-widest text-muted-foreground/80">
                           {thread.input?.platform === "google_display" ? "Google Display" : "Meta"}
                         </p>
                       </div>
@@ -799,7 +799,7 @@ export default function CreativesPage() {
                 <Wand2 className="w-5 h-5 text-primary" />
                 Ad Concept Lab
               </CardTitle>
-              <CardDescription className="text-[11px]">
+              <CardDescription className="t-micro">
                 Phase 1: Input Details → Phase 2: Generate Ad Text → Phase 3: Create Visuals & Variations
               </CardDescription>
             </CardHeader>

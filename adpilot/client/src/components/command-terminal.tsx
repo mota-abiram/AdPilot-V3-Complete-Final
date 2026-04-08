@@ -286,7 +286,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
         command: trimmed,
         clientId: activeClientId || "amara",
         platform: "all",
-        provider: "groq",
+        provider: "auto",
       });
 
       const data: AICommandResponse = await res.json();
@@ -429,7 +429,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-            Powered by Groq · Actions execute immediately
+            Powered by Mojo AdCortex · 4-Layer Intelligence
           </p>
         </div>
       </div>
@@ -452,14 +452,14 @@ export function CommandTerminalToggle({ onClick, isOpen }: CommandTerminalToggle
       onClick={onClick}
       aria-label={isOpen ? "Close Mojo Terminal" : "Open Mojo Terminal"}
       className={cn(
-        "gap-1.5 h-8 px-3 text-xs font-medium",
+        "gap-1.5 h-8 px-3 text-xs font-bold",
         isOpen
-          ? "bg-violet-500 hover:bg-violet-600 border-violet-500 text-white"
-          : "border-border/60 hover:border-violet-500/50 hover:text-violet-400"
+          ? "bg-primary hover:bg-[#f5c723] border-primary text-primary-foreground shadow-lg shadow-primary/20"
+          : "border-border/60 hover:border-primary/50 hover:text-primary transition-all duration-200"
       )}
     >
       <Terminal className="w-3.5 h-3.5" />
-      <span className="hidden sm:inline">Mojo Terminal</span>
+      <span className="hidden sm:inline uppercase tracking-wider">Mojo Terminal</span>
     </Button>
   );
 }

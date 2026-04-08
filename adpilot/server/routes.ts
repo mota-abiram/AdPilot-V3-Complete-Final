@@ -124,6 +124,7 @@ function readAiConfig() {
   } catch {}
   return {
     openapiApiKey: process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "",
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
     geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
     geminiImageModel: process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-preview-image-generation",
     groqApiKey: process.env.GROQ_API_KEY || "",
@@ -456,6 +457,18 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
     : normalizeMetaAnalysis(raw);
 
   analysisCache.set(cacheKey, { data, ts: Date.now() });
+
+  // ─── Learning Engine Sync ──────────────────────────────────────
+  // Every time we load fresh data, check if any pending actions can now be closed
+  try {
+    const updated = triggerOutcomeUpdate(data);
+    if (updated > 0) {
+      console.log(`[Outcome Evaluator] Automatically updated ${updated} action outcomes based on fresh data.`);
+    }
+  } catch (err: any) {
+    console.warn(`[Outcome Evaluator] Background update failed: ${err.message}`);
+  }
+
   return data;
 }
 
@@ -496,11 +509,11 @@ async function getDefaultBenchmarks(clientId: string, platform?: string): Promis
     cpsv_high: platformTargets?.cpsv?.high || 20000,
     svs_low: platformTargets?.svs?.low || 10,
     svs_high: platformTargets?.svs?.high || 12,
-    tsr_min: 5.0,
+    tsr_min: 30.0,
     vhr_min: 25.0,
     frequency_max: 2.5,
     cpc_max: 50,
-    auto_pause_cpl_threshold_pct: 30,
+    auto_pause_cpl_threshold_pct: 135,
     auto_pause_zero_leads_impressions: 8000,
     target_locations: client?.targetLocations || ["Hyderabad", "Secunderabad"],
     svs_mtd: 3,
@@ -1699,15 +1712,23 @@ export async function registerRoutes(
 
   const BENCHMARKS_BASE = path.join(DATA_BASE, "clients");
 
-  function getBenchmarksPath(clientId: string): string {
-    return path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
+  function getBenchmarksPath(clientId: string, platform: string): string {
+    return path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
   }
 
   app.get("/api/clients/:clientId/benchmarks", async (req, res) => {
     const { clientId } = req.params;
     const platform = (req.query.platform as string) || "meta";
-    const benchPath = getBenchmarksPath(clientId);
+    const benchPath = getBenchmarksPath(clientId, platform);
     if (!fs.existsSync(benchPath)) {
+      // Fallback: check if the legacy generic benchmarks.json exists
+      const legacyPath = path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
+      if (fs.existsSync(legacyPath)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
+          return res.json(data);
+        } catch {}
+      }
       return res.json({ ...(await getDefaultBenchmarks(clientId, platform)), updated_at: null });
     }
     try {
@@ -1719,7 +1740,9 @@ export async function registerRoutes(
   });
 
   app.put("/api/clients/:clientId/benchmarks", (req, res) => {
-    const benchPath = getBenchmarksPath(req.params.clientId);
+    const { clientId } = req.params;
+    const platform = (req.query.platform as string) || "meta";
+    const benchPath = getBenchmarksPath(clientId, platform);
     const dir = path.dirname(benchPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -2283,7 +2306,7 @@ export async function registerRoutes(
       manualInputMissing = true;
     }
 
-    if (!manual.svs_achieved && !manual.positive_leads_achieved) {
+    if (!manual.updated_at) {
       manualInputMissing = true;
     }
 
@@ -2585,7 +2608,7 @@ export async function registerRoutes(
       quality_lead_count: Number(req.body.quality_lead_count) || 0,
       notes: req.body.notes || "",
       updated_at: new Date().toISOString(),
-      updated_by: req.body.user || "System User",
+      updated_by: req.body.updated_by || "System User",
     };
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 
@@ -2658,25 +2681,38 @@ export async function registerRoutes(
   // Trigger outcome update for pending learning entries
   app.post("/api/execution-learning/update-outcomes", async (req, res) => {
     try {
-      const { clientId = "amara", platform = "meta" } = req.body || {};
-
-      let analysisData: any;
-      try {
-        analysisData = await readAnalysisData(clientId, platform);
-      } catch (err: any) {
-        return res.status(404).json({ error: `Could not read analysis data: ${err.message}` });
-      }
-
-      const updatedCount = triggerOutcomeUpdate(analysisData);
-      res.json({
-        success: true,
-        updatedCount,
-        message: `${updatedCount} learning entries had their outcomes updated`,
-      });
+      const { clientId, platform } = req.body;
+      const data = await readAnalysisData(clientId, platform);
+      const count = triggerOutcomeUpdate(data);
+      res.json({ success: true, updatedCount: count });
     } catch (err: any) {
-      res.status(500).json({ error: err.message || "Failed to update outcomes" });
+      res.status(500).json({ error: err.message });
     }
   });
+
+  // FEEDBACK LOOP: Save user feedback on recommendations
+  app.post("/api/recommendations/feedback", (req, res) => {
+    const { text, context, status, clientId, platform } = req.body;
+    if (!text || !status) {
+      return res.status(400).json({ error: "Text and status are required" });
+    }
+
+    const CSV_PATH = path.join(DATA_BASE, "learning-data.csv");
+    const timestamp = new Date().toISOString();
+    const row = `"${timestamp}","${clientId || "unknown"}","${platform || "unknown"}","${status}","${text.replace(/"/g, '""')}","${(context || "").replace(/"/g, '""')}"\n`;
+
+    try {
+      if (!fs.existsSync(CSV_PATH)) {
+        fs.writeFileSync(CSV_PATH, "timestamp,clientId,platform,status,recommendation,context\n");
+      }
+      fs.appendFileSync(CSV_PATH, row);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Failed to save feedback:", err);
+      res.status(500).json({ error: "Failed to save feedback" });
+    }
+  });
+
 
   // ─── Data Verification Endpoint ─────────────────────────────────
   app.get("/api/clients/:clientId/:platform/verify-data", async (req, res) => {

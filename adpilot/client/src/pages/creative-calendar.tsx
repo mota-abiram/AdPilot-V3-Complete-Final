@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +65,7 @@ type FatigueLevel = "green" | "yellow" | "orange" | "red";
 function getAgeColor(ageDays: number, performanceScore: number | null): FatigueLevel {
   // Override: if performance_score >= 70, show green regardless of age
   if (performanceScore !== null && performanceScore >= 70) return "green";
-  
+
   if (ageDays < 30) return "green";
   if (ageDays <= 35) return "yellow";
   if (ageDays <= 45) return "orange";
@@ -104,8 +106,8 @@ function getRefreshRecommendation(c: CreativeEntry, targetCpl: number): {
 } {
   // 1. Critical Failure Signal: Poor Performance (regardless of age)
   // Logic: Score < 30 OR (Spent > 2.5x target without leads)
-  const isPoorPerf = (c.performance_score !== null && c.performance_score < 35) || 
-                   (c.spend > targetCpl * 2.5 && c.leads === 0);
+  const isPoorPerf = (c.performance_score !== null && c.performance_score < 35) ||
+    (c.spend > targetCpl * 2.5 && c.leads === 0);
 
   if (isPoorPerf) {
     return {
@@ -128,7 +130,7 @@ function getRefreshRecommendation(c: CreativeEntry, targetCpl: number): {
   const suggestions: string[] = [];
   if (c.is_video && (c.thumb_stop_pct || 0) < 25) suggestions.push("fix hook");
   if ((c.frequency || 0) > 3.0) suggestions.push("audience fatigue");
-  
+
   if (suggestions.length > 0) {
     return {
       type: "refresh",
@@ -151,6 +153,24 @@ export default function CreativeCalendarPage() {
   const { toast } = useToast();
   const isGoogle = activePlatform === "google";
 
+  const { data: mtdData } = useQuery<{
+    spend: number;
+    leads: number;
+    svs: number;
+    qualified_leads: number;
+    closures: number;
+    cpl: number;
+    cpql: number;
+    cpsv: number;
+  }>({
+    queryKey: ["/api/mtd-deliverables", activeClientId, activePlatform],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/mtd-deliverables?client_id=${activeClientId}&platform=${activePlatform}`);
+      return res.json();
+    },
+    enabled: !!activeClientId,
+  });
+
   const [refreshedIds, setRefreshedIds] = useState<Set<string>>(new Set());
 
   const targetCpl = activeClient?.targets?.[activePlatform]?.cpl || (data as any)?.dynamic_thresholds?.cpl_target || 800;
@@ -162,7 +182,7 @@ export default function CreativeCalendarPage() {
 
     // Unified path: both agents now provide 'creative_health' array
     const creativeHealth = (data as any).creative_health || [];
-    
+
     if (creativeHealth.length > 0) {
       for (const c of creativeHealth) {
         results.push({
@@ -190,7 +210,7 @@ export default function CreativeCalendarPage() {
         });
       }
     }
-    
+
     // Fallback for older Google agent data or if creative_health missing
     if (results.length === 0 && isGoogle) {
       const campaigns = (data as any).campaigns || [];
@@ -269,15 +289,14 @@ export default function CreativeCalendarPage() {
   }
 
   // ─── MTD Calculations ─────────────────────────────────────────
-  const mp = (data as any)?.account_pulse?.monthly_pacing;
-  const mtdSpend = mp?.mtd?.spend || 0;
-  const mtdLeads = mp?.mtd?.leads || 0;
-  const mtdQL = benchmarks?.positive_leads_mtd || 0;
-  const mtdSV = benchmarks?.svs_mtd || 0;
+  const mtdSpend = mtdData?.spend || 0;
+  const mtdLeads = mtdData?.leads || 0;
+  const mtdQL = mtdData?.qualified_leads || 0;
+  const mtdSV = mtdData?.svs || 0;
 
-  const mtdCpl = mtdLeads > 0 ? mtdSpend / mtdLeads : 0;
-  const mtdCpql = mtdQL > 0 ? mtdSpend / mtdQL : 0;
-  const mtdCpsv = mtdSV > 0 ? mtdSpend / mtdSV : 0;
+  const mtdCpl = mtdData?.cpl || (mtdLeads > 0 ? mtdSpend / mtdLeads : 0);
+  const mtdCpql = mtdData?.cpql || (mtdQL > 0 ? mtdSpend / mtdQL : 0);
+  const mtdCpsv = mtdData?.cpsv || (mtdSV > 0 ? mtdSpend / mtdSV : 0);
 
   const posPct = mtdLeads > 0 ? (mtdQL / mtdLeads) * 100 : 0;
   const svPct = mtdLeads > 0 ? (mtdSV / mtdLeads) * 100 : 0;
@@ -314,28 +333,7 @@ export default function CreativeCalendarPage() {
       </div>
 
       {/* ─── Creative Efficiency Grid ────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Qualified Leads</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold tabular-nums">{mtdQL}</span>
-              <span className="text-[11px] font-medium text-emerald-400">{posPct.toFixed(1)}% Pos</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1">CPQL: {formatINR(mtdCpql, 0)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Site Visits (SVs)</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold tabular-nums">{mtdSV}</span>
-              <span className="text-[11px] font-medium text-emerald-400">{svPct.toFixed(1)}% SV</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1">CPSV: {formatINR(mtdCpsv, 0)}</p>
-          </CardContent>
-        </Card>
-        
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Existing health summary stats moved into this grid for compactness */}
         <Card>
           <CardContent className="p-3">
@@ -412,11 +410,10 @@ export default function CreativeCalendarPage() {
                           {c.creative_score !== null && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                                  c.creative_score >= 70 ? "text-emerald-400 bg-emerald-500/10" :
+                                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 shrink-0 ${c.creative_score >= 70 ? "text-emerald-400 bg-emerald-500/10" :
                                   c.creative_score >= 40 ? "text-amber-400 bg-amber-500/10" :
-                                  "text-red-400 bg-red-500/10"
-                                }`}>
+                                    "text-red-400 bg-red-500/10"
+                                  }`}>
                                   Score: {c.creative_score.toFixed(0)}
                                 </Badge>
                               </TooltipTrigger>

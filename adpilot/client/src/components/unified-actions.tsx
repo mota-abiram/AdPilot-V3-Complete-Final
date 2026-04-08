@@ -6,8 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -249,121 +251,125 @@ export function UnifiedActions(props: UnifiedActionProps) {
 
       {/* Strategic Call Dialog */}
       {dialogMode && (
-        <Dialog open={!!dialogMode} onOpenChange={handleOpenChange}>
-          <DialogContent className="sm:max-w-[560px]" data-testid="unified-action-dialog">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                {dialogConfig[dialogMode].title}
-              </DialogTitle>
-              <DialogDescription className="type-sm">
-                {dialogConfig[dialogMode].description}
-              </DialogDescription>
-            </DialogHeader>
-
-            {/* Context: recommendation + metrics */}
-            <div className="rounded-[10px] p-4 border border-border/70 bg-card/82 shadow-xs space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="warning" className="text-[10px]">
-                  {actionType.replace(/_/g, " ")}
-                </Badge>
-                <Badge variant="outline" className="text-[10px]">
-                  {entityType}
-                </Badge>
-                <Badge variant="outline" className="text-[10px]">
-                  {platform === "google" ? "Google" : "Meta"}
-                </Badge>
+      <Dialog open={!!dialogMode} onOpenChange={handleOpenChange}>
+        <DialogContent className="sm:max-w-lg p-0" data-testid="unified-action-dialog">
+          <DialogHeader className="p-5 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shrink-0">
+                <Brain className="w-5 h-5" />
               </div>
-              <p className="text-base font-semibold text-foreground truncate" title={entityName}>
-                {entityName}
-              </p>
-              {recommendation && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {recommendation}
-                </p>
-              )}
-              {currentMetrics && Object.keys(currentMetrics).length > 0 && (
-                <div className="flex flex-wrap gap-3 pt-1 border-t border-border/30">
-                  {currentMetrics.spend != null && currentMetrics.spend > 0 && (
-                    <span className="text-[11px] text-muted-foreground">
-                      Spend: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.spend, 0)}</span>
-                    </span>
-                  )}
-                  {currentMetrics.leads != null && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Leads: <span className="text-foreground tabular-nums">{currentMetrics.leads}</span>
-                    </span>
-                  )}
-                  {currentMetrics.cpl != null && currentMetrics.cpl > 0 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      CPL: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.cpl, 0)}</span>
-                    </span>
-                  )}
-                  {currentMetrics.ctr != null && (
-                    <span className="text-[10px] text-muted-foreground">
-                      CTR: <span className="text-foreground tabular-nums">{currentMetrics.ctr.toFixed(2)}%</span>
-                    </span>
-                  )}
+              <div>
+                <DialogTitle>{dialogConfig[dialogMode].title}</DialogTitle>
+                <DialogDescription className="mt-0.5">
+                  {dialogConfig[dialogMode].description}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <DialogBody className="p-0 space-y-4">
+            <div className="p-5 space-y-4">
+              {/* Context: recommendation + metrics */}
+              <div className="rounded-xl p-4 border border-border/60 bg-muted/20 shadow-xs space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20">
+                    {actionType.replace(/_/g, " ")}
+                  </Badge>
+                  <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider">
+                    {entityType}
+                  </Badge>
+                  <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider">
+                    {platform === "google" ? "Google" : "Meta"}
+                  </Badge>
                 </div>
-              )}
-            </div>
+                <p className="t-body-sm font-bold text-foreground leading-tight" title={entityName}>
+                  {entityName}
+                </p>
+                {recommendation && (
+                  <p className="text-xs text-muted-foreground leading-relaxed italic border-l-2 border-primary/20 pl-3">
+                    {recommendation}
+                  </p>
+                )}
+                {currentMetrics && Object.keys(currentMetrics).length > 0 && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 border-t border-border/30">
+                    {currentMetrics.spend != null && currentMetrics.spend > 0 && (
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                        Spend: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.spend, 0)}</span>
+                      </span>
+                    )}
+                    {currentMetrics.leads != null && (
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                        Leads: <span className="text-foreground tabular-nums">{currentMetrics.leads}</span>
+                      </span>
+                    )}
+                    {currentMetrics.cpl != null && currentMetrics.cpl > 0 && (
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                        CPL: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.cpl, 0)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
 
-            {/* Rationale Input */}
-            <div className="space-y-2 rounded-[10px] p-4 border border-primary/30 bg-primary/10">
-              <label className="text-xs font-bold uppercase tracking-[0.08em] text-foreground flex items-center gap-1.5">
-                <Brain className="w-3.5 h-3.5" />
-                {dialogMode === "mark-complete"
-                  ? "What action did you take?"
-                  : dialogMode === "reject"
-                  ? "Why are you rejecting this recommendation?"
-                  : "What's your strategic rationale?"}
-              </label>
-              <Textarea
-                value={rationale}
-                onChange={(e) => setRationale(e.target.value)}
-                placeholder={dialogConfig[dialogMode].placeholder}
-                className="min-h-[120px] text-sm bg-background border-primary/20 focus-visible:ring-primary/45 placeholder:text-muted-foreground/50"
-                data-testid="ua-rationale-input"
-              />
-              <div className="flex items-center justify-between">
-                <span
-                  className={`text-[10px] ${
-                    rationale.trim().length >= MIN_RATIONALE_LENGTH
-                      ? "text-emerald-500"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {rationale.trim().length}/{MIN_RATIONALE_LENGTH} min
-                </span>
+              {/* Rationale Input */}
+              <div className="space-y-2.5">
+                <label className="t-label text-muted-foreground flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-primary" />
+                  {dialogMode === "mark-complete"
+                    ? "Log Action Details"
+                    : dialogMode === "reject"
+                    ? "Rejection Strategic Rationale"
+                    : "Executive Decision Audit"}
+                </label>
+                <div className="relative">
+                   <Textarea
+                     value={rationale}
+                     onChange={(e) => setRationale(e.target.value)}
+                     placeholder={dialogConfig[dialogMode].placeholder}
+                     className="min-h-[110px] t-body-sm bg-muted/30 border-border/60 focus-visible:ring-primary/30 rounded-xl placeholder:text-muted-foreground/40 resize-none shadow-inner"
+                     data-testid="ua-rationale-input"
+                   />
+                   <div className="absolute right-3 bottom-3">
+                      <span className={`text-[9px] font-black tabular-nums px-2 py-0.5 rounded-full border ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-muted text-muted-foreground/60 border-border/40'}`}>
+                         {rationale.trim().length}/{MIN_RATIONALE_LENGTH}
+                      </span>
+                   </div>
+                </div>
               </div>
             </div>
+          </DialogBody>
 
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleOpenChange(false)}
-                disabled={isExecuting}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className={`gap-1.5 ${dialogMode === "reject" ? "bg-red-500 hover:bg-red-600 text-white" : ""} ${dialogConfig[dialogMode].confirmColor}`}
-                onClick={handleConfirm}
-                disabled={!isValid || isExecuting}
-                data-testid="ua-confirm-btn"
-              >
-                {isExecuting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  dialogConfig[dialogMode].icon
-                )}
-                {dialogConfig[dialogMode].confirmLabel}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          <DialogFooter className="p-4 bg-muted/30">
+            <Button
+              variant="link"
+              className="t-label text-muted-foreground"
+              onClick={() => handleOpenChange(false)}
+              disabled={isExecuting}
+            >
+              Cancel
+            </Button>
+            <Button
+              className={cn(
+                "h-9 px-6 font-bold rounded-xl shadow-lg transition-all active:scale-95 gap-2",
+                dialogMode === "reject" 
+                  ? "bg-red-500 hover:bg-red-600 text-white border-red-600 shadow-red-500/20" 
+                  : "bg-primary hover:bg-[#f5c723] text-primary-foreground border-primary-border shadow-primary/20",
+                dialogConfig[dialogMode].confirmColor
+              )}
+              onClick={handleConfirm}
+              disabled={!isValid || isExecuting}
+              data-testid="ua-confirm-btn"
+            >
+              {isExecuting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                dialogConfig[dialogMode].icon
+              )}
+              <span>{dialogConfig[dialogMode].confirmLabel}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       )}
     </>
   );

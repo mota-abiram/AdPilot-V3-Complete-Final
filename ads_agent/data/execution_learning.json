@@ -1,0 +1,90 @@
+[
+  {
+    "executionId": "mnpy0npd7k5uvg",
+    "clientId": "amara",
+    "platform": "meta",
+    "entityId": "120231984866140466",
+    "entityName": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+    "entityType": "campaign",
+    "action": "UNPAUSE_CAMPAIGN",
+    "executedAt": "2026-04-08T11:06:35.905Z",
+    "requestedByName": "Administrator",
+    "reason": "Manual activation from Campaigns page",
+    "strategicCall": "test subject resumed",
+    "beforeMetrics": {
+      "spend": 33719.19,
+      "leads": 50,
+      "cpl": 674.3838000000001,
+      "ctr": 0.571871,
+      "impressions": 568610
+    },
+    "outcome": "PENDING",
+    "daysElapsed": 0
+  },
+  {
+    "executionId": "mnpxz082apki04",
+    "clientId": "amara",
+    "platform": "meta",
+    "entityId": "120231984866140466",
+    "entityName": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
+    "entityType": "campaign",
+    "action": "PAUSE_CAMPAIGN",
+    "executedAt": "2026-04-08T11:05:18.819Z",
+    "requestedByName": "Administrator",
+    "reason": "Manual pause from Campaigns page",
+    "strategicCall": "pause this campaign as test",
+    "beforeMetrics": {
+      "spend": 33719.19,
+      "leads": 50,
+      "cpl": 674.3838000000001,
+      "ctr": 0.571871,
+      "impressions": 568610
+    },
+    "outcome": "PENDING",
+    "daysElapsed": 0
+  },
+  {
+    "executionId": "google-22061347628-1775646132025",
+    "clientId": "amara",
+    "platform": "google",
+    "entityId": "22061347628",
+    "entityName": "DM_Search_Location_Specific_Attapur_Mehdipatnam_25_December_2024 #d2p|dt5-dm_search_location_specific_attapur_mehdipatnam_25_december_2024",
+    "entityType": "campaign",
+    "action": "PAUSE_CAMPAIGN",
+    "executedAt": "2026-04-08T11:02:12.025Z",
+    "requestedByName": "AI Agent",
+    "reason": "CPL ₹2520 exceeds critical threshold of ₹1080 by 133%",
+    "strategicCall": "Eliminating budget waste from campaigns performing 250% above target CPL.",
+    "beforeMetrics": {
+      "spend": 0,
+      "leads": 3,
+      "cpl": 1738.47,
+      "ctr": 10.83,
+      "impressions": 711
+    },
+    "outcome": "PENDING",
+    "daysElapsed": 0
+  },
+  {
+    "executionId": "google-22055144781-1775646131212",
+    "clientId": "amara",
+    "platform": "google",
+    "entityId": "22055144781",
+    "entityName": "DM_Search_Location_Specific_Rajendranagar_Shamshabad_25_December_2024 #d2o|dt4-dm_search_location_specific_rajendranagar_shamshabad_25_december_2024",
+    "entityType": "campaign",
+    "action": "PAUSE_CAMPAIGN",
+    "executedAt": "2026-04-08T11:02:11.212Z",
+    "requestedByName": "AI Agent",
+    "reason": "CPL ₹2520 exceeds critical threshold of ₹1080 by 133%",
+    "strategicCall": "Eliminating budget waste from campaigns performing 250% above target CPL.",
+    "beforeMetrics": {
+      "spend": 0,
+      "leads": 4,
+      "cpl": 2520.29,
+      "ctr": 8.25,
+      "impressions": 1528
+    },
+    "outcome": "PENDING",
+    "daysElapsed": 0
+  }
+]

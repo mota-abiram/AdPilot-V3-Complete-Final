@@ -271,6 +271,7 @@ interface StructuredRecommendation extends EnrichedRec {
   entityTypeLabel: string;
   issue: string;
   rootCause: string;
+  recommendation: string;
   expectedImpact: string;
   confidence: "High" | "Medium" | "Low";
   categoryLabel: string;
@@ -308,9 +309,9 @@ function generateStructuredRecommendations(data: AnalysisData, actionsData: any,
       entityLabel: ins.entity,
       entityTypeLabel: ins.type.includes("CAMPAIGN") ? "Campaign" : ins.type.includes("ADSET") ? "Ad Set" : "Account",
       issue: ins.type.replace(/_/g, " "),
-      rootCause: ins.recommendation || "System detection",
+      rootCause: (ins as any).recommendation || "System detection",
       recommendation: ins.detail,
-      expectedImpact: ins.score_impact ? `+${ins.score_impact} Health Score` : "Efficiency optimization",
+      expectedImpact: (ins as any).score_impact ? `+${(ins as any).score_impact} Health Score` : "Efficiency optimization",
       confidence: ins.severity === "CRITICAL" ? "High" : "Medium",
       categoryLabel: ins.type.includes("CREATIVE") ? "CREATIVE" : ins.type.includes("BUDGET") ? "BUDGET" : "PERFORMANCE"
     });
@@ -332,8 +333,8 @@ function generateStructuredRecommendations(data: AnalysisData, actionsData: any,
       redirect_path: inferRedirectPath(rec.category, "", rec.action),
       source: "sop",
       
-      entityLabel: rec.layer,
-      entityTypeLabel: "Layer / Audience",
+      entityLabel: executionMapping ? executionMapping.entityName : (rec as any).campaign || rec.layer || "Account",
+      entityTypeLabel: executionMapping ? (executionMapping.entityType === 'ad_group' ? 'Ad Group' : executionMapping.entityType === 'adset' ? 'Ad Set' : executionMapping.entityType === 'campaign' ? 'Campaign' : 'Ad') : "Campaign / Layer",
       issue: (rec as any).insight || "Met KPI Deviation",
       rootCause: rec.root_causes?.[0]?.cause || "Algorithm benchmark miss",
       recommendation: rec.action,
@@ -506,11 +507,11 @@ function AlertSystemPanel({ alerts, onNavigate }: { alerts: AlertItem[]; onNavig
 
   return (
     <Card className="border-red-500/20">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="card-content-premium space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">Active Alerts</span>
+            <span className="t-page-title text-foreground">Active Alerts</span>
           </div>
           <div className="flex items-center gap-1.5">
             {criticalCount > 0 && (
@@ -755,15 +756,15 @@ export default function RecommendationsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Recommendations Master</h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+          <h1 className="t-page-title text-foreground">Recommendations Master</h1>
+          <p className="t-label text-muted-foreground mt-0.5">
             {activeClient?.name} · {activePlatformInfo?.label} · {enriched.length} Intelligence Items
           </p>
         </div>
         <div className="flex items-center gap-2">
-           <Badge variant="outline" className="bg-card py-1.5 px-3 flex items-center gap-2 border-border/60">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[10px] font-bold uppercase tracking-widest">Agent-v3 Active</span>
+           <Badge variant="outline" className="bg-card py-2 px-4 flex items-center gap-2 border-border/80 shadow-xs">
+             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+             <span className="t-label font-bold">Agent-v3 Active</span>
            </Badge>
         </div>
       </div>
@@ -783,10 +784,10 @@ export default function RecommendationsPage() {
               )}
             >
               <div className="flex items-center justify-between">
-                <Icon className={cn("w-4 h-4", cfg.color)} />
-                <span className="text-xl font-bold tabular-nums">{items.length}</span>
+                <Icon className={cn("w-5 h-5", cfg.color)} />
+                <span className="t-kpi tabular-nums">{items.length}</span>
               </div>
-              <span className={cn("text-[10px] font-black uppercase tracking-widest", cfg.color)}>{cfg.label}</span>
+              <span className={cn("t-label font-bold", cfg.color)}>{cfg.label}</span>
             </button>
           );
         })}
@@ -817,7 +818,7 @@ export default function RecommendationsPage() {
                   return (
                     <Card key={recId} className={cn("overflow-hidden border-border/60 hover:shadow-2xl hover:shadow-primary/5 transition-all group", 
                       currentAction === 'approved' ? 'bg-emerald-500/5' : currentAction === 'rejected' ? 'opacity-50' : '')}>
-                      <CardContent className="p-0">
+                      <CardContent className="card-content-premium p-0">
                         {/* THE 9-COLUMN SOP MASTER ROW */}
                         <div className="flex flex-col md:flex-row">
                           {/* Main Intelligence Block */}
@@ -827,7 +828,7 @@ export default function RecommendationsPage() {
                                   <div className="flex items-center gap-2 flex-wrap">
                                      <Badge variant="secondary" className="text-[10px] font-black uppercase bg-muted/50">{rec.categoryLabel}</Badge>
                                      <Badge variant="outline" className={cn("text-[10px] uppercase font-bold", cfg.color, cfg.borderColor)}>{rec.priority.toUpperCase()}</Badge>
-                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{rec.entityTypeLabel}</span>
+                                     <span className="t-label font-bold text-muted-foreground uppercase tracking-widest">{rec.entityTypeLabel}</span>
                                   </div>
                                   <h3 className="text-lg font-bold tracking-tight">{rec.entityLabel}</h3>
                                </div>

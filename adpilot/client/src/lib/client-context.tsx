@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { AnalysisData } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -130,8 +130,8 @@ export interface ClientInfo {
 }
 
 // Canonical query key for benchmarks — use this everywhere for consistent invalidation
-export function benchmarksQueryKey(clientId: string) {
-  return ["/api/clients", clientId, "benchmarks"] as const;
+export function benchmarksQueryKey(clientId: string, platform: string) {
+  return ["/api/clients", clientId, "benchmarks", platform] as const;
 }
 
 interface ClientContextValue {
@@ -218,9 +218,9 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     data: benchmarks,
     isLoading: isLoadingBenchmarks,
   } = useQuery<Record<string, any>>({
-    queryKey: benchmarksQueryKey(activeClientId),
+    queryKey: benchmarksQueryKey(activeClientId, activePlatform),
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks`);
+      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks?platform=${activePlatform}`);
       return res.json();
     },
     enabled: !!activeClientId,
@@ -250,6 +250,26 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [clients]);
+
+  // ─── Auto-Sync on load if data is stale (> 12 hours) ───────────────
+  const [hasAutoSynced, setHasAutoSynced] = useState(false);
+  
+  useEffect(() => {
+    if (hasAutoSynced || !syncState?.last_successful_fetch || syncState?.sync_status === "loading") return;
+
+    const lastSync = new Date(syncState.last_successful_fetch).getTime();
+    const now = Date.now();
+    const hoursSinceSync = (now - lastSync) / (1000 * 60 * 60);
+
+    // If data is older than 12 hours, trigger a background run
+    if (hoursSinceSync > 12) {
+      setHasAutoSynced(true);
+      console.log(`[Auto-Sync] Data is ${hoursSinceSync.toFixed(1)}h old. Triggering background run...`);
+      apiRequest("POST", "/api/scheduler/run-now").catch(e => 
+        console.error("[Auto-Sync] Failed to trigger background sync:", e)
+      );
+    }
+  }, [syncState?.last_successful_fetch, syncState?.sync_status, hasAutoSynced]);
 
   return (
     <ClientContext.Provider

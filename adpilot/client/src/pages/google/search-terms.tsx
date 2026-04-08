@@ -568,12 +568,12 @@ export default function GoogleSearchTermsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="search-terms-summary">
         <Card className="bg-card border-border">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[10px] uppercase tracking-wider text-black-400">Terms Reviewed</p>
             <p className="text-2xl font-bold tabular-nums text-black mt-1">{termsReviewed.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className={cn("bg-card border-border", negativesCount > 0 && "border-red-500/30")}>          <CardContent className="p-4">
+        <Card className={cn("bg-card border-border", negativesCount > 0 && "border-red-500/30")}>          <CardContent className="card-content-premium">
           <p className="text-[10px] uppercase tracking-wider text-black-400">Negatives Found</p>
           <p className={cn("text-2xl font-bold tabular-nums mt-1 text-black", negativesCount > 0 ? "text-red-400" : "text-black")}>
             {negativesCount}
@@ -581,13 +581,13 @@ export default function GoogleSearchTermsPage() {
         </CardContent>
         </Card>
         <Card className="bg-card border-border">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[10px] uppercase tracking-wider text-black-400">Competitor Terms</p>
             <p className="text-2xl font-bold tabular-nums text-amber-400 mt-1">{competitorsCount}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-[10px] uppercase tracking-wider text-black-400">High-Value Terms</p>
             <p className="text-2xl font-bold tabular-nums text-emerald-400 mt-1">{highValueCount}</p>
           </CardContent>
@@ -597,7 +597,7 @@ export default function GoogleSearchTermsPage() {
       {/* Junk Spend Alert */}
       {stData.junk_pct != null && stData.junk_pct > 10 && (
         <Card className="bg-red-500/5 border-red-500/30" data-testid="junk-spend-alert">
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <p className="text-xs font-medium text-red-400 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" />
               Junk spend at {stData.junk_pct.toFixed(1)}% of total — above 10% threshold.
@@ -670,9 +670,9 @@ export default function GoogleSearchTermsPage() {
       {/* Term Tables (non-ngram, non-existing-negatives tabs) */}
       {isTermTableTab && (
         <Card className="bg-card border-border">
-          <CardContent className="p-0">
+          <CardContent className="card-content-premium p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="t-table w-full">
                 <thead>
                   <tr className="border-b bg-card border border-border">
                     <th className="p-3 w-8">
@@ -874,9 +874,9 @@ export default function GoogleSearchTermsPage() {
           </div>
 
           <Card className="bg-[#1a1a2e]/60 border-gray-800">
-            <CardContent className="p-0">
+            <CardContent className="card-content-premium p-0">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="t-table w-full">
                   <thead>
                     <tr className="border-b bg-card border border-border">
                       {[
@@ -992,7 +992,7 @@ export default function GoogleSearchTermsPage() {
           </div>
 
           <Card className="bg-card border border-border">
-            <CardContent className="p-0">
+            <CardContent className="card-content-premium p-0">
               {negativesLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-5 h-5 animate-spin text-black" />
@@ -1007,7 +1007,7 @@ export default function GoogleSearchTermsPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="t-table w-full">
                     <thead>
                       <tr className="border-b border-gray-800">
                         <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Keyword</th>

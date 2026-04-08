@@ -8,11 +8,10 @@
 
 // ─── Campaign Normalization ─────────────────────────────────────────
 
+import { getClassification, scoreLinear } from "../shared/scoring";
+
 function classifyScore(score: number): string {
-  if (score >= 80) return "Excellent";
-  if (score >= 60) return "Good";
-  if (score >= 40) return "Average";
-  return "Poor";
+  return getClassification(score);
 }
 
 function cleanCampaignName(name: string): string {

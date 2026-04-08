@@ -26,8 +26,16 @@ export function useLiveUpdates() {
         });
       };
 
+      const invalidateAnalysis = () => {
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && (query.queryKey.includes("analysis") || query.queryKey.includes("sync-state")),
+        });
+      };
+
       es.addEventListener("data-refreshed", () => {
-        queryClient.invalidateQueries();
+        console.log("[SSE] Data refreshed - invalidating analysis queries");
+        invalidateAnalysis();
       });
 
       es.addEventListener("agent-run-started", () => {

@@ -1134,10 +1134,10 @@ def diagnose_cost_stack(c, bench):
 
     # CPM check (DG)
     if is_dg_type(c.get("campaign_type", "")):
-        if c["avg_cpm"] > bench.get("cpm_alert", 200):
+        if c["cpm"] > bench.get("cpm_alert", 200):
             statuses["cpm"] = "critical"
-            diagnosis.append(f"DG CPM high at ₹{c['avg_cpm']:.0f} (alert: ₹{bench.get('cpm_alert', 200)})")
-        elif c["avg_cpm"] > bench.get("cpm_baseline", 120):
+            diagnosis.append(f"DG CPM high at ₹{c['cpm']:.0f} (alert: ₹{bench.get('cpm_alert', 200)})")
+        elif c["cpm"] > bench.get("cpm_baseline", 120):
             statuses["cpm"] = "warning"
         else:
             statuses["cpm"] = "healthy"
@@ -1933,13 +1933,13 @@ def match_playbooks(campaigns, account_pulse, cvr_analysis):
                 })
 
         # PB-G4: DG CPM High
-        if is_dg_type(ctype) and c["avg_cpm"] > bench.get("cpm_alert", 200):
+        if is_dg_type(ctype) and c["cpm"] > bench.get("cpm_alert", 200):
             if c["ctr"] < bench.get("ctr_low", 0.5) or c["cpl"] > CPL_ALERT:
                 triggered.append({
                     "playbook": "PB-G4",
                     "name": PLAYBOOKS["PB-G4"]["name"],
                     "campaign": c["name"],
-                    "evidence": f"CPM ₹{c['avg_cpm']:.0f} > ₹{bench.get('cpm_alert', 200)} with weak CTR/CPL",
+                    "evidence": f"CPM ₹{c['cpm']:.0f} > ₹{bench.get('cpm_alert', 200)} with weak CTR/CPL",
                     "actions": PLAYBOOKS["PB-G4"]["actions"],
                 })
 
@@ -2114,6 +2114,8 @@ def generate_intellect_insights(campaigns, account_pulse, cvr_analysis, bidding)
     # 10. Day-of-week pattern — compare weekday vs weekend efficiency
     # (Use campaign-level aggregate as proxy — full day-parting needs hourly data)
     total_leads = sum(c.get("conversions", 0) for c in active)
+    total_spend = sum(c.get("cost", 0) for c in active)
+    overall_cpl = safe_div(total_spend, total_leads)
     if total_leads > 0 and overall_cpl > 0 and overall_cpl > CPL_ALERT:
         insights.append({
             "type": "pattern",

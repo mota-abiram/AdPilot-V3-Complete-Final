@@ -22,7 +22,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, ChevronDown, ChevronUp, Pause, Play, TrendingUp, TrendingDown, Loader2, AlertTriangle, Info, SlidersHorizontal } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal, BarChart3, Info } from "lucide-react";
+import { StatusBadge } from "@/components/status-badge";
+import { ScoreIndicator } from "@/components/score-indicator";
+import { calculatePerformanceScore, getClassification } from "@shared/scoring";
 import {
   formatINR,
   formatPct,
@@ -86,7 +89,7 @@ function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark:
           {isAbove ? "▲" : "▼"} {Math.abs(Math.round(pct))}%
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
+      <TooltipContent side="top" className="t-caption">
         {label || "Benchmark"}: {formatINR(benchmark, 0)} — {isAbove ? "Above" : "Within"} benchmark
       </TooltipContent>
     </Tooltip>
@@ -117,13 +120,39 @@ export default function CampaignsPage() {
 
   const campaigns = useMemo(() => {
     if (!data) return [];
-    // Normalization layer now produces campaign_audit for both platforms
     const source = (data as any).campaign_audit || (data as any).campaigns || [];
     if (!source) return [];
-    let list = [...source];
+    
+    const perfTargets = {
+      cpl: (data as any)?.dynamic_thresholds?.cpl_target || 850,
+      cpm: (data as any)?.dynamic_thresholds?.cpm_target || 800,
+      ctr: (data as any)?.dynamic_thresholds?.ctr_min || 1.0,
+      cvr: (data as any)?.dynamic_thresholds?.cvr_min || 2.0,
+      frequency: 3.0
+    };
+
+    let list = source.map((c: any) => {
+      const perfMetrics = {
+        cpl: c.cpl || 0,
+        cpm: c.cpm || c.avg_cpm || 0,
+        ctr: c.ctr || 0,
+        cvr: c.cvr || 0,
+        frequency: c.frequency || 1.0
+      };
+      
+      const perf = calculatePerformanceScore(perfMetrics, perfTargets);
+      const classification = getClassification(perf.score);
+
+      return {
+        ...c,
+        classification: classification,
+        health_score: perf.score,
+        score_breakdown: perf.breakdown
+      };
+    });
+
     if (filterLayer !== "ALL") {
       const fl = filterLayer.toLowerCase();
-      // After normalization, Google campaigns have both `layer` and `campaign_type`
       list = list.filter((c: any) => {
         const l = (c.layer || "").toLowerCase();
         const ct = (c.campaign_type || "").toLowerCase();
@@ -131,7 +160,6 @@ export default function CampaignsPage() {
       });
     }
     if (filterStatus !== "ALL") {
-      // Normalize "ENABLED" to "ACTIVE" for filtering purposes
       list = list.filter((c) => {
         const s = (c.status || "").toUpperCase();
         if (filterStatus === "ACTIVE") return s === "ACTIVE" || s === "ENABLED";
@@ -157,7 +185,6 @@ export default function CampaignsPage() {
     if (!isGoogle) return [];
     return campaigns.filter((c: any) => {
       const t = (c.theme || c.layer || c.campaign_type || "").toLowerCase();
-      // Search includes branded, location, or direct 'search' type
       return t.includes("branded") || t.includes("location") || t === "search";
     });
   }, [campaigns, isGoogle]);
@@ -166,16 +193,15 @@ export default function CampaignsPage() {
     const score = c.score_breakdown?.[metric];
     if (score == null) return rawValColor || "text-foreground";
     if (score >= 85) return "text-emerald-400";
-    if (score >= 70) return "text-emerald-400"; // Good
-    if (score >= 40) return "text-amber-400"; // Watch
-    return "text-red-400"; // Poor
+    if (score >= 70) return "text-emerald-400";
+    if (score >= 40) return "text-amber-400";
+    return "text-red-400";
   };
 
   const dgCampaigns = useMemo(() => {
     if (!isGoogle) return [];
     return campaigns.filter((c: any) => {
       const t = (c.theme || c.layer || c.campaign_type || "").toLowerCase();
-      // DG includes demand_gen, dg, or anything else identified as demand gen
       return t.includes("demand") || t.includes("dg") || t.includes("demand_gen");
     });
   }, [campaigns, isGoogle]);
@@ -305,7 +331,6 @@ export default function CampaignsPage() {
 
   // ─── Render a campaign table (reusable for Search/DG sections) ────
   function renderGoogleRow(c: any, sectionType: "search" | "dg") {
-    const classColor = getClassificationColor(c.classification);
     const typeBadge = getCampaignTypeBadge(c.theme || c.layer || c.campaign_type);
     const isPaused = c.status === "PAUSED" || c.delivery_status === "NOT_DELIVERING" || isEntityPaused(c.campaign_id);
     const isSelected = selectedIds.has(c.campaign_id);
@@ -360,44 +385,15 @@ export default function CampaignsPage() {
             )}
           </td>
           <td className="p-3">
-            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${typeBadge.bg} ${typeBadge.text}`}>
-              {typeBadge.label}
-            </span>
+            <StatusBadge classification={c.classification} />
           </td>
           <td className="p-3">
-            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${classColor.bg} ${classColor.text}`}>
-              {c.classification || c.cost_stack?.overall || "—"}
-            </span>
-          </td>
-          <td className="p-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2">
-                  <div className={`w-14 h-1.5 rounded-full ${getHealthBarBg(c.health_score)}`}>
-                    <div className={`h-full rounded-full ${getHealthBgColor(c.health_score)}`} style={{ width: `${Math.min(c.health_score || 0, 100)}%` }} />
-                  </div>
-                  <span className="tabular-nums text-muted-foreground w-6">{c.health_score || "—"}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <div className="text-xs space-y-1">
-                  <p className="font-medium">Google Scoring Weights</p>
-                  {c.score_breakdown ? (
-                    Object.entries(c.score_breakdown).map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-                        <span className="tabular-nums font-medium">{typeof v === "number" ? v.toFixed(1) : String(v)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <>
-                      <p className="text-muted-foreground">CPL: 30% · CVR: 25% · CTR: 15%</p>
-                      <p className="text-muted-foreground">IS: 15% · QS: 15%</p>
-                    </>
-                  )}
-                </div>
-              </TooltipContent>
-            </Tooltip>
+            <ScoreIndicator 
+              score={c.health_score} 
+              breakdown={c.score_breakdown} 
+              label="Campaign Performance"
+              description="Weighted Performance Score (CPL 35%, CPM 20%, CTR 15%, CVR 15%, Freq 15%)"
+            />
           </td>
           <td className="p-3 text-right tabular-nums">{formatINR(c.spend || c.cost || 0, 0)}</td>
           <td className="p-3 text-right tabular-nums">{c.leads ?? c.conversions ?? 0}</td>
@@ -545,7 +541,6 @@ export default function CampaignsPage() {
                     {Object.entries(c.score_breakdown).map(([metric, score]) => {
                       let band = (c.score_bands?.[metric] || "UNKNOWN").toUpperCase();
                       
-                      // Fallback: Calculate band from score if unknown
                       if (band === "UNKNOWN" && typeof score === "number") {
                         if (score >= 85) band = "EXCELLENT";
                         else if (score >= 70) band = "GOOD";
@@ -613,9 +608,9 @@ export default function CampaignsPage() {
     const paginatedRows = pgSize >= rows.length ? rows : rows.slice((pg - 1) * pgSize, pg * pgSize);
     return (
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="card-content-premium p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs" data-testid={`table-${sectionId}`}>
+            <table className="t-table w-full" data-testid={`table-${sectionId}`}>
               <thead>
                 <tr className="border-b border-border/50">
                   <th className="p-3 w-8">
@@ -649,7 +644,7 @@ export default function CampaignsPage() {
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className={`p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap ${
+                      className={`px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${
                         col.align === "right" ? "text-right" : "text-left"
                       }`}
                       onClick={() => toggleSort(col.key)}
@@ -661,7 +656,7 @@ export default function CampaignsPage() {
                       </span>
                     </th>
                   ))}
-                  <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-center whitespace-nowrap">
+                  <th className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
@@ -699,7 +694,7 @@ export default function CampaignsPage() {
             <AlertDialogTitle className="text-base">
               {bulkConfirm.action === "pause" ? "Pause" : "Activate"} {selectedIds.size} Campaigns?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm">
+            <AlertDialogDescription className="t-body">
               This will {bulkConfirm.action === "pause" ? "pause" : "activate"} {selectedIds.size} selected campaign{selectedIds.size !== 1 ? "s" : ""} on {isGoogle ? "Google Ads" : "Meta Ads"}.
               {bulkConfirm.action === "pause" && (
                 <span className="block mt-1 text-amber-500">Paused campaigns will stop delivering immediately.</span>
@@ -718,14 +713,14 @@ export default function CampaignsPage() {
       {/* ─── Google: Alerts Banner ──────────────────────────────────── */}
       {isGoogle && alerts.length > 0 && (
         <Card className="border-red-500/30 bg-red-500/5" data-testid="card-alerts-banner">
-          <CardContent className="p-4 space-y-2">
-            <p className="text-xs font-semibold text-red-400 flex items-center gap-1.5">
+          <CardContent className="card-content-premium space-y-2">
+            <p className="t-label font-semibold text-red-400 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4" />
               {alerts.length} Critical Alert{alerts.length !== 1 ? "s" : ""}
             </p>
             <div className="space-y-1.5">
               {alerts.map((alert: any, idx: number) => (
-                <div key={idx} className="flex items-start gap-2 text-[11px]">
+                <div key={idx} className="flex items-start gap-2 t-caption">
                   <span className="text-red-400 mt-0.5 shrink-0">-</span>
                   <span className="text-red-300">
                     {typeof alert === "string" ? alert : alert.message || alert.detail || JSON.stringify(alert)}
@@ -739,8 +734,8 @@ export default function CampaignsPage() {
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Campaigns</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="t-page-title text-foreground">Campaigns</h1>
+          <p className="t-caption text-muted-foreground">
             {campaigns.length} campaigns · {formatINR((data as any).summary?.total_spend || (data as any).account_pulse?.total_spend || 0, 0)} total spend
           </p>
         </div>
@@ -800,7 +795,7 @@ export default function CampaignsPage() {
           <Button
             size="sm"
             variant="destructive"
-            className="text-xs"
+            className="t-caption"
             onClick={() => setBulkConfirm({ open: true, action: "pause" })}
             disabled={isExecuting}
             data-testid="button-bulk-pause"
@@ -822,7 +817,7 @@ export default function CampaignsPage() {
           <Button
             size="sm"
             variant="ghost"
-            className="text-xs"
+            className="t-caption"
             onClick={() => setSelectedIds(new Set())}
             data-testid="button-clear-selection"
           >
@@ -870,9 +865,9 @@ export default function CampaignsPage() {
       ) : (
         /* ─── Meta: Original single table ──────────────────────────── */
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="card-content-premium p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="t-table w-full">
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="p-3 w-8">
@@ -899,7 +894,7 @@ export default function CampaignsPage() {
                     {metaColumns.map((col) => (
                       <th
                         key={col.key}
-                        className={`p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap ${
+                        className={`px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${
                           col.align === "right" ? "text-right" : "text-left"
                         }`}
                         onClick={() => toggleSort(col.key)}
@@ -910,14 +905,13 @@ export default function CampaignsPage() {
                         </span>
                       </th>
                     ))}
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-center whitespace-nowrap">
+                    <th className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(pageSize >= campaigns.length ? campaigns : campaigns.slice((page - 1) * pageSize, page * pageSize)).map((c: any) => {
-                    const classColor = getClassificationColor(c.classification);
                     const isPaused = c.status === "PAUSED" || c.delivery_status === "NOT_DELIVERING" || isEntityPaused(c.campaign_id);
                     const isSelected = selectedIds.has(c.campaign_id);
                     const isExpanded = expandedIds.has(c.campaign_id);
@@ -980,9 +974,7 @@ export default function CampaignsPage() {
                             </span>
                           </td>
                           <td className="p-3">
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${classColor.bg} ${classColor.text}`}>
-                              {c.classification}
-                            </span>
+                            <StatusBadge classification={c.classification} />
                           </td>
                           <td className="p-3">
                             <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${getLearningStatusColor(c.learning_status).bg} ${getLearningStatusColor(c.learning_status).text}`}>

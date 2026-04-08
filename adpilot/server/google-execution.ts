@@ -60,6 +60,7 @@ export interface GoogleExecutionRequest {
   entityType: "campaign" | "ad_group" | "ad";
   params?: {
     budgetAmount?: number;    // daily budget in rupees
+    currentBudget?: number;   // fallback current daily budget in rupees
     scalePercent?: number;    // e.g. 20 = 20% increase
     cpcBidMicros?: number;   // CPC bid in micros
     reason?: string;
@@ -611,8 +612,23 @@ export async function executeGoogleAction(req: GoogleExecutionRequest): Promise<
         const direction = req.action === "SCALE_BUDGET_UP" ? "up" : "down";
 
         // Fetch current budget
-        const budgetInfo = await getCampaignBudgetInfo(req.entityId);
-        const currentMicros = budgetInfo.currentMicros;
+        let currentMicros: number;
+        let budgetResourceName: string;
+
+        try {
+          const budgetInfo = await getCampaignBudgetInfo(req.entityId);
+          currentMicros = budgetInfo.currentMicros;
+          budgetResourceName = budgetInfo.budgetResourceName;
+        } catch (err) {
+          if (req.params?.currentBudget) {
+            console.log(`[google-execution] GAQL budget fetch failed for ${req.entityId}, using fallback: ₹${req.params.currentBudget}`);
+            currentMicros = req.params.currentBudget * 1_000_000;
+            // Best guess for resource name as fallback if we don't have it
+            budgetResourceName = `customers/${getGoogleCustomerId()}/campaignBudgets/${req.entityId}`;
+          } else {
+            throw err;
+          }
+        }
 
         const factor = direction === "up" ? 1 + scalePct / 100 : 1 - scalePct / 100;
         const newMicros = Math.round(currentMicros * factor);
@@ -627,7 +643,7 @@ export async function executeGoogleAction(req: GoogleExecutionRequest): Promise<
           return execResult;
         }
 
-        const result = await mutateCampaignBudget(budgetInfo.budgetResourceName, newMicros);
+        const result = await mutateCampaignBudget(budgetResourceName, newMicros);
         const previousRupees = (currentMicros / 1_000_000).toFixed(2);
         const newRupees = (newMicros / 1_000_000).toFixed(2);
 

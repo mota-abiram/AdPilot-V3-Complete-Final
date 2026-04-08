@@ -7,22 +7,7 @@
  * cadences (1D / 2×wk / Wkly / Bi-wk / Mo) reflects the actual window.
  */
 
-// ── Scoring helpers (mirrors scoring_engine.py) ──────────────────────────────
-
-function scoreLinear(actual: number, target: number, weight: number, lowerIsBetter: boolean): number {
-  if (target <= 0) return weight * 0.5;
-  if (lowerIsBetter) {
-    if (actual <= target * 0.8) return weight;
-    if (actual >= target * 1.5) return 0;
-    const ratio = actual / target;
-    return Math.round(weight * Math.max(0, Math.min(1, (1.5 - ratio) / (1.5 - 0.8))) * 100) / 100;
-  } else {
-    if (actual >= target * 1.2) return weight;
-    if (actual <= target * 0.5) return 0;
-    const ratio = actual / target;
-    return Math.round(weight * Math.max(0, Math.min(1, (ratio - 0.5) / (1.2 - 0.5))) * 100) / 100;
-  }
-}
+import { scoreLinear, getClassification, calculatePerformanceScore, calculateFinalAdScore } from "../shared/scoring";
 
 function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
   let total = 0;

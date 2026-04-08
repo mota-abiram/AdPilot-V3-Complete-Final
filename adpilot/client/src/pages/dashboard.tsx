@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Link } from "wouter";
@@ -60,13 +61,37 @@ import {
   Facebook,
   Globe,
   Plus,
+  Brain,
 } from "lucide-react";
+import { StatusBadge } from "@/components/status-badge";
+import { getClassification } from "@shared/scoring";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ComposedChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Bar,
+  ReferenceLine,
+  Legend,
+} from "recharts";
+import { cn } from "@/lib/utils";
+import { ExecutionButton } from "@/components/execution-button";
+import { UnifiedActions } from "@/components/unified-actions";
 import {
   formatINR,
   formatPct,
@@ -122,115 +147,238 @@ const FIX_SUGGESTIONS: Record<string, string[]> = {
   ]
 };
 
-function FixSuggestionModal({ alert, onClose }: { alert: any; onClose: () => void }) {
+interface AdaptiveSuggestion {
+  text: string;
+  source: "SOP" | "AI";
+  confidence: "High" | "Medium";
+  score: number;
+}
+
+/**
+ * ADAPTIVE RECOMMENDATION ENGINE
+ * Dynamically ranks SOP suggestions against AI Intellect insights.
+ */
+function useRecommendationEngine(alert: any, intellectInsights: any[]) {
+  const { activePlatform } = useClient();
+  
+  return useMemo(() => {
+    if (!alert) return [];
+
+    // 1. Fetch SOP Suggestions
+    const sopRaw = FIX_SUGGESTIONS[alert.metric] || FIX_SUGGESTIONS.DEFAULT;
+    
+    // 2. Fetch AI Insights
+    const aiRaw = intellectInsights || [];
+    
+    // 3. Score SOPs
+    const sopSuggestions: AdaptiveSuggestion[] = sopRaw.map(text => {
+      let score = 70; // Base: Proven historical effectiveness
+      
+      // Relevance to issue (Check if text mentions current platform)
+      if (text.toLowerCase().includes(activePlatform || "")) score += 5;
+      
+      // Specificity boost
+      if (alert.metric !== "DEFAULT") score += 15;
+      
+      // Current configuration match (dummy check for simplicity in UI layer)
+      if (text.toLowerCase().includes("budget") && alert.metric === "CPL") score += 10;
+
+      return { text, source: "SOP", confidence: "High", score };
+    });
+
+    // 4. Score AI Insights
+    const aiSuggestions: AdaptiveSuggestion[] = aiRaw
+      .map(i => {
+        let score = 65; // Base Context Awareness
+        const detail = i.detail || i.observation || i.title || "";
+        
+        // Real-time data alignment: Does AI mention the exact campaigns in the alert?
+        const mentionsCampaign = alert.campaigns?.some((c: any) => detail.includes(c.name));
+        if (mentionsCampaign) score += 25;
+        
+        // Predicted impact: High severity AI insights have higher predicted impact
+        if (i.severity === "CRITICAL") score += 20;
+        else if (i.severity === "HIGH") score += 10;
+        
+        // Intensity match: Does the detail speak to the alert's specific metric?
+        if (detail.toUpperCase().includes(alert.metric)) score += 15;
+
+        return { 
+          text: detail, 
+          source: "AI", 
+          confidence: (i.confidence === "high" || i.severity === "CRITICAL") ? "High" : "Medium",
+          score 
+        };
+      });
+
+    // 5. Ensemble & Prioritize
+    // Combine and sort by total strength score
+    const all = [...sopSuggestions, ...aiSuggestions].sort((a, b) => b.score - a.score);
+    
+    // Adaptive priorities: ensuring a mix while respecting strength scores
+    const winners: AdaptiveSuggestion[] = [];
+    
+    // Pick the absolute best regardless of source
+    if (all[0]) winners.push(all[0]);
+    
+    // Then fill with a prioritized mix (next top unique suggestions)
+    const remaining = all.slice(1);
+    while (winners.length < 5 && remaining.length > 0) {
+      const next = remaining.shift();
+      if (next && !winners.find(w => w.text === next.text)) {
+        winners.push(next);
+      }
+    }
+    
+    return winners;
+  }, [alert, intellectInsights, activePlatform]);
+}
+
+function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any; onClose: () => void; intellectInsights: any[] }) {
+  const { activeClient, activePlatform } = useClient();
+  const { toast } = useToast();
+  const suggestions = useRecommendationEngine(alert, intellectInsights);
+
   if (!alert) return null;
-  const suggestions = FIX_SUGGESTIONS[alert.metric] || FIX_SUGGESTIONS.AGENT || FIX_SUGGESTIONS.DEFAULT;
+
+  const handleFeedback = async (suggestion: any, status: 'Accepted' | 'Dismissed') => {
+    try {
+      await apiRequest("POST", `/api/recommendations/feedback`, {
+        text: suggestion.text,
+        status,
+        context: `Metric: ${alert.metric}, Summary: ${alert.summary}`,
+        clientId: activeClient?.id,
+        platform: activePlatform
+      });
+      toast({
+        title: `Recommendation ${status}`,
+        description: `Feedback saved to learning data.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to save feedback.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <Dialog open={!!alert} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl">
-        <div className="relative p-8 pt-10">
-          {/* Subtle gradient background for the header area */}
-          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-primary/[0.03] to-transparent pointer-events-none" />
-          
-          <DialogHeader className="relative text-left space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 shadow-sm shadow-amber-500/5">
-                <Zap className="w-5 h-5 text-amber-500" />
+      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-0 shadow-2xl">
+        <DialogHeader className="p-6 pb-4 bg-muted/20 relative border-b border-border/40">
+           <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
+                <Brain className="w-5 h-5 animate-pulse-slow" />
               </div>
-              <div className="flex flex-col">
-                <DialogTitle className="text-xl font-bold tracking-tight">Fix Strategy: {alert.metric}</DialogTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-[8px] uppercase tracking-widest bg-muted/50 border-border/40 h-4 px-1.5 font-bold">Optimization Protocol</Badge>
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-black opacity-60">Verified Baseline</span>
+              <div className="min-w-0">
+                <DialogTitle className="t-page-title text-foreground text-xl">Strategic Recovery Protocol</DialogTitle>
+                <div className="flex items-center gap-2 mt-0.5">
+                   <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
+                      {alert.metric} ALERT
+                   </Badge>
+                   <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Decision Intelligence Layer</span>
                 </div>
               </div>
-            </div>
-            
-            <div className="pt-2">
-              <p className="text-[13px] text-muted-foreground leading-relaxed">
-                Objective: Address <span className="font-semibold text-foreground italic">"{alert.summary}"</span> through targeted adjustments to platform parameters and creative strategy.
+           </div>
+        </DialogHeader>
+
+        <DialogBody className="p-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+            <div className="space-y-1.5 px-0.5">
+              <p className="t-body font-bold tracking-tight text-lg">
+                 Objective: Resolve <span className="text-primary italic">"{alert.summary}"</span>
+              </p>
+              <p className="t-label text-muted-foreground leading-relaxed">
+                 A prioritized blend of SOP directives and AI reasoning optimized for your current configuration:
               </p>
             </div>
-          </DialogHeader>
 
-          <div className="relative py-6 space-y-6">
-            <div className="space-y-5">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
-                Strategic Recommendations
-                <div className="h-px flex-1 bg-border/40" />
-              </h4>
-              
-              <div className="space-y-4">
-                {suggestions.map((s, i) => (
-                  <div key={i} className="flex gap-4 group">
-                    <div className="mt-0.5 flex flex-col items-center gap-2 shrink-0">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shadow-sm group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                        {i + 1}
+           <div className="space-y-4 pt-1">
+              {suggestions.map((s, i) => (
+                <div key={i} className="p-3.5 rounded-xl border border-border/40 bg-card hover:border-primary/30 transition-all group">
+                  <div className="flex gap-3.5">
+                    <div className="size-6 rounded-lg bg-muted border border-border/60 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/40 transition-colors">
+                        {s.source === "AI" ? (
+                          <Brain className="w-3.5 h-3.5 text-primary animate-pulse" />
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                    </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`t-micro font-black uppercase tracking-tight px-1.5 py-0.5 rounded border ${
+                              s.source === "AI" 
+                                ? "bg-primary/10 text-primary border-primary/20" 
+                                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            }`}>
+                              {s.source === "AI" ? "AI Intellect" : "Standard SOP"}
+                            </span>
+                            {s.confidence === "High" && (
+                              <span className="t-micro font-bold text-muted-foreground opacity-60 italic">
+                                High Confidence
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="size-6 rounded-md hover:bg-emerald-500/10 hover:text-emerald-500"
+                              onClick={() => handleFeedback(s, 'Accepted')}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="size-6 rounded-md hover:bg-red-500/10 hover:text-red-500"
+                              onClick={() => handleFeedback(s, 'Dismissed')}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="t-body-sm leading-snug text-foreground/80 font-medium group-hover:text-foreground transition-colors pr-2">
+                          {s.text}
+                        </p>
                       </div>
-                      {/* Vertical connector line */}
-                      {i < suggestions.length - 1 && <div className="w-[1.5px] flex-1 bg-gradient-to-b from-border/60 to-transparent rounded-full min-h-[0.75rem] opacity-50" />}
-                    </div>
-                    <div>
-                      <p className="text-[13px] leading-[1.6] text-foreground/80 font-medium group-hover:text-foreground transition-colors">
-                        {s}
-                      </p>
-                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {alert.campaigns.length > 0 && (
-              <div className="p-4 rounded-xl bg-muted/40 border border-border/50 shadow-inner">
-                <p className="text-[9px] text-muted-foreground uppercase font-black tracking-[0.15em] mb-3">Affected Campaign Context:</p>
-                <div className="flex flex-wrap gap-2">
-                  {alert.campaigns.map((c: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-background border border-border/80 shadow-sm text-[10px] font-semibold text-foreground/70">
-                      <div className="w-1 h-1 rounded-full bg-primary/50" />
-                      {truncate(c.name, 35)}
-                    </div>
-                  ))}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
+              ))}
+           </div>
 
-        <DialogFooter className="px-8 py-5 bg-muted/20 border-t border-border/40 flex flex-col sm:flex-row items-center gap-4 sm:gap-0 sm:justify-between">
-          <div className="flex items-center gap-2 opacity-70">
-            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className="text-[11px] text-muted-foreground font-medium">Standard baseline assessment</span>
-          </div>
-          <Button 
-            className="w-full sm:w-auto min-w-[140px] h-10 px-6 font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-[0.97]"
-            onClick={onClose}
-          >
-            Acknowledge & Start Fix
-          </Button>
+           {alert.campaigns.length > 0 && (
+              <div className="mt-4 p-4 rounded-xl bg-muted/10 border border-border/30">
+                 <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-3">Diagnostic Context ({alert.campaigns.length} campaigns)</p>
+                 <div className="grid grid-cols-1 gap-1.5">
+                    {alert.campaigns.map((c: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] font-semibold text-foreground/80 bg-background/40 p-1.5 px-2 rounded-lg border border-border/20">
+                         <span className="truncate">{c.name}</span>
+                         <span className="text-primary tabular-nums shrink-0 ml-2">{c.value}</span>
+                      </div>
+                    ))}
+                 </div>
+              </div>
+           )}
+        </DialogBody>
+
+        <DialogFooter className="p-4 px-6 bg-muted/20 border-t border-border/40 flex items-center justify-between gap-4">
+           <div className="flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary opacity-60" />
+              <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">Standard Baseline Verified</span>
+           </div>
+           <Button 
+             className="h-10 px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-[#f5c723] text-primary-foreground transition-all active:scale-[0.97]"
+             onClick={onClose}
+           >
+             Acknowledge Fix
+           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-import {
-  ComposedChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import { cn } from "@/lib/utils";
-import { ExecutionButton } from "@/components/execution-button";
-import { UnifiedActions } from "@/components/unified-actions";
 
 export const calculateCTR = (clicks: number, impressions: number) => {
   if (!impressions || impressions === 0) return 0;
@@ -246,6 +394,7 @@ function KpiCard({
   icon: Icon,
   isInverse,
   status,
+  todayValue,
 }: {
   title: string;
   value: string;
@@ -259,6 +408,7 @@ function KpiCard({
     variant?: "success" | "warning" | "destructive" | "info" | "secondary";
     className?: string;
   };
+  todayValue?: string;
 }) {
   const { activeCadence } = useClient();
   const trendInfo = trend ? getTrendInfo(trend, isInverse) : null;
@@ -274,23 +424,27 @@ function KpiCard({
           </h3>
           <Icon className="w-3.5 h-3.5 text-primary/90 shrink-0 mt-0.5" />
         </div>
-        {/* Value — allow wrapping so long INR values don't overflow */}
         <div
-          className="tabular-nums text-xl font-extrabold tracking-tight text-foreground leading-tight break-all"
+          className="t-kpi text-foreground break-all"
           data-testid={`text-kpi-${title.toLowerCase().replace(/\s+/g, "-")}`}
         >
           {value}
         </div>
-        {/* Trend + subtitle on one line, badge below */}
-        <div className="mt-1.5 space-y-0.5">
+        {todayValue && (
+          <div className="t-micro font-bold text-primary mt-1 flex items-center gap-1.5">
+            <div className="size-2 rounded-full bg-primary animate-pulse" />
+            TODAY: {todayValue}
+          </div>
+        )}
+        <div className="mt-2 space-y-1">
           <div className="flex items-center justify-between gap-1">
             {trendInfo && trendValue && !hideTrend ? (
-              <span className={`text-[11px] font-medium tabular-nums shrink-0 ${trendInfo.color}`}>
+              <span className={`t-body-sm font-semibold tabular-nums shrink-0 ${trendInfo.color}`}>
                 {trendInfo.arrow} {trendValue}
               </span>
             ) : <span />}
             {subtitle && (
-              <span className="text-[10px] text-muted-foreground truncate text-right">{subtitle}</span>
+              <span className="t-micro text-muted-foreground truncate text-right">{subtitle}</span>
             )}
           </div>
           {status && (
@@ -348,12 +502,12 @@ function CustomTooltipContent({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-md border border-border/50 bg-card p-2 shadow-md">
-      <p className="text-[11px] text-muted-foreground mb-1">{label}</p>
+      <p className="t-label-xs text-muted-foreground mb-1">{label}</p>
       {payload.map((entry: any, i: number) => {
         const isVideoMetric = entry.name.toLowerCase().includes("tsr") || entry.name.toLowerCase().includes("vhr");
         const hasPct = entry.name.includes("%");
         return (
-          <p key={i} className="text-xs tabular-nums" style={{ color: entry.color }}>
+          <p key={i} className="t-body tabular-nums" style={{ color: entry.color }}>
             {entry.name}{isVideoMetric ? " (Video Only)" : ""}: {typeof entry.value === "number" ? entry.value.toLocaleString("en-IN") : entry.value}
             {(hasPct || isVideoMetric) && !entry.name.includes("%") ? "%" : ""}
           </p>
@@ -387,10 +541,16 @@ export default function DashboardPage() {
     return ad?.ad_id || null;
   }
 
-  function findAdsetByEntity(entity: string, adsetAnalysisData: any[]): { id: string; name: string } | null {
-    if (!Array.isArray(adsetAnalysisData)) return null;
-    const adset = adsetAnalysisData.find((a: any) => entity.includes(a?.adset_name) || a?.adset_name?.includes(entity));
-    if (adset) return { id: adset.adset_id, name: adset.adset_name };
+  function findCampaignByEntity(entity: string, campaignData: any[]): { id: string; name: string } | null {
+    if (!Array.isArray(campaignData)) return null;
+    const campaign = campaignData.find((c: any) => 
+      entity.toLowerCase().includes((c?.campaign_name || c?.name || "").toLowerCase()) || 
+      (c?.campaign_name || c?.name || "").toLowerCase().includes(entity.toLowerCase())
+    );
+    if (campaign) return { 
+      id: campaign.campaign_id || campaign.id, 
+      name: campaign.campaign_name || campaign.name 
+    };
     return null;
   }
 
@@ -428,7 +588,7 @@ export default function DashboardPage() {
     leadsDiscrepancy: number;
     leadsDiscrepancyPct: number;
     creativeHealthLeads: number | null;
-    adsetAnalysisLeads: number | null;
+    campaignAnalysisLeads: number | null;
     leadsCorrectionApplied: boolean;
     leadsCorrectionFactor: number;
     status: string;
@@ -493,6 +653,8 @@ export default function DashboardPage() {
       cpl: number;
       cpql: number;
       cpsv: number;
+      impressions: number;
+      clicks: number;
       positive_pct: number;
     };
     status: { data_complete: boolean; manual_input_missing: boolean; tracking_issue_flag: boolean };
@@ -522,7 +684,7 @@ export default function DashboardPage() {
 
   const rawFatigueAlerts = Array.isArray((data as any)?.fatigue_alerts) ? (data as any)?.fatigue_alerts : [];
   const rawAdRecommendations = Array.isArray((data as any)?.recommendations) ? (data as any)?.recommendations : [];
-  const rawAdsetAnalysis = Array.isArray((data as any)?.adset_analysis) ? (data as any)?.adset_analysis : [];
+  const rawAdsetAnalysis = Array.isArray((data as any)?.adset_analysis) ? (data as any)?.adset_analysis : Array.isArray((data as any)?.ad_group_analysis) ? (data as any)?.ad_group_analysis : [];
   const rawCreativeHealth = Array.isArray((data as any)?.creative_health) ? (data as any)?.creative_health : [];
   const rawIntellectInsights = Array.isArray((data as any)?.intellect_insights) ? (data as any)?.intellect_insights : [];
   const rawAutoPauseCandidates = Array.isArray((data as any)?.auto_pause_candidates) ? (data as any)?.auto_pause_candidates : [];
@@ -530,7 +692,24 @@ export default function DashboardPage() {
   const rawMtdPacing = ((data as any)?.account_pulse || rawAp)?.mtd_pacing;
   const clientTargets = activeClient?.targets?.[activePlatform];
 
-  // ─── 5. Core useMemo Hooks (Must be above returns) ──────────────────
+  // ─── Authoritative MTD Metrics (Must be early for hooks) ───────────
+  const authMtd = useMemo(() => {
+    const apiMtd = mtdData?.mtd;
+    // For agentMtd, we look in both rawMp and rawMtdPacing
+    const agentMtd = rawMp?.mtd || rawMtdPacing;
+    
+    return {
+      spend: apiMtd?.spend ?? agentMtd?.spend ?? agentMtd?.spend_mtd ?? 0,
+      leads: apiMtd?.leads ?? agentMtd?.leads ?? agentMtd?.leads_mtd ?? 0,
+      svs: apiMtd?.svs ?? agentMtd?.svs ?? agentMtd?.svs_mtd ?? benchmarks?.svs_mtd ?? 0,
+      qualified_leads: apiMtd?.qualified_leads ?? agentMtd?.qualified_leads ?? agentMtd?.qualified_leads_mtd ?? agentMtd?.positive_leads_mtd ?? benchmarks?.positive_leads_mtd ?? 0,
+      closures: apiMtd?.closures ?? agentMtd?.closures ?? agentMtd?.closures_mtd ?? 0,
+      impressions: apiMtd?.impressions ?? agentMtd?.impressions ?? agentMtd?.impressions_mtd ?? rawAp?.total_impressions ?? 0,
+      clicks: agentMtd?.clicks ?? agentMtd?.clicks_mtd ?? rawAp?.total_clicks ?? 0,
+    };
+  }, [mtdData, rawMp, rawMtdPacing, benchmarks, rawAp]);
+
+  // ─── 5. Core useMemo Hooks ─────────────────────────────────────────
 
   const filteredCampaign = useMemo(() => {
     if (selectedCampaignId === "ALL") return null;
@@ -552,9 +731,9 @@ export default function DashboardPage() {
     [rawAdRecommendations, selectedCampaignId, filteredCampaign]
   );
 
-  const adsetAnalysis = useMemo(() =>
-    selectedCampaignId === "ALL" ? rawAdsetAnalysis : rawAdsetAnalysis.filter((a: any) => a.campaign_id === selectedCampaignId || a.campaign_name === filteredCampaign?.campaign_name),
-    [rawAdsetAnalysis, selectedCampaignId, filteredCampaign]
+  const campaignAnalysis = useMemo(() =>
+    selectedCampaignId === "ALL" ? rawCampaignAudit : rawCampaignAudit.filter((c: any) => c.campaign_id === selectedCampaignId),
+    [rawCampaignAudit, selectedCampaignId]
   );
 
   const creativeHealth = useMemo(() =>
@@ -595,6 +774,19 @@ export default function DashboardPage() {
     daily_vhrs: rawAp.daily_vhrs || [],
   }), [rawAp]);
 
+  const todayStats = useMemo(() => {
+    const dailySpend = ap.daily_spends || [];
+    const dailyLeads = ap.daily_leads || [];
+    const conversionSanity = isGoogle ? (data as any).conversion_sanity : null;
+    const googleLeadsToday = conversionSanity?.leads_today ?? null;
+    const spendToday = dailySpend.length > 0 ? dailySpend[dailySpend.length - 1] : 0;
+    const leadsToday = isGoogle && googleLeadsToday !== null 
+      ? googleLeadsToday 
+      : (dailyLeads.length > 0 ? dailyLeads[dailyLeads.length - 1] : 0);
+    const cplToday = leadsToday > 0 ? spendToday / leadsToday : (spendToday > 0 ? spendToday : 0);
+    return { spendToday, leadsToday, cplToday };
+  }, [ap, isGoogle, data]);
+
   const mp = useMemo(() => rawMp ? rawMp : rawMtdPacing ? {
     month: new Date().toISOString().slice(0, 7),
     days_elapsed: rawMtdPacing.days_elapsed ?? 0,
@@ -610,9 +802,11 @@ export default function DashboardPage() {
       cpsv: clientTargets?.cpsv ?? { low: 0, high: 0 },
     },
     mtd: {
-      spend: rawMtdPacing.spend_mtd ?? 0,
-      leads: Math.round(rawMtdPacing.leads_mtd ?? 0),
-      cpl: rawMtdPacing.leads_mtd > 0 ? (rawMtdPacing.spend_mtd / rawMtdPacing.leads_mtd) : 0,
+      spend: authMtd.spend,
+      leads: authMtd.leads,
+      svs: authMtd.svs,
+      qualified_leads: authMtd.qualified_leads,
+      cpl: authMtd.leads > 0 ? (authMtd.spend / authMtd.leads) : 0,
     },
     projected_eom: {
       spend: rawMtdPacing.projected_spend ?? 0,
@@ -631,7 +825,7 @@ export default function DashboardPage() {
       leads: rawMtdPacing.days_remaining > 0 ? ((rawMtdPacing.target_leads ?? 0) - (rawMtdPacing.leads_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
     },
     alerts: ((data as any)?.account_pulse || rawAp)?.alerts?.map((a: any) => typeof a === "string" ? a : a.message || a.alert || JSON.stringify(a)) || [],
-  } : null, [rawMp, rawMtdPacing, clientTargets, data, rawAp]);
+  } : null, [rawMp, rawMtdPacing, clientTargets, data, rawAp, authMtd]);
 
   const displayAp = useMemo(() => {
     if (!filteredCampaign) return ap;
@@ -831,12 +1025,12 @@ export default function DashboardPage() {
 
   const costStack = (data as any).cost_stack || {};
   const rawScoringSummary = (data as any).scoring_summary;
-  const scoringSummary = adsetAnalysis.length > 0 ? {
-    total_adsets: adsetAnalysis.length,
-    winners: adsetAnalysis.filter((a: any) => a?.classification === "WINNER").length,
-    watch: adsetAnalysis.filter((a: any) => a?.classification === "WATCH").length,
-    underperformers: adsetAnalysis.filter((a: any) => a?.classification === "UNDERPERFORMER" || a?.classification === "LOSER").length,
-    auto_pause: Array.isArray(rawScoringSummary?.ad_scores?.auto_pause) ? rawScoringSummary.ad_scores.auto_pause : [],
+  const scoringSummary = campaignAnalysis.length > 0 ? {
+    total: campaignAnalysis.length,
+    winners: campaignAnalysis.filter((a: any) => a?.classification === "WINNER").length,
+    watch: campaignAnalysis.filter((a: any) => a?.classification === "WATCH").length,
+    underperformers: campaignAnalysis.filter((a: any) => a?.classification === "UNDERPERFORMER" || a?.classification === "LOSER").length,
+    auto_pause: Array.isArray(rawScoringSummary?.campaign_scores?.auto_pause) ? rawScoringSummary.campaign_scores.auto_pause : [],
   } : null;
 
   // Fallback for Google: if daily_spends empty, try daily_trends
@@ -925,7 +1119,10 @@ export default function DashboardPage() {
   const todayDate = new Date();
   const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
   const daysPassed = mp?.days_elapsed ?? Math.max(0, todayDate.getDate() - 1);
-  const healthTargetBudget = (benchmarks?.budget || 200000);
+  const budgetTargetMonthly = benchmarks?.budget ?? mp?.targets?.budget ?? 0;
+  const leadsTargetMonthly = benchmarks?.leads ?? mp?.targets?.leads ?? 0;
+  const healthTargetBudget = budgetTargetMonthly || 200000;
+  const healthTargetLeads = leadsTargetMonthly || 278;
   const proRatedBudgetThreshold = Math.round((healthTargetBudget / daysInMonth) * daysPassed);
 
   const getHealthScore = (val: number, target: number) => {
@@ -954,8 +1151,9 @@ export default function DashboardPage() {
     healthScoreComponents.creative * 0.10
   );
 
-  const svsMtd = benchmarks?.svs_mtd || 0;
-  const cpsvMtd = svsMtd > 0 ? (mp?.mtd?.spend || 0) / svsMtd : 0;
+  const svsMtd = authMtd.svs;
+  const qLeadsMtd = authMtd.qualified_leads;
+  const cpsvMtd = authMtd.svs > 0 ? authMtd.spend / authMtd.svs : 0;
   const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
@@ -1005,6 +1203,7 @@ export default function DashboardPage() {
   const targetCpl: number = t_cpl_target;
 
   const totalAdSpend = creativeHealth.reduce((s: number, a: any) => s + (a.spend || 0), 0);
+  const campaignAnalysisLeads: number = campaignAnalysis.reduce((s: number, a: any) => s + (a.leads || 0), 0);
   const wastedSpend = creativeHealth
     .filter((a: any) => (a.cpl || 0) > targetCpl && (a.spend || 0) > 0)
     .reduce((s: number, a: any) => s + (a.spend || 0), 0);
@@ -1165,11 +1364,11 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Quick Actions — subtle hover revealed */}
-                  <div className="absolute right-3 bottom-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="mt-auto flex items-center justify-end gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-6 text-[9px] px-2 py-0 hover:bg-white/50"
+                      className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
                       onClick={() => setActiveFixAlert(group)}
                     >
                       Fix Suggestion
@@ -1178,7 +1377,7 @@ export default function DashboardPage() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-6 text-[9px] px-2 py-0 hover:bg-white/50"
+                        className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
                         onClick={() => setSelectedCampaignId(group.campaigns[0].id)}
                       >
                         View Campaign
@@ -1219,6 +1418,7 @@ export default function DashboardPage() {
             trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
             icon={IndianRupee}
             subtitle={`MTD: ${formatINR(mp?.mtd?.spend || 0, 0)}`}
+            todayValue={formatINR(todayStats.spendToday, 0)}
             status={verifyData ? (
               verifyData.verified
                 ? { label: "Verified ✓", variant: "success" }
@@ -1232,6 +1432,7 @@ export default function DashboardPage() {
             trendValue={`${Math.abs(ap.leads_change_pct).toFixed(1)}%`}
             icon={Users}
             subtitle={`MTD: ${mp?.mtd?.leads || 0} leads`}
+            todayValue={todayStats.leadsToday.toString()}
             status={verifyData ? (
               verifyData.leadsDiscrepancyPct <= 2
                 ? { label: "Leads Verified ✓", variant: "success" }
@@ -1248,6 +1449,7 @@ export default function DashboardPage() {
             icon={Target}
             isInverse
             subtitle={`MTD CPL: ${formatINR(mp?.mtd?.cpl || 0, 0)}`}
+            todayValue={formatINR(todayStats.cplToday, 0)}
             status={
               thresholds || benchmarks
                 ? displayAp.overall_cpl <= t_cpl_target
@@ -1257,34 +1459,34 @@ export default function DashboardPage() {
                     : { label: "Alert", variant: "destructive" }
                 : undefined
             }
-
           />
 
           <KpiCard
             title="Avg CPSV (MTD)"
-            value={formatINR(mtdStats?.cpsv || 0, 0)}
+            value={formatINR(cpsvMtd || 0, 0)}
             icon={Zap}
             isInverse
             status={
-              (mtdStats?.cpsv || 0) > 0
-                ? (mtdStats?.cpsv || 0) <= healthTargetCpsv
+              (cpsvMtd || 0) > 0
+                ? (cpsvMtd || 0) <= targetCpsvValue
                   ? { label: "On Target", variant: "success" }
-                  : (mtdStats?.cpsv || 0) <= healthTargetCpsv * 1.3
+                  : (cpsvMtd || 0) <= targetCpsvValue * 1.3
                     ? { label: "Watch", variant: "warning" }
                     : { label: "Alert", variant: "destructive" }
                 : { label: "Awaiting Data", variant: "secondary" }
             }
-            subtitle={`vs benchmark (${formatINR(healthTargetCpsv, 0)})`}
+            subtitle={`vs benchmark (${formatINR(targetCpsvValue, 0)})`}
           />
+
           <KpiCard
             title="Monthly Pacing"
-            value={mtdStats?.spend && proRatedBudgetThreshold > 0 ? `${Math.round((mtdStats.spend / proRatedBudgetThreshold) * 100)}%` : "—"}
+            value={authMtd.spend && proRatedBudgetThreshold > 0 ? `${Math.round((authMtd.spend / proRatedBudgetThreshold) * 100)}%` : "—"}
             icon={Gauge}
             status={
-              mtdStats?.spend && proRatedBudgetThreshold > 0 
-                ? (mtdStats.spend / proRatedBudgetThreshold) >= 0.9 && (mtdStats.spend / proRatedBudgetThreshold) <= 1.1
+              authMtd.spend && proRatedBudgetThreshold > 0 
+                ? (authMtd.spend / proRatedBudgetThreshold) >= 0.9 && (authMtd.spend / proRatedBudgetThreshold) <= 1.1
                   ? { label: "On Track", variant: "success" }
-                  : (mtdStats.spend / proRatedBudgetThreshold) > 1.1
+                  : (authMtd.spend / proRatedBudgetThreshold) > 1.1
                     ? { label: "Ahead", variant: "warning" }
                     : { label: "Behind", variant: "destructive" }
                 : { label: "Awaiting Data", variant: "secondary" }
@@ -1311,7 +1513,7 @@ export default function DashboardPage() {
               ? "border-amber-500/30"
               : "border-red-500/30"
         }>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="space-y-3">
               {/* Header */}
               <div className="flex items-center justify-between">
@@ -1361,15 +1563,15 @@ export default function DashboardPage() {
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Spend</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">API Spend</p>
-                  <p className="text-sm font-semibold tabular-nums">{formatINR(verifyData.apiSpend, 0)}</p>
+                  <p className="t-label text-muted-foreground uppercase tracking-widest">API Spend</p>
+                  <p className="t-body font-semibold tabular-nums text-foreground">{formatINR(verifyData.apiSpend, 0)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Agent Spend</p>
-                  <p className="text-sm font-semibold tabular-nums">{formatINR(verifyData.agentSpend, 0)}</p>
+                  <p className="t-label text-muted-foreground uppercase tracking-widest">Agent Spend</p>
+                  <p className="t-body font-semibold tabular-nums text-foreground">{formatINR(verifyData.agentSpend, 0)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Difference</p>
+                  <p className="t-label text-muted-foreground uppercase tracking-widest">Difference</p>
                   <p className={`text-sm font-semibold tabular-nums ${verifyData.discrepancyPct <= 2 ? "text-emerald-400" : verifyData.discrepancyPct <= 5 ? "text-amber-400" : "text-red-400"}`}>
                     {verifyData.discrepancyPct.toFixed(1)}%
                   </p>
@@ -1387,23 +1589,23 @@ export default function DashboardPage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="cursor-help">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Entity Leads</p>
-                        <p className="text-sm font-semibold tabular-nums">{formatNumber(verifyData.apiLeads)}</p>
+                        <p className="t-label text-muted-foreground uppercase tracking-widest">Entity Leads</p>
+                        <p className="t-body font-semibold tabular-nums text-foreground">{formatNumber(verifyData.apiLeads)}</p>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
                       <p>Sum from entity-level arrays (creative_health / adset_analysis)</p>
                       {verifyData.creativeHealthLeads !== null && <p>Creative Health: {verifyData.creativeHealthLeads}</p>}
-                      {verifyData.adsetAnalysisLeads !== null && <p>Adset Analysis: {verifyData.adsetAnalysisLeads}</p>}
+                      {verifyData.campaignAnalysisLeads !== null && <p>Campaign Analysis: {verifyData.campaignAnalysisLeads}</p>}
                     </TooltipContent>
                   </Tooltip>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Reported Leads</p>
-                  <p className="text-sm font-semibold tabular-nums">{formatNumber(verifyData.agentLeads)}</p>
+                  <p className="t-label text-muted-foreground uppercase tracking-widest">Reported Leads</p>
+                  <p className="t-body font-semibold tabular-nums text-foreground">{formatNumber(verifyData.agentLeads)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Difference</p>
+                  <p className="t-label text-muted-foreground uppercase tracking-widest">Difference</p>
                   <p className={`text-sm font-semibold tabular-nums ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400" : "text-red-400"}`}>
                     {verifyData.leadsDiscrepancyPct.toFixed(1)}%
                   </p>
@@ -1418,12 +1620,12 @@ export default function DashboardPage() {
       )}
 
       {/* Main Breakdown Sections */}
-      <FixSuggestionModal alert={activeFixAlert} onClose={() => setActiveFixAlert(null)} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <FixSuggestionModal alert={activeFixAlert} onClose={() => setActiveFixAlert(null)} intellectInsights={rawIntellectInsights} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="h-full flex flex-col">
           <CardContent className="p-4 flex flex-col justify-center flex-1">
             <div className="flex items-center gap-1.5 mb-4">
-              <h3 className="text-[15px] font-large uppercase tracking-wider text-black">Account Health</h3>
+              <h3 className="t-label text-foreground/90">Account Health</h3>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
@@ -1457,21 +1659,12 @@ export default function DashboardPage() {
             <div className="rounded-lg border border-border/40 bg-muted/20 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="t-micro font-medium uppercase tracking-wider text-muted-foreground">
                     Performance Intelligence Score
                   </p>
-                  <p className="mt-1 text-3xl font-bold tabular-nums text-foreground">{accountHealthScore}</p>
+                  <p className="t-kpi text-foreground">{accountHealthScore}</p>
                 </div>
-                <Badge
-                  variant="secondary"
-                  className={`text-[10px] ${accountHealthScore >= 85 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                    accountHealthScore >= 70 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                      accountHealthScore >= 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
-                        "bg-red-500/10 text-red-400 border-red-500/20"
-                    }`}
-                >
-                  {accountHealthScore >= 85 ? "Excellent" : accountHealthScore >= 70 ? "Good" : accountHealthScore >= 40 ? "Watch" : "Poor"}
-                </Badge>
+                <StatusBadge classification={getClassification(accountHealthScore)} />
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <div className={`w-full h-2 rounded-full ${getHealthBarBg(accountHealthScore)}`}>
@@ -1480,19 +1673,19 @@ export default function DashboardPage() {
                     style={{ width: `${Math.min(accountHealthScore || 0, 100)}%` }}
                   />
                 </div>
-                <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+                <span className="w-8 text-right t-micro tabular-nums text-muted-foreground">
                   {accountHealthScore}
                 </span>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 t-micro text-muted-foreground">
                 MTD-based static health analysis
               </p>
             </div>
           </CardContent>
         </Card>
         <Card className="lg:col-span-2 h-full flex flex-col">
-          <CardContent className="p-4">
-            <h3 className="text-[13px] font-bold text-foreground uppercase tracking-wider mb-3">Health Score Breakdown (MTD Only)</h3>
+          <CardContent className="card-content-premium">
+            <h3 className="t-label font-bold text-foreground uppercase tracking-wider mb-3">Health Score Breakdown (MTD Only)</h3>
             <div className={`grid gap-3 ${isGoogle ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {healthBreakdownItems.map((item) => {
                 const pct = item.weight > 0 ? (item.score / item.weight) * 100 : 0;
@@ -1508,10 +1701,10 @@ export default function DashboardPage() {
                   <div key={item.label} className="flex items-center gap-3 rounded-md border border-border/30 bg-card p-3 shadow-xs hover:border-primary/20 transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        <p className="t-label text-muted-foreground uppercase tracking-widest">
                           {item.label} ({item.weight})
                         </p>
-                        <p className="text-sm font-semibold tabular-nums text-foreground">
+                        <p className="t-body font-semibold tabular-nums text-foreground">
                           {Math.round(item.score)}
                         </p>
                       </div>
@@ -1522,14 +1715,14 @@ export default function DashboardPage() {
                             style={{ width: `${normalized}%` }}
                           />
                         </div>
-                        <span className="w-10 text-right text-[10px] tabular-nums text-muted-foreground">
+                        <span className="w-10 text-right t-micro tabular-nums text-muted-foreground">
                           {Math.round(normalized)}%
                         </span>
                       </div>
                     </div>
                     <Badge
                       variant="secondary"
-                      className={`text-[9px] ${normalized >= 85 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                      className={`t-micro ${normalized >= 85 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
                         normalized >= 70 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
                           normalized >= 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                             "bg-red-500/10 text-red-400 border-red-500/20"
@@ -1571,25 +1764,25 @@ export default function DashboardPage() {
       {/* Google: Campaign Split */}
       {isGoogle && searchSummary && dgSummary && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Campaign Split</h3>
+              <h3 className="t-micro font-medium text-muted-foreground uppercase tracking-wider">Campaign Split</h3>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="t-micro text-muted-foreground tabular-nums">
                   {(searchSummary.campaign_count || 0) + (dgSummary.campaign_count || 0)} active campaigns
                 </span>
                 <a href="/#/campaigns?filter=branded" className="cursor-pointer">
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
+                  <Badge variant="secondary" className="t-micro px-2 py-0.5 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
                     {searchSummary.campaign_count} Search · CPL {formatINR(searchSummary.cpl, 0)} →
                   </Badge>
                 </a>
                 <a href="/#/campaigns?filter=demand_gen" className="cursor-pointer">
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+                  <Badge variant="secondary" className="t-micro px-2 py-0.5 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
                     {dgSummary.campaign_count} DG · CPL {formatINR(dgSummary.cpl, 0)} →
                   </Badge>
                 </a>
                 {autoPauseCandidates.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-red-400 bg-red-500/10">
+                  <Badge variant="secondary" className="t-micro px-2 py-0.5 text-red-400 bg-red-500/10">
                     {autoPauseCandidates.length} Auto-Pause
                   </Badge>
                 )}
@@ -1603,8 +1796,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Funnel Split */}
         <Card className="h-full flex flex-col">
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-m font-medium">{isGoogle ? "Spend Split" : "Funnel Split"}</CardTitle>
+          <CardHeader className="card-header-premium">
+            <CardTitle className="t-section-title font-medium">{isGoogle ? "Spend Split" : "Funnel Split"}</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 flex-1">
             <div className="space-y-3">
@@ -1621,7 +1814,7 @@ export default function DashboardPage() {
                     />
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 t-micro text-muted-foreground">
                   {isGoogle ? "Share of spend by campaign type" : "Share of spend by funnel layer"}
                 </p>
               </div>
@@ -1635,10 +1828,10 @@ export default function DashboardPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <p className="t-micro uppercase tracking-wider text-muted-foreground">
                           {entry.name}
                         </p>
-                        <p className="text-sm font-semibold tabular-nums text-foreground">
+                        <p className="t-body font-semibold tabular-nums text-foreground">
                           {entry.value}%
                         </p>
                       </div>
@@ -1652,12 +1845,6 @@ export default function DashboardPage() {
                         />
                       </div>
                     </div>
-                    {/* <Badge
-                      variant="secondary"
-                      className="text-[9px] text-foreground bg-muted"
-                    >
-                      Share
-                    </Badge> */}
                   </div>
                 ))}
               </div>
@@ -1693,52 +1880,63 @@ export default function DashboardPage() {
           }
 
           // Status logic — volume metrics (higher is better)
-          function pacingStatus(delivered: number, target: number): { label: string; cls: string } {
+          function pacingStatus(delivered: number, target: number): { label: string; cls?: string } {
             if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
             const ratio = div(delivered, target);
-            if (ratio >= 1.0) return { label: "ON TRACK", cls: "text-emerald-400" };
-            if (ratio >= 0.8) return { label: "SLIGHTLY BEHIND", cls: "text-amber-400" };
-            return { label: "OFF TRACK", cls: "text-red-400" };
+            if (ratio >= 1.0) return { label: "ON TRACK", cls: "bg-green-100 text-green-700 hover:bg-green-100 border-none dark:bg-green-500/20 dark:text-green-300" };
+            if (ratio >= 0.8) return { label: "SLIGHTLY BEHIND", cls: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none dark:bg-yellow-500/20 dark:text-yellow-300" };
+            return { label: "OFF TRACK", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
           }
           // Status logic — cost metrics (lower is better)
-          function costStatus(delivered: number, target: number): { label: string; cls: string } {
+          function costStatus(delivered: number, target: number): { label: string; cls?: string } {
             if (target <= 0 || delivered <= 0) return { label: "—", cls: "text-muted-foreground" };
             const ratio = div(delivered, target);
-            if (ratio <= 1.0) return { label: "ON TARGET", cls: "text-emerald-400" };
-            if (ratio <= 1.15) return { label: "SLIGHTLY HIGH", cls: "text-amber-400" };
-            return { label: "OFF TARGET", cls: "text-red-400" };
+            if (ratio <= 1.0) return { label: "ON TARGET", cls: "bg-blue-100 text-blue-700 hover:bg-blue-100 border-none dark:bg-blue-500/20 dark:text-blue-300" };
+            if (ratio <= 1.15) return { label: "SLIGHTLY HIGH", cls: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none dark:bg-yellow-500/20 dark:text-yellow-300" };
+            return { label: "OFF TARGET", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
           }
           // Budget status — on track when within ±10%
-          function budgetStatus(delivered: number, target: number): { label: string; cls: string } {
+          function budgetStatus(delivered: number, target: number): { label: string; cls?: string } {
             if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
             const ratio = div(delivered, target);
-            if (ratio >= 0.9 && ratio <= 1.1) return { label: "ON TRACK", cls: "text-emerald-400" };
-            if (ratio > 1.1) return { label: "OVERSPENT", cls: "text-red-400" };
-            if (ratio >= 0.8) return { label: "SLIGHTLY UNDER", cls: "text-amber-400" };
-            return { label: "UNDERSPENT", cls: "text-red-400" };
+            if (ratio >= 0.9 && ratio <= 1.1) return { label: "ON TRACK", cls: "bg-green-100 text-green-700 hover:bg-green-100 border-none dark:bg-green-500/20 dark:text-green-300" };
+            if (ratio > 1.1) return { label: "OVERSPENT", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
+            if (ratio >= 0.8) return { label: "SLIGHTLY UNDER", cls: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none dark:bg-yellow-500/20 dark:text-yellow-300" };
+            return { label: "UNDERSPENT", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
           }
 
-          // ─── Data from MTD Deliverables API (authoritative source) ──
-          const mtdSpend = mtdData?.mtd?.spend ?? mp?.mtd?.spend ?? 0;
-          const mtdLeads = mtdData?.mtd?.leads ?? mp?.mtd?.leads ?? 0;
-          const mtdImpressions = mtdData?.mtd?.impressions ?? 0;
-          const mtdQLeads = mtdData?.mtd?.qualified_leads ?? 0;
-          const mtdSvs = mtdData?.mtd?.svs ?? 0;
+          type RowDef = {
+            label: string;
+            target: React.ReactNode;
+            mtdTarget: React.ReactNode;
+            delivered: React.ReactNode;
+            projectedNode: React.ReactNode;
+            status: { label: string; cls?: string; variant?: string };
+            daily: React.ReactNode;
+            highlight?: boolean;
+          };
+          const Dash = () => <span className="text-muted-foreground">—</span>;
+          const mtdSpend = authMtd.spend;
+          const mtdLeads = authMtd.leads;
+          const mtdImpressions = authMtd.impressions;
+          const mtdClicks = authMtd.clicks;
+          const mtdQLeads = authMtd.qualified_leads;
+          const mtdSvs = authMtd.svs;
           const mtdCpl = mtdLeads > 0 ? div(mtdSpend, mtdLeads) : 0;
           const mtdCpql = mtdQLeads > 0 ? div(mtdSpend, mtdQLeads) : 0;
           const mtdCpsv = mtdSvs > 0 ? div(mtdSpend, mtdSvs) : 0;
           const mtdCpm = mtdImpressions > 0 ? div(mtdSpend, mtdImpressions) * 1000 : 0;
-          const mtdClosures = mtdData?.mtd?.closures ?? 0;
+          const mtdCpc = mtdClicks > 0 ? div(mtdSpend, mtdClicks) : 0;
+          const mtdClosures = authMtd.closures;
           const projectedSpend = projected(mtdSpend);
           const projectedLeads = projected(mtdLeads);
           const projectedQLeads = projected(mtdQLeads);
           const projectedSvs = projected(mtdSvs);
 
           // ─── Targets ─────────────────────────────────────────────────
-          const budgetTargetMonthly = benchmarks?.budget ?? mp?.targets?.budget ?? 0;
-          const leadsTargetMonthly = benchmarks?.leads ?? mp?.targets?.leads ?? 0;
           const cplTargetVal = benchmarks?.cpl ?? mp?.targets?.cpl ?? 0;
-          const cpmTargetVal = benchmarks?.cpm_max || 450;
+          const cpmTargetVal = benchmarks?.cpm_max || (isGoogle ? 1200 : 450);
+          const cpcTargetVal = benchmarks?.cpc_target || (isGoogle ? 120 : 0);
           const cpqlTargetVal = benchmarks?.cpql_target ?? 0;
           const svsTargetLow = benchmarks?.svs_low ?? mp?.targets?.svs?.low ?? 0;
           const svsTargetHigh = benchmarks?.svs_high ?? mp?.targets?.svs?.high ?? 0;
@@ -1747,165 +1945,112 @@ export default function DashboardPage() {
           const qLeadTargetMonthly = benchmarks?.positive_lead_target ?? 0;
 
           // ─── Row computations ─────────────────────────────────────────
-          const budget = {
-            target: budgetTargetMonthly,
-            mtdTarget: mtdTarget(budgetTargetMonthly),
-            delivered: mtdSpend,
-            projected: projected(mtdSpend),
-            dailyNeeded: dailyNeeded(budgetTargetMonthly, mtdSpend),
+          const budgetRow = {
+            target: formatINR(budgetTargetMonthly, 0),
+            mtdTarget: formatINR(mtdTarget(budgetTargetMonthly), 0),
+            delivered: <span className="font-semibold">{formatINR(mtdSpend, 0)}</span>,
+            projectedNode: formatINR(projectedSpend, 0),
             status: budgetStatus(mtdSpend, mtdTarget(budgetTargetMonthly)),
+            daily: formatINR(dailyNeeded(budgetTargetMonthly, mtdSpend), 0),
           };
-          const leads = {
-            target: leadsTargetMonthly,
-            mtdTarget: mtdTarget(leadsTargetMonthly),
-            delivered: mtdLeads,
-            projected: projected(mtdLeads),
-            dailyNeeded: dailyNeeded(leadsTargetMonthly, mtdLeads),
+          const leadsRow = {
+            target: Math.round(leadsTargetMonthly),
+            mtdTarget: Math.round(mtdTarget(leadsTargetMonthly)),
+            delivered: <span className="font-semibold">{Math.round(mtdLeads)}</span>,
+            projectedNode: Math.round(projectedLeads),
             status: pacingStatus(mtdLeads, mtdTarget(leadsTargetMonthly)),
+            daily: dailyNeeded(leadsTargetMonthly, mtdLeads).toFixed(1),
           };
-          const cpl = {
-            target: cplTargetVal,
-            mtdTarget: cplTargetVal,
-            delivered: mtdCpl,
-            projected: projectedRatio(projectedSpend, projectedLeads),
+          const cplRow = {
+            target: formatINR(cplTargetVal, 0),
+            mtdTarget: formatINR(cplTargetVal, 0),
+            delivered: <span className="font-semibold">{mtdCpl > 0 ? formatINR(mtdCpl, 0) : <Dash />}</span>,
+            projectedNode: projectedRatio(projectedSpend, projectedLeads) > 0 ? formatINR(projectedRatio(projectedSpend, projectedLeads), 0) : <Dash />,
             status: costStatus(mtdCpl, cplTargetVal),
+            daily: <Dash />,
           };
-          const qleads = {
-            target: qLeadTargetMonthly,
-            mtdTarget: mtdTarget(qLeadTargetMonthly),
-            delivered: mtdQLeads,
-            projected: projectedQLeads,
-            dailyNeeded: dailyNeeded(qLeadTargetMonthly, mtdQLeads),
-            status: pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)),
+          const qLeadsRow = {
+            target: qLeadTargetMonthly > 0 ? Math.round(qLeadTargetMonthly) : <Dash />,
+            mtdTarget: qLeadTargetMonthly > 0 ? Math.round(mtdTarget(qLeadTargetMonthly)) : <Dash />,
+            delivered: <span className="font-semibold">{mtdQLeads > 0 ? mtdQLeads : <Dash />}</span>,
+            projectedNode: projectedQLeads > 0 ? Math.round(projectedQLeads) : <Dash />,
+            status: qLeadTargetMonthly > 0 ? pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)) : { label: "Awaiting", cls: "text-muted-foreground", variant: "secondary" },
+            daily: qLeadTargetMonthly > 0 && daysRemaining > 0 ? dailyNeeded(qLeadTargetMonthly, mtdQLeads).toFixed(1) : <Dash />,
           };
-          const cpql = {
-            target: cpqlTargetVal,
-            mtdTarget: cpqlTargetVal,
-            delivered: mtdCpql,
-            projected: projectedRatio(projectedSpend, projectedQLeads),
-            status: costStatus(mtdCpql, cpqlTargetVal),
+          const cpqlRow = {
+            target: cpqlTargetVal > 0 ? formatINR(cpqlTargetVal, 0) : <Dash />,
+            mtdTarget: cpqlTargetVal > 0 ? formatINR(cpqlTargetVal, 0) : <Dash />,
+            delivered: <span className="font-semibold">{mtdCpql > 0 ? formatINR(mtdCpql, 0) : <Dash />}</span>,
+            projectedNode: projectedRatio(projectedSpend, projectedQLeads) > 0 ? formatINR(projectedRatio(projectedSpend, projectedQLeads), 0) : <Dash />,
+            status: cpqlTargetVal > 0 ? costStatus(mtdCpql, cpqlTargetVal) : { label: "Awaiting", cls: "text-muted-foreground", variant: "secondary" },
+            daily: <Dash />,
           };
-          const svs = {
-            targetLow: svsTargetLow,
-            targetHigh: svsTargetHigh,
-            mtdTarget: mtdTarget(svsTargetLow),
-            delivered: mtdSvs,
-            projected: projectedSvs,
-            dailyNeeded: dailyNeeded(svsTargetLow, mtdSvs),
-            status: pacingStatus(mtdSvs, mtdTarget(svsTargetLow)),
+          const svsRow = {
+            target: svsTargetLow > 0 ? `${svsTargetLow}–${svsTargetHigh}` : <Dash />,
+            mtdTarget: svsTargetLow > 0 ? Math.round(mtdTarget(svsTargetLow)) : <Dash />,
+            delivered: <span className="font-semibold">{mtdSvs > 0 ? mtdSvs : <Dash />}</span>,
+            projectedNode: projectedSvs > 0 ? Math.round(projectedSvs) : <Dash />,
+            status: mtdSvs > 0 ? pacingStatus(mtdSvs, mtdTarget(svsTargetLow)) : { label: "Awaiting data", cls: "text-muted-foreground", variant: "secondary" },
+            daily: svsTargetLow > 0 && daysRemaining > 0 ? dailyNeeded(svsTargetLow, mtdSvs).toFixed(1) : <Dash />,
+            highlight: true,
           };
-          const cpsv = {
-            targetLow: cpsvTargetLow,
-            targetHigh: cpsvTargetHigh,
-            mtdTarget: cpsvTargetHigh,
-            delivered: mtdCpsv,
-            projected: projectedRatio(projectedSpend, projectedSvs),
-            status: costStatus(mtdCpsv, cpsvTargetHigh),
+          const cpsvRow = {
+            target: cpsvTargetHigh > 0 ? `${formatINR(cpsvTargetLow, 0)}–${formatINR(cpsvTargetHigh, 0)}` : <Dash />,
+            mtdTarget: cpsvTargetHigh > 0 ? formatINR(mtdTarget(cpsvTargetHigh), 0) : <Dash />,
+            delivered: <span className="font-semibold">{mtdCpsv > 0 ? formatINR(mtdCpsv, 0) : <Dash />}</span>,
+            projectedNode: projectedRatio(projectedSpend, projectedSvs) > 0 ? formatINR(projectedRatio(projectedSpend, projectedSvs), 0) : <Dash />,
+            status: mtdCpsv > 0 ? costStatus(mtdCpsv, cpsvTargetHigh) : { label: "Awaiting data", cls: "text-muted-foreground", variant: "secondary" },
+            daily: <Dash />,
           };
-          const cpm = {
-            target: cpmTargetVal,
-            mtdTarget: cpmTargetVal,
-            delivered: mtdCpm,
-            projected: mtdCpm, // Projected CPM usually matches current
+          const cpmRow = {
+            label: "CPM",
+            target: formatINR(cpmTargetVal, 0),
+            mtdTarget: formatINR(cpmTargetVal, 0),
+            delivered: <span className="font-semibold">{mtdCpm > 0 ? formatINR(mtdCpm, 0) : <Dash />}</span>,
+            projectedNode: <Dash />,
             status: costStatus(mtdCpm, cpmTargetVal),
+            daily: <Dash />,
+          };
+          const cpcRow = {
+            label: "CPC",
+            target: cpcTargetVal > 0 ? formatINR(cpcTargetVal, 1) : <Dash />,
+            mtdTarget: cpcTargetVal > 0 ? formatINR(cpcTargetVal, 1) : <Dash />,
+            delivered: <span className="font-semibold">{mtdCpc > 0 ? formatINR(mtdCpc, 1) : <Dash />}</span>,
+            projectedNode: <Dash />,
+            status: costStatus(mtdCpc, cpcTargetVal),
+            daily: <Dash />,
+          };
+          const closuresRow = {
+            label: "Closures",
+            target: <Dash />,
+            mtdTarget: <Dash />,
+            delivered: <span className="font-semibold">{mtdClosures > 0 ? mtdClosures : <Dash />}</span>,
+            projectedNode: <Dash />,
+            status: mtdClosures > 0 ? { label: "TRACKING", variant: "success" } : { label: "Awaiting data", cls: "text-muted-foreground", variant: "secondary" },
+            daily: <Dash />,
           };
 
-          const Dash = () => <span className="text-muted-foreground">—</span>;
 
-          type RowDef = {
-            label: string;
-            target: React.ReactNode;
-            mtdTarget: React.ReactNode;
-            delivered: React.ReactNode;
-            projectedNode: React.ReactNode;
-            status: { label: string; cls: string };
-            daily: React.ReactNode;
-            highlight?: boolean;
-          };
-
-          const rows: RowDef[] = [
-            {
-              label: "Spend",
-              target: formatINR(budget.target, 0),
-              mtdTarget: formatINR(budget.mtdTarget, 0),
-              delivered: <span className="font-semibold">{formatINR(budget.delivered, 0)}</span>,
-              projectedNode: formatINR(budget.projected, 0),
-              status: budget.status,
-              daily: formatINR(budget.dailyNeeded, 0),
-            },
-            {
-              label: "Leads",
-              target: Math.round(leads.target),
-              mtdTarget: Math.round(leads.mtdTarget),
-              delivered: <span className="font-semibold">{Math.round(leads.delivered)}</span>,
-              projectedNode: Math.round(leads.projected),
-              status: leads.status,
-              daily: leads.dailyNeeded.toFixed(1),
-            },
-            {
-              label: "CPL",
-              target: formatINR(cpl.target, 0),
-              mtdTarget: formatINR(cpl.mtdTarget, 0),
-              delivered: <span className="font-semibold">{cpl.delivered > 0 ? formatINR(cpl.delivered, 0) : <Dash />}</span>,
-              projectedNode: cpl.projected > 0 ? formatINR(cpl.projected, 0) : <Dash />,
-              status: cpl.status,
-              daily: <Dash />,
-            },
-            {
-              label: "CPM",
-              target: formatINR(cpm.target, 0),
-              mtdTarget: formatINR(cpm.mtdTarget, 0),
-              delivered: <span className="font-semibold">{cpm.delivered > 0 ? formatINR(cpm.delivered, 0) : <Dash />}</span>,
-              projectedNode: <Dash />,
-              status: cpm.status,
-              daily: <Dash />,
-            },
-            {
-              label: "Qualified Leads",
-              target: qleads.target > 0 ? Math.round(qleads.target) : <Dash />,
-              mtdTarget: qleads.target > 0 ? Math.round(qleads.mtdTarget) : <Dash />,
-              delivered: <span className="font-semibold">{mtdQLeads > 0 ? mtdQLeads : <Dash />}</span>,
-              projectedNode: qleads.projected > 0 ? Math.round(qleads.projected) : <Dash />,
-              status: qleads.target > 0 ? qleads.status : { label: "Awaiting", cls: "text-muted-foreground" },
-              daily: qleads.target > 0 && daysRemaining > 0 ? qleads.dailyNeeded.toFixed(1) : <Dash />,
-            },
-            {
-              label: "CPQL",
-              target: cpql.target > 0 ? formatINR(cpql.target, 0) : <Dash />,
-              mtdTarget: cpql.target > 0 ? formatINR(cpql.mtdTarget, 0) : <Dash />,
-              delivered: <span className="font-semibold">{mtdCpql > 0 ? formatINR(mtdCpql, 0) : <Dash />}</span>,
-              projectedNode: cpql.projected > 0 ? formatINR(cpql.projected, 0) : <Dash />,
-              status: cpql.target > 0 ? cpql.status : { label: "Awaiting", cls: "text-muted-foreground" },
-              daily: <Dash />,
-            },
-            {
-              label: "SVs",
-              target: svs.targetLow > 0 ? `${svs.targetLow}–${svs.targetHigh}` : <Dash />,
-              mtdTarget: svs.targetLow > 0 ? Math.round(svs.mtdTarget) : <Dash />,
-              delivered: <span className="font-semibold">{mtdSvs > 0 ? mtdSvs : <Dash />}</span>,
-              projectedNode: svs.projected > 0 ? Math.round(svs.projected) : <Dash />,
-              status: mtdSvs > 0 ? svs.status : { label: "Awaiting data", cls: "text-muted-foreground" },
-              daily: svs.targetLow > 0 && daysRemaining > 0 ? svs.dailyNeeded.toFixed(1) : <Dash />,
-              highlight: true,
-            },
-            {
-              label: "CPSV",
-              target: cpsv.targetHigh > 0 ? `${formatINR(cpsv.targetLow, 0)}–${formatINR(cpsv.targetHigh, 0)}` : <Dash />,
-              mtdTarget: cpsv.targetHigh > 0 ? formatINR(cpsv.mtdTarget, 0) : <Dash />,
-              delivered: <span className="font-semibold">{mtdCpsv > 0 ? formatINR(mtdCpsv, 0) : <Dash />}</span>,
-              projectedNode: cpsv.projected > 0 ? formatINR(cpsv.projected, 0) : <Dash />,
-              status: mtdCpsv > 0 ? cpsv.status : { label: "Awaiting data", cls: "text-muted-foreground" },
-              daily: <Dash />,
-            },
-            {
-              label: "Closures",
-              target: <Dash />,
-              mtdTarget: <Dash />,
-              delivered: <span className="font-semibold">{mtdClosures > 0 ? mtdClosures : <Dash />}</span>,
-              projectedNode: <Dash />,
-              status: mtdClosures > 0 ? { label: "TRACKING", cls: "text-emerald-400" } : { label: "Awaiting data", cls: "text-muted-foreground" },
-              daily: <Dash />,
-            },
+          const rows: RowDef[] = isGoogle ? [
+            { label: "Spend", ...budgetRow },
+            { label: "Conversions", ...leadsRow },
+            { label: "Cost/Conv.", ...cplRow },
+            { ...cpcRow },
+            { label: "Site Visits (SVs)", ...svsRow },
+            { label: "CPSV", ...cpsvRow },
+            { label: "Qualified Conversions", ...qLeadsRow },
+            { label: "CPQL", ...cpqlRow },
+            { ...closuresRow },
+          ] : [
+            { label: "Spend", ...budgetRow },
+            { label: "Leads", ...leadsRow },
+            { label: "CPL", ...cplRow },
+            { ...cpmRow },
+            { label: "Qualified Leads", ...qLeadsRow },
+            { label: "CPQL", ...cpqlRow },
+            { label: "SVs", ...svsRow },
+            { label: "CPSV", ...cpsvRow },
+            { ...closuresRow },
           ];
 
           const hasMtdMismatch = mtdData?.status?.tracking_issue_flag;
@@ -1913,32 +2058,33 @@ export default function DashboardPage() {
 
           return (
             <Card className="lg:col-span-2 h-full flex flex-col">
-              <CardHeader className="pb-2 px-4 pt-4">
+              <CardHeader className="card-header-premium">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <CardTitle className="text-sm font-medium">
-                      Monthly Pacing — {mp?.month || new Date().toISOString().slice(0, 7)}
+                    <CardTitle className="t-section-title font-medium">
+                      {isGoogle ? "Google Ads" : "Meta Ads"} Monthly Pacing — {mp?.month || new Date().toISOString().slice(0, 7)}
                     </CardTitle>
-                    <p className="text-[10px] text-muted-foreground">
+
+                    <p className="t-micro text-muted-foreground">
                       {daysElapsed} days elapsed · {daysRemaining} remaining · {((mp?.pct_through_month || 0)).toFixed(0)}% through month
                       {mtdData?.last_updated && (
                         <span className="ml-2 text-muted-foreground/60">· updated {new Date(mtdData.last_updated).toLocaleDateString()}</span>
                       )}
                     </p>
                   </div>
-                  <a href="/#/mtd-deliverables" className="text-[10px] text-primary flex items-center gap-0.5 hover:underline">
+                  <a href="/#/mtd-deliverables" className="t-micro text-primary flex items-center gap-0.5 hover:underline">
                     Update MTD Deliverables <ArrowRight className="w-2.5 h-2.5" />
                   </a>
                 </div>
                 {/* Data integrity flags */}
                 {hasMtdMismatch && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-red-400 mt-1 rounded bg-red-500/8 px-2 py-1">
+                  <div className="flex items-center gap-1.5 t-micro text-red-400 mt-1 rounded bg-red-500/8 px-2 py-1">
                     <AlertTriangle className="w-3 h-3 shrink-0" />
                     Tracking issue detected — spend recorded but 0 leads. MTD data may be incomplete.
                   </div>
                 )}
                 {hasManualMissing && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-amber-400 mt-1 rounded bg-amber-500/8 px-2 py-1">
+                  <div className="flex items-center gap-1.5 t-micro text-amber-400 mt-1 rounded bg-amber-500/8 px-2 py-1">
                     <AlertTriangle className="w-3 h-3 shrink-0" />
                     SVs and Qualified Leads not entered yet — update MTD Deliverables for full pacing view.
                   </div>
@@ -1946,12 +2092,12 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="t-table w-full">
                     <thead>
                       <tr className="border-b border-border/50">
-                        <th className="p-2 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground sticky left-0 bg-card">Metric</th>
-                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
-                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                        <th className="text-left t-micro font-medium uppercase tracking-wider text-muted-foreground sticky left-0 bg-card">Metric</th>
+                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground">Target</th>
+                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>MTD Target</span>
@@ -1961,8 +2107,8 @@ export default function DashboardPage() {
                             </TooltipContent>
                           </Tooltip>
                         </th>
-                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
-                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
+                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>Projected</span>
@@ -1972,8 +2118,8 @@ export default function DashboardPage() {
                             </TooltipContent>
                           </Tooltip>
                         </th>
-                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                        <th className="p-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>Daily Needed</span>
@@ -1988,17 +2134,17 @@ export default function DashboardPage() {
                     <tbody>
                       {rows.map((row, i) => (
                         <tr key={row.label} className={`border-b border-border/30 ${row.highlight ? "bg-primary/3" : ""} hover:bg-muted/20 transition-colors`}>
-                          <td className="p-2 text-foreground font-medium sticky left-0 bg-card">{row.label}</td>
-                          <td className="p-2 text-right tabular-nums text-muted-foreground">{row.target}</td>
-                          <td className="p-2 text-right tabular-nums text-primary/80">{row.mtdTarget}</td>
-                          <td className="p-2 text-right tabular-nums">{row.delivered}</td>
-                          <td className="p-2 text-right tabular-nums">{row.projectedNode}</td>
-                          <td className="p-2 text-right">
-                            <Badge variant="secondary" className={`text-[10px] ${row.status.cls}`}>
+                          <td className="t-body font-medium sticky left-0 bg-card">{row.label}</td>
+                          <td className="t-body tabular-nums text-muted-foreground text-right">{row.target}</td>
+                          <td className="t-body tabular-nums text-primary/80 text-right">{row.mtdTarget}</td>
+                          <td className="t-body tabular-nums text-right">{row.delivered}</td>
+                          <td className="t-body tabular-nums text-right">{row.projectedNode}</td>
+                          <td className="text-right">
+                            <Badge variant={(row.status as any).variant || "outline"} className={`t-micro ${row.status.cls || ""}`}>
                               {row.status.label}
                             </Badge>
                           </td>
-                          <td className="p-2 text-right tabular-nums text-foreground/80">{row.daily}</td>
+                          <td className="t-body tabular-nums text-foreground/80 text-right">{row.daily}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2007,7 +2153,7 @@ export default function DashboardPage() {
                 {(mp?.alerts?.length || 0) > 0 && (
                   <div className="space-y-1 pt-2 mt-2 border-t border-border/30">
                     {(mp?.alerts || []).map((alert: string, i: number) => (
-                      <div key={i} className="flex items-start gap-2 text-[11px] text-amber-400">
+                      <div key={i} className="flex items-start gap-2 t-micro text-amber-400">
                         <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
                         <span>{alert}</span>
                       </div>
@@ -2023,27 +2169,27 @@ export default function DashboardPage() {
       {/* ─── Adset/Ad Group Scoring ─────────────────────────────── */}
       {scoringSummary && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="card-content-premium">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <Link href="/adsets" className="group flex items-center gap-1.5 cursor-pointer">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">
-                  {isGoogle ? "Ad Group Scoring" : "Adset Scoring"}
+              <Link href="/campaigns" className="group flex items-center gap-1.5 cursor-pointer">
+                <h3 className="t-micro font-medium text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">
+                  Campaign Scoring
                 </h3>
                 <ArrowRight className="w-3 h-3 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </Link>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {scoringSummary.total_adsets} total {isGoogle ? "ad groups" : "adsets"}
+                <span className="t-micro text-muted-foreground tabular-nums">
+                  {scoringSummary.total} total campaigns
                 </span>
 
-                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors">
+                <Badge variant="secondary" className="t-micro px-2 py-0.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors">
                   {scoringSummary.winners} Winners →
                 </Badge>
 
-                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+                <Badge variant="secondary" className="t-micro px-2 py-0.5 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
                   {scoringSummary.watch} Watch →
                 </Badge>
-                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors">
+                <Badge variant="secondary" className="t-micro px-2 py-0.5 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors">
                   {scoringSummary.underperformers} Underperformers →
                 </Badge>
               </div>
@@ -2056,8 +2202,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* CTR / TSR / VHR / CPM Multi-Metric Chart */}
         <Card className="h-full flex flex-col">
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">{isGoogle ? `Key Metrics (${periodLabel})` : `CTR · TSR · VHR · CPM (${periodLabel})`}</CardTitle>
+          <CardHeader className="card-header-premium">
+            <CardTitle className="t-section-title font-medium">{isGoogle ? `Key Metrics (${periodLabel})` : `CTR · TSR · VHR · CPM (${periodLabel})`}</CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-4">
             <div className="h-56">
@@ -2112,38 +2258,38 @@ export default function DashboardPage() {
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No daily data available</div>
+                <div className="flex items-center justify-center h-full t-micro text-muted-foreground">No daily data available</div>
               )}
             </div>
             <div className="grid grid-cols-3 gap-2 px-2 pt-2">
               {isGoogle ? (
                 <>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPC</p>
-                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpc, 1)}</p>
+                    <p className="t-micro text-muted-foreground uppercase tracking-wider">Avg CPC</p>
+                    <p className="t-body font-medium tabular-nums">{formatINR(ap.overall_cpc, 1)}</p>
                   </div>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPM</p>
-                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
+                    <p className="t-micro text-muted-foreground uppercase tracking-wider">Avg CPM</p>
+                    <p className="t-body font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
                   </div>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">CVR</p>
-                    <p className="text-xs font-medium tabular-nums">{formatPct(ap.overall_cvr || 0)}</p>
+                    <p className="t-micro text-muted-foreground uppercase tracking-wider">CVR</p>
+                    <p className="t-body font-medium tabular-nums">{formatPct(ap.overall_cvr || 0)}</p>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Avg CPM</p>
-                    <p className="text-xs font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
+                    <p className="t-micro text-muted-foreground uppercase tracking-wider">Avg CPM</p>
+                    <p className="t-body font-medium tabular-nums">{formatINR(ap.overall_cpm, 0)}</p>
                   </div>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Blended TSR</p>
-                    <p className="text-xs font-medium tabular-nums">{blendedTSR !== null ? `${blendedTSR.toFixed(1)}%` : "—"}</p>
+                    <p className="t-micro text-muted-foreground uppercase tracking-wider">Blended TSR</p>
+                    <p className="t-body font-medium tabular-nums">{blendedTSR !== null ? `${blendedTSR.toFixed(1)}%` : "—"}</p>
                   </div>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Blended VHR</p>
-                    <p className="text-xs font-medium tabular-nums">{blendedVHR !== null ? `${blendedVHR.toFixed(1)}%` : "—"}</p>
+                    <p className="t-micro text-muted-foreground uppercase tracking-wider">Blended VHR</p>
+                    <p className="t-body font-medium tabular-nums">{blendedVHR !== null ? `${blendedVHR.toFixed(1)}%` : "—"}</p>
                   </div>
                 </>
               )}
@@ -2152,8 +2298,8 @@ export default function DashboardPage() {
         </Card>
         {/* Daily Spend + Leads — ComposedChart */}
         <Card className="lg:col-span-2 h-full flex flex-col">
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-m font-medium">Daily Spend & Leads</CardTitle>
+          <CardHeader className="card-header-premium">
+            <CardTitle className="t-section-title font-medium">Daily Spend & Leads</CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-4">
             <div className="h-56">
@@ -2188,6 +2334,15 @@ export default function DashboardPage() {
                       strokeWidth={2}
                       name="Spend (₹)"
                     />
+                    {budgetTargetMonthly > 0 && (
+                      <ReferenceLine
+                        yAxisId="spend"
+                        y={budgetTargetMonthly / daysInMonth}
+                        stroke={CHART_COLORS.gold}
+                        strokeDasharray="3 3"
+                        label={{ value: "Daily Target", position: "insideBottomLeft", fill: CHART_COLORS.gold, fontSize: 8 }}
+                      />
+                    )}
                     <Line
                       yAxisId="leads"
                       type="monotone"
@@ -2197,6 +2352,15 @@ export default function DashboardPage() {
                       dot={{ r: 3, fill: CHART_COLORS.purple }}
                       name="Leads"
                     />
+                    {leadsTargetMonthly > 0 && (
+                      <ReferenceLine
+                        yAxisId="leads"
+                        y={leadsTargetMonthly / daysInMonth}
+                        stroke={CHART_COLORS.purple}
+                        strokeDasharray="3 3"
+                        label={{ value: "Target", position: "insideBottomRight", fill: CHART_COLORS.purple, fontSize: 8 }}
+                      />
+                    )}
                     <Line
                       yAxisId="spend"
                       type="monotone"
@@ -2210,7 +2374,7 @@ export default function DashboardPage() {
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No daily data available</div>
+                <div className="flex items-center justify-center h-full t-micro text-muted-foreground">No daily data available</div>
               )}
             </div>
           </CardContent>
@@ -2275,56 +2439,56 @@ export default function DashboardPage() {
             {isZeroToday && (
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg bg-red-500/15 border-b border-red-500/30">
                 <ShieldX className="w-4 h-4 text-red-400 shrink-0" />
-                <span className="text-xs text-red-300 font-semibold">
+                <span className="t-micro text-red-300 font-semibold">
                   TRACKING ALERT: Zero leads captured today — verify {isGoogle ? "conversion setup / GA4 linking" : "pixel / conversion setup"}
                 </span>
               </div>
             )}
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${light.bg}`}>
-                    <LightIcon className={`w-5 h-5 ${light.text}`} />
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-5">
+                <div className="flex items-center gap-4">
+                  <div className={`flex items-center justify-center w-11 h-11 rounded-xl ${light.bg} shadow-sm`}>
+                    <LightIcon className={`w-6 h-6 ${light.text}`} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-medium text-foreground">Tracking Sanity</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="t-card-title text-foreground">Tracking Sanity</h3>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <AlertCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+                          <AlertCircle className="w-3.5 h-3.5 text-muted-foreground/60 cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs">
                           Monitors pixel/conversion stability by comparing MTD performance against expected daily velocity. Flags sudden drops or zero-lead days.
                         </TooltipContent>
                       </Tooltip>
-                      <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${light.text} ${light.bg}`}>
+                      <Badge variant="secondary" className={`t-micro px-2 py-0.5 ${light.text} ${light.bg} border-${light.text.split("-")[1]}-500/20`}>
                         {healthStatus}
                       </Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="t-micro text-muted-foreground/70 mt-1">
                       Last verified: {lastVerified}
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Target</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">{Math.round(mtdLeadsTarget)}</p>
+                <div className="grid grid-cols-3 gap-6 text-center">
+                  <div className="space-y-1">
+                    <p className="t-micro text-muted-foreground/80">MTD Leads Target</p>
+                    <p className="t-kpi-sm text-foreground">{Math.round(mtdLeadsTarget)}</p>
                   </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">MTD Leads Delivered</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">{mtdLeads}</p>
+                  <div className="space-y-1">
+                    <p className="t-micro text-muted-foreground/80">MTD Leads Delivered</p>
+                    <p className="t-kpi-sm text-foreground">{mtdLeads}</p>
                   </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Yesterday's Delivered</p>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">{prevDayLeads || 0}</p>
+                  <div className="space-y-1">
+                    <p className="t-micro text-muted-foreground/80">Yesterday's Delivered</p>
+                    <p className="t-kpi-sm text-foreground">{prevDayLeads || 0}</p>
                   </div>
                 </div>
               </div>
               {isGoogle && conversionSanity && (
                 <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/30">
                   {ga4Match && (
-                    <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${ga4Match === "match" ? "text-emerald-400 bg-emerald-500/10" :
+                    <Badge variant="secondary" className={`t-micro px-2 py-0.5 ${ga4Match === "match" ? "text-emerald-400 bg-emerald-500/10" :
                       ga4Match === "mismatch" ? "text-amber-400 bg-amber-500/10" :
                         "text-muted-foreground"
                       }`}>
@@ -2332,7 +2496,7 @@ export default function DashboardPage() {
                     </Badge>
                   )}
                   {trackingAlerts.map((alert: string, i: number) => (
-                    <span key={i} className="text-[10px] text-amber-400 flex items-center gap-1">
+                    <span key={i} className="t-micro text-amber-400 flex items-center gap-1">
                       <AlertTriangle className="w-2.5 h-2.5" />
                       {alert}
                     </span>
@@ -2342,7 +2506,7 @@ export default function DashboardPage() {
               {hasSuddenDrop && !isZeroToday && (
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/30">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-                  <span className="text-[10px] text-red-400 font-medium">
+                  <span className="t-micro text-red-400 font-medium">
                     Sudden drop detected: {leadsToday} leads today vs {prevDayLeads} yesterday ({prevDayLeads && prevDayLeads > 0 ? ((1 - leadsToday / prevDayLeads) * 100).toFixed(0) : 0}% decrease)
                   </span>
                 </div>
@@ -2354,8 +2518,8 @@ export default function DashboardPage() {
 
       {/* ─── Performance Insights (Enhanced) ────────────────────── */}
       <Card>
-        <CardHeader className="pb-2 px-4 pt-4">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <CardHeader className="card-header-premium">
+          <CardTitle className="t-section-title font-medium flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />
             Performance Insights
           </CardTitle>
@@ -2366,7 +2530,7 @@ export default function DashboardPage() {
             {totalAdsAnalyzed > 0 && (
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
                 <BarChart3 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <span className="text-[11px] text-foreground leading-relaxed">
+                <span className="t-micro text-foreground leading-relaxed">
                   Analyzing <strong>{totalAdsAnalyzed} ads</strong> across <strong>{totalCampaignsAnalyzed} campaigns</strong>
                 </span>
               </div>
@@ -2375,7 +2539,7 @@ export default function DashboardPage() {
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-emerald-500/20">
                 <Trophy className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-[11px] text-foreground leading-relaxed">
+                  <span className="t-micro text-foreground leading-relaxed">
                     Best performing: <strong className="text-emerald-400">{truncate(bestAd.ad_name, 30)}</strong> — CPL {formatINR(bestAd.cpl, 0)}, {bestAd.leads} leads, CTR {formatPct(bestAd.ctr / 100)}
                   </span>
                 </div>
@@ -2385,7 +2549,7 @@ export default function DashboardPage() {
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-red-500/20">
                 <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-[11px] text-foreground leading-relaxed">
+                  <span className="t-micro text-foreground leading-relaxed">
                     Worst performing: <strong className="text-red-400">{truncate(worstAd.ad_name, 30)}</strong> — CPL {worstAd.cpl > 0 ? formatINR(worstAd.cpl, 0) : "N/A"}, ₹{Math.round(worstAd.spend)} spent, {worstAd.leads} leads
                   </span>
                   {worstAd.ad_id && (
@@ -2408,7 +2572,7 @@ export default function DashboardPage() {
             {budgetEfficiencyPct > 0 && (
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
                 <IndianRupee className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span className="text-[11px] text-foreground leading-relaxed">
+                <span className="t-micro text-foreground leading-relaxed">
                   Budget efficiency: <strong className={budgetEfficiencyPct > 40 ? "text-red-400" : "text-amber-400"}>{budgetEfficiencyPct}%</strong> of spend going to ads with CPL &gt; target (₹{Math.round(targetCpl)})
                 </span>
               </div>
@@ -2419,7 +2583,7 @@ export default function DashboardPage() {
                 {searchSummary && (
                   <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-blue-500/20">
                     <BarChart3 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                    <span className="text-[11px] text-foreground leading-relaxed">
+                    <span className="t-micro text-foreground leading-relaxed">
                       Search: <strong>{searchSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(searchSummary.cpl || 0, 0)} · CTR {formatPct(searchSummary.ctr / 100 || 0)} · IS {formatPct(searchSummary.impression_share || 0)}
                     </span>
                   </div>
@@ -2427,7 +2591,7 @@ export default function DashboardPage() {
                 {dgSummary && (
                   <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-amber-500/20">
                     <BarChart3 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <span className="text-[11px] text-foreground leading-relaxed">
+                    <span className="t-micro text-foreground leading-relaxed">
                       Demand Gen: <strong>{dgSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(dgSummary.cpl || 0, 0)} · CPM {formatINR(dgSummary.cpm || 0, 0)} · CTR {formatPct(dgSummary.ctr / 100 || 0)}
                     </span>
                   </div>
@@ -2457,11 +2621,11 @@ export default function DashboardPage() {
               <div className="col-span-full flex items-start gap-2 p-2.5 rounded-md bg-blue-500/5 border border-blue-500/20 mt-1">
                 <Clock className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <span className="text-[11px] text-blue-300 font-medium">
+                  <span className="t-micro text-blue-300 font-medium">
                     SOP: Wait 3–5 days before overreacting to performance dips
                   </span>
                   {isRecent && timeAgoLabel && (
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="t-micro text-muted-foreground">
                       Last action {timeAgoLabel} ({lastAuditEntry?.action?.replace(/_/g, " ")} on {lastAuditEntry?.entityName ? lastAuditEntry.entityName.slice(0, 40) : "entity"}). Allow time for data to stabilize.
                     </p>
                   )}
@@ -2475,14 +2639,14 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-border/30">
               {patternAnalysis.patterns.map((p: { type: string; detail: string }, i: number) => (
                 <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
-                  <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0 mt-0.5">{p.type.replace(/_/g, " ")}</Badge>
-                  <span className="text-[11px] text-foreground leading-relaxed">{p.detail}</span>
+                  <Badge variant="secondary" className="t-micro px-1 py-0 shrink-0 mt-0.5">{p.type.replace(/_/g, " ")}</Badge>
+                  <span className="t-micro text-foreground leading-relaxed">{p.detail}</span>
                 </div>
               ))}
             </div>
           )}
           {patternAnalysis?.top_avg && patternAnalysis?.bottom_avg && (
-            <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-4 t-micro text-muted-foreground">
               <span>Top avg CPL: <span className="text-emerald-400 tabular-nums">{formatINR(patternAnalysis.top_avg.cpl, 0)}</span></span>
               <span>Bottom avg CPL: <span className="text-red-400 tabular-nums">{formatINR(patternAnalysis.bottom_avg.cpl, 0)}</span></span>
               <span>Ratio: <span className="text-foreground tabular-nums">{patternAnalysis.bottom_avg.cpl > 0 && patternAnalysis.top_avg.cpl > 0 ? (patternAnalysis.bottom_avg.cpl / patternAnalysis.top_avg.cpl).toFixed(1) : "—"}x</span></span>
@@ -2491,120 +2655,114 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Campaign Health Table + Alerts */}
+      {/* Ad Set Breakdown Table + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Campaign Table */}
+        {/* Ad Set Table */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 px-4 pt-4 flex flex-row items-center justify-between gap-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              Campaign Health
+            <CardTitle className="t-section-title font-medium flex items-center gap-1.5">
+              Campaign Breakdown
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertCircle className="w-3 h-3 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs text-xs">
-                  Aggregated health score based on CPL, CTR, and spend efficiency. Click a score to view underlying adsets.
+                  Detailed pacing and performance metrics for each campaign.
                 </TooltipContent>
               </Tooltip>
             </CardTitle>
-            <Link href="/campaigns" className="text-xs text-primary flex items-center gap-1" data-testid="link-view-campaigns">
+            <Link href="/campaigns" className="t-micro text-primary flex items-center gap-1" data-testid="link-view-campaigns">
               View All <ArrowRight className="w-3 h-3" />
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="t-table w-full">
                 <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="text-left p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Campaign</th>
-                    <th className="text-left p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Layer</th>
-                    <th className="text-left p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                    <th className="text-left p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Health</th>
-                    <th className="text-right p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Spend</th>
-                    <th className="text-right p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Leads</th>
-                    <th className="text-right p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">CPL</th>
-                    <th className="text-right p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">CTR</th>
-                    <th className="text-center p-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Action</th>
+                  <tr className="border-b border-border/60 bg-muted/20">
+                    <th className="text-left px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Campaign</th>
+                    <th className="text-left px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Status/Class</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Budget</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Spend</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Spend %</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Leads</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Impr</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Clicks</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">CTR</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">CPM</th>
+                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">CPL</th>
+                    <th className="text-center px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {campaignAudit.map((c: any) => {
-                    const layer = getLayerColor(c.layer);
-                    const status = getStatusColor(c.status);
+                <tbody className="divide-y divide-border/30">
+                  {campaignAnalysis.map((c: any) => {
+                    const statusColor = getStatusColor(c.status);
                     const isPaused = c.status === "PAUSED";
+                    const id = c.campaign_id || c.id;
+                    const name = c.campaign_name || c.name;
                     return (
-                      <tr key={c.campaign_id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
-                        <td className="p-3 max-w-[200px]">
+                      <tr key={id} className="group hover:bg-muted/40 transition-colors">
+                        <td className="p-3 py-4 max-w-[150px]">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="truncate block cursor-default text-foreground">{truncate(c.campaign_name, 40)}</span>
+                              <span className="truncate block cursor-default t-micro font-medium text-foreground">{truncate(name, 35)}</span>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                              <p className="text-xs max-w-xs">{c.campaign_name}</p>
+                              <p className="text-xs max-w-xs">{name}</p>
                             </TooltipContent>
                           </Tooltip>
                         </td>
-                        <td className="p-3">
-                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${layer.bg} ${layer.text}`}>
-                            {c.layer}
-                          </span>
+                        <td className="p-2">
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex px-1 py-0 rounded t-micro font-medium w-fit ${statusColor.bg} ${statusColor.text}`}>
+                              {c.status || "ACTIVE"}
+                            </span>
+                            <span className={`inline-flex px-1 py-0 rounded t-micro font-medium uppercase w-fit bg-muted text-muted-foreground`}>
+                              {c.classification || "NO_DATA"}
+                            </span>
+                          </div>
                         </td>
-                        <td className="p-3">
-                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${status.bg} ${status.text}`}>
-                            {c.status}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <Link href={`/adsets?campaignId=${c.campaign_id}`}>
-                            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                              <div className={`w-16 h-1.5 rounded-full ${getHealthBarBg(c.health_score)}`}>
-                                <div
-                                  className={`h-full rounded-full ${getHealthBgColor(c.health_score)}`}
-                                  style={{ width: `${c.health_score}%` }}
-                                />
-                              </div>
-                              <span className="tabular-nums text-muted-foreground w-6 font-medium">{c.health_score}</span>
-                            </div>
-                          </Link>
-                        </td>
-                        <td className="p-3 text-right tabular-nums">{formatINR(c.spend, 0)}</td>
-                        <td className="p-3 text-right tabular-nums">{c.leads}</td>
-                        <td className={`p-3 text-right tabular-nums ${c.cpl > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
+                        <td className="p-2 text-right tabular-nums t-micro">{formatINR(c.daily_budget || c.budget || 0, 0)}</td>
+                        <td className="p-2 text-right tabular-nums t-micro">{formatINR(c.spend || 0, 0)}</td>
+                        <td className="p-2 text-right tabular-nums t-micro text-muted-foreground">{c.spend_pct ? `${Math.round(c.spend_pct)}%` : "—"}</td>
+                        <td className="p-2 text-right tabular-nums t-micro font-medium">{c.leads || 0}</td>
+                        <td className="p-2 text-right tabular-nums t-micro text-muted-foreground">{c.impressions || 0}</td>
+                        <td className="p-2 text-right tabular-nums t-micro text-muted-foreground">{c.clicks || 0}</td>
+                        <td className="p-2 text-right tabular-nums t-micro">{formatPct(c.ctr || 0)}</td>
+                        <td className="p-2 text-right tabular-nums t-micro">{formatINR(c.cpm || 0, 0)}</td>
+                        <td className={`p-2 text-right tabular-nums t-micro font-medium ${c.cpl > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
                           {c.cpl > 0 ? formatINR(c.cpl, 0) : "—"}
                         </td>
-                        <td className={`p-3 text-right tabular-nums ${getCtrColor(c.ctr)}`}>
-                          {formatPct(c.ctr)}
-                        </td>
-                        <td className="p-3 text-center">
+                        <td className="p-2 text-center">
                           {isPaused ? (
                             <ExecutionButton
-                              action="UNPAUSE_CAMPAIGN"
-                              entityId={c.campaign_id}
-                              entityName={c.campaign_name}
+                              action="ENABLE_CAMPAIGN"
+                              entityId={id}
+                              entityName={name}
                               entityType="campaign"
                               label=""
                               variant="ghost"
                               size="icon"
-                              icon={<Play className="w-3.5 h-3.5 text-emerald-400" />}
-                              confirmMessage={`Activate campaign "${c.campaign_name}"?`}
+                              icon={<Play className="w-3 h-3 text-emerald-400" />}
+                              confirmMessage={`Activate campaign "${name}"?`}
                               params={{ reason: "Manual activation from Dashboard" }}
-                              className="h-7 w-7"
-                              data-testid={`button-unpause-campaign-${c.campaign_id}`}
+                              className="h-6 w-6"
+                              data-testid={`button-unpause-${id}`}
                             />
                           ) : (
                             <ExecutionButton
                               action="PAUSE_CAMPAIGN"
-                              entityId={c.campaign_id}
-                              entityName={c.campaign_name}
+                              entityId={id}
+                              entityName={name}
                               entityType="campaign"
                               label=""
                               variant="ghost"
                               size="icon"
-                              icon={<Pause className="w-3.5 h-3.5 text-red-400" />}
-                              confirmMessage={`Pause campaign "${c.campaign_name}"? This will stop all ads in this campaign.`}
+                              icon={<Pause className="w-3 h-3 text-red-400" />}
+                              confirmMessage={`Pause ${isGoogle ? "ad group" : "ad set"} "${name}"?`}
                               params={{ reason: "Manual pause from Dashboard" }}
-                              className="h-7 w-7"
-                              data-testid={`button-pause-campaign-${c.campaign_id}`}
+                              className="h-6 w-6"
+                              data-testid={`button-pause-${id}`}
                             />
                           )}
                         </td>
@@ -2619,17 +2777,17 @@ export default function DashboardPage() {
 
         {/* Alerts & Actions */}
         <Card>
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Alerts & Actions</CardTitle>
+          <CardHeader className="card-header-premium">
+            <CardTitle className="t-section-title font-medium">Alerts & Actions</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 space-y-4">
             {/* Fatigue Alerts */}
             {fatigueAlerts.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <h3 className="t-micro font-medium uppercase tracking-wider text-muted-foreground">
                   Fatigue Alerts
                 </h3>
-                {fatigueAlerts.map((alert, i) => {
+                {fatigueAlerts.map((alert: any, i: number) => {
                   const adId = findAdIdByName(alert.ad_name, creativeHealth);
                   return (
                     <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
@@ -2637,17 +2795,17 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className={`text-[10px] px-1 py-0 ${alert.severity === "CRITICAL"
+                            className={`t-micro px-1 py-0 ${alert.severity === "CRITICAL"
                               ? "text-red-400"
                               : "text-amber-400"
                               }`}
                           >
                             {alert.severity}
                           </Badge>
-                          <span className="text-[10px] text-muted-foreground">{alert.type}</span>
+                          <span className="t-micro text-muted-foreground">{alert.type}</span>
                         </div>
                       </div>
-                      <p className="text-[11px] text-foreground leading-relaxed mb-1.5">
+                      <p className="t-micro text-foreground leading-relaxed mb-1.5">
                         {alert.message}
                       </p>
                       {adId && (
@@ -2670,24 +2828,24 @@ export default function DashboardPage() {
             {/* Top Recommendations */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <h3 className="t-micro font-medium uppercase tracking-wider text-muted-foreground">
                   Top Recommendations
                 </h3>
-                <Link href="/recommendations" className="text-[10px] text-primary flex items-center gap-0.5" data-testid="link-view-recs">
+                <Link href="/recommendations" className="t-micro text-primary flex items-center gap-0.5" data-testid="link-view-recs">
                   View All <ArrowRight className="w-2.5 h-2.5" />
                 </Link>
               </div>
-              {adRecommendations.slice(0, 3).map((rec, i) => (
+              {adRecommendations.slice(0, 3).map((rec: any, i: number) => (
                 <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold tabular-nums text-primary">
+                    <span className="t-micro font-bold tabular-nums text-primary">
                       ICE {rec.ice_score}
                     </span>
-                    <span className={`text-[10px] px-1 py-0 rounded ${getLayerColor(rec.layer || rec.category || "unknown").bg} ${getLayerColor(rec.layer || rec.category || "unknown").text}`}>
+                    <span className={`t-micro px-1 py-0 rounded ${getLayerColor(rec.layer || rec.category || "unknown").bg} ${getLayerColor(rec.layer || rec.category || "unknown").text}`}>
                       {rec.layer || rec.category || ""}
                     </span>
                   </div>
-                  <p className="text-[11px] text-foreground font-medium">
+                  <p className="t-micro text-foreground font-medium">
                     {truncate(rec.action || rec.description || rec.title || "", 60)}
                   </p>
                 </div>
@@ -2700,8 +2858,8 @@ export default function DashboardPage() {
       {/* Performance Intelligence — Intellect Insights with UnifiedActions */}
       {intellectInsights.length > 0 && (
         <Card>
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Performance Intelligence</CardTitle>
+          <CardHeader className="card-header-premium">
+            <CardTitle className="t-section-title font-medium">Performance Intelligence</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2717,7 +2875,7 @@ export default function DashboardPage() {
                 const insightEntity = insight.entity || insight.title || "";
                 const insightDetail = insight.detail || insight.observation || "";
                 const insightRec = insight.recommendation || "";
-                const adsetMatch = findAdsetByEntity(insightEntity, adsetAnalysis);
+                const campaignMatch = findCampaignByEntity(insightEntity, campaignAnalysis);
                 return (
                   <div
                     key={i}
@@ -2725,22 +2883,22 @@ export default function DashboardPage() {
                     data-testid={`insight-card-${i}`}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${severityColor}`}>
+                      <Badge variant="secondary" className={`t-micro px-1.5 py-0 ${severityColor}`}>
                         {sev}
                       </Badge>
-                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      <span className="t-micro font-medium text-muted-foreground uppercase tracking-wider">
                         {insightType}
                       </span>
                     </div>
-                    <p className="text-xs font-medium text-foreground">{insightEntity}</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">{insightDetail}</p>
-                    {insightRec && <p className="text-[11px] text-primary/80 leading-relaxed">{insightRec}</p>}
-                    {adsetMatch && (
+                    <p className="t-micro font-medium text-foreground">{insightEntity}</p>
+                    <p className="t-micro text-muted-foreground leading-relaxed">{insightDetail}</p>
+                    {insightRec && <p className="t-micro text-primary/80 leading-relaxed">{insightRec}</p>}
+                    {campaignMatch && (
                       <UnifiedActions
-                        entityId={adsetMatch.id}
-                        entityName={adsetMatch.name}
-                        entityType="adset"
-                        actionType={insight.auto_action ? "PAUSE_ADSET" : "MANUAL_ACTION"}
+                        entityId={campaignMatch.id}
+                        entityName={campaignMatch.name}
+                        entityType="campaign"
+                        actionType={insight.auto_action ? "PAUSE_CAMPAIGN" : "MANUAL_ACTION"}
                         isAutoExecutable={!!insight.auto_action}
                         recommendation={insightRec || insightDetail}
                         currentMetrics={insight.metrics}
@@ -2758,15 +2916,15 @@ export default function DashboardPage() {
       {/* ─── Funnel Diagnostics (moved from Audit Panel) ────────── */}
       {(data as any).funnel_diagnostics && (
         <Card>
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-sm font-medium">Funnel Diagnostics</CardTitle>
+          <CardHeader className="card-header-premium">
+            <CardTitle className="t-section-title font-medium">Funnel Diagnostics</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {Object.entries((data as any).funnel_diagnostics).map(([key, value]: [string, any]) => (
                 <div key={key} className="p-2.5 rounded-md bg-muted/30 border border-border/30">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{key.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-foreground leading-relaxed">
+                  <p className="t-micro text-muted-foreground uppercase tracking-wider mb-1">{key.replace(/_/g, " ")}</p>
+                  <p className="t-micro text-foreground leading-relaxed">
                     {typeof value === "object" ? JSON.stringify(value) : String(value)}
                   </p>
                 </div>
@@ -2778,20 +2936,20 @@ export default function DashboardPage() {
 
       {/* ─── MV2-N03: Recent Actions quick view ────────────────── */}
       <Card>
-        <CardHeader className="pb-2 px-4 pt-4">
+        <CardHeader className="card-header-premium">
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="t-section-title font-medium flex items-center gap-2">
               <Activity className="w-4 h-4 text-primary" />
               Recent Actions
             </CardTitle>
-            <Link href="/execution-log" className="text-[10px] text-primary flex items-center gap-0.5 hover:underline">
+            <Link href="/execution-log" className="t-micro text-primary flex items-center gap-0.5 hover:underline">
               View All <ArrowRight className="w-2.5 h-2.5" />
             </Link>
           </div>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           {!recentAuditLog || recentAuditLog.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No recent actions</p>
+            <p className="t-micro text-muted-foreground">No recent actions</p>
           ) : (
             <div className="space-y-2">
               {recentAuditLog.map((entry) => {
@@ -2800,10 +2958,10 @@ export default function DashboardPage() {
                 const actionLabel = entry.action.replace(/_/g, " ");
                 return (
                   <div key={entry.id} className="flex items-center gap-3 py-1.5 border-b border-border/30 last:border-0">
-                    <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap shrink-0">{timeLabel}</span>
+                    <span className="t-micro text-muted-foreground tabular-nums whitespace-nowrap shrink-0">{timeLabel}</span>
                     <Badge
                       variant="secondary"
-                      className={`text-[10px] px-1.5 py-0 shrink-0 ${entry.action.includes("PAUSE") ? "text-amber-400 bg-amber-500/10" :
+                      className={`t-micro px-1.5 py-0 shrink-0 ${entry.action.includes("PAUSE") ? "text-amber-400 bg-amber-500/10" :
                         entry.action.includes("UNPAUSE") || entry.action.includes("PLAY") ? "text-emerald-400 bg-emerald-500/10" :
                           entry.action.includes("SCALE") || entry.action.includes("BUDGET") ? "text-blue-400 bg-blue-500/10" :
                             "text-muted-foreground"
@@ -2811,10 +2969,10 @@ export default function DashboardPage() {
                     >
                       {actionLabel}
                     </Badge>
-                    <span className="text-[11px] text-foreground truncate flex-1" title={entry.entityName}>
+                    <span className="t-micro text-foreground truncate flex-1" title={entry.entityName}>
                       {entry.entityName.length > 40 ? entry.entityName.slice(0, 40) + "…" : entry.entityName}
                     </span>
-                    <span className={`text-[10px] font-medium shrink-0 flex items-center gap-1 ${entry.success ? "text-emerald-400" : "text-red-400"}`}>
+                    <span className={`t-micro font-medium shrink-0 flex items-center gap-1 ${entry.success ? "text-emerald-400" : "text-red-400"}`}>
                       {entry.success ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                       {entry.success ? "success" : "failed"}
                     </span>
@@ -2829,11 +2987,11 @@ export default function DashboardPage() {
       {/* ─── MV2-N04: Acquisition Funnel visualization (Enhanced) ─────── */}
       {(() => {
         // Use strictly MTD data for the funnel
-        const impressions: number = mp.mtd?.impressions ?? (ap as any).total_impressions ?? 0;
-        const clicks: number = mp.mtd?.clicks ?? (ap as any).total_clicks ?? 0;
-        const leads: number = mp.mtd?.leads ?? ap.total_leads_30d ?? 0;
-        const svsMtd: number = mp.mtd?.svs ?? benchmarks?.svs_mtd ?? 0;
-        const posLeads: number = mp.mtd?.qualified_leads ?? benchmarks?.positive_leads_mtd ?? 0;
+        const impressions: number = authMtd.impressions;
+        const clicks: number = authMtd.clicks;
+        const leads: number = authMtd.leads;
+        const svsMtd: number = authMtd.svs;
+        const posLeads: number = authMtd.qualified_leads;
 
         const steps = [
           {
@@ -2891,11 +3049,11 @@ export default function DashboardPage() {
           <Card className="overflow-hidden border-border/40 bg-muted/5">
             <CardHeader className="pb-4 px-5 pt-5 border-b border-border/20">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <CardTitle className="t-section-title font-semibold flex items-center gap-2">
                   <Filter className="w-4 h-4 text-primary" />
                   MTD Acquisition Funnel
                 </CardTitle>
-                <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                <div className="t-page-title">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">MTD (Month-To-Date)</span>
                 </div>
               </div>
@@ -2919,7 +3077,7 @@ export default function DashboardPage() {
                             <TooltipTrigger asChild>
                               <div className="bg-background/80 backdrop-blur-md border border-border/60 rounded-full px-2.5 py-0.5 flex items-center gap-1.5 shadow-sm group-hover:border-primary/40 transition-colors cursor-help">
                                 <TrendingDown className="w-2.5 h-2.5 text-muted-foreground" />
-                                <span className="text-[10px] font-bold text-foreground">
+                                <span className="t-micro font-bold text-foreground">
                                   {conv.label}: <span className="text-primary">{conv.rate}%</span>
                                 </span>
                               </div>
@@ -2937,10 +3095,10 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-4 py-2">
                         {/* Label Layer */}
                         <div className="w-20 md:w-28 shrink-0 text-left">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 group-hover:text-primary/70 transition-colors">
+                          <p className="t-label font-bold uppercase tracking-widest text-muted-foreground/60 group-hover:text-primary/70 transition-colors">
                             {step.label}
                           </p>
-                          <p className="text-[9px] font-medium text-muted-foreground/40 italic">
+                          <p className="t-micro font-medium text-muted-foreground/40 italic">
                             {step.sub}
                           </p>
                         </div>
@@ -3045,7 +3203,7 @@ export default function DashboardPage() {
 
         return (
           <Card>
-            <CardHeader className="pb-2 px-4 pt-4">
+            <CardHeader className="card-header-premium">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Bell className="w-4 h-4 text-primary" />
                 Notifications

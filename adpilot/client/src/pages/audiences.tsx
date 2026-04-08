@@ -184,13 +184,17 @@ export default function AudiencesPage() {
             <Users className="w-5 h-5 text-primary" />
             Audience Intelligence
           </h1>
-          <p className="text-xs text-muted-foreground">Targeting group performance and efficiency</p>
+          <h1 className="t-page-title flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Audience Intelligence
+          </h1>
+          <p className="t-label text-muted-foreground">Targeting group performance and efficiency</p>
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <AlertTriangle className="w-10 h-10 text-muted-foreground/30" />
             <div>
-              <p className="text-sm font-medium text-foreground">No audience data available</p>
+              <p className="t-body font-medium text-foreground">No audience data available</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Run the {activePlatform === "google" ? "Google Ads" : "Meta Ads"} agent to populate audience data.
               </p>
@@ -206,11 +210,11 @@ export default function AudiencesPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="t-page-title flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />
             Audience Intelligence
           </h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="t-label text-muted-foreground">
             {activePlatform === "google" ? "Campaign-level" : "Adset-level"} targeting performance · Target CPL:{" "}
             {formatINR(targetCpl, 0)}
           </p>
@@ -261,35 +265,35 @@ export default function AudiencesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border-border/50">
-          <CardContent className="p-4">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Segments</p>
-            <p className="text-2xl font-black tabular-nums">{audiences.length}</p>
+          <CardContent className="card-content-premium">
+            <p className="t-label uppercase tracking-wider text-muted-foreground mb-1">Segments</p>
+            <p className="t-display tabular-nums">{audiences.length}</p>
           </CardContent>
         </Card>
         <Card className="border-emerald-500/30 bg-emerald-500/3">
-          <CardContent className="p-4">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Winners</p>
-            <p className="text-2xl font-black text-emerald-400 tabular-nums">{winners}</p>
+          <CardContent className="card-content-premium">
+            <p className="t-label uppercase tracking-wider text-muted-foreground mb-1">Winners</p>
+            <p className="t-display text-emerald-400 tabular-nums">{winners}</p>
           </CardContent>
         </Card>
         <Card className={cn("border-border/50", pauseCandidates > 0 && "border-red-500/30 bg-red-500/3")}>
-          <CardContent className="p-4">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Pause Candidates</p>
-            <p className={cn("text-2xl font-black tabular-nums", pauseCandidates > 0 ? "text-red-400" : "text-foreground")}>
+          <CardContent className="card-content-premium">
+            <p className="t-label uppercase tracking-wider text-muted-foreground mb-1">Pause Candidates</p>
+            <p className={cn("t-display tabular-nums", pauseCandidates > 0 ? "text-red-400" : "text-foreground")}>
               {pauseCandidates}
             </p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Total Leads</p>
-            <p className="text-2xl font-black text-emerald-400 tabular-nums">{totalLeads}</p>
+          <CardContent className="card-content-premium">
+            <p className="t-label uppercase tracking-wider text-muted-foreground mb-1">Total Leads</p>
+            <p className="t-display text-emerald-400 tabular-nums">{totalLeads}</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardContent className="p-4">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Avg CPL</p>
-            <p className={cn("text-2xl font-black tabular-nums", cplColor(avgCpl, targetCpl))}>
+          <CardContent className="card-content-premium">
+            <p className="t-label uppercase tracking-wider text-muted-foreground mb-1">Avg CPL</p>
+            <p className={cn("t-display tabular-nums", cplColor(avgCpl, targetCpl))}>
               {avgCpl > 0 ? formatINR(avgCpl, 0) : "—"}
             </p>
           </CardContent>
@@ -299,7 +303,7 @@ export default function AudiencesPage() {
       {/* Table */}
       <Card className="border-border/50 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="t-table w-full">
             <thead>
               <tr className="bg-muted/20 border-b border-border/50">
                 {([
@@ -359,9 +363,9 @@ export default function AudiencesPage() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div>
-                              <p className="font-semibold text-foreground truncate">{truncate(a.name, 45)}</p>
+                              <p className="t-body font-semibold text-foreground truncate">{truncate(a.name, 45)}</p>
                               {a.campaign && (
-                                <p className="text-[9px] text-muted-foreground truncate">{truncate(a.campaign, 40)}</p>
+                                <p className="t-label text-muted-foreground truncate">{truncate(a.campaign, 40)}</p>
                               )}
                             </div>
                           </TooltipTrigger>
@@ -461,15 +465,15 @@ export default function AudiencesPage() {
       {/* Pause alert */}
       {pauseCandidates > 0 && (
         <Card className="bg-red-500/5 border-red-500/30">
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-red-400 flex items-center gap-1.5">
+          <CardContent className="card-content-premium p-4 space-y-1">
+            <p className="t-page-title text-red-400 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" />
               {pauseCandidates} audience{pauseCandidates > 1 ? "s" : ""} recommended for pause
             </p>
             {audiences
               .filter((a) => a.should_pause || (a.classification || "").toUpperCase() === "PAUSE")
               .map((a, i) => (
-                <p key={i} className="text-[10px] text-muted-foreground ml-5">
+                <p key={i} className="t-label text-muted-foreground ml-5">
                   <span className="font-medium text-foreground">{truncate(a.name, 50)}</span>
                   {" — "}CPL {a.cpl > 0 ? formatINR(a.cpl, 0) : "no conversions"} vs target {formatINR(targetCpl, 0)}
                 </p>

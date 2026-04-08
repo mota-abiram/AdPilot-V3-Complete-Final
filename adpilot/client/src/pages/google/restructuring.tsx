@@ -517,7 +517,7 @@ function RestructuringCard({
                 <span className="text-xs font-semibold text-amber-400">{rec.ice_score.toFixed(1)}</span>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="left" className="text-xs">
+            <TooltipContent side="left" className="t-caption">
               ICE Score (Impact x Confidence x Ease)
             </TooltipContent>
           </Tooltip>

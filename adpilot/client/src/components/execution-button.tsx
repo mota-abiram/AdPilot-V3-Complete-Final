@@ -19,6 +19,7 @@ interface ExecutionButtonProps {
   onSuccess?: (result: any) => void;
   className?: string;
   icon?: React.ReactNode;
+  skipDialog?: boolean;
   currentMetrics?: {
     spend?: number;
     leads?: number;
@@ -45,6 +46,7 @@ export function ExecutionButton({
   onSuccess,
   className,
   icon,
+  skipDialog,
   currentMetrics,
   "data-testid": testId,
 }: ExecutionButtonProps) {
@@ -55,14 +57,14 @@ export function ExecutionButton({
   // Determine platform-aware action labels
   const platformLabel = activePlatform === "google" ? "Google Ads" : "Meta Ads";
 
-  const handleExecuteWithRationale = async (strategicCall: string) => {
+  const handleExecute = async (strategicCall?: string) => {
     const result = await execute({
       action,
       entityId,
       entityName,
       entityType,
       params,
-      strategicCall,
+      strategicCall: strategicCall || "Immediate execution from UI control",
     });
     if (result.success && onSuccess) {
       onSuccess(result);
@@ -76,7 +78,13 @@ export function ExecutionButton({
         variant={variant}
         size={size}
         disabled={disabled || isExecuting}
-        onClick={() => setDialogOpen(true)}
+        onClick={() => {
+          if (skipDialog) {
+            handleExecute();
+          } else {
+            setDialogOpen(true);
+          }
+        }}
         className={className}
         data-testid={testId}
       >
@@ -96,7 +104,7 @@ export function ExecutionButton({
         entityType={entityType}
         platform={activePlatform}
         currentMetrics={currentMetrics}
-        onConfirm={handleExecuteWithRationale}
+        onConfirm={handleExecute}
         isExecuting={isExecuting}
       />
     </>

@@ -349,11 +349,11 @@ export default function SettingsPage() {
   return (
     <div className="p-6 space-y-6 max-w-[1000px]">
       <div>
-        <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+        <h1 className="t-page-title">
           <Settings className="w-5 h-5" />
           Settings
         </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="t-label">
           API status, team access, agent schedule, and data exports
         </p>
       </div>
@@ -366,7 +366,7 @@ export default function SettingsPage() {
             API Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="card-content-premium">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Meta Status */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
@@ -379,8 +379,8 @@ export default function SettingsPage() {
                   <XCircle className="w-4 h-4 text-red-400" />
                 )}
                 <div>
-                  <p className="text-xs font-medium text-foreground">Meta Ads API</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="t-body font-medium text-foreground">Meta Ads API</p>
+                  <p className="t-label">
                     {metaStatus === "checking"
                       ? "Verifying token..."
                       : metaStatus === "ok"
@@ -433,8 +433,8 @@ export default function SettingsPage() {
                   <WifiOff className="w-4 h-4 text-muted-foreground" />
                 )}
                 <div>
-                  <p className="text-xs font-medium text-foreground">Google Ads API</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="t-body font-medium text-foreground">Google Ads API</p>
+                  <p className="t-label">
                     {googleStatus === "checking"
                       ? "Verifying connection..."
                       : googleStatus === "ok"
@@ -538,7 +538,7 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-[10px] text-muted-foreground">
+          <p className="t-label">
             OpenAPI compatible endpoints power all AI in this platform — text generation for creatives and campaign intelligence,
             and native image generation for the Creative Hub.
           </p>
@@ -598,8 +598,8 @@ export default function SettingsPage() {
             <Badge variant="secondary" className="text-[10px]">{user?.role || "member"}</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-[10px] text-muted-foreground">
+        <CardContent className="card-content-premium">
+          <p className="t-label">
             Control which users can log in. Active users can enter the app; blocked users are denied at login.
           </p>
           {isAdmin ? (
@@ -705,14 +705,14 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-foreground">
+            <span className="t-body font-medium text-foreground">
               {activeClient?.name || "Amara"}
             </span>
             <Badge variant="secondary" className="text-[10px]">
               {activeClient?.shortName || "Amara"}
             </Badge>
             {activeClient?.location && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="t-label">
                 📍 {activeClient.location}
               </span>
             )}
@@ -741,7 +741,7 @@ export default function SettingsPage() {
                 Monthly Targets
               </p>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="t-table w-full">
                   <thead>
                     <tr className="border-b border-border/50">
                       <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">
@@ -821,7 +821,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-primary">Daily Agent Run</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="t-label">
                   Runs every day at 9:00 AM IST — refreshes all data, campaigns, metrics, alerts, and insights
                 </p>
               </div>
@@ -836,8 +836,8 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-xs font-medium text-foreground">Last Agent Run</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="t-body font-medium text-foreground">Last Agent Run</p>
+                <p className="t-label">
                   {lastAgentRun
                     ? new Date(lastAgentRun).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
                     : "No data available"
@@ -870,7 +870,7 @@ export default function SettingsPage() {
                     <p className={`text-xs font-medium ${s.color}`}>
                       {s.cadence}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="t-label">
                       {s.timing}
                     </p>
                   </div>
@@ -903,7 +903,7 @@ export default function SettingsPage() {
                         <p className="text-xs font-semibold text-foreground">
                           {isCurrentlyRunning ? "Agent is currently running..." : "Last Run Result"}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="t-label">
                           {isCurrentlyRunning 
                             ? "Analyzing campaigns and synthesizing insights..." 
                             : (schedulerStatus?.lastRunSuccess ? "All platforms synced successfully" : "Execution failed — check logs below")}
@@ -955,7 +955,7 @@ export default function SettingsPage() {
                 <div className="p-3 rounded-lg bg-muted/10 border border-border/30 space-y-2">
                   <div className="flex items-center gap-2">
                     <Facebook className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-xs font-medium text-foreground">Meta Ads Agent</span>
+                    <span className="t-body font-medium text-foreground">Meta Ads Agent</span>
                   </div>
                   <code className="block text-[9px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
                     python3 ads_agent/meta_ads_agent_v2.py
@@ -964,7 +964,7 @@ export default function SettingsPage() {
                 <div className="p-3 rounded-lg bg-muted/10 border border-border/30 space-y-2">
                   <div className="flex items-center gap-2">
                     <Globe className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-xs font-medium text-foreground">Google Ads Agent</span>
+                    <span className="t-body font-medium text-foreground">Google Ads Agent</span>
                   </div>
                   <code className="block text-[9px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
                     python3 ads_agent/google_ads_agent_v2.py
@@ -998,7 +998,7 @@ export default function SettingsPage() {
                 <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
               )}
               <span>Export Audit Log</span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="t-label">
                 {auditLog.length} entries · CSV
               </span>
             </Button>
@@ -1015,7 +1015,7 @@ export default function SettingsPage() {
                 <FileJson className="w-4 h-4 text-blue-400" />
               )}
               <span>Export Analysis JSON</span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="t-label">
                 Current analysis · JSON
               </span>
             </Button>
@@ -1032,7 +1032,7 @@ export default function SettingsPage() {
                 <BookOpen className="w-4 h-4 text-purple-400" />
               )}
               <span>Export Learning Data</span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="t-label">
                 {learningData.length} entries · CSV
               </span>
             </Button>
@@ -1072,7 +1072,7 @@ export default function SettingsPage() {
                     <FileSpreadsheet className="w-4 h-4 text-amber-400" />
                   )}
                   <span>Export Search Terms</span>
-                  <span className="text-[10px] text-muted-foreground">Search terms · CSV</span>
+                  <span className="t-label">Search terms · CSV</span>
                 </Button>
 
                 <Button
@@ -1114,7 +1114,7 @@ export default function SettingsPage() {
                     <FileSpreadsheet className="w-4 h-4 text-blue-400" />
                   )}
                   <span>Export Quality Scores</span>
-                  <span className="text-[10px] text-muted-foreground">Quality score · CSV</span>
+                  <span className="t-label">Quality score · CSV</span>
                 </Button>
 
                 <Button
@@ -1152,7 +1152,7 @@ export default function SettingsPage() {
                     <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
                   )}
                   <span>Export Keyword Perf.</span>
-                  <span className="text-[10px] text-muted-foreground">Keywords · CSV</span>
+                  <span className="t-label">Keywords · CSV</span>
                 </Button>
               </>
             )}
@@ -1174,7 +1174,7 @@ export default function SettingsPage() {
               <p className="text-sm font-semibold text-foreground">
                 Mojo Performance Agent V2
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="t-label">
                 Powered by Digital Mojo
               </p>
             </div>

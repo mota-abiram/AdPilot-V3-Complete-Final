@@ -253,7 +253,7 @@ function CommandInput({ clientId, platform, apiBase }: { clientId: string; platf
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
           <Terminal className="w-4 h-4 text-primary" />
-          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Execute Command</h3>
+          <h3 className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Execute Command</h3>
         </div>
         <div className="flex gap-2">
           <Input
@@ -278,7 +278,7 @@ function CommandInput({ clientId, platform, apiBase }: { clientId: string; platf
               <div key={i} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border border-border/30">
                 <Zap className="w-3 h-3 text-amber-400 shrink-0" />
                 <span className="text-xs text-foreground flex-1">{a.description}</span>
-                <Badge variant="secondary" className="text-[9px]">{a.action}</Badge>
+                <Badge variant="secondary" className="t-micro">{a.action}</Badge>
               </div>
             ))}
             <div className="flex gap-2 pt-1">
@@ -518,7 +518,7 @@ export default function CommandCenterPage() {
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">{confirmAction?.description}</p>
                 <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border border-border/30">
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="t-label">
                     {countAffected(confirmAction?.key || "")} {isGoogle ? "ad groups" : "adsets"} will be affected
                   </Badge>
                 </div>
@@ -621,7 +621,7 @@ export default function CommandCenterPage() {
           <Terminal className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Command Center</h1>
+          <h1 className="t-page-title text-foreground">Command Center</h1>
           <p className="text-xs text-muted-foreground">
             Quick actions, manual task tracking, and agent notes
           </p>
@@ -867,7 +867,7 @@ export default function CommandCenterPage() {
 
         <div className="flex items-center gap-2 mb-3 p-2 rounded-md bg-blue-500/5 border border-blue-500/20">
           <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <p className="text-[10px] text-blue-400">
+          <p className="t-label font-bold text-blue-400">
             These instructions are stored for reference during scheduled audits. They do NOT auto-execute.
             The agent will review them during the next 9 AM daily run.
           </p>

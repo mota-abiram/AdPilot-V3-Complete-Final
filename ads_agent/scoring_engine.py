@@ -84,6 +84,7 @@ def calculate_meta_health(mtd_data, creative_avg):
     """
     w = {"cpsv": 25, "budget": 25, "cpql": 20, "cpl": 20, "creative": 10}
     breakdown = {}
+    bands = {}
     
     t = mtd_data.get("targets", {})
     

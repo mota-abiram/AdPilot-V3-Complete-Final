@@ -45,6 +45,7 @@ export interface ExecutionRequest {
   entityType: "campaign" | "adset" | "ad";
   params?: {
     budgetAmount?: number;    // new daily budget in rupees (paise internally)
+    currentBudget?: number;   // fallback current daily budget in rupees
     scalePercent?: number;    // e.g. 20 = increase by 20%
     reason?: string;          // why this action is being taken
     playbookRef?: string;     // which SOP playbook triggered this
@@ -314,12 +315,19 @@ export async function executeAction(req: ExecutionRequest): Promise<ExecutionRes
 
       case "SCALE_BUDGET_UP":
       case "SCALE_BUDGET_DOWN": {
-        const currentPaise = await getCurrentBudget(req.entityId);
+        let currentPaise = await getCurrentBudget(req.entityId);
+        
+        // Fallback: use passed currentBudget if API fetch failed
+        if (currentPaise === null && req.params?.currentBudget) {
+          console.log(`[meta-execution] API budget fetch failed for ${req.entityId}, using fallback: ₹${req.params.currentBudget}`);
+          currentPaise = Math.round(req.params.currentBudget * 100);
+        }
+
         if (currentPaise === null) {
           const execResult: ExecutionResult = {
             ...baseResult,
             success: false,
-            error: "Could not read current budget",
+            error: "Could not read current budget (API returned null and no fallback provided)",
           };
           logExecution(execResult);
           return execResult;
@@ -425,12 +433,34 @@ export async function getEntityStatus(entityId: string): Promise<{
   name?: string;
   error?: string;
 }> {
-  const result = await metaApiGet(entityId, ["status", "configured_status", "effective_status", "daily_budget", "name"]);
+  const isAdAccount = entityId.startsWith("act_");
+  const fields = isAdAccount 
+    ? ["account_status", "name"]
+    : ["status", "configured_status", "effective_status", "daily_budget", "name"];
+
+  const result = await metaApiGet(entityId, fields);
   if (!result.success) {
     return { error: result.error };
   }
+
+  // account_status is numeric for Ad Accounts: 1=ACTIVE, 2=DISABLED, 3=UNSETTLED, etc.
+  // We map it to a string for consistency across the app.
+  const accountStatusMap: Record<number, string> = {
+    1: "ACTIVE",
+    2: "DISABLED",
+    3: "UNSETTLED",
+    7: "PENDING_RISK_REVIEW",
+    8: "PENDING_SETTLEMENT",
+    9: "IN_GRACE_PERIOD",
+    10: "PENDING_CLOSURE",
+    11: "CLOSED",
+    101: "CLOSED",
+  };
+
   return {
-    status: result.data.effective_status || result.data.configured_status || result.data.status,
+    status: isAdAccount 
+      ? accountStatusMap[result.data.account_status] || `UNKNOWN (${result.data.account_status})`
+      : (result.data.effective_status || result.data.configured_status || result.data.status),
     daily_budget: result.data.daily_budget ? parseInt(result.data.daily_budget) / 100 : undefined,
     name: result.data.name,
   };
