@@ -41,11 +41,25 @@ import { cn } from "@/lib/utils";
 
 function inferRedirectPath(type: string, entity: string, category: string): string {
   const t = (type + " " + category + " " + entity).toLowerCase();
+  // Creative
   if (t.includes("creative") || t.includes("fatigue") || t.includes("refresh")) return "/creative-calendar";
+  // Audit / Tracking
   if (t.includes("tracking") || t.includes("audit") || t.includes("pixel") || t.includes("zero_lead")) return "/audit";
-  if (t.includes("adset") || t.includes("budget") || t.includes("learning") || t.includes("cannibalization")) return "/adsets";
+  // Google-specific: Quality Score
+  if (t.includes("quality_score") || t.includes("quality score") || t.includes("qs")) return "/google/quality-score";
+  // Google-specific: Search Terms
+  if (t.includes("search_term") || t.includes("search term") || t.includes("negative") || t.includes("match_type") || t.includes("match type")) return "/google/search-terms";
+  // Google-specific: Audiences / Demand Gen
+  if (t.includes("demand_gen") || t.includes("demand gen") || t.includes("audience") || t.includes("lookalike") || t.includes("affinity") || t.includes("in_market")) return "/google/audiences";
+  // Google-specific: Keywords
+  if (t.includes("keyword") || t.includes("search") || t.includes("impression_share") || t.includes("impression share")) return "/keywords";
+  // Ad Groups / Adsets
+  if (t.includes("ad_group") || t.includes("ad group") || t.includes("adset") || t.includes("learning") || t.includes("cannibalization")) return "/adsets";
+  // Budget
+  if (t.includes("budget") || t.includes("pacing") || t.includes("spend")) return "/adsets";
+  // Campaigns / Funnel
   if (t.includes("campaign") || t.includes("diminishing") || t.includes("funnel") || t.includes("realloc")) return "/campaigns";
-  return "/dashboard";
+  return "/";
 }
 
 // ─── Execution mapping helpers ─────────────────────────────────
@@ -178,7 +192,7 @@ function mapRecommendationToExecution(
   }
 
   if (category.includes("creative pause") || category.includes("creative fatigue")) {
-    const ad = data.creative_health?.find(
+    const ad = (data.creative_health || []).find(
       (a) => rec.detail.includes(a.ad_name) || a.frequency > 2.5
     );
     if (ad) {
@@ -194,6 +208,17 @@ function mapRecommendationToExecution(
         },
       };
     }
+  }
+
+  if (category.includes("keyword") || action.includes("negative")) {
+     return {
+        action: "ADD_NEGATIVE_KEYWORD", 
+        entityType: "ad_group", 
+        entityId: "target", 
+        entityName: rec.action,
+        description: rec.detail,
+        params: { term: rec.action }
+     }
   }
 
   return null;
@@ -228,7 +253,7 @@ function intellectToAlerts(data: AnalysisData): AlertItem[] {
 
     alerts.push({
       level,
-      title: insight.type.replace(/_/g, " "),
+      title: (insight.type || "Insight").replace(/_/g, " "),
       detail: insight.detail,
       entity: insight.entity,
       redirect_path,
@@ -306,14 +331,14 @@ function generateStructuredRecommendations(data: AnalysisData, actionsData: any,
       redirect_path: inferRedirectPath(ins.type, ins.entity, ""),
       source: "intellect",
       
-      entityLabel: ins.entity,
-      entityTypeLabel: ins.type.includes("CAMPAIGN") ? "Campaign" : ins.type.includes("ADSET") ? "Ad Set" : "Account",
-      issue: ins.type.replace(/_/g, " "),
+      entityLabel: ins.entity || "Account",
+      entityTypeLabel: (ins.type || "").includes("CAMPAIGN") ? "Campaign" : (ins.type || "").includes("ADSET") ? "Ad Set" : "Account",
+      issue: (ins.type || "Insight").replace(/_/g, " "),
       rootCause: (ins as any).recommendation || "System detection",
-      recommendation: ins.detail,
+      recommendation: ins.detail || "",
       expectedImpact: (ins as any).score_impact ? `+${(ins as any).score_impact} Health Score` : "Efficiency optimization",
       confidence: ins.severity === "CRITICAL" ? "High" : "Medium",
-      categoryLabel: ins.type.includes("CREATIVE") ? "CREATIVE" : ins.type.includes("BUDGET") ? "BUDGET" : "PERFORMANCE"
+      categoryLabel: (ins.type || "").includes("CREATIVE") ? "CREATIVE" : (ins.type || "").includes("BUDGET") ? "BUDGET" : "PERFORMANCE"
     });
   });
 
@@ -334,13 +359,15 @@ function generateStructuredRecommendations(data: AnalysisData, actionsData: any,
       source: "sop",
       
       entityLabel: executionMapping ? executionMapping.entityName : (rec as any).campaign || rec.layer || "Account",
-      entityTypeLabel: executionMapping ? (executionMapping.entityType === 'ad_group' ? 'Ad Group' : executionMapping.entityType === 'adset' ? 'Ad Set' : executionMapping.entityType === 'campaign' ? 'Campaign' : 'Ad') : "Campaign / Layer",
+      entityTypeLabel: executionMapping 
+        ? (executionMapping.entityType === 'ad_group' ? 'Ad Group' : executionMapping.entityType === 'adset' ? 'Ad Set' : executionMapping.entityType === 'campaign' ? 'Campaign' : executionMapping.entityType === 'ad' ? 'Ad' : 'Execution Pair') 
+        : (rec.category.toLowerCase().includes("keyword") ? "Keyword" : "Campaign / Layer"),
       issue: (rec as any).insight || "Met KPI Deviation",
       rootCause: rec.root_causes?.[0]?.cause || "Algorithm benchmark miss",
       recommendation: rec.action,
       expectedImpact: (rec as any).impact || "CPL Stabilization",
       confidence: rec.ice_score > 7 ? "High" : "Medium",
-      categoryLabel: rec.category.toUpperCase() as any
+      categoryLabel: (rec.category || "PERFORMANCE").toUpperCase() as any
     });
   });
 
@@ -388,13 +415,14 @@ function generateStructuredRecommendations(data: AnalysisData, actionsData: any,
 type PriorityBand = "immediate" | "this_week" | "strategic";
 
 function classifyPriority(rec: Recommendation): PriorityBand {
-  const p = rec.priority?.toUpperCase();
+  const p = (rec.priority || "").toUpperCase();
   if (p === "IMMEDIATE") return "immediate";
   if (p === "THIS_WEEK") return "this_week";
   if (p === "STRATEGIC") return "strategic";
 
-  const category = rec.category.toLowerCase();
-  const action = rec.action.toLowerCase();
+  const category = (rec.category || "").toLowerCase();
+  const action = (rec.action || "").toLowerCase();
+
 
   if (category.includes("auto-pause") || category.includes("tracking") ||
       action.includes("pause") || action.includes("stop")) {
@@ -530,6 +558,7 @@ function AlertSystemPanel({ alerts, onNavigate }: { alerts: AlertItem[]; onNavig
           {alerts.map((alert, i) => {
             const cfg = ALERT_CONFIG[alert.level];
             const Icon = cfg.icon;
+            const destination = alert.redirect_path || "/";
             return (
               <button
                 key={i}
@@ -537,7 +566,7 @@ function AlertSystemPanel({ alerts, onNavigate }: { alerts: AlertItem[]; onNavig
                   "w-full text-left p-2.5 rounded-md border transition-all hover:opacity-80 flex items-start gap-2.5",
                   cfg.bg, cfg.border
                 )}
-                onClick={() => onNavigate(alert.redirect_path)}
+                onClick={() => onNavigate(destination)}
               >
                 <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                   <span className={cn("w-1.5 h-1.5 rounded-full shrink-0 mt-1", cfg.dot)} />
@@ -556,10 +585,17 @@ function AlertSystemPanel({ alerts, onNavigate }: { alerts: AlertItem[]; onNavig
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-snug">{alert.detail}</p>
                   {alert.entity && (
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">{alert.entity}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
+                      Entity: {alert.entity}
+                    </p>
                   )}
                 </div>
-                <ExternalLink className="w-3 h-3 text-muted-foreground/40 shrink-0 mt-0.5" />
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <ExternalLink className="w-3 h-3 text-muted-foreground/40" />
+                  <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider">
+                    {destination.replace("/", "") || "dashboard"}
+                  </span>
+                </div>
               </button>
             );
           })}
@@ -797,155 +833,212 @@ export default function RecommendationsPage() {
 
       {(["immediate", "this_week", "strategic"] as PriorityBand[]).map((band) => {
         const cfg = PRIORITY_CONFIG[band];
+        const Icon = cfg.icon;
         const items = sections[band].sort((a, b) => b.ice_score - a.ice_score);
         const isCollapsed = collapsedSections[band];
         if (items.length === 0) return null;
 
         return (
-          <div key={band} className="space-y-4">
-            <div className={cn("flex items-center gap-2 px-1")}>
-               <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", cfg.color)}>{cfg.label} Priority Feed</span>
-               <div className="flex-1 h-px bg-border/40" />
-            </div>
+          <div key={band} className="space-y-2">
+            {/* Section header */}
+            <button
+              className="w-full flex items-center gap-2 px-1 py-1 group"
+              onClick={() => toggleSection(band)}
+            >
+              <Icon className={cn("w-3.5 h-3.5", cfg.color)} />
+              <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", cfg.color)}>
+                {cfg.label} · {items.length}
+              </span>
+              <div className="flex-1 h-px bg-border/40" />
+              {isCollapsed
+                ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/40" />
+                : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground/40" />
+              }
+            </button>
 
             {!isCollapsed && (
-              <div className="grid grid-cols-1 gap-4">
-                {items.map((rec) => {
-                  const { recId, currentAction, idx, executionMapping, isAutoExec, redirect_path } = rec;
-                  const execState = executionStates[recId];
-                  const actionTimestamp = actionsData?.[recId]?.timestamp;
+              <Card className="border-border/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="t-table w-full">
+                    <thead>
+                      <tr className="border-b border-border/50 bg-muted/10">
+                        <th className="px-3 py-2.5 text-left t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[180px]">Entity</th>
+                        <th className="px-3 py-2.5 text-left t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[90px]">Category</th>
+                        <th className="px-3 py-2.5 text-left t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[200px]">Issue</th>
+                        <th className="px-3 py-2.5 text-left t-label font-black uppercase tracking-widest text-muted-foreground/70">Recommendation</th>
+                        <th className="px-3 py-2.5 text-left t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[160px]">Impact</th>
+                        <th className="px-3 py-2.5 text-center t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[52px]">ICE</th>
+                        <th className="px-3 py-2.5 text-center t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[64px]">Conf</th>
+                        <th className="px-3 py-2.5 text-right t-label font-black uppercase tracking-widest text-muted-foreground/70 w-[200px]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((rec) => {
+                        const { recId, currentAction, executionMapping, isAutoExec, redirect_path } = rec;
+                        const execState = executionStates[recId];
+                        const actionTimestamp = actionsData?.[recId]?.timestamp;
+                        const isDone = currentAction === "approved";
+                        const isRejected = currentAction === "rejected";
 
-                  return (
-                    <Card key={recId} className={cn("overflow-hidden border-border/60 hover:shadow-2xl hover:shadow-primary/5 transition-all group", 
-                      currentAction === 'approved' ? 'bg-emerald-500/5' : currentAction === 'rejected' ? 'opacity-50' : '')}>
-                      <CardContent className="card-content-premium p-0">
-                        {/* THE 9-COLUMN SOP MASTER ROW */}
-                        <div className="flex flex-col md:flex-row">
-                          {/* Main Intelligence Block */}
-                          <div className="flex-1 p-6 space-y-4">
-                            <div className="flex items-start justify-between">
-                               <div className="space-y-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                     <Badge variant="secondary" className="text-[10px] font-black uppercase bg-muted/50">{rec.categoryLabel}</Badge>
-                                     <Badge variant="outline" className={cn("text-[10px] uppercase font-bold", cfg.color, cfg.borderColor)}>{rec.priority.toUpperCase()}</Badge>
-                                     <span className="t-label font-bold text-muted-foreground uppercase tracking-widest">{rec.entityTypeLabel}</span>
-                                  </div>
-                                  <h3 className="text-lg font-bold tracking-tight">{rec.entityLabel}</h3>
-                               </div>
-                               <div className="text-right">
-                                  <div className="flex items-center gap-1.5 justify-end mb-1">
-                                     <span className="text-[9px] font-bold uppercase tracking-tighter text-muted-foreground/60">Confidence</span>
-                                     <Badge variant={rec.confidence === 'High' ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0">{rec.confidence}</Badge>
-                                  </div>
-                                  <div className="text-2xl font-black text-primary/80 tabular-nums">ICE {rec.ice_score}</div>
-                               </div>
-                            </div>
+                        const EntityIcon = rec.entityTypeLabel.includes("Campaign") ? TrendingUp
+                          : rec.entityTypeLabel.includes("Ad Set") || rec.entityTypeLabel.includes("Ad Group") ? Target
+                          : rec.entityTypeLabel.includes("Ad") ? Play
+                          : rec.entityTypeLabel.includes("Keyword") ? Search
+                          : Shield;
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/10 rounded-xl p-5 border border-border/40">
-                               <div className="space-y-1">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Detected Issue</p>
-                                  <p className="text-xs font-bold text-red-400 leading-snug">{rec.issue}</p>
-                               </div>
-                               <div className="space-y-1">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Root Cause</p>
-                                  <p className="text-xs font-semibold text-foreground/80 leading-snug">{rec.rootCause}</p>
-                               </div>
-                            </div>
+                        return (
+                          <tr
+                            key={recId}
+                            className={cn(
+                              "border-b border-border/20 hover:bg-muted/5 transition-colors",
+                              cfg.borderColor.replace("border-", "border-l-2 border-l-"),
+                              isDone && "bg-emerald-500/3",
+                              isRejected && "opacity-40"
+                            )}
+                          >
+                            {/* Entity */}
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <EntityIcon className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-foreground truncate max-w-[160px]" title={rec.entityLabel}>
+                                    {rec.entityLabel}
+                                  </p>
+                                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{rec.entityTypeLabel}</p>
+                                </div>
+                              </div>
+                            </td>
 
-                            <div className="space-y-3">
-                               <div className="flex items-start gap-4">
-                                  <div className="mt-1 p-2 rounded-lg bg-primary/10 text-primary">
-                                     <Zap className="w-4 h-4" />
-                                  </div>
-                                  <div className="space-y-1">
-                                     <p className="text-[9px] font-black uppercase tracking-widest text-primary">Fix Recommendation</p>
-                                     <p className="text-sm font-bold text-foreground leading-relaxed">{rec.recommendation}</p>
-                                  </div>
-                               </div>
-                            </div>
-                          </div>
+                            {/* Category */}
+                            <td className="px-3 py-2.5">
+                              <Badge variant="secondary" className="text-[8px] font-black uppercase bg-muted/60 px-1.5 py-0 whitespace-nowrap">
+                                {rec.categoryLabel}
+                              </Badge>
+                            </td>
 
-                          {/* Impact & Action Panel */}
-                          <div className="w-full md:w-80 bg-muted/20 border-l border-border/40 p-6 flex flex-col justify-between gap-6">
-                            <div className="space-y-4">
-                               <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1">
-                                  <div className="flex items-center gap-1.5">
-                                     <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                                     <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Expected Impact</span>
-                                  </div>
-                                  <p className="text-sm font-black text-emerald-300">{rec.expectedImpact}</p>
-                               </div>
+                            {/* Issue */}
+                            <td className="px-3 py-2.5">
+                              <p className="text-[11px] font-semibold text-red-400 leading-snug line-clamp-2" title={rec.issue}>
+                                {rec.issue}
+                              </p>
+                            </td>
 
-                               {actionTimestamp && (
-                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>Actioned {timeAgo(actionTimestamp)}</span>
-                                 </div>
-                               )}
-                            </div>
+                            {/* Recommendation */}
+                            <td className="px-3 py-2.5">
+                              <p className="text-[11px] text-foreground/80 leading-snug line-clamp-2" title={rec.recommendation}>
+                                {rec.recommendation}
+                              </p>
+                              {rec.rootCause && (
+                                <p className="text-[9px] text-muted-foreground/60 mt-0.5 truncate" title={rec.rootCause}>
+                                  ↳ {rec.rootCause}
+                                </p>
+                              )}
+                            </td>
 
-                            <div className="space-y-2">
-                               {isAutoExec ? (
-                                  <Button 
-                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 shadow-lg shadow-emerald-900/20 gap-2"
-                                    onClick={() => openDialog(recId, executionMapping, "execute", rec)}
-                                    disabled={isExecuting || actionMutation.isPending || !!currentAction}
-                                  >
-                                    <Zap className="w-4 h-4 fill-current" />
-                                    {execState === 'executing' ? 'Executing...' : 'Auto-Execute Fix'}
-                                  </Button>
-                               ) : executionMapping ? (
-                                  <Button 
-                                    variant="default"
-                                    className="w-full font-bold h-11 gap-2"
-                                    onClick={() => openDialog(recId, executionMapping, "execute", rec)}
-                                    disabled={isExecuting || actionMutation.isPending || !!currentAction}
-                                  >
-                                    <Play className="w-4 h-4" />
-                                    Manual Sync
-                                  </Button>
-                               ) : (
-                                  <Button 
-                                    variant="outline"
-                                    className="w-full h-11 border-dashed text-muted-foreground font-bold hover:text-foreground"
-                                    onClick={() => openDialog(recId, null, "complete", rec)}
-                                    disabled={!!currentAction}
-                                  >
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    Mark Complete
-                                  </Button>
-                               )}
+                            {/* Impact */}
+                            <td className="px-3 py-2.5">
+                              <span className="text-[11px] font-bold text-emerald-400">{rec.expectedImpact}</span>
+                              {actionTimestamp && (
+                                <p className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5" /> {timeAgo(actionTimestamp)}
+                                </p>
+                              )}
+                            </td>
 
-                               <div className="grid grid-cols-2 gap-2 mt-2">
-                                  {!currentAction && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] font-bold uppercase"
+                            {/* ICE */}
+                            <td className="px-3 py-2.5 text-center">
+                              <span className={cn(
+                                "text-xs font-black tabular-nums px-1.5 py-0.5 rounded",
+                                rec.ice_score >= 8 ? "bg-red-500/15 text-red-400"
+                                  : rec.ice_score >= 6 ? "bg-amber-500/15 text-amber-400"
+                                  : "bg-muted text-muted-foreground"
+                              )}>
+                                {rec.ice_score}
+                              </span>
+                            </td>
+
+                            {/* Confidence */}
+                            <td className="px-3 py-2.5 text-center">
+                              <Badge
+                                variant={rec.confidence === "High" ? "success" : "warning"}
+                                className="text-[8px] px-1.5 py-0"
+                              >
+                                {rec.confidence}
+                              </Badge>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {isDone ? (
+                                  <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Done
+                                  </span>
+                                ) : isRejected ? (
+                                  <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1">
+                                    <XCircle className="w-3.5 h-3.5" /> Rejected
+                                  </span>
+                                ) : (
+                                  <>
+                                    {isAutoExec ? (
+                                      <Button
+                                        size="sm"
+                                        className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold gap-1"
+                                        onClick={() => openDialog(recId, executionMapping, "execute", rec)}
+                                        disabled={isExecuting || actionMutation.isPending}
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        {execState === "executing" ? "..." : "Execute"}
+                                      </Button>
+                                    ) : executionMapping ? (
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-7 px-2.5 text-[10px] font-bold gap-1"
+                                        onClick={() => openDialog(recId, executionMapping, "execute", rec)}
+                                        disabled={isExecuting || actionMutation.isPending}
+                                      >
+                                        <Play className="w-3 h-3" /> Sync
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2.5 text-[10px] font-bold gap-1 border-dashed"
+                                        onClick={() => openDialog(recId, null, "complete", rec)}
+                                      >
+                                        <CheckCircle2 className="w-3 h-3" /> Done
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] font-bold"
                                       onClick={() => openDialog(recId, null, "reject", rec)}
                                     >
-                                      Reject
+                                      <XCircle className="w-3.5 h-3.5" />
                                     </Button>
-                                  )}
-                                  {redirect_path && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase ml-auto"
-                                      onClick={() => navigate(redirect_path)}
-                                    >
-                                      Explore <ExternalLink className="w-3 h-3 ml-1" />
-                                    </Button>
-                                  )}
-                               </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                                    {redirect_path && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                                        onClick={() => navigate(redirect_path)}
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             )}
           </div>
         );

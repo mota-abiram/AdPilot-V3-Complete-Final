@@ -5,9 +5,8 @@ import path from "path";
 import fs from "fs";
 import { log } from "./index";
 import { saveAnalysisSnapshot } from "./analysis-persistence";
-import { db } from "./db";
-import { clients as clientTable, biddingRecommendations } from "@shared/schema";
 import { generateBiddingRecommendations } from "./bidding-intelligence";
+import { storage } from "./storage";
 
 const execFileAsync = promisify(execFile);
 
@@ -185,74 +184,46 @@ export function getPlatformSyncState(clientId: string, platform: string): Platfo
   return getDefaultPlatformSyncState(clientId, platform);
 }
 
-function loadEnabledClients(platform: string): string[] {
-  try {
-    const registry = JSON.parse(fs.readFileSync(path.join(DATA_BASE, "clients_registry.json"), "utf-8")) as any[];
-    return registry
-      .filter((client) => client.platforms?.[platform]?.enabled)
-      .map((client) => client.id);
-  } catch {
-    return [];
-  }
-}
-
 // Load clients registry and credentials for multi-client runs
-function loadClientsWithCredentials(): Array<{ 
-  id: string; 
-  googleCreds?: Record<string, string>; 
-  metaCreds?: Record<string, string>; 
-}> {
+async function loadClientsWithCredentials(): Promise<Array<{
+  id: string;
+  googleCreds?: Record<string, string>;
+  metaCreds?: Record<string, string>;
+}>> {
   try {
-    const registry = JSON.parse(fs.readFileSync(path.join(DATA_BASE, "clients_registry.json"), "utf-8")) as any[];
-    const credsPath = path.join(DATA_BASE, "clients_credentials.json");
-    const credsArr: any[] = fs.existsSync(credsPath)
-      ? JSON.parse(fs.readFileSync(credsPath, "utf-8"))
-      : [];
-    const credsMap: Record<string, any> = Object.fromEntries(credsArr.map((c) => [c.clientId, c]));
+    const allClients = await storage.getAllClients();
 
-    return registry.map((c) => {
-      // 1. Google Credentials
-      const g = credsMap[c.id]?.google;
-      const hasValidClientGoogleCreds = Boolean(
-        g?.clientId && g?.clientSecret && g?.refreshToken &&
-        !String(g.clientId).startsWith("YOUR_")
-      );
+    const results: Array<{ id: string; googleCreds?: Record<string, string>; metaCreds?: Record<string, string> }> = [];
 
-      const googleCreds = hasValidClientGoogleCreds ? {
-        GOOGLE_CLIENT_ID: g.clientId || "",
-        GOOGLE_CLIENT_SECRET: g.clientSecret || "",
-        GOOGLE_REFRESH_TOKEN: g.refreshToken || "",
-        GOOGLE_DEVELOPER_TOKEN: g.developerToken || "",
-        GOOGLE_MCC_ID: g.mccId || "",
-        GOOGLE_CUSTOMER_ID: g.customerId || "",
-      } : (process.env.GOOGLE_REFRESH_TOKEN ? {
-        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
-        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
-        GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || "",
-        GOOGLE_DEVELOPER_TOKEN: process.env.GOOGLE_DEVELOPER_TOKEN || "",
-        GOOGLE_MCC_ID: process.env.GOOGLE_MCC_ID || "",
-        GOOGLE_CUSTOMER_ID: process.env.GOOGLE_CUSTOMER_ID || "",
-      } : undefined);
+    for (const c of allClients) {
+      const creds = await storage.getCredentials(c.id);
 
-      // 2. Meta Credentials
-      const m = credsMap[c.id]?.meta;
-      const hasValidClientMetaCreds = Boolean(
-        m?.accessToken && m?.adAccountId &&
-        !String(m.accessToken).startsWith("YOUR_")
-      );
+      // Google Credentials — DB only, no ENV fallback
+      const g = creds?.google as any;
+      const googleCreds = (g?.clientId && g?.clientSecret && g?.refreshToken &&
+        !String(g.clientId).startsWith("YOUR_")) ? {
+          GOOGLE_CLIENT_ID: g.clientId,
+          GOOGLE_CLIENT_SECRET: g.clientSecret,
+          GOOGLE_REFRESH_TOKEN: g.refreshToken,
+          GOOGLE_DEVELOPER_TOKEN: g.developerToken || "",
+          GOOGLE_MCC_ID: g.mccId || "",
+          GOOGLE_CUSTOMER_ID: g.customerId || "",
+        } : undefined;
 
-      const metaCreds = hasValidClientMetaCreds ? {
-        META_ACCESS_TOKEN: m.accessToken || "",
-        META_AD_ACCOUNT_ID: m.adAccountId || "",
-      } : (process.env.META_ACCESS_TOKEN ? {
-        META_ACCESS_TOKEN: process.env.META_ACCESS_TOKEN || "",
-        META_AD_ACCOUNT_ID: process.env.META_AD_ACCOUNT_ID || "",
-      } : undefined);
+      // Meta Credentials — DB only, no ENV fallback
+      const m = creds?.meta as any;
+      const metaCreds = (m?.accessToken && m?.adAccountId &&
+        !String(m.accessToken).startsWith("YOUR_")) ? {
+          META_ACCESS_TOKEN: m.accessToken,
+          META_AD_ACCOUNT_ID: m.adAccountId,
+        } : undefined;
 
-      return { id: c.id, googleCreds, metaCreds };
-    });
+      results.push({ id: c.id, googleCreds, metaCreds });
+    }
+
+    return results;
   } catch (err) {
-    log(`[Credentials] Error loading registry: ${err}`, "scheduler");
+    log(`[Credentials] Error loading clients from DB: ${err}`, "scheduler");
     return [];
   }
 }
@@ -272,8 +243,7 @@ async function runAgent(): Promise<void> {
 
     const metaAgent = path.join(ADS_AGENT_DIR, "meta_ads_agent_v2.py");
     const googleAgent = path.join(ADS_AGENT_DIR, "google_ads_agent_v2.py");
-    const metaClients = loadEnabledClients("meta");
-    const clients = loadClientsWithCredentials();
+    const clients = await loadClientsWithCredentials();
 
     if (fs.existsSync(metaAgent)) {
       const metaClients = clients.filter((c) => c.metaCreds?.META_ACCESS_TOKEN);
@@ -459,7 +429,7 @@ export function initScheduler(): void {
 
   // Schedule daily at 9:00 AM IST (03:30 UTC)
   // IST is UTC+5:30, so 9:00 AM IST = 3:30 AM UTC
-  const task = cron.schedule("30 3 * * *", () => {
+  cron.schedule("30 3 * * *", () => {
     log("Scheduler: 9 AM IST trigger — starting agent run", "scheduler");
     runAgent();
   }, {

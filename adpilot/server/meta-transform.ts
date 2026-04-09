@@ -7,7 +7,8 @@
  * cadences (1D / 2×wk / Wkly / Bi-wk / Mo) reflects the actual window.
  */
 
-import { scoreLinear, getClassification, calculatePerformanceScore, calculateFinalAdScore } from "../shared/scoring";
+import { getClassification } from "../shared/classification";
+import { scoreLinear } from "../shared/scoring";
 
 function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
   let total = 0;
@@ -98,12 +99,36 @@ export function normalizeMetaAnalysis(raw: any): any {
 
   const data = { ...raw };
 
+  if (Array.isArray(data.campaign_audit)) {
+    data.campaign_audit = data.campaign_audit.map((campaign: any) => ({
+      ...campaign,
+      classification: getClassification(campaign.health_score),
+    }));
+  }
+
+  if (Array.isArray(data.adset_analysis)) {
+    data.adset_analysis = data.adset_analysis.map((adset: any) => ({
+      ...adset,
+      classification: getClassification(adset.health_score),
+    }));
+  }
+
+  if (Array.isArray(data.creative_health)) {
+    data.creative_health = data.creative_health.map((creative: any) => ({
+      ...creative,
+      classification: getClassification(
+        creative.health_score ?? creative.creative_score ?? creative.performance_score ?? 0
+      ),
+    }));
+  }
+
   // ── 1. Account health score — recompute from cadence-window data ─────
   // The Python agent writes the same score to all cadence files (computed
   // from MTD data). We recompute it here from the per-cadence daily arrays
   // so the score changes when the user switches cadences.
   const recomputed = recomputeHealthScore(data);
   data.account_health_score = recomputed.score;
+  data.account_health_classification = getClassification(recomputed.score);
   data.account_health_breakdown = recomputed.breakdown;
 
   // ── 2. playbooks_triggered ───────────────────────────────────────────

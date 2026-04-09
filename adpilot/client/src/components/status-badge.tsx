@@ -1,9 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { getClassificationColor } from "@/lib/format";
-import { type Classification } from "@shared/scoring";
+import type { Classification } from "@shared/classification";
 
-export function StatusBadge({ classification }: { classification: string | Classification }) {
-  const normalized = (classification || "WATCH").toUpperCase() as Classification;
+export function StatusBadge({ classification }: { classification: string | Classification | undefined }) {
+  const rawValue = (classification || "WATCH").toString().toUpperCase();
+  const normalized = (["WINNER", "WATCH", "UNDERPERFORMER"].includes(rawValue) ? rawValue : "WATCH") as Classification;
   const colors = getClassificationColor(normalized);
   
   return (

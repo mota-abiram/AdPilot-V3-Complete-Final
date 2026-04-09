@@ -24,6 +24,9 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 CAMPAIGN_FIELDS = """
     campaign.id, campaign.name, campaign.status,
     campaign.advertising_channel_type, campaign.bidding_strategy_type,
+    campaign.target_cpa.target_cpa_micros,
+    campaign.maximize_conversions.target_cpa_micros,
+    campaign.maximize_conversion_value.target_roas,
     campaign_budget.amount_micros,
     segments.date,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
@@ -36,7 +39,9 @@ CAMPAIGN_FIELDS = """
     metrics.search_absolute_top_impression_share,
     metrics.search_top_impression_share,
     metrics.search_click_share,
-    metrics.search_exact_match_impression_share
+    metrics.search_exact_match_impression_share,
+    metrics.phone_impressions,
+    metrics.phone_calls
 """
 
 AD_GROUP_FIELDS = """
@@ -45,11 +50,14 @@ AD_GROUP_FIELDS = """
     segments.date,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.all_conversions,
-    metrics.ctr, metrics.average_cpc, metrics.cost_per_conversion
+    metrics.ctr, metrics.average_cpc, metrics.cost_per_conversion,
+    metrics.search_impression_share,
+    metrics.search_top_impression_share
 """
 
 AD_FIELDS = """
     ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status,
+    ad_group_ad.ad_strength,
     ad_group_ad.ad.type,
     ad_group_ad.ad.responsive_search_ad.headlines,
     ad_group_ad.ad.responsive_search_ad.descriptions,
@@ -233,7 +241,8 @@ def get_report(resource, since=None, until=None, query=None, customer_id=None):
         # Raw GAQL provided — use as-is but add date filter if dates given and not already in query
         gaql = query
         if since and until and "segments.date" not in query.lower():
-            gaql += f" AND segments.date BETWEEN '{since}' AND '{until}'"
+            connector = " AND" if "WHERE" in gaql.upper() else " WHERE"
+            gaql += f"{connector} segments.date BETWEEN '{since}' AND '{until}'"
     else:
         # Auto-build query from resource type
         fields = DEFAULT_FIELDS.get(resource)

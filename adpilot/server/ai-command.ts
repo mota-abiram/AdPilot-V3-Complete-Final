@@ -396,10 +396,21 @@ async function executeActionPlan(
         const previousMetaAccessToken = process.env.META_ACCESS_TOKEN;
         const previousMetaAdAccountId = process.env.META_AD_ACCOUNT_ID;
 
+        // Scalable Env Fallback Logic
+        const CLIENT_META_CONFIG: Record<string, { accessToken: string; adAccountId: string } | null> = {
+          "revasa-aura": {
+            accessToken: process.env.META_REVASA_AURA_ACCESS_TOKEN || "",
+            adAccountId: `act_${process.env.META_REVASA_AURA_AD_ACCOUNT_ID || ""}`
+          }
+        };
+
         try {
           if (credentials.meta?.accessToken) {
             process.env.META_ACCESS_TOKEN = credentials.meta.accessToken;
             process.env.META_AD_ACCOUNT_ID = credentials.meta.adAccountId;
+          } else if (CLIENT_META_CONFIG[clientId] && CLIENT_META_CONFIG[clientId]?.accessToken) {
+            process.env.META_ACCESS_TOKEN = CLIENT_META_CONFIG[clientId]!.accessToken;
+            process.env.META_AD_ACCOUNT_ID = CLIENT_META_CONFIG[clientId]!.adAccountId;
           }
 
           const result = await executeAction(req);

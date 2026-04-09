@@ -78,7 +78,8 @@ export default function KeywordsPage() {
       ctr: k.ctr || (k.impressions > 0 ? (k.clicks / k.impressions) * 100 : 0),
       cpc: k.cpc || (k.clicks > 0 ? (k.cost || k.spend || 0) / k.clicks : 0),
       quality_score: k.quality_score || 0,
-      status: k.status || "active",
+      cvr: k.cvr || (k.clicks > 0 ? (k.conversions / k.clicks) * 100 : 0),
+      top_is: k.top_is || k.search_top_impression_share || 0,
       classification: k.classification,
       recommendation: k.recommendation,
     }));
@@ -122,9 +123,11 @@ export default function KeywordsPage() {
     const totalSpend = filteredKeywords.reduce((s, k) => s + k.spend, 0);
     const totalConversions = filteredKeywords.reduce((s, k) => s + k.conversions, 0);
     const avgCpl = totalConversions > 0 ? totalSpend / totalConversions : 0;
-    const avgQs = filteredKeywords.length > 0 ? filteredKeywords.reduce((s, k) => s + k.quality_score, 0) / filteredKeywords.length : 0;
+    const spendWeightedQs = totalSpend > 0 
+      ? filteredKeywords.reduce((s, k) => s + (k.quality_score * k.spend), 0) / totalSpend 
+      : (filteredKeywords.length > 0 ? filteredKeywords.reduce((s, k) => s + k.quality_score, 0) / filteredKeywords.length : 0);
     
-    return { totalSpend, totalConversions, avgCpl, avgQs };
+    return { totalSpend, totalConversions, avgCpl, avgQs: spendWeightedQs };
   }, [filteredKeywords]);
 
   function toggleSort(key: keyof KeywordEntry) {
@@ -209,7 +212,7 @@ export default function KeywordsPage() {
         </Card>
         <Card className="bg-card/50 border-border/40">
           <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg Quality Score</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Spend-Weighted QS</p>
             <p className={cn("text-2xl font-black tabular-nums",
               stats.avgQs >= 7 ? "text-emerald-400" : stats.avgQs >= 5 ? "text-amber-400" : "text-red-400"
             )}>
@@ -226,13 +229,19 @@ export default function KeywordsPage() {
             <thead>
               <tr className="bg-muted/20 border-b border-border/50">
                 {[
-                  { key: "keyword", label: "Keyword", align: "left" },
-                  { key: "campaign", label: "Campaign", align: "left" },
+                  { key: "keyword", label: "Keyword / Ad Group", align: "left" },
+                  { key: "classification", label: "Class", align: "center" },
                   { key: "spend", label: "Spend", align: "right" },
+                  { key: "impressions", label: "Impr", align: "right" },
                   { key: "clicks", label: "Clicks", align: "right" },
+                  { key: "ctr", label: "CTR", align: "right" },
                   { key: "conversions", label: "Conv", align: "right" },
+                  { key: "cvr", label: "CVR", align: "right" },
                   { key: "cpl", label: "CPL", align: "right" },
+                  { key: "cpc", label: "CPC", align: "right" },
                   { key: "quality_score", label: "QS", align: "center" },
+                  { key: "top_is", label: "Top IS %", align: "right" },
+                  { key: "action", label: "Action", align: "center" },
                 ].map(col => (
                   <th
                     key={col.key}
@@ -251,34 +260,79 @@ export default function KeywordsPage() {
               </tr>
             </thead>
             <tbody>
-              {paginatedKeywords.map((kw, idx) => (
-                <tr key={idx} className="border-b border-border/30 hover:bg-muted/20 transition-all">
-                  <td className="p-3">
-                    <div className="font-semibold text-foreground">{kw.keyword}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase">{kw.match_type}</div>
-                  </td>
-                  <td className="p-3 text-muted-foreground">{truncate(kw.campaign, 25)}</td>
-                  <td className="p-3 text-right tabular-nums font-medium">{formatINR(kw.spend, 0)}</td>
-                  <td className="p-3 text-right tabular-nums text-muted-foreground">{kw.clicks}</td>
-                  <td className="p-3 text-right tabular-nums font-medium text-emerald-400">{kw.conversions}</td>
-                  <td className="p-3 text-right tabular-nums font-bold">{kw.cpl > 0 ? formatINR(kw.cpl, 0) : "—"}</td>
-                  <td className="p-3">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-12 h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                        <div
-                          className={cn("h-full transition-all",
-                            kw.quality_score >= 7 ? "bg-emerald-500" : kw.quality_score >= 5 ? "bg-amber-500" : "bg-red-500"
-                          )}
-                          style={{ width: `${kw.quality_score * 10}%` }}
-                        />
+              {paginatedKeywords.map((kw, idx) => {
+                const targetCpl = (data as any)?.benchmarks?.cpl || 1000;
+                
+                // Engine SOP Rules
+                let action = "HOLD";
+                let actionCls = "bg-muted text-muted-foreground";
+                
+                if (kw.conversions === 0 && kw.clicks >= 40 && kw.spend > (1.5 * targetCpl)) {
+                  action = "PAUSE";
+                  actionCls = "bg-red-500/10 text-red-500 border-red-500/20";
+                } else if (kw.conversions > 0 && kw.cpl <= (1.3 * targetCpl)) {
+                  action = "SCALE";
+                  actionCls = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+                }
+
+                let classification = kw.classification || "WATCH";
+                let classCls = "bg-amber-500/10 text-amber-500 border-amber-500/20";
+                if (classification.toUpperCase() === "WINNER") {
+                  classCls = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+                } else if (classification.toUpperCase() === "UNDERPERFORMER") {
+                  classCls = "bg-red-500/10 text-red-500 border-red-500/20";
+                } else if (classification.toUpperCase() === "NEW") {
+                  classCls = "bg-blue-500/10 text-blue-500 border-blue-500/20";
+                }
+
+                return (
+                  <tr key={idx} className="border-b border-border/30 hover:bg-muted/20 transition-all">
+                    <td className="p-3">
+                      <div className="font-semibold text-foreground flex items-center gap-2">
+                        {kw.keyword}
+                        {kw.status !== "active" && <span className="text-[9px] uppercase bg-muted px-1 py-0.5 rounded text-muted-foreground">{kw.status}</span>}
                       </div>
-                      <span className={cn("font-bold tabular-nums",
-                        kw.quality_score >= 7 ? "text-emerald-400" : kw.quality_score >= 5 ? "text-amber-400" : "text-red-400"
-                      )}>{kw.quality_score}</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      <div className="text-[10px] text-muted-foreground truncate uppercase mt-0.5">
+                        {kw.match_type} • {truncate(kw.ad_group, 20)}
+                      </div>
+                    </td>
+                    <td className="p-3 text-center">
+                      <Badge variant="outline" className={cn("text-[9px] uppercase whitespace-nowrap", classCls)}>
+                        {classification}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-right tabular-nums font-medium">{formatINR(kw.spend, 0)}</td>
+                    <td className="p-3 text-right tabular-nums text-muted-foreground">{kw.impressions.toLocaleString()}</td>
+                    <td className="p-3 text-right tabular-nums text-muted-foreground">{kw.clicks.toLocaleString()}</td>
+                    <td className="p-3 text-right tabular-nums text-muted-foreground">{kw.ctr.toFixed(1)}%</td>
+                    <td className="p-3 text-right tabular-nums font-medium text-emerald-400">{kw.conversions}</td>
+                    <td className="p-3 text-right tabular-nums text-muted-foreground">{kw.cvr.toFixed(1)}%</td>
+                    <td className="p-3 text-right tabular-nums font-bold">{kw.cpl > 0 ? formatINR(kw.cpl, 0) : "—"}</td>
+                    <td className="p-3 text-right tabular-nums font-medium">{kw.cpc > 0 ? formatINR(kw.cpc, 0) : "—"}</td>
+                    <td className="p-3">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-12 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                          <div
+                            className={cn("h-full transition-all",
+                              kw.quality_score >= 7 ? "bg-emerald-500" : kw.quality_score >= 5 ? "bg-amber-500" : "bg-red-500"
+                            )}
+                            style={{ width: `${(kw.quality_score / 10) * 100}%` }}
+                          />
+                        </div>
+                        <span className={cn("font-bold tabular-nums text-[11px]",
+                          kw.quality_score >= 7 ? "text-emerald-400" : kw.quality_score >= 5 ? "text-amber-400" : "text-red-400"
+                        )}>{kw.quality_score}</span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-right tabular-nums text-muted-foreground">{((kw as any).top_is || 0).toFixed(1)}%</td>
+                    <td className="p-3 text-center">
+                      <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", actionCls)}>
+                        {action}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

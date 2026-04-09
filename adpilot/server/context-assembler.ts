@@ -206,7 +206,7 @@ async function buildLayer2(
     totalLeads: ap.total_leads || ap.total_leads_30d,
     campaignCount: campaigns.length,
     winnerCount: campaigns.filter((c: any) => c.classification === "WINNER").length,
-    loserCount: campaigns.filter((c: any) => c.classification === "LOSER" || c.classification === "UNDERPERFORMER").length,
+    loserCount: campaigns.filter((c: any) => c.classification === "UNDERPERFORMER").length,
     alertCount: (analysisData.alerts || []).length,
   };
 

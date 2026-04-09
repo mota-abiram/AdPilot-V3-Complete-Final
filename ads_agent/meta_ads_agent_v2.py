@@ -162,7 +162,7 @@ MONTHLY_TARGETS["month_end"] = _MONTH_END
 MONTHLY_TARGETS["total_days"] = _MONTH_DAYS
 
 # ── Load overrides from client config if available (benchmarks take priority) ──
-CONFIG_PATH = os.path.join(DATA_DIR, "clients", "amara", "config.json")
+CONFIG_PATH = os.path.join(DATA_DIR, "clients", _CLIENT_ID, "config.json")
 if os.path.exists(CONFIG_PATH) and not _BENCHMARKS_LOADED:
     with open(CONFIG_PATH) as f:
         config = json.load(f)
@@ -1542,7 +1542,7 @@ def analyze_breakdowns(ds):
     print("  Module 3.6B: Demographic Breakdowns...")
     result = {}
     target_locations = ["Hyderabad", "Secunderabad"]
-    benchmarks_path = os.path.join(DATA_DIR, "clients", "amara", "benchmarks.json")
+    benchmarks_path = os.path.join(DATA_DIR, "clients", _CLIENT_ID, "benchmarks.json")
     if os.path.exists(benchmarks_path):
         try:
             benchmarks = json.load(open(benchmarks_path))
@@ -3301,7 +3301,7 @@ def main():
         print(f"\n[SAVED] Report -> {report_path}")
 
     # 4. Save all cadence files
-    client_dir = os.path.join(DATA_DIR, "clients", "amara", "meta")
+    client_dir = os.path.join(DATA_DIR, "clients", _CLIENT_ID, "meta")
     os.makedirs(client_dir, exist_ok=True)
 
     for cname, canalysis in cadence_results.items():

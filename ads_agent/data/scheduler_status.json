@@ -1,11 +1,21 @@
 {
-  "lastRun": "2026-04-08T12:57:09.921Z",
+  "lastRun": "2026-04-09T05:25:40.510Z",
   "lastRunSuccess": true,
-  "lastRunDuration": 162980,
+  "lastRunDuration": 136046,
   "lastError": null,
-  "nextRun": "2026-04-09T03:30:00.000Z",
+  "nextRun": "2026-04-10T03:30:00.000Z",
   "isRunning": false,
   "runHistory": [
+    {
+      "timestamp": "2026-04-09T05:25:40.510Z",
+      "success": true,
+      "duration": 136046
+    },
+    {
+      "timestamp": "2026-04-09T04:52:21.949Z",
+      "success": true,
+      "duration": 135634
+    },
     {
       "timestamp": "2026-04-08T12:57:09.921Z",
       "success": true,

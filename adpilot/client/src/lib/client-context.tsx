@@ -21,6 +21,15 @@ function recalcMetricsFromDailyArrays(data: any, cadence?: string): any {
   if (!data?.account_pulse) return data;
   const ap = data.account_pulse;
 
+  const hasBackendTotals =
+    (typeof ap.total_spend_30d === "number" || typeof ap.total_spend === "number") &&
+    (typeof ap.total_leads_30d === "number" || typeof ap.total_leads === "number") &&
+    typeof ap.overall_cpl === "number" &&
+    typeof ap.overall_ctr === "number";
+
+  // Prefer backend totals and aggregate metrics whenever they are available.
+  if (hasBackendTotals) return data;
+
   // Support both flat arrays (Meta) and daily_trends objects (Google)
   let dailySpends: number[] = ap.daily_spends || [];
   let dailyLeads: number[] = ap.daily_leads || [];
@@ -171,8 +180,8 @@ const ClientContext = createContext<ClientContextValue | null>(null);
 // ─── Provider ───────────────────────────────────────────────────────
 
 export function ClientProvider({ children }: { children: ReactNode }) {
-  const [activeClientId, setActiveClientId] = useState("amara");
-  const [activePlatform, setActivePlatform] = useState("meta");
+  const [activeClientId, setActiveClientId] = useState("");
+  const [activePlatform, _setActivePlatform] = useState("meta");
   const [activeCadence, setActiveCadence] = useState("twice_weekly");
 
   // Fetch client registry
@@ -181,6 +190,28 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   });
 
   const activeClient = clients.find((c) => c.id === activeClientId);
+
+  // Validated platform setter — rejects unknown platform IDs to prevent broken API URLs
+  const setActivePlatform = useCallback((platform: string) => {
+    const validPlatforms = activeClient?.platforms.map((p) => p.id) || [];
+    // Allow setting during initial load (validPlatforms empty) or when platform is known
+    if (validPlatforms.length === 0 || validPlatforms.includes(platform)) {
+      _setActivePlatform(platform);
+    } else {
+      console.warn(`[ClientContext] Rejected unknown platform "${platform}". Valid: ${validPlatforms.join(", ")}`);
+    }
+  }, [activeClient]);
+
+  // Auto-select first available client after load (no hardcoded default)
+  useEffect(() => {
+    if (!isLoadingClients && clients.length > 0 && !activeClientId) {
+      const first = clients[0];
+      setActiveClientId(first.id);
+      const firstEnabled = first.platforms.find((p) => p.enabled && p.hasData);
+      _setActivePlatform(firstEnabled?.id || first.platforms[0]?.id || "meta");
+    }
+  }, [clients, isLoadingClients, activeClientId]);
+
   const activePlatformInfo = activeClient?.platforms.find((p) => p.id === activePlatform);
 
   const apiBase = `/api/clients/${activeClientId}/${activePlatform}`;
@@ -197,6 +228,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       return res.json();
     },
     enabled: !!activePlatformInfo?.enabled && !!activePlatformInfo?.hasData,
+    // Analysis data changes only on agent runs — 5 min stale window is safe
+    staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
@@ -228,9 +261,6 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  // Recalculate aggregate metrics from daily arrays so they reflect the cadence window.
-  // Pass activeCadence so the recalc can skip overriding totals when daily arrays
-  // don't cover the full window (weekly/biweekly stored only 7 days of daily rows).
   const analysisData = useMemo(() => {
     if (!rawAnalysisData) return undefined;
     return recalcMetricsFromDailyArrays(rawAnalysisData, activeCadence) as AnalysisData;
@@ -242,12 +272,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     const client = clients.find((c) => c.id === id);
     if (client) {
       const firstEnabled = client.platforms.find((p) => p.enabled && p.hasData);
-      if (firstEnabled) {
-        setActivePlatform(firstEnabled.id);
-      } else {
-        // Default to first platform even if not enabled
-        setActivePlatform(client.platforms[0]?.id || "meta");
-      }
+      // Use _setActivePlatform directly here — the new client's platforms are the valid set
+      _setActivePlatform(firstEnabled?.id || client.platforms[0]?.id || "meta");
     }
   }, [clients]);
 

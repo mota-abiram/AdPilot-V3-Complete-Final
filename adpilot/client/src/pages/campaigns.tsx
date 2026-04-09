@@ -22,10 +22,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal, BarChart3, Info } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal, BarChart3, Info } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreIndicator } from "@/components/score-indicator";
-import { calculatePerformanceScore, getClassification } from "@shared/scoring";
 import {
   formatINR,
   formatPct,
@@ -118,38 +117,28 @@ export default function CampaignsPage() {
   const [dgPage, setDgPage] = useState(1);
   const [dgPageSize, setDgPageSize] = useState(25);
 
+  const getTargetCpl = (c: any) => {
+    if (activePlatform === "google") {
+      return (benchmarks as any)?.google?.cpl_target || 1500;
+    }
+    return (benchmarks as any)?.meta?.cpl_target || 800;
+  };
+
+  const calculateClassification = (c: any) => {
+    const health = c.health_score || 0;
+    const cpl = c.cpl || 0;
+    const target = getTargetCpl(c);
+
+    if (health >= 75 && cpl > 0 && cpl <= target) return "WINNER";
+    if (health < 50 || (cpl > 0 && cpl > (target * 1.3))) return "UNDERPERFORMER";
+    return "WATCH";
+  };
+
   const campaigns = useMemo(() => {
     if (!data) return [];
     const source = (data as any).campaign_audit || (data as any).campaigns || [];
     if (!source) return [];
-    
-    const perfTargets = {
-      cpl: (data as any)?.dynamic_thresholds?.cpl_target || 850,
-      cpm: (data as any)?.dynamic_thresholds?.cpm_target || 800,
-      ctr: (data as any)?.dynamic_thresholds?.ctr_min || 1.0,
-      cvr: (data as any)?.dynamic_thresholds?.cvr_min || 2.0,
-      frequency: 3.0
-    };
-
-    let list = source.map((c: any) => {
-      const perfMetrics = {
-        cpl: c.cpl || 0,
-        cpm: c.cpm || c.avg_cpm || 0,
-        ctr: c.ctr || 0,
-        cvr: c.cvr || 0,
-        frequency: c.frequency || 1.0
-      };
-      
-      const perf = calculatePerformanceScore(perfMetrics, perfTargets);
-      const classification = getClassification(perf.score);
-
-      return {
-        ...c,
-        classification: classification,
-        health_score: perf.score,
-        score_breakdown: perf.breakdown
-      };
-    });
+    let list = source.map((c: any) => ({ ...c }));
 
     if (filterLayer !== "ALL") {
       const fl = filterLayer.toLowerCase();
@@ -278,71 +267,165 @@ export default function CampaignsPage() {
   const thresholds = data.dynamic_thresholds;
   const hasSelection = selectedIds.size > 0;
 
-  // ─── Google: search-specific columns ────────────────────────────────
+  // ─── Google: search-specific columns (AdCortex Spec) ────────────────
   const googleSearchColumns = [
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
-    { key: "classification" as SortKey, label: "Class", align: "left" },
-    { key: "health_score" as SortKey, label: "Health", align: "left" },
-    { key: "spend" as SortKey, label: "Spend", align: "right" },
-    { key: "leads" as SortKey, label: "Leads", align: "right" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right" },
-    { key: "ctr" as SortKey, label: "CTR", align: "right" },
-    { key: "cvr" as SortKey, label: "CVR", align: "right" },
-    { key: "search_impression_share" as SortKey, label: "IS %", align: "right" },
-    { key: "search_rank_lost_is" as SortKey, label: "IS Lost Rank", align: "right" },
-    { key: "search_budget_lost_is" as SortKey, label: "IS Lost Budget", align: "right" },
-    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left" },
-    { key: "daily_budget" as SortKey, label: "Budget/d", align: "right" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "Identity" },
+    { key: "campaign_type" as SortKey, label: "Type", align: "left", group: "Identity" },
+    { key: "classification" as SortKey, label: "Class", align: "left", group: "Identity" },
+    { key: "health_score" as SortKey, label: "Health", align: "left", group: "Health" },
+    { key: "status" as SortKey, label: "Status", align: "left", group: "Health" },
+    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left", group: "Bidding & Budget" },
+    { key: "target_cpa" as SortKey, label: "tCPA", align: "right", group: "Bidding & Budget" },
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "Bidding & Budget" },
+    { key: "spend" as SortKey, label: "Spend", align: "right", group: "Performance" },
+    { key: "impressions" as SortKey, label: "Impr.", align: "right", group: "Performance" },
+    { key: "clicks" as SortKey, label: "Clicks", align: "right", group: "Performance" },
+    { key: "leads" as SortKey, label: "Leads", align: "right", group: "Performance" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "Efficiency" },
+    { key: "cvr" as SortKey, label: "CVR", align: "right", group: "Efficiency" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "Efficiency" },
+    { key: "search_impression_share" as SortKey, label: "Imp. Share", align: "right", group: "Delivery" },
+    { key: "search_rank_lost_is" as SortKey, label: "Rank Lost", align: "right", group: "Delivery" },
+    { key: "search_budget_lost_is" as SortKey, label: "Budg. Lost", align: "right", group: "Delivery" },
   ];
 
-  // ─── Google: DG-specific columns ────────────────────────────────────
+  // ─── Google: DG-specific columns (AdCortex Spec) ────────────────────
   const googleDgColumns = [
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
-    { key: "classification" as SortKey, label: "Class", align: "left" },
-    { key: "health_score" as SortKey, label: "Health", align: "left" },
-    { key: "spend" as SortKey, label: "Spend", align: "right" },
-    { key: "leads" as SortKey, label: "Leads", align: "right" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right" },
-    { key: "ctr" as SortKey, label: "CTR", align: "right" },
-    { key: "tsr" as SortKey, label: "TSR", align: "right" },
-    { key: "vhr" as SortKey, label: "VHR", align: "right" },
-    { key: "cpm" as SortKey, label: "CPM", align: "right" },
-    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left" },
-    { key: "daily_budget" as SortKey, label: "Budget/d", align: "right" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "Identity" },
+    { key: "campaign_type" as SortKey, label: "Type", align: "left", group: "Identity" },
+    { key: "classification" as SortKey, label: "Class", align: "left", group: "Identity" },
+    { key: "health_score" as SortKey, label: "Health", align: "left", group: "Health" },
+    { key: "status" as SortKey, label: "Status", align: "left", group: "Health" },
+    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left", group: "Bidding & Budget" },
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "Bidding & Budget" },
+    { key: "spend" as SortKey, label: "Spend", align: "right", group: "Performance" },
+    { key: "leads" as SortKey, label: "Leads", align: "right", group: "Performance" },
+    { key: "tsr" as SortKey, label: "TSR", align: "right", group: "Performance" },
+    { key: "vhr" as SortKey, label: "VHR", align: "right", group: "Performance" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "Efficiency" },
+    { key: "cvr" as SortKey, label: "CVR", align: "right", group: "Efficiency" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "Efficiency" },
   ];
+
 
   const metaColumns = [
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
-    { key: "layer" as SortKey, label: "Layer", align: "left" },
-    { key: "classification" as SortKey, label: "Class", align: "left" },
-    { key: "learning_status" as SortKey, label: "Learning", align: "left" },
-    { key: "delivery_status" as SortKey, label: "Delivery", align: "left" },
-    { key: "health_score" as SortKey, label: "Health", align: "left" },
-    { key: "spend" as SortKey, label: "Spend", align: "right" },
-    { key: "leads" as SortKey, label: "Leads", align: "right" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right" },
-    { key: "ctr" as SortKey, label: "CTR", align: "right" },
-    { key: "cpc" as SortKey, label: "CPC", align: "right" },
-    { key: "cpm" as SortKey, label: "CPM", align: "right" },
-    { key: "frequency" as SortKey, label: "Freq", align: "right" },
-    { key: "daily_budget" as SortKey, label: "Budget/d", align: "right" },
-    { key: "budget_utilization_pct" as SortKey, label: "Util %", align: "right" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "Identity" },
+    { key: "layer" as SortKey, label: "Layer", align: "left", group: "Identity" },
+    { key: "classification" as SortKey, label: "Class", align: "left", group: "Identity" },
+    { key: "learning_status" as SortKey, label: "Learn", align: "left", group: "Identity" },
+    { key: "delivery_status" as SortKey, label: "Deliv", align: "left", group: "Identity" },
+    { key: "health_score" as SortKey, label: "Health", align: "left", group: "Health" },
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "Bidding & Budget" },
+    { key: "spend" as SortKey, label: "Spend", align: "right", group: "Performance" },
+    { key: "leads" as SortKey, label: "Leads", align: "right", group: "Performance" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "Performance" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "Efficiency" },
+    { key: "cpc" as SortKey, label: "CPC", align: "right", group: "Efficiency" },
+    { key: "cpm" as SortKey, label: "CPM", align: "right", group: "Efficiency" },
+    { key: "frequency" as SortKey, label: "Freq", align: "right", group: "Delivery" },
+    { key: "budget_utilization_pct" as SortKey, label: "Utility", align: "right", group: "Delivery" },
   ];
 
-  // ─── Render a campaign table (reusable for Search/DG sections) ────
+  // ─── Render a campaign table cell (reusable helper) ───────────────
+  function renderCell(c: any, col: { key: SortKey, align: string, label: string }, sectionType: "search" | "dg") {
+    const isSearch = sectionType === "search";
+
+    const val = c[col.key];
+
+    // Edge case handling
+    const impressions = c.impressions || 0;
+    const health = c.health_score || 0;
+
+    if (col.key === "campaign_type") {
+      const typeInfo = getCampaignTypeBadge(val);
+      return (
+        <td key={col.key} className="p-3">
+          <Badge variant="outline" className={`${typeInfo.bg} ${typeInfo.text} border-transparent text-[10px] uppercase font-bold`}>
+            {typeInfo.label}
+          </Badge>
+        </td>
+      );
+    }
+
+    if (col.key === "status") {
+      const isActive = val === "ENABLED" || val === "ACTIVE";
+      return (
+        <td key={col.key} className="p-3">
+          <Badge variant={isActive ? "outline" : "secondary"} className={`text-[9px] px-1 py-0 ${isActive ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>
+            {val}
+          </Badge>
+        </td>
+      );
+    }
+
+    if (col.key === "classification") return <td key={col.key} className="p-3"><StatusBadge classification={val} /></td>;
+
+    if (col.key === "health_score") return (
+      <td key={col.key} className="p-3">
+        <ScoreIndicator
+          score={health}
+          breakdown={c.score_breakdown}
+          label={isSearch ? "Search Health" : "DG Health"}
+        />
+      </td>
+    );
+
+    if (col.key === "bidding_strategy") return <td key={col.key} className="p-3 text-[10px] text-muted-foreground uppercase">{val || "—"}</td>;
+
+    const rowIsPct = ["ctr", "cvr", "search_impression_share", "search_rank_lost_is", "search_budget_lost_is", "top_is", "tsr", "vhr", "ptr"].includes(col.key as string);
+    const rowIsINR = ["daily_budget", "cost", "spend", "cpl", "avg_cpc", "average_cpm", "target_cpa", "cpsv"].includes(col.key as string);
+
+    let displayVal: React.ReactNode = val ?? "—";
+    let colorClass = "";
+
+    if (rowIsPct) {
+      if (impressions === 0 && ["ctr", "cvr"].includes(col.key as string)) return <td key={col.key} className="p-3 text-right text-muted-foreground/40 italic text-[10px]">No Delivery</td>;
+      
+      if (typeof val === "number") {
+        const pctValue = val < 1 && val > 0 ? val * 100 : val;
+        displayVal = `${pctValue.toFixed(col.key === "ctr" ? 2 : 1)}%`;
+        
+        if (col.key === "ctr") {
+          const rawCtr = val < 1 ? val : val / 100;
+          colorClass = rawCtr >= (isSearch ? 0.015 : 0.008) ? "text-emerald-400" : rawCtr >= 0.004 ? "text-amber-400" : "text-red-400";
+        } else if (col.key === "search_budget_lost_is") {
+          colorClass = pctValue > 30 ? "text-red-400" : pctValue > 10 ? "text-amber-400" : "text-emerald-400";
+        }
+      }
+    } else if (rowIsINR) {
+      if (col.key === "cpl" && (c.leads || c.conversions || 0) === 0 && (c.spend || c.cost || 0) > 0) {
+        displayVal = "∞";
+        colorClass = "text-red-400";
+      } else {
+        displayVal = formatINR(val ?? 0, (col.key === "avg_cpc" || col.key === "average_cpm") ? 2 : 0);
+        if (col.key === "cpl") {
+          colorClass = getCplColor(val, thresholds);
+        }
+      }
+    } else if (typeof val === "number") {
+      displayVal = formatNumber(val);
+    }
+
+    return (
+      <td key={col.key} className={`p-3 tabular-nums ${col.align === "right" ? "text-right" : "text-left"} ${colorClass}`}>
+        {displayVal}
+      </td>
+    );
+  }
+
+
   function renderGoogleRow(c: any, sectionType: "search" | "dg") {
-    const typeBadge = getCampaignTypeBadge(c.theme || c.layer || c.campaign_type);
     const isPaused = c.status === "PAUSED" || c.delivery_status === "NOT_DELIVERING" || isEntityPaused(c.campaign_id);
     const isSelected = selectedIds.has(c.campaign_id);
     const isExpanded = expandedIds.has(c.campaign_id);
+    const columns = sectionType === "search" ? googleSearchColumns : googleDgColumns;
 
     return (
       <Fragment key={c.campaign_id || c.id}>
         <tr
           key={c.campaign_id}
-          className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
-            isSelected ? "bg-primary/5" : ""
-          } ${isPaused ? "opacity-50" : ""} ${c.should_pause || c.classification === "LOSER" ? "border-l-2 border-l-red-500" : ""}`}
+          className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : ""
+            } ${isPaused ? "opacity-50" : ""} ${calculateClassification(c) === "UNDERPERFORMER" ? "border-l-4 border-l-red-500" : ""}`}
           onClick={() => {
             setExpandedIds(prev => {
               const next = new Set(prev);
@@ -360,107 +443,34 @@ export default function CampaignsPage() {
               data-testid={`checkbox-campaign-${c.campaign_id}`}
             />
           </td>
-          <td className="p-3 max-w-[200px]">
-            <div className="flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="truncate block cursor-default text-foreground">
-                    {truncate(c.campaign_name || c.name, 30)}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p className="text-xs max-w-sm">{c.campaign_name || c.name}</p>
-                </TooltipContent>
-              </Tooltip>
-              {isPaused && (
-                <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400 shrink-0">PAUSED</Badge>
-              )}
-            </div>
-            {(c.should_pause || c.classification === "LOSER") && !isPaused && (
-              <div className="mt-1">
-                <Badge variant="destructive" className="text-[9px] px-1 py-0">
-                  Recommended: Pause
-                </Badge>
-              </div>
-            )}
-          </td>
-          <td className="p-3">
-            <StatusBadge classification={c.classification} />
-          </td>
-          <td className="p-3">
-            <ScoreIndicator 
-              score={c.health_score} 
-              breakdown={c.score_breakdown} 
-              label="Campaign Performance"
-              description="Weighted Performance Score (CPL 35%, CPM 20%, CTR 15%, CVR 15%, Freq 15%)"
-            />
-          </td>
-          <td className="p-3 text-right tabular-nums">{formatINR(c.spend || c.cost || 0, 0)}</td>
-          <td className="p-3 text-right tabular-nums">{c.leads ?? c.conversions ?? 0}</td>
-          <td className={`p-3 text-right tabular-nums ${getScoreColor(c, "cpl", (c.cpl || 0) > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground")}`}>
-            {(c.cpl || 0) > 0 ? formatINR(c.cpl, 0) : "—"}
-            {(c.cpl || 0) > 0 && benchmarks?.cpl && (
-              <BenchmarkBadge value={c.cpl} benchmark={benchmarks.cpl} label="CPL Target" />
-            )}
-          </td>
-          <td className={`p-3 text-right tabular-nums ${getScoreColor(c, "ctr", getCtrColor(c.ctr || 0))}`}>
-            {formatPct(c.ctr || 0)}
-          </td>
-          <td className="p-3 text-right tabular-nums">
-            {sectionType === "search" ? (
-              (() => {
-                const val = c.cvr;
-                if (val == null) return "—";
-                const color = val >= 5 ? "text-emerald-400" : val >= 2 ? "text-amber-400" : "text-red-400";
-                return <span className={color}>{formatPct(val)}</span>;
-              })()
-            ) : (
-              formatPct(c.tsr || 0)
-            )}
-          </td>
-          <td className="p-3 text-right tabular-nums">
-            {sectionType === "search" ? (
-              formatINR(c.cpc || 0, 2)
-            ) : (
-              formatPct(c.vhr || 0)
-            )}
-          </td>
-          <td className={`p-3 text-right tabular-nums ${getScoreColor(c, "cpm")}`}>
-            {sectionType === "search" ? (
-              (() => {
-                const val = c.search_impression_share;
-                if (val == null) return "—";
-                const color = val >= 70 ? "text-emerald-400" : val >= 40 ? "text-amber-400" : "text-red-400";
-                return <span className={color}>{formatPct(val)}</span>;
-              })()
-            ) : (
-              formatINR(c.cpm || 0, 0)
-            )}
-          </td>
-          {sectionType === "search" && (
-            <>
-              <td className="p-3 text-right tabular-nums">
-                {(() => {
-                  const val = c.search_rank_lost_is ?? c.is_lost_rank;
-                  if (val == null) return "—";
-                  const color = val > 30 ? "text-red-400" : val > 10 ? "text-amber-400" : "text-emerald-400";
-                  return <span className={color}>{formatPct(val)}</span>;
-                })()}
-              </td>
-              <td className="p-3 text-right tabular-nums">
-                {(() => {
-                  const val = c.search_budget_lost_is ?? c.is_lost_budget;
-                  if (val == null) return "—";
-                  const color = val > 30 ? "text-red-400" : val > 10 ? "text-amber-400" : "text-emerald-400";
-                  return <span className={color}>{formatPct(val)}</span>;
-                })()}
-              </td>
-            </>
-          )}
-          <td className="p-3">
-            <span className="text-[10px] text-muted-foreground">{c.bidding_strategy || "—"}</span>
-          </td>
-          <td className="p-3 text-right tabular-nums">{formatINR(c.daily_budget || 0, 0)}</td>
+
+          {/* Main Table Body: Render all columns via renderCell */}
+          {columns.map(col => {
+            if (col.key === "campaign_name") {
+              return (
+                <td key={col.key} className="p-3 max-w-[200px]">
+                  <div className="flex items-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="truncate block cursor-default text-foreground font-bold">
+                          {truncate(c.campaign_name || c.name, 30)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs max-w-sm">{c.campaign_name || c.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    {isPaused && (
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400 shrink-0">PAUSED</Badge>
+                    )}
+                  </div>
+                </td>
+              );
+            }
+            return renderCell(c, col, sectionType);
+          })}
+
+          {/* Execution Actions Cell */}
           <td className="p-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-1 justify-center">
               {!isPaused ? (
@@ -510,28 +520,12 @@ export default function CampaignsPage() {
                   data-testid={`button-scaleup-campaign-${c.campaign_id || c.id}`}
                 />
               )}
-              {!isPaused && (
-                <ExecutionButton
-                  action="SCALE_BUDGET_DOWN"
-                  entityId={c.campaign_id || c.id}
-                  entityName={c.campaign_name || c.name}
-                  entityType="campaign"
-                  label=""
-                  variant="ghost"
-                  size="icon"
-                  icon={<TrendingDown className="w-3.5 h-3.5 text-orange-400" />}
-                  confirmMessage={`Scale down budget by 20% on "${c.campaign_name || c.name}"?\nCurrent daily budget: ${formatINR(c.daily_budget || 0, 0)}`}
-                  params={{ scalePercent: -20, reason: "Manual scale down from Campaigns page" }}
-                  className="h-7 w-7"
-                  data-testid={`button-scaledown-campaign-${c.campaign_id || c.id}`}
-                />
-              )}
             </div>
           </td>
         </tr>
         {isExpanded && (
           <tr key={`${c.campaign_id}-expanded`} className="border-b border-border/30 bg-muted/20">
-            <td colSpan={17} className="p-4">
+            <td colSpan={columns.length + 2} className="p-4">
               <div className="space-y-3">
                 <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   Health Score Breakdown — {c.campaign_name || c.name}
@@ -540,7 +534,7 @@ export default function CampaignsPage() {
                   <div className="flex flex-wrap gap-3">
                     {Object.entries(c.score_breakdown).map(([metric, score]) => {
                       let band = (c.score_bands?.[metric] || "UNKNOWN").toUpperCase();
-                      
+
                       if (band === "UNKNOWN" && typeof score === "number") {
                         if (score >= 85) band = "EXCELLENT";
                         else if (score >= 70) band = "GOOD";
@@ -550,10 +544,10 @@ export default function CampaignsPage() {
 
                       const bandColor =
                         band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
-                        band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
-                        band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
-                        band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
-                        "text-muted-foreground bg-muted/50";
+                          band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                            band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                              band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
+                                "text-muted-foreground bg-muted/50";
                       return (
                         <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
                           <div className="flex-1">
@@ -606,16 +600,34 @@ export default function CampaignsPage() {
   function renderGoogleTable(rows: any[], sectionId: string, sectionType: "search" | "dg", pg: number, pgSize: number, setPg: (p: number) => void, setPgSize: (s: number) => void) {
     const columns = sectionType === "search" ? googleSearchColumns : googleDgColumns;
     const paginatedRows = pgSize >= rows.length ? rows : rows.slice((pg - 1) * pgSize, pg * pgSize);
+
+    // Group columns for header
+    const groups: Record<string, number> = {};
+    columns.forEach(c => {
+      const g = (c as any).group || "Other";
+      groups[g] = (groups[g] || 0) + 1;
+    });
+
     return (
       <Card>
         <CardContent className="card-content-premium p-0">
           <div className="overflow-x-auto">
             <table className="t-table w-full" data-testid={`table-${sectionId}`}>
               <thead>
-                <tr className="border-b border-border/50">
+                {/* Group Labels Header Row */}
+                <tr className="border-b border-border/10 bg-muted/5">
+                  <th className="p-1 w-8"></th>
+                  {Object.entries(groups).map(([name, span]) => (
+                    <th key={name} colSpan={span} className="px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground/60 border-r border-border/20 last:border-0 text-center">
+                      {name}
+                    </th>
+                  ))}
+                  <th className="p-1"></th>
+                </tr>
+                <tr className="border-b border-border/50 bg-muted/20">
                   <th className="p-3 w-8">
                     <div className="flex flex-col gap-2">
-                       <Checkbox
+                      <Checkbox
                         checked={rows.length > 0 && rows.every((c: any) => selectedIds.has(c.campaign_id || c.id))}
                         onCheckedChange={() => {
                           const ids = rows.map((c: any) => c.campaign_id || c.id);
@@ -627,26 +639,13 @@ export default function CampaignsPage() {
                           });
                         }}
                       />
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 hover:opacity-100">
-                             <SlidersHorizontal className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          <DropdownMenuItem onClick={() => setColumnSize("compact")}>Compact Width</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setColumnSize("normal")}>Normal Width</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setColumnSize("wide")}>Wide Width</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
                   </th>
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className={`px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${
-                        col.align === "right" ? "text-right" : "text-left"
-                      }`}
+                      className={`px-4 py-3 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
+                        }`}
                       onClick={() => toggleSort(col.key)}
                     >
                       <span className="inline-flex items-center gap-1">
@@ -656,7 +655,7 @@ export default function CampaignsPage() {
                       </span>
                     </th>
                   ))}
-                  <th className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
+                  <th className="px-4 py-3 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
@@ -665,7 +664,7 @@ export default function CampaignsPage() {
                 {paginatedRows.map((c: any) => renderGoogleRow(c, sectionType))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={sectionType === "search" ? 17 : 14} className="p-8 text-center text-xs text-muted-foreground">
+                    <td colSpan={columns.length + 2} className="p-8 text-center text-xs text-muted-foreground">
                       No campaigns in this section.
                     </td>
                   </tr>
@@ -880,7 +879,7 @@ export default function CampaignsPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-4 w-4 opacity-50 hover:opacity-100">
-                               <SlidersHorizontal className="h-3 w-3" />
+                              <SlidersHorizontal className="h-3 w-3" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
@@ -894,9 +893,8 @@ export default function CampaignsPage() {
                     {metaColumns.map((col) => (
                       <th
                         key={col.key}
-                        className={`px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${
-                          col.align === "right" ? "text-right" : "text-left"
-                        }`}
+                        className={`px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"
+                          }`}
                         onClick={() => toggleSort(col.key)}
                       >
                         <span className="inline-flex items-center gap-1">
@@ -921,9 +919,8 @@ export default function CampaignsPage() {
                       <Fragment key={c.campaign_id}>
                         <tr
                           key={c.campaign_id}
-                          className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${
-                            isSelected ? "bg-primary/5" : ""
-                          } ${isPaused ? "opacity-50" : ""}`}
+                          className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : ""
+                            } ${isPaused ? "opacity-50" : ""}`}
                           onClick={() => {
                             setExpandedIds(prev => {
                               const next = new Set(prev);
@@ -941,108 +938,47 @@ export default function CampaignsPage() {
                               data-testid={`checkbox-campaign-${c.campaign_id}`}
                             />
                           </td>
-                          <td className={`p-3 transition-all duration-200 ${
-                            columnSize === "compact" ? "max-w-[120px]" : 
-                            columnSize === "normal" ? "max-w-[200px]" : "max-w-[400px]"
-                          }`}>
-                            <div className="flex items-center gap-1.5">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="truncate block cursor-default text-foreground">
-                                    {truncate(c.campaign_name, 30)}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  <p className="text-xs max-w-sm">{c.campaign_name}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              {isPaused && (
-                                <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400 shrink-0">PAUSED</Badge>
-                              )}
-                            </div>
-                            {c.classification === "UNDERPERFORMER" && !isPaused && (
-                              <div className="mt-1">
-                                <Badge variant="destructive" className="text-[9px] px-1 py-0">
-                                  Recommended: Pause
-                                </Badge>
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${getLayerColor(c.layer).bg} ${getLayerColor(c.layer).text}`}>
-                              {c.layer}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <StatusBadge classification={c.classification} />
-                          </td>
-                          <td className="p-3">
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${getLearningStatusColor(c.learning_status).bg} ${getLearningStatusColor(c.learning_status).text}`}>
-                              {c.learning_status}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <span className={`text-[10px] ${c.delivery_status === "NOT_DELIVERING" ? "text-red-400" : "text-foreground"}`}>
-                              {c.delivery_status}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-14 h-1.5 rounded-full ${getHealthBarBg(c.health_score)}`}>
-                                    <div className={`h-full rounded-full ${getHealthBgColor(c.health_score)}`} style={{ width: `${c.health_score}%` }} />
-                                  </div>
-                                  <span className="tabular-nums text-muted-foreground w-6">{c.health_score}</span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs">
-                                <div className="text-xs space-y-1">
-                                  <p className="font-medium">Score Breakdown</p>
-                                  {c.score_breakdown && Object.entries(c.score_breakdown).map(([k, v]) => {
-                                    let band = (c.score_bands?.[k] || "UNKNOWN").toUpperCase();
-                                    if (band === "UNKNOWN" && typeof v === "number") {
-                                      if (v >= 85) band = "EXCELLENT";
-                                      else if (v >= 70) band = "GOOD";
-                                      else if (v >= 40) band = "WATCH";
-                                      else band = "POOR";
-                                    }
 
-                                    const bColor = 
-                                      band === "EXCELLENT" || band === "GOOD" ? "text-emerald-400" :
-                                      band === "WATCH" ? "text-amber-400" :
-                                      band === "POOR" ? "text-red-400" : 
-                                      "text-muted-foreground";
+                      {metaColumns.map((col) => {
+                        if (col.key === "campaign_name") {
+                            return (
+                                <td key={col.key} className="p-3 max-w-[200px]">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="truncate block cursor-default text-foreground font-bold">
+                                            {(c.campaign_name || c.name || "Unknown").substring(0, 30)}
+                                        </span>
+                                        {c.status === "PAUSED" && (
+                                            <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400">PAUSED</Badge>
+                                        )}
+                                    </div>
+                                </td>
+                            );
+                        }
+                        
+                        const val = c[col.key];
+                        if (col.key === "health_score") return (
+                            <td key={col.key} className="p-3">
+                                <ScoreIndicator 
+                                    score={val} 
+                                    breakdown={c.score_breakdown} 
+                                    label="Meta Health"
+                                />
+                            </td>
+                        );
+                        if (col.key === "classification") return <td key={col.key} className="p-3"><StatusBadge classification={val} /></td>;
+                        if (["layer", "learning_status", "delivery_status"].includes(col.key as string)) return <td key={col.key} className="p-3"><Badge variant="outline" className="text-[9px] px-1 py-0 text-muted-foreground">{val || "—"}</Badge></td>;
 
-                                    return (
-                                      <div key={k} className="flex items-center justify-between gap-3">
-                                        <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-                                        <div className="flex items-center gap-1.5">
-                                          <span className={`text-[9px] font-bold ${bColor}`}>{band}</span>
-                                          <span className="tabular-nums font-medium">{typeof v === "number" ? v.toFixed(1) : String(v)}</span>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </td>
-                          <td className="p-3 text-right tabular-nums">{formatINR(c.spend, 0)}</td>
-                          <td className="p-3 text-right tabular-nums">{c.leads}</td>
-                          <td className={`p-3 text-right tabular-nums ${c.cpl > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
-                            {c.cpl > 0 ? formatINR(c.cpl, 0) : "—"}
-                          </td>
-                          <td className={`p-3 text-right tabular-nums ${getCtrColor(c.ctr)}`}>
-                            {formatPct(c.ctr)}
-                          </td>
-                          <td className="p-3 text-right tabular-nums">{formatINR(c.cpc, 2)}</td>
-                          <td className="p-3 text-right tabular-nums">{formatINR(c.cpm, 0)}</td>
-                          <td className={`p-3 text-right tabular-nums ${getFrequencyColor(c.frequency)}`}>
-                            {c.frequency.toFixed(2)}
-                          </td>
-                          <td className="p-3 text-right tabular-nums">{formatINR(c.daily_budget, 0)}</td>
-                          <td className="p-3 text-right tabular-nums">{c.budget_utilization_pct.toFixed(1)}%</td>
+                        const rowIsINR = ["spend", "cpl", "cpc", "cpm", "daily_budget"].includes(col.key as string);
+                        const rowIsPct = ["ctr", "budget_utilization_pct"].includes(col.key as string);
+                        
+                        return (
+                            <td key={col.key} className={`p-3 tabular-nums ${col.align === "right" ? "text-right" : "text-left"}`}>
+                                {rowIsINR ? formatINR(val || 0, col.key === "cpc" ? 2 : 0) : 
+                                 rowIsPct ? `${(val || 0).toFixed(col.key === "ctr" ? 2 : 1)}%` : 
+                                 typeof val === "number" ? val.toFixed(2) : val || "—"}
+                            </td>
+                        );
+                      })}
                           <td className="p-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1 justify-center">
                               {!isPaused ? (
@@ -1132,10 +1068,10 @@ export default function CampaignsPage() {
 
                                     const bandColor =
                                       band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
-                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
-                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
-                                      band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
-                                      "text-muted-foreground bg-muted/50";
+                                        band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                                          band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                                            band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" :
+                                              "text-muted-foreground bg-muted/50";
                                     return (
                                       <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
                                         <div className="flex-1">

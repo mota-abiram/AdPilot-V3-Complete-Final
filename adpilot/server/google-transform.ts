@@ -8,11 +8,7 @@
 
 // ─── Campaign Normalization ─────────────────────────────────────────
 
-import { getClassification, scoreLinear } from "../shared/scoring";
-
-function classifyScore(score: number): string {
-  return getClassification(score);
-}
+import { getClassification } from "../shared/classification";
 
 function cleanCampaignName(name: string): string {
   // Strip Render/deploy hash suffixes like " #d2r|dt7-dm_branded_..."
@@ -27,6 +23,18 @@ function deriveCpc(cost: number, clicks: number): number {
 function deriveCpm(cost: number, impressions: number): number {
   if (impressions > 0) return Math.round((cost / impressions) * 1000 * 100) / 100;
   return 0;
+}
+
+/** Parse DD/MM/YYYY from ad name (e.g. "20/02/2026-211-7lightblue-...") and return age in days */
+function parseAgeDaysFromName(name: string): number | null {
+  const match = name?.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  const created = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return days >= 0 ? days : null;
 }
 
 function normalizeCampaign(c: any): any {
@@ -54,7 +62,7 @@ function normalizeCampaign(c: any): any {
   const layer = layerMap[campaignType] || campaignType;
 
   const healthScore = c.health_score ?? c.score ?? 0;
-  const classification = c.classification || classifyScore(healthScore);
+  const classification = getClassification(healthScore);
 
   // Calculate weighted TSR/VHR from nested ads if applicable
   let campaignTsr = 0;
@@ -165,7 +173,7 @@ function extractAdGroups(campaigns: any[]): any[] {
         campaign_type: campaignType,
         status: ag.status || "UNKNOWN",
         health_score: healthScore,
-        classification: ag.classification || classifyScore(healthScore),
+        classification: getClassification(healthScore),
 
         // Metrics
         impressions,
@@ -197,7 +205,18 @@ function extractAdGroups(campaigns: any[]): any[] {
 function extractCreativeHealth(campaigns: any[], existingCreativeHealth: any[]): any[] {
   // If the agent already populated creative_health, use it
   if (existingCreativeHealth && existingCreativeHealth.length > 0) {
-    return existingCreativeHealth;
+    return existingCreativeHealth.map((creative: any) => {
+      const ageDays = (creative.creative_age_days && creative.creative_age_days > 0)
+        ? creative.creative_age_days
+        : parseAgeDaysFromName(creative.name || creative.ad_name || "");
+      return {
+        ...creative,
+        creative_age_days: ageDays,
+        classification: getClassification(
+          creative.health_score ?? creative.creative_score ?? creative.performance_score ?? 0
+        ),
+      };
+    });
   }
 
   // Otherwise extract from nested campaigns → ad_groups → ads
@@ -242,13 +261,17 @@ function extractCreativeHealth(campaigns: any[], existingCreativeHealth: any[]):
           video_p100: ad.video_quartile_100 || 0,
           avg_watch_sec: 0,
 
-          creative_age_days: ad.creative_age_days || null,
+          creative_age_days: (ad.creative_age_days && ad.creative_age_days > 0)
+            ? ad.creative_age_days
+            : parseAgeDaysFromName(ad.name || ad.ad_name || ""),
           health_signals: [],
           creative_score: ad.health_score || ad.performance_score || 0,
           scoring_type: isVideo ? "video" : "static",
           score_breakdown: ad.score_breakdown || {},
           score_bands: {},
-          classification: ad.classification || classifyScore(ad.health_score || 0),
+          classification: getClassification(
+            ad.health_score ?? ad.performance_score ?? ad.creative_score ?? 0
+          ),
           should_pause: ad.should_pause || false,
           auto_pause_reasons: ad.auto_pause_reasons || [],
 
@@ -274,6 +297,10 @@ function normalizeMonthlyPacing(accountPulse: any, targets: any): any {
   const month = now.getMonth();
   const totalDays = new Date(year, month + 1, 0).getDate();
   const daysElapsed = mtd.days_elapsed || Math.min(now.getDate(), totalDays);
+  
+  // Guard against stale data from a previous month to prevent nonsensical pacing projections
+  if (daysElapsed > totalDays) return null;
+
   const daysRemaining = mtd.days_remaining || (totalDays - daysElapsed);
   const pctThrough = Math.round((daysElapsed / totalDays) * 100);
 
@@ -383,6 +410,7 @@ export function normalizeGoogleAnalysis(raw: any): any {
 
     // Scores (pre-computed by agent — NOT for frontend to recalculate)
     account_health_score: raw.account_health_score ?? 0,
+    account_health_classification: getClassification(raw.account_health_score ?? 0),
     account_health_breakdown: raw.account_health_breakdown || {},
 
     // Canonical data keys (what frontend expects)

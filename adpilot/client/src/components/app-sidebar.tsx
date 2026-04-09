@@ -407,7 +407,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                   ? "bg-amber-400 animate-pulse"
                   : lastSynced
                     ? "bg-emerald-500"
-                    : "bg-amber-400 animate-pulse"
+                    : "bg-muted-foreground/40"
             )} />
             <span className="text-[11px] font-medium text-muted-foreground mr-2">
               {syncState?.sync_status === "failed"
@@ -416,7 +416,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                   ? "Syncing..."
                   : lastSynced
                     ? `Synced ${lastSynced}`
-                    : "Syncing..."}
+                    : "Not Synced"}
             </span>
           </div>
           <Tooltip>

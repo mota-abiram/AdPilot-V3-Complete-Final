@@ -62,9 +62,9 @@ import {
   Globe,
   Plus,
   Brain,
+  Database,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
-import { getClassification } from "@shared/scoring";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -532,6 +532,8 @@ function getCadencePeriodLabel(cadence: string): string {
 export default function DashboardPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("ALL");
   const [activeFixAlert, setActiveFixAlert] = useState<any>(null);
+  const [showAllCriticalAlerts, setShowAllCriticalAlerts] = useState(false);
+  const [showAllFatigueAlerts, setShowAllFatigueAlerts] = useState(false);
 
   // ─── 1. Helper Functions ─────────────────────────────────────────
 
@@ -666,7 +668,8 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!activeClientId,
-    staleTime: 0,
+    // MTD data is entered manually or via agent — 5 min cache avoids re-fetch waterfall
+    staleTime: 5 * 60 * 1000,
   });
 
 
@@ -751,28 +754,49 @@ export default function DashboardPage() {
     [rawAutoPauseCandidates, selectedCampaignId, filteredCampaign]
   );
 
-  // Normalize base ap & mp for use in other hooks
-  const ap = useMemo(() => ({
-    ...rawAp,
-    total_spend_30d: rawAp.total_spend_30d ?? rawAp.total_spend ?? 0,
-    total_leads_30d: rawAp.total_leads_30d ?? Math.round(rawAp.total_leads ?? 0),
-    overall_cpl: rawAp.overall_cpl ?? 0,
-    overall_ctr: rawAp.overall_ctr ?? 0,
-    overall_cpm: rawAp.overall_cpm ?? 0,
-    overall_cpc: rawAp.overall_cpc ?? 0,
-    spend_trend: rawAp.spend_trend || "flat",
-    spend_change_pct: rawAp.spend_change_pct ?? 0,
-    leads_trend: rawAp.leads_trend || "flat",
-    leads_change_pct: rawAp.leads_change_pct ?? 0,
-    ctr_trend: rawAp.ctr_trend || "flat",
-    ctr_change_pct: rawAp.ctr_change_pct ?? 0,
-    daily_spends: rawAp.daily_spends || [],
-    daily_leads: rawAp.daily_leads || [],
-    daily_ctrs: rawAp.daily_ctrs || [],
-    daily_cpms: rawAp.daily_cpms || [],
-    daily_tsrs: rawAp.daily_tsrs || [],
-    daily_vhrs: rawAp.daily_vhrs || [],
-  }), [rawAp]);
+  // Normalize base ap & mp for use in other hooks.
+  // The daily_trends fallback for Google is handled here (inside the memo) to
+  // avoid mutating the computed object after creation — which breaks React's
+  // immutability contract and can cause stale-closure bugs.
+  const ap = useMemo(() => {
+    let daily_spends: number[] = rawAp.daily_spends || [];
+    let daily_leads: number[] = rawAp.daily_leads || [];
+    let daily_ctrs: number[] = rawAp.daily_ctrs || [];
+    let daily_cpms: number[] = rawAp.daily_cpms || [];
+
+    // Google fallback: extract daily arrays from daily_trends when not yet present
+    if (daily_spends.length === 0) {
+      const dt: any[] = rawAp.daily_trends || (data as any)?.daily_trends || [];
+      if (dt.length > 0) {
+        daily_spends = dt.map((d: any) => d.spend ?? d.cost ?? 0);
+        daily_leads  = dt.map((d: any) => d.leads ?? d.conversions ?? 0);
+        daily_ctrs   = dt.map((d: any) => d.ctr ?? 0);
+        daily_cpms   = dt.map((d: any) => d.cpm ?? 0);
+      }
+    }
+
+    return {
+      ...rawAp,
+      total_spend_30d: rawAp.total_spend_30d ?? rawAp.total_spend ?? 0,
+      total_leads_30d: rawAp.total_leads_30d ?? Math.round(rawAp.total_leads ?? 0),
+      overall_cpl: rawAp.overall_cpl ?? 0,
+      overall_ctr: rawAp.overall_ctr ?? 0,
+      overall_cpm: rawAp.overall_cpm ?? 0,
+      overall_cpc: rawAp.overall_cpc ?? 0,
+      spend_trend: rawAp.spend_trend || "flat",
+      spend_change_pct: rawAp.spend_change_pct ?? 0,
+      leads_trend: rawAp.leads_trend || "flat",
+      leads_change_pct: rawAp.leads_change_pct ?? 0,
+      ctr_trend: rawAp.ctr_trend || "flat",
+      ctr_change_pct: rawAp.ctr_change_pct ?? 0,
+      daily_spends,
+      daily_leads,
+      daily_ctrs,
+      daily_cpms,
+      daily_tsrs: rawAp.daily_tsrs || [],
+      daily_vhrs: rawAp.daily_vhrs || [],
+    };
+  }, [rawAp, data]);
 
   const todayStats = useMemo(() => {
     const dailySpend = ap.daily_spends || [];
@@ -838,15 +862,21 @@ export default function DashboardPage() {
     };
   }, [ap, filteredCampaign]);
 
+
+
   const criticalAlerts = useMemo(() => {
     type AlertItem = { message: string; level: "critical" | "warning"; metric: string; value?: string | number; benchmark?: string | number; campaignId?: string; campaignName?: string };
     const raw: AlertItem[] = [];
     const cplCrit = t_cpl_critical;
     const ctrM = t_ctr_min;
 
+    // Minimum data thresholds — prevents false-positive alerts on brand-new or low-traffic entities
+    const MIN_LEADS_FOR_CPL_ALERT = 5;
+    const MIN_IMPRESSIONS_FOR_CTR_ALERT = 1000;
+
     // 1. Account Level
     if (selectedCampaignId === "ALL") {
-      if (cplCrit > 0 && ap.overall_cpl > cplCrit) {
+      if (cplCrit > 0 && ap.overall_cpl > cplCrit && (ap.total_leads_30d ?? 0) >= MIN_LEADS_FOR_CPL_ALERT) {
         raw.push({
           metric: "CPL",
           message: "Account Avg CPL exceeds critical threshold",
@@ -855,7 +885,7 @@ export default function DashboardPage() {
           level: "critical"
         });
       }
-      if (!isGoogle && ap.overall_ctr < ctrM) {
+      if (!isGoogle && ap.overall_ctr < ctrM && (ap.total_impressions ?? ap.daily_cpms?.length * 1000 ?? 0) >= MIN_IMPRESSIONS_FOR_CTR_ALERT) {
         raw.push({
           metric: "CTR",
           message: "Account CTR is critically low",
@@ -868,7 +898,7 @@ export default function DashboardPage() {
         raw.push({
           metric: "PACING",
           message: "Lead pacing shortfall detected",
-          value: `${mp.pacing.leads_pct.toFixed(0)}%`,
+          value: `${(mp?.pacing?.leads_pct ?? 0).toFixed(0)}%`,
           benchmark: "100%",
           level: "critical"
         });
@@ -879,8 +909,8 @@ export default function DashboardPage() {
     intellectInsights
       .filter((i: any) => i.severity === "HIGH" || i.confidence === "high")
       .forEach((i: any) => {
-        const detail = i.detail || i.observation || i.title;
-        const campaign = campaignAudit.find((c: any) => detail.includes(c.campaign_name) || (i.entity && i.entity.includes(c.campaign_name)));
+        const detail = i.detail || i.observation || i.title || "";
+        const campaign = campaignAudit.find((c: any) => detail.includes(c.campaign_name || "") || (i.entity && typeof i.entity === "string" && i.entity.includes(c.campaign_name || "")));
         const matchesCampaign = !filteredCampaign || (campaign && campaign.campaign_id === filteredCampaign.campaign_id);
         
         if (matchesCampaign) {
@@ -899,7 +929,7 @@ export default function DashboardPage() {
     campaignsToCheck.forEach((c: any) => {
       const name = c.campaign_name || "Unknown Campaign";
       if (c.status === "ACTIVE" || c.status === "ENABLED") {
-        if (cplCrit > 0 && c.cpl > cplCrit) {
+        if (cplCrit > 0 && c.cpl > cplCrit && (c.leads ?? c.conversions ?? 0) >= MIN_LEADS_FOR_CPL_ALERT) {
           raw.push({
             metric: "CPL",
             message: "Campaign CPL is critical",
@@ -910,10 +940,10 @@ export default function DashboardPage() {
             campaignName: name
           });
         }
-        if (c.should_pause || c.classification === "LOSER") {
+        if (c.should_pause || c.classification === "UNDERPERFORMER") {
           raw.push({
             metric: "STATUS",
-            message: `Flagged for review due to ${c.classification.toLowerCase()} performance`,
+            message: `Flagged for review due to ${(c.classification || "UNKNOWN").toLowerCase()} performance`,
             level: "critical",
             campaignId: c.campaign_id,
             campaignName: name
@@ -978,6 +1008,70 @@ export default function DashboardPage() {
     return grouped;
   }, [selectedCampaignId, filteredCampaign, ap, campaignAudit, t_cpl_critical, t_ctr_min, intellectInsights, isGoogle, mp, autoPauseCandidates]);
 
+  // ─── Chart-data derivations (memoized so Recharts doesn't re-render on unrelated state changes) ───
+
+  const displayDateRange = useMemo(() => {
+    const googleWindow = (data as any)?.window;
+    if (googleWindow?.since && googleWindow?.until) return { since: googleWindow.since, until: googleWindow.until };
+    const dateRange = (data as any)?.date_range;
+    if (dateRange?.since && dateRange?.until) return { since: dateRange.since, until: dateRange.until };
+    const period = (data as any)?.period?.primary;
+    if (period?.start && period?.end) return { since: period.start, until: period.end };
+    return null;
+  }, [data]);
+
+  const dayLabels = useMemo(() =>
+    ap.daily_spends.map((_: number, i: number) => {
+      if (displayDateRange?.since) {
+        const d = new Date(`${displayDateRange.since}T00:00:00`);
+        d.setDate(d.getDate() + i);
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      }
+      return `Day ${i + 1}`;
+    }),
+  [ap.daily_spends, displayDateRange]);
+
+  const dailyChartData = useMemo(() =>
+    ap.daily_spends.map((spend: number, i: number) => {
+      const leads = ap.daily_leads[i] ?? 0;
+      return {
+        day: dayLabels[i] || `Day ${i + 1}`,
+        spend: Math.round(spend),
+        leads,
+        cpl: leads > 0 ? Math.round(spend / leads) : 0,
+      };
+    }),
+  [ap.daily_spends, ap.daily_leads, dayLabels]);
+
+  const safeCreativeHealth: any[] = useMemo(
+    () => Array.isArray(creativeHealth) ? creativeHealth : [],
+    [creativeHealth]
+  );
+
+  const { videoCreatives, blendedTSR, blendedVHR } = useMemo(() => {
+    const vids = safeCreativeHealth.filter((c: any) => c.is_video && c.impressions > 0);
+    const totalImp = vids.reduce((s: number, c: any) => s + c.impressions, 0);
+    return {
+      videoCreatives: vids,
+      blendedTSR: totalImp > 0 ? vids.reduce((s: number, c: any) => s + c.thumb_stop_pct * c.impressions, 0) / totalImp : null,
+      blendedVHR: totalImp > 0 ? vids.reduce((s: number, c: any) => s + c.hold_rate_pct * c.impressions, 0) / totalImp : null,
+    };
+  }, [safeCreativeHealth]);
+
+  const multiMetricChartData = useMemo(() =>
+    (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((_: number, i: number) => {
+      const dailyClick = ap.daily_clicks?.[i] ?? 0;
+      const dailyImp   = ap.daily_impressions?.[i] ?? 0;
+      return {
+        day: dayLabels[i],
+        ctr: parseFloat(calculateCTR(dailyClick, dailyImp).toFixed(2)),
+        tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
+        vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
+        cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
+      };
+    }),
+  [ap.daily_ctrs, ap.daily_clicks, ap.daily_impressions, ap.daily_tsrs, ap.daily_vhrs, ap.daily_cpms, ap.overall_cpm, dayLabels, blendedTSR, blendedVHR]);
+
   // ─── 6. Data Loading & Errors (Below hooks) ─────────────────────────
 
   if (analysisError) {
@@ -998,7 +1092,7 @@ export default function DashboardPage() {
             <Skeleton key={i} className="h-24 rounded-md" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-64 rounded-md" />
           ))}
@@ -1029,132 +1123,44 @@ export default function DashboardPage() {
     total: campaignAnalysis.length,
     winners: campaignAnalysis.filter((a: any) => a?.classification === "WINNER").length,
     watch: campaignAnalysis.filter((a: any) => a?.classification === "WATCH").length,
-    underperformers: campaignAnalysis.filter((a: any) => a?.classification === "UNDERPERFORMER" || a?.classification === "LOSER").length,
+    underperformers: campaignAnalysis.filter((a: any) => a?.classification === "UNDERPERFORMER").length,
     auto_pause: Array.isArray(rawScoringSummary?.campaign_scores?.auto_pause) ? rawScoringSummary.campaign_scores.auto_pause : [],
   } : null;
-
-  // Fallback for Google: if daily_spends empty, try daily_trends
-  if (isGoogle && ap.daily_spends.length === 0) {
-    const dt = (data as any).daily_trends || (data as any).account_pulse?.daily_trends || [];
-    if (dt.length > 0) {
-      ap.daily_spends = dt.map((d: any) => d.spend || d.cost || 0);
-      ap.daily_leads = dt.map((d: any) => d.leads || d.conversions || 0);
-      ap.daily_ctrs = dt.map((d: any) => d.ctr || 0);
-      ap.daily_cpms = dt.map((d: any) => d.cpm || 0);
-    }
-  }
-
-  const displayDateRange = (() => {
-    const googleWindow = (data as any)?.window;
-    if (googleWindow?.since && googleWindow?.until) return { since: googleWindow.since, until: googleWindow.until };
-    const dateRange = (data as any)?.date_range;
-    if (dateRange?.since && dateRange?.until) return { since: dateRange.since, until: dateRange.until };
-    const period = (data as any)?.period?.primary;
-    if (period?.start && period?.end) return { since: period.start, until: period.end };
-    return null;
-  })();
-
-  const dayLabels = ap.daily_spends.map((_: number, i: number) => {
-    if (displayDateRange?.since) {
-      const d = new Date(`${displayDateRange.since}T00:00:00`);
-      d.setDate(d.getDate() + i);
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }
-    return `Day ${i + 1}`;
-  });
-
-  const dailyChartData = ap.daily_spends.map((spend: number, i: number) => {
-    const leads = ap.daily_leads[i] || 0;
-    return {
-      day: dayLabels[i] || `Day ${i + 1}`,
-      spend: Math.round(spend),
-      leads,
-      cpl: leads > 0 ? Math.round(spend / leads) : 0,
-    };
-  });
-
-  const videoCreatives = creativeHealth.filter((c: any) => c.is_video && c.impressions > 0);
-  const totalVideoImpressions = videoCreatives.reduce((s: number, c: any) => s + c.impressions, 0);
-  const blendedTSR = totalVideoImpressions > 0
-    ? videoCreatives.reduce((s: number, c: any) => s + c.thumb_stop_pct * c.impressions, 0) / totalVideoImpressions
-    : null;
-  const blendedVHR = totalVideoImpressions > 0
-    ? videoCreatives.reduce((s: number, c: any) => s + c.hold_rate_pct * c.impressions, 0) / totalVideoImpressions
-    : null;
-
-  const multiMetricChartData = (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((_: number, i: number) => {
-    const dailyClick = ap.daily_clicks?.[i] || 0;
-    const dailyImp = ap.daily_impressions?.[i] || 0;
-    return {
-      day: dayLabels[i],
-      ctr: parseFloat(calculateCTR(dailyClick, dailyImp).toFixed(2)),
-      tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
-      vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
-      cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
-    };
-  });
 
   const funnelData = costStack?.funnel_split_actual
     ? Object.entries(costStack.funnel_split_actual)
       .filter(([, v]) => (v as number) > 0)
       .map(([key, val]) => ({ name: key, value: val as number }))
-    : isGoogle && (data as any).search_summary && (data as any).dg_summary
+    : isGoogle && (data as any).search_summary && (data as any).dg_summary && ap.total_spend_30d > 0
       ? [
-        { name: "Search", value: Math.round(((data as any).search_summary.spend / ap.total_spend_30d) * 100) || 0 },
-        { name: "Demand Gen", value: Math.round(((data as any).dg_summary.spend / ap.total_spend_30d) * 100) || 0 },
+        { name: "Search",     value: Math.round(((((data as any).search_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
+        { name: "Demand Gen", value: Math.round(((((data as any).dg_summary?.spend     ?? 0) / ap.total_spend_30d) * 100)) || 0 },
       ].filter(d => d.value > 0)
       : [];
 
   // ─── 8. Performance Scoring & Insights ──────────────────────────────
 
   const backendHealthScore = (data as any)?.account_health_score;
-  const backendBreakdown = (data as any)?.account_health_breakdown;
+  const backendBreakdown = (data as any)?.account_health_breakdown || {};
+  const accountHealthScore = typeof backendHealthScore === "number" ? backendHealthScore : 0;
 
-  // Use MTD data for static account health calculation
+  // Use backend account-health breakdown as the single source of truth.
   const mtdStats = (mtdData as any)?.mtd;
-  const healthTargetCpl = benchmarks?.cpl || 700;
-  const healthTargetCpsv = benchmarks?.cpsv_high || 24999;
-  const healthTargetCpql = benchmarks?.cpql || 2950;
-
-  const todayDate = new Date();
-  const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
-  const daysPassed = mp?.days_elapsed ?? Math.max(0, todayDate.getDate() - 1);
-  const budgetTargetMonthly = benchmarks?.budget ?? mp?.targets?.budget ?? 0;
-  const leadsTargetMonthly = benchmarks?.leads ?? mp?.targets?.leads ?? 0;
-  const healthTargetBudget = budgetTargetMonthly || 200000;
-  const healthTargetLeads = leadsTargetMonthly || 278;
-  const proRatedBudgetThreshold = Math.round((healthTargetBudget / daysInMonth) * daysPassed);
-
-  const getHealthScore = (val: number, target: number) => {
-    if (!val || val <= 0) return 70; // Neutral starting score if no data
-    if (val <= target) return 100;
-    // Linear regression above target: 10% penalty for every 10% over target, capped at 0
-    return Math.max(0, Math.round(100 * (target / val)));
-  };
-
   const healthScoreComponents = {
-    cpsv: mtdStats?.cpsv ? getHealthScore(mtdStats.cpsv, healthTargetCpsv) : (backendBreakdown?.cpsv ?? 70),
-    pacing_budget: mtdStats?.spend && proRatedBudgetThreshold > 0 
-      ? getHealthScore(mtdStats.spend, proRatedBudgetThreshold) 
-      : (backendBreakdown?.budget ?? 70),
-    cpql: mtdStats?.cpql ? getHealthScore(mtdStats.cpql, healthTargetCpql) : (backendBreakdown?.cpql ?? 70),
-    cpl: mtdStats?.cpl ? getHealthScore(mtdStats.cpl, healthTargetCpl) : (backendBreakdown?.cpl ?? 70),
-    creative: (data as any)?.creative_health_score ?? (backendBreakdown?.creative || 70),
-    campaign: (data as any)?.campaign_health_score ?? (backendBreakdown?.campaign || 70),
+    cpsv: backendBreakdown?.cpsv ?? 0,
+    pacing_budget: backendBreakdown?.budget ?? 0,
+    cpql: backendBreakdown?.cpql ?? 0,
+    cpl: backendBreakdown?.cpl ?? 0,
+    creative: backendBreakdown?.creative ?? 0,
+    campaign: backendBreakdown?.campaign ?? 0,
   };
-
-  const accountHealthScore = Math.round(
-    healthScoreComponents.cpsv * 0.25 +
-    healthScoreComponents.pacing_budget * 0.25 +
-    healthScoreComponents.cpql * 0.20 +
-    healthScoreComponents.cpl * 0.20 +
-    healthScoreComponents.creative * 0.10
-  );
 
   const svsMtd = authMtd.svs;
   const qLeadsMtd = authMtd.qualified_leads;
   const cpsvMtd = authMtd.svs > 0 ? authMtd.spend / authMtd.svs : 0;
-  const targetCpsvValue = thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000;
+  const targetCpsvValue = isGoogle 
+    ? (thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000) 
+    : (thresholds?.cpc_target || benchmarks?.cpc_target || mp?.targets?.cpc || 50);
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
     { label: "CPSV", score: healthScoreComponents.cpsv * 0.25, weight: 25, value: mtdStats?.cpsv },
@@ -1209,6 +1215,13 @@ export default function DashboardPage() {
     .reduce((s: number, a: any) => s + (a.spend || 0), 0);
   const budgetEfficiencyPct: number = totalAdSpend > 0 ? Math.round((wastedSpend / totalAdSpend) * 100) : 0;
 
+  const proRatedBudgetThreshold = mp?.pct_through_month && mp?.targets?.budget 
+    ? (mp.targets.budget * (mp.pct_through_month / 100)) 
+    : (mp?.targets?.budget ?? 0);
+
+  const budgetTargetMonthly = mp?.targets?.budget || clientTargets?.budget || 0;
+  const leadsTargetMonthly = mp?.targets?.leads || clientTargets?.leads || 0;
+  const daysInMonth = (mp?.days_elapsed || 0) + (mp?.days_remaining || 1);
 
   return (
     <div className="page-shell max-w-[1600px] mx-auto">
@@ -1240,9 +1253,12 @@ export default function DashboardPage() {
             <select
               value={selectedCampaignId}
               onChange={(e) => setSelectedCampaignId(e.target.value)}
-              className="bg-muted/50 border border-border/70 rounded-lg px-3 py-1.5 text-xs font-medium text-foreground outline-none focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer min-w-[200px]"
+              className="bg-muted/50 border border-border/70 rounded-lg px-3 py-1.5 text-xs font-medium text-foreground outline-none focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer w-full sm:w-auto sm:min-w-[200px]"
+              disabled={rawCampaignAudit.length === 0}
             >
-              <option value="ALL">All Campaigns</option>
+              <option value="ALL">
+                {rawCampaignAudit.length === 0 ? "No data yet — Run Agent" : "All Campaigns"}
+              </option>
               {rawCampaignAudit.map((c: any) => (
                 <option key={c.campaign_id} value={c.campaign_id}>
                   {c.campaign_name}
@@ -1278,7 +1294,7 @@ export default function DashboardPage() {
         <section className="page-subsection" aria-labelledby="dashboard-critical-alerts">
           <h2 id="dashboard-critical-alerts" className="sr-only">Critical alerts</h2>
           <div className="space-y-3">
-            {criticalAlerts.map((group, i) => {
+            {(showAllCriticalAlerts ? criticalAlerts : criticalAlerts.slice(0, 3)).map((group, i) => {
               const isCritical = group.level === "critical";
               const isWarning = group.level === "warning";
               
@@ -1387,6 +1403,14 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+            {criticalAlerts.length > 3 && (
+              <button
+                onClick={() => setShowAllCriticalAlerts(prev => !prev)}
+                className="w-full text-center text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
+              >
+                {showAllCriticalAlerts ? "Show less" : `Show ${criticalAlerts.length - 3} more alert${criticalAlerts.length - 3 > 1 ? "s" : ""}`}
+              </button>
+            )}
           </div>
         </section>
       )}
@@ -1407,6 +1431,36 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {/* Zero/Failed Data State Banner */}
+      {rawCampaignAudit.length === 0 && displayAp.total_spend_30d === 0 && (
+        <section className="page-zone mb-6">
+          <Card className={`border-dashed border-2 ${syncState?.status === "failed" ? "border-red-500/30 bg-red-500/5" : "border-primary/20 bg-primary/5"}`}>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center mb-4 ${syncState?.status === "failed" ? "bg-red-500/10" : "bg-primary/10"}`}>
+                {syncState?.status === "failed" ? (
+                  <XCircle className="h-6 w-6 text-red-500" />
+                ) : (
+                  <Database className="h-6 w-6 text-primary" />
+                )}
+              </div>
+              <h2 className="text-xl font-bold text-foreground">
+                {syncState?.status === "failed" ? "Data Synchronization Failed" : "No Performance Data Available"}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                {syncState?.status === "failed" 
+                  ? "The last attempt to communicate with the advertising platform encountered an error. Please verify your connection settings or run the agent again."
+                  : "We haven't received any campaigns or spend data for this client yet. Click 'Run Agent now' at the top to initiate the first extraction."}
+              </p>
+              {syncState?.error && (
+                <div className="mt-4 px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs font-mono text-left max-w-lg break-words">
+                  {syncState.error}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
       {/* KPI Cards */}
       <section className="page-zone" aria-labelledby="dashboard-kpis">
         <h2 id="dashboard-kpis" className="sr-only">Key performance indicators</h2>
@@ -1415,21 +1469,21 @@ export default function DashboardPage() {
             title={`Spend · ${periodLabel}`}
             value={formatINR(displayAp.total_spend_30d, 0)}
             trend={ap.spend_trend}
-            trendValue={`${Math.abs(ap.spend_change_pct).toFixed(1)}%`}
+            trendValue={`${Math.abs(ap.spend_change_pct ?? 0).toFixed(1)}%`}
             icon={IndianRupee}
             subtitle={`MTD: ${formatINR(mp?.mtd?.spend || 0, 0)}`}
             todayValue={formatINR(todayStats.spendToday, 0)}
             status={verifyData ? (
               verifyData.verified
                 ? { label: "Verified ✓", variant: "success" }
-                : { label: `Mismatch: ${verifyData.discrepancyPct}%`, variant: "warning" }
+                : { label: `Mismatch: ${(verifyData.discrepancyPct ?? 0).toFixed(1)}%`, variant: "warning" }
             ) : undefined}
           />
           <KpiCard
             title={`Leads · ${periodLabel}`}
             value={(displayAp.total_leads_30d || 0).toString()}
             trend={ap.leads_trend}
-            trendValue={`${Math.abs(ap.leads_change_pct).toFixed(1)}%`}
+            trendValue={`${Math.abs(ap.leads_change_pct ?? 0).toFixed(1)}%`}
             icon={Users}
             subtitle={`MTD: ${mp?.mtd?.leads || 0} leads`}
             todayValue={todayStats.leadsToday.toString()}
@@ -1437,8 +1491,8 @@ export default function DashboardPage() {
               verifyData.leadsDiscrepancyPct <= 2
                 ? { label: "Leads Verified ✓", variant: "success" }
                 : verifyData.leadsDiscrepancyPct <= 10
-                  ? { label: `Leads Δ: ${verifyData.leadsDiscrepancyPct.toFixed(1)}%`, variant: "warning" }
-                  : { label: `Leads Mismatch: ${verifyData.leadsDiscrepancyPct.toFixed(1)}%`, variant: "destructive" }
+                  ? { label: `Leads Δ: ${(verifyData.leadsDiscrepancyPct ?? 0).toFixed(1)}%`, variant: "warning" }
+                  : { label: `Leads Mismatch: ${(verifyData.leadsDiscrepancyPct ?? 0).toFixed(1)}%`, variant: "destructive" }
             ) : undefined}
           />
           <KpiCard
@@ -1462,20 +1516,28 @@ export default function DashboardPage() {
           />
 
           <KpiCard
-            title="Avg CPSV (MTD)"
-            value={formatINR(cpsvMtd || 0, 0)}
+            title={isGoogle ? "Avg CPSV (MTD)" : "Avg CPC (MTD)"}
+            value={formatINR(isGoogle ? (cpsvMtd || 0) : ((mtdStats as any)?.cpc || displayAp.overall_cpc || 0), isGoogle ? 0 : 2)}
             icon={Zap}
             isInverse
             status={
-              (cpsvMtd || 0) > 0
-                ? (cpsvMtd || 0) <= targetCpsvValue
-                  ? { label: "On Target", variant: "success" }
-                  : (cpsvMtd || 0) <= targetCpsvValue * 1.3
-                    ? { label: "Watch", variant: "warning" }
-                    : { label: "Alert", variant: "destructive" }
-                : { label: "Awaiting Data", variant: "secondary" }
+              isGoogle 
+                ? ((cpsvMtd || 0) > 0
+                  ? (cpsvMtd || 0) <= targetCpsvValue
+                    ? { label: "On Target", variant: "success" }
+                    : (cpsvMtd || 0) <= targetCpsvValue * 1.3
+                      ? { label: "Watch", variant: "warning" }
+                      : { label: "Alert", variant: "destructive" }
+                  : { label: "Awaiting Data", variant: "secondary" })
+                : (((mtdStats as any)?.cpc || displayAp.overall_cpc || 0) > 0
+                  ? ((mtdStats as any)?.cpc || displayAp.overall_cpc || 0) <= targetCpsvValue
+                    ? { label: "On Target", variant: "success" }
+                    : ((mtdStats as any)?.cpc || displayAp.overall_cpc || 0) <= targetCpsvValue * 1.3
+                      ? { label: "Watch", variant: "warning" }
+                      : { label: "Alert", variant: "destructive" }
+                  : { label: "Awaiting Data", variant: "secondary" })
             }
-            subtitle={`vs benchmark (${formatINR(targetCpsvValue, 0)})`}
+            subtitle={`vs target (${formatINR(targetCpsvValue, 0)})`}
           />
 
           <KpiCard
@@ -1500,8 +1562,9 @@ export default function DashboardPage() {
             subtitle={selectedCampaignId === "ALL" ? "Combined critical issues" : "Campaign critical issues"}
             status={criticalAlerts.length > 0 ? { label: "Attention Required", variant: "destructive" } : { label: "Clear", variant: "success" }}
           />
-
         </div>
+
+
       </section>
 
       {/* Data Verification Widget */}
@@ -1573,7 +1636,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="t-label text-muted-foreground uppercase tracking-widest">Difference</p>
                   <p className={`text-sm font-semibold tabular-nums ${verifyData.discrepancyPct <= 2 ? "text-emerald-400" : verifyData.discrepancyPct <= 5 ? "text-amber-400" : "text-red-400"}`}>
-                    {verifyData.discrepancyPct.toFixed(1)}%
+                    {(verifyData.discrepancyPct ?? 0).toFixed(1)}%
                   </p>
                 </div>
                 <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${verifyData.discrepancyPct <= 2 ? "text-emerald-400 bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>
@@ -1607,7 +1670,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="t-label text-muted-foreground uppercase tracking-widest">Difference</p>
                   <p className={`text-sm font-semibold tabular-nums ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400" : "text-red-400"}`}>
-                    {verifyData.leadsDiscrepancyPct.toFixed(1)}%
+                    {(verifyData.leadsDiscrepancyPct ?? 0).toFixed(1)}%
                   </p>
                 </div>
                 <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400 bg-emerald-500/10" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>
@@ -1664,7 +1727,7 @@ export default function DashboardPage() {
                   </p>
                   <p className="t-kpi text-foreground">{accountHealthScore}</p>
                 </div>
-                <StatusBadge classification={getClassification(accountHealthScore)} />
+                <StatusBadge classification={(data as any)?.account_health_classification || undefined} />
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <div className={`w-full h-2 rounded-full ${getHealthBarBg(accountHealthScore)}`}>
@@ -1692,10 +1755,10 @@ export default function DashboardPage() {
                 const normalized = Math.max(0, Math.min(pct, 100));
 
                 let targetDisplay = null;
-                if (item.label === "CPSV") targetDisplay = formatINR(healthTargetCpsv, 0);
-                else if (item.label === "Budget") targetDisplay = formatINR(proRatedBudgetThreshold, 0);
-                else if (item.label === "CPQL") targetDisplay = formatINR(healthTargetCpql, 0);
-                else if (item.label === "CPL") targetDisplay = formatINR(healthTargetCpl, 0);
+                if (item.label === "CPSV") targetDisplay = formatINR(targetCpsvValue || 0, 0);
+                else if (item.label === "Budget") targetDisplay = formatINR(proRatedBudgetThreshold || 0, 0);
+                else if (item.label === "CPQL") targetDisplay = formatINR(thresholds?.cpql_target || benchmarks?.cpql_target || mp?.targets?.cpql || 1500, 0);
+                else if (item.label === "CPL") targetDisplay = formatINR(targetCpl || 0, 0);
 
                 const cardContent = (
                   <div key={item.label} className="flex items-center gap-3 rounded-md border border-border/30 bg-card p-3 shadow-xs hover:border-primary/20 transition-colors">
@@ -1793,7 +1856,7 @@ export default function DashboardPage() {
       )}
 
       {/* Charts Row — Daily Spend & Leads + Funnel Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Funnel Split */}
         <Card className="h-full flex flex-col">
           <CardHeader className="card-header-premium">
@@ -2199,7 +2262,7 @@ export default function DashboardPage() {
       )}
 
       {/* CTR Trend + Multi-Metric Chart & Monthly Pacing Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* CTR / TSR / VHR / CPM Multi-Metric Chart */}
         <Card className="h-full flex flex-col">
           <CardHeader className="card-header-premium">
@@ -2215,14 +2278,14 @@ export default function DashboardPage() {
                     <YAxis
                       yAxisId="pct"
                       tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                      tickFormatter={(v: number) => `${(v ?? 0).toFixed(1)}%`}
                       domain={["auto", "auto"]}
                     />
                     <YAxis
                       yAxisId="rupee"
                       orientation="right"
                       tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `₹${v.toFixed(0)}`}
+                      tickFormatter={(v: number) => `₹${(v ?? 0).toFixed(0)}`}
                     />
                     <RechartsTooltip content={<CustomTooltipContent />} />
                     <Legend wrapperStyle={{ fontSize: "10px" }} />
@@ -2233,6 +2296,7 @@ export default function DashboardPage() {
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : isGoogle ? (
+                // Google: CTR + CPM trend only — TSR/VHR are Meta-specific video metrics
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={multiMetricChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(260, 12%, 16%)" />
@@ -2240,20 +2304,18 @@ export default function DashboardPage() {
                     <YAxis
                       yAxisId="pct"
                       tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                      tickFormatter={(v: number) => `${(v ?? 0).toFixed(1)}%`}
                       domain={["auto", "auto"]}
                     />
                     <YAxis
                       yAxisId="rupee"
                       orientation="right"
                       tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `₹${v.toFixed(0)}`}
+                      tickFormatter={(v: number) => `₹${(v ?? 0).toFixed(0)}`}
                     />
                     <RechartsTooltip content={<CustomTooltipContent />} />
                     <Legend wrapperStyle={{ fontSize: "10px" }} />
                     <Line yAxisId="pct" type="monotone" dataKey="ctr" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.blue }} name="CTR %" />
-                    <Line yAxisId="pct" type="monotone" dataKey="tsr" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.amber }} name="TSR %" />
-                    <Line yAxisId="pct" type="monotone" dataKey="vhr" stroke={CHART_COLORS.green} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS.green }} name="VHR %" />
                     <Line yAxisId="rupee" type="monotone" dataKey="cpm" stroke={CHART_COLORS.red} strokeWidth={2} strokeDasharray="5 3" dot={false} name="CPM (₹)" />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -2261,7 +2323,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-center h-full t-micro text-muted-foreground">No daily data available</div>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2 px-2 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-2 pt-2">
               {isGoogle ? (
                 <>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
@@ -2285,11 +2347,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
                     <p className="t-micro text-muted-foreground uppercase tracking-wider">Blended TSR</p>
-                    <p className="t-body font-medium tabular-nums">{blendedTSR !== null ? `${blendedTSR.toFixed(1)}%` : "—"}</p>
+                    <p className="t-body font-medium tabular-nums">{blendedTSR != null ? `${blendedTSR.toFixed(1)}%` : "—"}</p>
                   </div>
                   <div className="rounded-md bg-muted/30 p-2 text-center">
                     <p className="t-micro text-muted-foreground uppercase tracking-wider">Blended VHR</p>
-                    <p className="t-body font-medium tabular-nums">{blendedVHR !== null ? `${blendedVHR.toFixed(1)}%` : "—"}</p>
+                    <p className="t-body font-medium tabular-nums">{blendedVHR != null ? `${blendedVHR.toFixed(1)}%` : "—"}</p>
                   </div>
                 </>
               )}
@@ -2317,7 +2379,7 @@ export default function DashboardPage() {
                     <YAxis
                       yAxisId="spend"
                       tick={{ fontSize: 10, fill: "hsl(215, 15%, 55%)" }}
-                      tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`}
+                      tickFormatter={(v: number) => `₹${((v ?? 0) / 1000).toFixed(0)}K`}
                     />
                     <YAxis
                       yAxisId="leads"
@@ -2656,7 +2718,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Ad Set Breakdown Table + Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Ad Set Table */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 px-4 pt-4 flex flex-row items-center justify-between gap-2">
@@ -2787,7 +2849,7 @@ export default function DashboardPage() {
                 <h3 className="t-micro font-medium uppercase tracking-wider text-muted-foreground">
                   Fatigue Alerts
                 </h3>
-                {fatigueAlerts.map((alert: any, i: number) => {
+                {(showAllFatigueAlerts ? fatigueAlerts : fatigueAlerts.slice(0, 3)).map((alert: any, i: number) => {
                   const adId = findAdIdByName(alert.ad_name, creativeHealth);
                   return (
                     <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
@@ -2822,6 +2884,14 @@ export default function DashboardPage() {
                     </div>
                   );
                 })}
+                {fatigueAlerts.length > 3 && (
+                  <button
+                    onClick={() => setShowAllFatigueAlerts(prev => !prev)}
+                    className="w-full text-center text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
+                  >
+                    {showAllFatigueAlerts ? "Show less" : `Show ${fatigueAlerts.length - 3} more alert${fatigueAlerts.length - 3 > 1 ? "s" : ""}`}
+                  </button>
+                )}
               </div>
             )}
 
@@ -3165,7 +3235,7 @@ export default function DashboardPage() {
             icon: TrendingUp,
             color: "text-amber-400",
             bg: "bg-amber-500/10 border-amber-500/20",
-            text: `CPL ${dir} by ${cplChangePct.toFixed(1)}% since last analysis`,
+            text: `CPL ${dir} by ${(cplChangePct ?? 0).toFixed(1)}% since last analysis`,
           });
         }
 

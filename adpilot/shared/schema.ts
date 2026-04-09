@@ -167,6 +167,23 @@ export interface CampaignAudit {
   is_awareness: boolean;
   delivery_status: string;
   learning_status: string;
+  campaign_type?: string;
+  theme?: string;
+  bidding_strategy?: string;
+  target_cpa?: number;
+  search_impression_share?: number;
+  search_rank_lost_is?: number;
+  search_budget_lost_is?: number;
+  phone_impressions?: number;
+  phone_calls?: number;
+  ptr?: number;
+  cvr?: number;
+  tsr?: number;
+  vhr?: number;
+  audience_type?: string;
+  bidding?: string;
+  video_views?: number;
+  is_dg?: boolean;
 }
 
 export interface CreativeHealth {
@@ -201,6 +218,21 @@ export interface CreativeHealth {
   classification: string;
   should_pause: boolean;
   auto_pause_reasons: string[];
+  status?: string;
+  ad_strength?: string;
+  headline_performance?: any;
+  description_performance?: any;
+  kwi_headlines_count?: number;
+  expected_ctr?: string;
+  format?: string;
+  age_days?: number;
+  tsr?: number;
+  vhr?: number;
+  video_p75?: number;
+  video_p100?: number;
+  cvr?: number;
+  cpc?: number;
+  cpm?: number;
 }
 
 export interface FatigueAlert {
@@ -406,6 +438,16 @@ export interface AdsetAnalysis {
   should_pause: boolean;
   auto_pause_reasons: string[];
   diagnostics: Array<{ metric: string; status: string; value: string | number; benchmark: string; message: string }>;
+  status?: string;
+  keywords_count?: number;
+  cvr?: number;
+  qs_avg?: number;
+  impression_share?: number;
+  top_is_pct?: number;
+  rsa_count?: number;
+  audience?: string;
+  targeting?: string;
+  creative_count?: number;
 }
 
 export interface IntellectInsight {

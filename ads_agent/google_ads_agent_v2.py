@@ -36,6 +36,38 @@ from collections import defaultdict
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━ CONFIG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ── Load .env from project tree (works standalone without python-dotenv) ──
+def _load_dotenv():
+    """Search for .env file in script dir and parent dirs, load if found."""
+    search = SCRIPT_DIR
+    for _ in range(4):
+        candidate = os.path.join(search, ".env")
+        if not os.path.exists(candidate):
+            # Also look in sibling adpilot/ directory
+            sibling = os.path.join(search, "adpilot", ".env")
+            if os.path.exists(sibling):
+                candidate = sibling
+            else:
+                search = os.path.dirname(search)
+                continue
+        try:
+            with open(candidate) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key and key not in os.environ:  # don't override existing env vars
+                        os.environ[key] = val
+            break
+        except Exception:
+            pass
+        search = os.path.dirname(search)
+
+_load_dotenv()
 sys.path.insert(0, SCRIPT_DIR)
 import scoring_engine
 from intelligence_engines import PerformanceIntelligenceEngine, PatternDetectionEngine
@@ -148,7 +180,7 @@ MONTHLY_TARGETS["month_end"] = _MONTH_END
 MONTHLY_TARGETS["total_days"] = _MONTH_DAYS
 
 # ── Load overrides from client config if available ──
-_CONFIG_PATH = os.path.join(SCRIPT_DIR, "data", "clients", "amara", "config.json")
+_CONFIG_PATH = os.path.join(SCRIPT_DIR, "data", "clients", _CLIENT_ID, "config.json")
 if os.path.exists(_CONFIG_PATH):
     with open(_CONFIG_PATH) as f:
         _config = json.load(f)
@@ -424,10 +456,14 @@ def classify_campaign_type(campaign_data):
     if channel in ("SEARCH", "") or "search" in name:
         if "brand" in name:
             return "branded"
+        if "competitor" in name or "comp " in name:
+            return "competitor"
+        if "generic" in name:
+            return "generic"
         if any(loc in name for loc in ["location", "hyd", "sec", "nallagandla",
                                          "gachibowli", "kompally", "kondapur"]):
             return "location"
-        return "location"  # No generic campaigns — all non-branded search is location
+        return "generic"
 
     return "other"
 
@@ -653,6 +689,16 @@ def extract_campaign(row):
     channel = camp.get("advertisingChannelType", "")
     bidding = camp.get("biddingStrategyType", "")
 
+    # Resolve Bid Limit / tCPA
+    tcpa = micros_to_inr(camp.get("targetCpa", {}).get("targetCpaMicros"))
+    if not tcpa:
+        tcpa = micros_to_inr(camp.get("maximizeConversions", {}).get("targetCpaMicros"))
+    
+    # Phone metrics
+    phone_impressions = si(metrics.get("phoneImpressions"))
+    phone_calls = si(metrics.get("phoneCalls"))
+    ptr = (phone_calls / phone_impressions * 100) if phone_impressions > 0 else 0
+
     daily_budget = micros_to_inr(budget_info.get("amountMicros"))
 
     return {
@@ -662,6 +708,7 @@ def extract_campaign(row):
         "channel_type": channel,
         "campaign_type": ctype,
         "bidding_strategy": bidding,
+        "target_cpa": round(tcpa, 2) if tcpa else 0,
         "daily_budget": daily_budget,
         "impressions": impressions,
         "clicks": clicks,
@@ -681,6 +728,10 @@ def extract_campaign(row):
         "top_is": round(top_is * 100, 1) if top_is is not None else 0,
         "click_share": round(click_share * 100, 1) if click_share is not None else 0,
         "exact_match_is": round(exact_match_is * 100, 1) if exact_match_is is not None else 0,
+        # Phone metrics
+        "phone_impressions": phone_impressions,
+        "phone_calls": phone_calls,
+        "ptr": round(ptr, 2),
     }
 
 def extract_ad_group(row):
@@ -699,6 +750,8 @@ def extract_ad_group(row):
         avg_cpc = safe_div(cost, clicks)
     cvr = safe_div(conversions, clicks) * 100
     cpl = safe_div(cost, conversions)
+    search_is = sf(metrics.get("searchImpressionShare"))
+    top_is = sf(metrics.get("searchTopImpressionShare"))
 
     return {
         "id": ag.get("id", ""),
@@ -720,11 +773,11 @@ def extract_ad_group(row):
 
 def extract_ad(row):
     """Extract ad data from API row."""
-    ad = row.get("adGroupAd", row)
+    ad_group_ad = row.get("adGroupAd", row)
+    ad = ad_group_ad.get("ad", {})
     ag = row.get("adGroup", {})
     camp = row.get("campaign", {})
     metrics = row.get("metrics", {})
-    ad_inner = ad.get("ad", {})
 
     impressions = si(metrics.get("impressions"))
     clicks = si(metrics.get("clicks"))
@@ -734,74 +787,55 @@ def extract_ad(row):
     avg_cpc = micros_to_inr(metrics.get("averageCpc"))
     cvr = safe_div(conversions, clicks) * 100
     cpl = safe_div(cost, conversions)
-
     cpm = micros_to_inr(metrics.get("averageCpm"))
     if cpm == 0 and impressions > 0:
         cpm = safe_div(cost, impressions) * 1000
 
-    # Determine ad type
-    ad_type = "UNKNOWN"
-    if ad_inner.get("responsiveSearchAd"):
-        ad_type = "RSA"
-    elif ad_inner.get("responsiveDisplayAd"):
-        ad_type = "RESPONSIVE_DISPLAY"
-    elif ad_inner.get("videoAd"):
-        ad_type = "VIDEO"
-    elif ad_inner.get("imageAd"):
-        ad_type = "IMAGE"
-    elif ad_inner.get("demandGenMultiAssetAd") or ad_inner.get("demandGenCarouselAd"):
-        ad_type = "DEMAND_GEN"
+    ad_type = ad.get("type", "UNKNOWN")
+    ad_strength = ad_group_ad.get("adStrength", "PENDING")
 
-    # Video metrics (ONLY for video/DG ads — never for static or search)
-    video_metrics = None
-    if ad_type in ("VIDEO", "DEMAND_GEN"):
-        video_views = si(metrics.get("videoViews"))  # 3-second play proxy
-        video_view_rate = sf(metrics.get("videoViewRate")) * 100
-        video_q25 = sf(metrics.get("videoQuartileP25Rate"))  # 15s hold proxy
-        video_q50 = sf(metrics.get("videoQuartileP50Rate"))
-        video_q75 = sf(metrics.get("videoQuartileP75Rate"))
-        video_q100 = sf(metrics.get("videoQuartileP100Rate"))
-        three_sec_views = si(metrics.get("threeSecondViews")) or video_views  # prefer native if available
+    # RSA specific: Asset performance
+    h_best = 0
+    d_best = 0
+    if ad_type == "RESPONSIVE_SEARCH_AD":
+        rsa_data = ad.get("responsiveSearchAd", {})
+        headlines = rsa_data.get("headlines", [])
+        descriptions = rsa_data.get("descriptions", [])
+        h_best = len([h for h in headlines if h.get("assetPerformanceLabel") in ("BEST", "GOOD")])
+        d_best = len([d for d in descriptions if d.get("assetPerformanceLabel") in ("BEST", "GOOD")])
 
-        # TSR (Thumb Stop Rate) = 3-second plays / impressions
-        tsr = safe_div(three_sec_views, impressions) * 100 if impressions > 0 else 0
-        # VHR (Video Hold Rate) = 15-second plays / 3-second plays
-        # Use videoQuartileP25 as proxy for 15s hold (quartile 25% of video)
-        vhr = (video_q25 * 100) if video_q25 > 0 else 0  # q25 is already a rate
-
-        video_metrics = {
-            "video_views": video_views,
-            "video_view_rate": round(video_view_rate, 2),
-            "video_quartile_p25": round(video_q25, 4),
-            "video_quartile_p50": round(video_q50, 4),
-            "video_quartile_p75": round(video_q75, 4),
-            "video_quartile_p100": round(video_q100, 4),
-            "three_sec_views": three_sec_views,
-            "tsr": round(tsr, 2),
-            "vhr": round(vhr, 2),
-        }
+    p25 = sf(metrics.get("videoQuartileP25Rate")) * 100
+    p50 = sf(metrics.get("videoQuartileP50Rate")) * 100
+    p75 = sf(metrics.get("videoQuartileP75Rate")) * 100
+    p100 = sf(metrics.get("videoQuartileP100Rate")) * 100
+    tsr = p25 # Thumb Stop proxy
+    vhr = safe_div(p50, p25) * 100 if p25 > 0 else 0 # Hold Rate proxy
 
     return {
-        "id": ad_inner.get("id", ""),
-        "name": ad_inner.get("name", ad.get("ad", {}).get("finalUrls", [""])[0] if isinstance(ad.get("ad"), dict) else ""),
-        "status": ad.get("status", "UNKNOWN"),
+        "id": ad.get("id", ""),
+        "name": ad.get("name", "Unknown"),
+        "status": ad_group_ad.get("status", "UNKNOWN"),
         "ad_type": ad_type,
+        "ad_strength": ad_strength,
         "ad_group_id": ag.get("id", ""),
         "ad_group_name": ag.get("name", ""),
         "campaign_id": camp.get("id", ""),
         "campaign_name": camp.get("name", ""),
-        "campaign_type": classify_campaign_type(camp),
-        "created_time": ad_inner.get("creation_date_time", ""),
         "impressions": impressions,
         "clicks": clicks,
-        "cost": round(cost, 2),
-        "conversions": conversions,
+        "spend": cost,
+        "leads": conversions,
         "ctr": round(ctr, 2),
         "avg_cpc": round(avg_cpc, 2),
         "cpm": round(cpm, 2),
         "cvr": round(cvr, 2),
         "cpl": round(cpl, 2),
-        "video_metrics": video_metrics,
+        "tsr": round(tsr, 2),
+        "vhr": round(vhr, 2),
+        "video_p75": round(p75, 2),
+        "video_p100": round(p100, 2),
+        "h_best": h_best,
+        "d_best": d_best,
     }
 
 
@@ -850,6 +884,17 @@ def collect_data(cadence_window=None):
         ds["ads_raw"] = raw_ads if isinstance(raw_ads, list) else []
     print(f"    -> {len(ds['ads_raw'])} ad rows")
 
+    # 3b. Keyword reports (for QS and keyword counts)
+    print("  Fetching keyword data...")
+    kw_gaql = "SELECT ad_group.id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.quality_info.quality_score FROM keyword_view"
+    raw_kws = get_report("keyword_view", since=since, until=until, query=kw_gaql)
+    if isinstance(raw_kws, dict) and "_error" in raw_kws:
+        print(f"  [ERROR] Keywords: {raw_kws['_error'][:200]}")
+        ds["keywords_raw"] = []
+    else:
+        ds["keywords_raw"] = raw_kws if isinstance(raw_kws, list) else []
+    print(f"    -> {len(ds['keywords_raw'])} keyword rows")
+
     # 4. Account/customer report
     print("  Fetching account data...")
     raw_customer = get_report("customer", since=since, until=until) # Added dates
@@ -872,9 +917,49 @@ def collect_data(cadence_window=None):
 
     # 5. Process raw data
     print("\n  Processing data...")
-    ds["campaigns"] = [extract_campaign(r) for r in ds["campaigns_raw"] if isinstance(r, dict)]
-    ds["ad_groups"] = [extract_ad_group(r) for r in ds["ad_groups_raw"] if isinstance(r, dict)]
-    ds["ads"] = [extract_ad(r) for r in ds["ads_raw"] if isinstance(r, dict)]
+    ads_extracted = [extract_ad(r) for r in ds["ads_raw"] if isinstance(r, dict)]
+    
+    # Calculate RSA counts
+    rsa_counts_ag = {}
+    rsa_counts_camp = {}
+    for ad in ads_extracted:
+        if ad.get("status") == "ENABLED":
+            ad_type = ad.get("ad_type", "").upper()
+            if "RSA" in ad_type or "SEARCH_AD" in ad_type:
+                ag_id = ad["ad_group_id"]
+                camp_id = ad["campaign_id"]
+                rsa_counts_ag[ag_id] = rsa_counts_ag.get(ag_id, 0) + 1
+                rsa_counts_camp[camp_id] = rsa_counts_camp.get(camp_id, 0) + 1
+
+    # Keyword stats
+    kw_stats = {} # ag_id -> {sum_qs, count}
+    for r in ds["keywords_raw"]:
+        ag_id = r.get("adGroup", {}).get("id")
+        qs = r.get("metrics", {}).get("qualityScore")
+        if ag_id:
+            stat = kw_stats.setdefault(ag_id, {"sum": 0, "count": 0})
+            stat["count"] += 1
+            if qs: stat["sum"] += int(qs)
+
+    ds["campaigns"] = []
+    for r in ds["campaigns_raw"]:
+        if not isinstance(r, dict): continue
+        c = extract_campaign(r)
+        c["rsa_count"] = rsa_counts_camp.get(c["id"], 0)
+        ds["campaigns"].append(c)
+
+    ds["ad_groups"] = []
+    for r in ds["ad_groups_raw"]:
+        if not isinstance(r, dict): continue
+        ag = extract_ad_group(r)
+        ag_id = ag["id"]
+        ag["rsa_count"] = rsa_counts_ag.get(ag_id, 0)
+        kw_stat = kw_stats.get(ag_id, {"sum": 0, "count": 0})
+        ag["keywords_count"] = kw_stat["count"]
+        ag["qs_avg"] = safe_div(kw_stat["sum"], kw_stat["count"])
+        ds["ad_groups"].append(ag)
+
+    ds["ads"] = ads_extracted
 
     # Filter active campaigns
     ds["active_campaigns"] = [c for c in ds["campaigns"] if c["status"] == "ENABLED"]
@@ -916,6 +1001,7 @@ def analyze_account_pulse(campaigns, historical, daily_trends=None):
 
     total_spend = sum(c["cost"] for c in active)
     total_leads = sum(c["conversions"] for c in active)
+    total_svs = sum(c.get("all_conversions", 0) for c in active)
     total_impressions = sum(c["impressions"] for c in active)
     total_clicks = sum(c["clicks"] for c in active)
 
@@ -923,6 +1009,7 @@ def analyze_account_pulse(campaigns, historical, daily_trends=None):
     overall_cpc = safe_div(total_spend, total_clicks)
     overall_cpm = safe_div(total_spend, total_impressions) * 1000
     overall_cpl = safe_div(total_spend, total_leads)
+    overall_cpsv = safe_div(total_spend, total_svs)
     overall_cvr = safe_div(total_leads, total_clicks) * 100
 
     # MTD Pacing
@@ -936,9 +1023,11 @@ def analyze_account_pulse(campaigns, historical, daily_trends=None):
 
     projected_spend = total_spend / days_elapsed * MONTHLY_TARGETS["total_days"] if days_elapsed > 0 else 0
     projected_leads = total_leads / days_elapsed * MONTHLY_TARGETS["total_days"] if days_elapsed > 0 else 0
+    projected_svs = total_svs / days_elapsed * MONTHLY_TARGETS["total_days"] if days_elapsed > 0 else 0
 
     pacing_spend = safe_div(total_spend, daily_budget_target * days_elapsed) * 100
     pacing_leads = safe_div(total_leads, daily_lead_target * days_elapsed) * 100
+    pacing_svs = safe_div(total_svs, (target["svs"] / MONTHLY_TARGETS["total_days"]) * days_elapsed) * 100 if target["svs"] > 0 else 0
 
     # Alerts
     alerts = []
@@ -982,6 +1071,7 @@ def analyze_account_pulse(campaigns, historical, daily_trends=None):
         "overall_cpc": round(overall_cpc, 2),
         "overall_cpm": round(overall_cpm, 2),
         "overall_cpl": round(overall_cpl, 2),
+        "overall_cpsv": round(overall_cpsv, 2),
         "overall_cvr": round(overall_cvr, 2),
         "active_campaigns": len(active),
         "mtd_pacing": {
@@ -989,10 +1079,13 @@ def analyze_account_pulse(campaigns, historical, daily_trends=None):
             "days_remaining": days_remaining,
             "spend_mtd": round(total_spend, 2),
             "leads_mtd": total_leads,
+            "svs_mtd": total_svs,
             "projected_spend": round(projected_spend, 2),
             "projected_leads": round(projected_leads, 0),
+            "projected_svs": round(projected_svs, 0),
             "pacing_spend_pct": round(pacing_spend, 1),
             "pacing_leads_pct": round(pacing_leads, 1),
+            "pacing_svs_pct": round(pacing_svs, 1),
             "target_budget": target["budget"],
             "target_leads": target["leads"],
             "target_svs": target["svs"],
@@ -1248,15 +1341,43 @@ def _score_metric_vs_target(actual, target, weight, lower_is_better=True):
             return weight * 0.10, "poor"
 
 def score_google_campaign(campaign_data, target_cpl):
-    # Search vs DG vs Video
+    # Search vs DG
     ctype = campaign_data.get("campaign_type", "branded")
     if is_dg_type(ctype):
-        return scoring_engine.score_google_dg_module(campaign_data, target_cpl)
+        result = scoring_engine.score_google_dg_module(campaign_data, target_cpl)
     else:
-        return scoring_engine.score_google_campaign_module(campaign_data, target_cpl)
+        # Search campaigns need RSA count for score
+        result = scoring_engine.score_google_campaign_module(campaign_data, target_cpl)
+    
+    classification, color = scoring_engine.get_interpretation(result["score"], campaign_data, target_cpl)
+    result["classification"] = classification
+    result["status_color"] = color
+    
+    # Actionable recommendation
+    score = result["score"]
+    cpl = campaign_data.get("cpl", 0)
+    if score >= 85 and cpl < target_cpl: result["recommendation"] = "Scale"
+    elif score >= 70: result["recommendation"] = "Hold"
+    elif score >= 40: result["recommendation"] = "Optimize"
+    else: result["recommendation"] = "Review/Pause"
+    
+    return result
 
 def score_google_adgroup(ag_data, target_cpl):
-    return scoring_engine.score_google_adgroup_module(ag_data, target_cpl)
+    result = scoring_engine.score_google_adgroup_module(ag_data, target_cpl)
+    classification, color = scoring_engine.get_interpretation(result["score"], ag_data, target_cpl)
+    result["classification"] = classification
+    result["status_color"] = color
+    
+    # Actionable recommendation
+    score = result["score"]
+    cpl = ag_data.get("cpl", 0)
+    if score >= 85 and cpl < target_cpl: result["recommendation"] = "Scale"
+    elif score >= 70: result["recommendation"] = "Hold"
+    elif score >= 40: result["recommendation"] = "Optimize Assets"
+    else: result["recommendation"] = "Review/Pause"
+    
+    return result
 
 def score_google_ad(ad_data, cpl_target):
     # Specialized scoring for RSA vs Video vs Static
@@ -1271,7 +1392,12 @@ def score_google_ad(ad_data, cpl_target):
     else:
         result = scoring_engine.score_google_creative_module(ad_data, cpl_target)
 
-    # Enrich with expected fields
+    # Classification logic
+    classification, color = scoring_engine.get_interpretation(result["score"], ad_data, cpl_target)
+    result["classification"] = classification
+    result["status_color"] = color
+    
+    # Legacy fields (enrich for safety)
     score = result.get("score", 0)
     result["total_score"] = score
     result["performance_score"] = score
@@ -1862,7 +1988,7 @@ def scan_auto_pause(campaigns, ad_groups, ads):
             continue
 
         # Rule 2 at ad level
-        if a["impressions"] >= SOP["auto_pause_zero_leads_impressions"] and a["conversions"] == 0:
+        if a["impressions"] >= SOP["auto_pause_zero_leads_impressions"] and a["leads"] == 0:
             pause_candidates.append({
                 "rule": "ZERO_LEADS_HIGH_IMPRESSIONS",
                 "level": "ad",
@@ -1873,7 +1999,7 @@ def scan_auto_pause(campaigns, ad_groups, ads):
             })
 
         # Rule 1 at ad level
-        if a["conversions"] > 0 and a["cpl"] > CPL_ALERT:
+        if a["leads"] > 0 and a["cpl"] > CPL_ALERT:
             pause_candidates.append({
                 "rule": "CPL_EXCEED",
                 "level": "ad",
@@ -2711,7 +2837,13 @@ def analyze_quality_score(cadence_window=None):
         by_campaign[camp.get("name", "")].append(kw_entry)
 
     # Summary
-    avg_qs = sum(qs_values) / len(qs_values) if qs_values else 0
+    total_impressions = sum(k["impressions"] for k in keywords)
+    if total_impressions > 0:
+        avg_qs = sum(k["quality_score"] * k["impressions"] for k in keywords) / total_impressions
+    elif qs_values:
+        avg_qs = sum(qs_values) / len(qs_values)
+    else:
+        avg_qs = 0
     excellent = sum(1 for q in qs_values if q >= 8)
     good = sum(1 for q in qs_values if 6 <= q < 8)
     poor = sum(1 for q in qs_values if q < 6)
@@ -2724,12 +2856,18 @@ def analyze_quality_score(cadence_window=None):
     if low_qs_high_spend:
         needs_attention.append(f"{len(low_qs_high_spend)} low-QS keywords with >₹1000 spend — priority fix")
 
-    # Per-campaign QS averages
+    # Per-campaign QS averages (Impression Weighted)
     campaign_qs = {}
     for cname, kws in by_campaign.items():
         cqs_vals = [k["quality_score"] for k in kws]
+        c_imps = sum(k["impressions"] for k in kws)
+        if c_imps > 0:
+            c_avg_qs = sum(k["quality_score"] * k["impressions"] for k in kws) / c_imps
+        else:
+            c_avg_qs = sum(cqs_vals) / len(cqs_vals) if cqs_vals else 0
+            
         campaign_qs[cname] = {
-            "avg_qs": round(sum(cqs_vals) / len(cqs_vals), 1) if cqs_vals else 0,
+            "avg_qs": round(c_avg_qs, 1),
             "keyword_count": len(kws),
             "critical_count": sum(1 for q in cqs_vals if q < SOP["qs_critical"]),
         }
@@ -3205,7 +3343,8 @@ def analyze_frequency_audit(campaigns, cadence_window=None):
 # ━━━━━━━━━━━━━ MODULE 12: ICE-SCORED RECOMMENDATIONS ━━━━━━━━━━━━
 
 def generate_recommendations(campaigns, account_pulse, auto_pause, playbooks_triggered,
-                            intellect_insights, bidding, cvr_analysis):
+                            intellect_insights, bidding, cvr_analysis,
+                            restructuring=None, qs_analysis=None, search_terms=None, creative_health=None):
     """Generate prioritized, ICE-scored recommendations."""
     recs = []
     rec_id = 0
@@ -3267,6 +3406,83 @@ def generate_recommendations(campaigns, account_pulse, auto_pause, playbooks_tri
                 "action_type": f"adjust_bid_{b['adjustment']}",
                 "auto_executable": False,
                 "sop_reference": "CPA=CPC/CVR",
+            })
+
+    # From restructuring
+    if restructuring and restructuring.get("recommendations"):
+        for r in restructuring["recommendations"]:
+            rec_id += 1
+            recs.append({
+                "id": f"R-{rec_id:03d}",
+                "title": f"Restructure: {r['type']} ({r['reason']})",
+                "description": r["detail"],
+                "category": "structure",
+                "campaign": r.get("campaign_name", "Multiple"),
+                "ice_score": r.get("ice_score", ice_score(6, 7, 5)),
+                "impact": 6,
+                "confidence": 7,
+                "ease": 5,
+                "action_type": "manual_review",
+                "auto_executable": False,
+                "sop_reference": r["reason"]
+            })
+
+    # From Quality Score
+    if qs_analysis and qs_analysis.get("alerts"):
+        for alert in qs_analysis["alerts"]:
+            rec_id += 1
+            recs.append({
+                "id": f"R-{rec_id:03d}",
+                "title": "Quality Score Optimization",
+                "description": alert,
+                "category": "keyword",
+                "campaign": "Account-level",
+                "ice_score": ice_score(5, 9, 6),
+                "impact": 5,
+                "confidence": 9,
+                "ease": 6,
+                "action_type": "manual_review",
+                "auto_executable": False,
+                "sop_reference": "QS Doctor"
+            })
+
+    # From Search Terms
+    if search_terms and search_terms.get("negative_candidates"):
+        for cand in search_terms["negative_candidates"][:5]:
+            rec_id += 1
+            recs.append({
+                "id": f"R-{rec_id:03d}",
+                "title": f"Negative Keyword: {cand['term']}",
+                "description": f"Keyword '{cand['term']}' has NO conversions with {fmt_inr(cand['cost'])} cost. Score: {cand['score']}/10.",
+                "category": "keyword",
+                "campaign": cand.get("campaign_name", "Global"),
+                "ice_score": ice_score(8, 9, 9),
+                "impact": 8,
+                "confidence": 9,
+                "ease": 9,
+                "action_type": "add_negative",
+                "auto_executable": True,
+                "sop_reference": "Search Term Audit"
+            })
+
+    # From Creative Health
+    if creative_health:
+        fatigued = [a for a in creative_health if a.get("should_pause") or a.get("creative_score", 100) < 40]
+        for ad in fatigued[:5]:
+            rec_id += 1
+            recs.append({
+                "id": f"R-{rec_id:03d}",
+                "title": f"Refresh Creative: {ad['ad_name']}",
+                "description": f"Score: {ad['creative_score']}/100. Reasons: {', '.join(ad.get('auto_pause_reasons', ['Low Performance']))}",
+                "category": "creative",
+                "campaign": ad["campaign_name"],
+                "ice_score": ice_score(8, 8, 7),
+                "impact": 8,
+                "confidence": 8,
+                "ease": 7,
+                "action_type": "pause_ad",
+                "auto_executable": True,
+                "sop_reference": "Creative Fatigue"
             })
 
     # From intellect
@@ -3487,7 +3703,11 @@ def run_analysis(cadence="twice_weekly"):
     print("\n--- Module 15: ICE-Scored Recommendations ---")
     recommendations = generate_recommendations(
         ds["campaigns"], account_pulse, auto_pause, playbooks,
-        intellect, bidding, cvr_analysis
+        intellect, bidding, cvr_analysis,
+        restructuring=restructuring,
+        qs_analysis=qs_analysis,
+        search_terms=search_terms_analysis,
+        creative_health=creative_health
     )
     print(f"  {len(recommendations)} total recommendations")
     for r in recommendations[:5]:

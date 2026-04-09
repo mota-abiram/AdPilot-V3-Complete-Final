@@ -50,9 +50,13 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: true,
-      staleTime: 0,
-      retry: false,
+      // Don't refetch on every tab switch — AdPilot data changes on agent runs, not continuously
+      refetchOnWindowFocus: false,
+      // 5-minute default stale window; individual queries may override with shorter TTL
+      staleTime: 5 * 60 * 1000,
+      // Retry once on network errors; avoids permanent failure on a single timeout
+      retry: 1,
+      retryDelay: 2000,
     },
     mutations: {
       retry: false,

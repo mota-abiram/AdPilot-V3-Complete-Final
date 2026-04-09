@@ -66,17 +66,22 @@ export class DatabaseStorage implements IStorage {
 
   async saveCredentials(clientId: string, data: any): Promise<ClientCredential> {
     const existing = await this.getCredentials(clientId);
+    
+    // Remove updatedAt from the payload to prevent Drizzle string-to-timestamp type errors
+    const payload = { ...data };
+    delete payload.updatedAt;
+
     if (existing) {
       const [updated] = await db
         .update(clientCredentials)
-        .set({ ...data, updatedAt: new Date() })
+        .set({ ...payload, updatedAt: new Date() })
         .where(eq(clientCredentials.clientId, clientId))
         .returning();
       return updated;
     } else {
       const [inserted] = await db
         .insert(clientCredentials)
-        .values({ clientId, ...data })
+        .values({ clientId, ...payload })
         .returning();
       return inserted;
     }

@@ -71,10 +71,23 @@ def normalize_score(score_map, total_weight=100):
         total = (total / total_weight) * 100
     return round(max(0, min(100, total)), 1)
 
-def get_interpretation(score):
-    if score >= 75: return "HEALTHY", "green"
-    if score >= 50: return "WATCH", "yellow"
-    return "PAUSE/INTERVENE", "red"
+def get_interpretation(score, data=None, target_cpl=None):
+    """
+    Grading System:
+    WINNER: Health ≥ 75, CPL ≤ target
+    WATCH: Health 50–74
+    UNDERPERFORMER: Health < 50 OR CPL > 1.3× target
+    """
+    cpl = data.get("cpl", 0) if data else 0
+    
+    # Primary classification logic
+    if score >= 75 and (target_cpl is None or cpl <= target_cpl):
+        return "WINNER", "green"
+    
+    if score < 50 or (target_cpl is not None and target_cpl > 0 and cpl > target_cpl * 1.3):
+        return "UNDERPERFORMER", "red"
+        
+    return "WATCH", "yellow"
 
 # --- Overall Health Functions ---
 
@@ -180,31 +193,35 @@ def score_meta_creative_module(data, target_cpl):
 
 def score_google_campaign_module(data, target_cpl):
     """
-    Google Search Campaign: CPL (25), CVR (22), CPC (20), QS (13), CTR (10), IS (10)
+    Google Search Campaign: CPL (30), CVR (22), CPC (15), QS (13), CTR (10), IS (5), RSA (5)
     """
-    w = {"cpl": 25, "cvr": 22, "cpc": 20, "qs": 13, "ctr": 10, "is": 10}
+    w = {"cpl": 30, "cvr": 22, "cpc": 15, "qs": 13, "ctr": 10, "is": 5, "rsa": 5}
     breakdown = {}
-    bands = {}
     
-    breakdown["cpl"], bands["cpl"] = score_linear(data.get("cpl", 0), target_cpl, 100, True)
-    breakdown["cvr"], bands["cvr"] = score_linear(data.get("cvr", 0), 3.5, 100, False)
-    breakdown["cpc"], bands["cpc"] = score_linear(data.get("avg_cpc", 0), 30, 100, True)
+    breakdown["cpl"], _ = score_linear(data.get("cpl", 0), target_cpl, 100, True)
+    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 5.0, 100, False) # Search Target 5%
+    breakdown["cpc"], _ = score_linear(data.get("avg_cpc", 0), 30, 100, True)
     
     qs_raw = data.get("quality_score", 5)
     breakdown["qs"] = round(qs_raw / 10 * 100, 2)
-    bands["qs"] = get_band_from_score(breakdown["qs"])
     
-    breakdown["ctr"], bands["ctr"] = score_linear(data.get("ctr", 0), 2.0, 100, False)
+    breakdown["ctr"], _ = score_linear(data.get("ctr", 0), 2.0, 100, False)
     
     # Impression Share
-    ctype = data.get("campaign_type", "branded")
-    is_target = 80 if "branded" in ctype.lower() else 40
-    is_score = round(score_impression_share(data.get("impression_share", 0), is_target), 2)
-    breakdown["is"] = is_score
-    bands["is"] = get_band_from_score(is_score)
+    ctype = data.get("campaign_type", "location")
+    is_targets = {"branded": 85, "location": 60, "generic": 50, "competitor": 40}
+    found_type = "location"
+    for k in is_targets:
+        if k in ctype.lower():
+            found_type = k
+            break
+    is_target = is_targets[found_type]
+    breakdown["is"] = round(score_impression_share(data.get("impression_share", 0), is_target), 2)
+    
+    breakdown["rsa"] = round(data.get("rsa_count", 0) / 3 * 100, 2)
     
     total_score = sum((breakdown[k] * w[k] / 100) for k in w)
-    return {"score": round(max(0, min(100, total_score)), 1), "breakdown": breakdown, "bands": bands}
+    return {"score": round(max(0, min(100, total_score)), 1), "breakdown": breakdown}
 
 def score_google_adgroup_module(data, target_cpl):
     """
@@ -214,12 +231,13 @@ def score_google_adgroup_module(data, target_cpl):
     breakdown = {}
     
     breakdown["cpl"], _ = score_linear(data.get("cpl", 0), target_cpl, 100, True)
-    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 3.5, 100, False)
+    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 5.0, 100, False)
     breakdown["ctr"], _ = score_linear(data.get("ctr", 0), 2.0, 100, False)
     breakdown["qs"] = round(data.get("quality_score", 5) / 10 * 100, 2)
     
     ctype = data.get("campaign_type", "location")
-    is_target = 80 if "branded" in ctype.lower() else 40
+    is_targets = {"branded": 85, "location": 60, "generic": 50, "competitor": 40}
+    is_target = is_targets.get(ctype.lower(), 60)
     breakdown["is"] = round(score_impression_share(data.get("impression_share", 0), is_target), 2)
     breakdown["cpc"], _ = score_linear(data.get("avg_cpc", 0), 30, 100, True)
     
@@ -228,18 +246,17 @@ def score_google_adgroup_module(data, target_cpl):
 
 def score_google_dg_module(data, target_cpl):
     """
-    Google Demand Gen: CPL (25), CPM (20), CVR (15), CTR (15), TSR (7.5), Freq (10), VHR (7.5)
+    Google Demand Gen: CPL (30), CPM (20), CVR (15), CTR (15), TSR (10), Freq (10)
     """
-    w = {"cpl": 25, "cpm": 20, "cvr": 15, "ctr": 15, "tsr": 7.5, "freq": 10, "vhr": 7.5}
+    w = {"cpl": 30, "cpm": 20, "cvr": 15, "ctr": 15, "tsr": 10, "freq": 10}
     breakdown = {}
     
     breakdown["cpl"], _ = score_linear(data.get("cpl", 0), target_cpl, 100, True)
     breakdown["cpm"], _ = score_linear(data.get("avg_cpm", 0), 120, 100, True)
-    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 1.5, 100, False)
+    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 3.0, 100, False) # DG target 3%
     breakdown["ctr"], _ = score_linear(data.get("ctr", 0), 0.8, 100, False)
     breakdown["tsr"], _ = score_linear(data.get("tsr", 0), 3.5, 100, False)
-    breakdown["freq"], _ = score_linear(data.get("frequency", 0), 2.0, 100, True)
-    breakdown["vhr"], _ = score_linear(data.get("vhr", 0), 30, 100, False)
+    breakdown["freq"], _ = score_linear(data.get("frequency", 0), 4.0, 100, True) # DG cap 4
     
     total_score = sum((breakdown[k] * w[k] / 100) for k in w)
     return {"score": round(max(0, min(100, total_score)), 1), "breakdown": breakdown}
@@ -253,7 +270,7 @@ def score_google_rsa_module(data, target_cpl):
     
     breakdown["cpl"], _ = score_linear(data.get("cpl", 0), target_cpl, 100, True)
     breakdown["ctr"], _ = score_linear(data.get("ctr", 0), 2.0, 100, False)
-    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 3.0, 100, False)
+    breakdown["cvr"], _ = score_linear(data.get("cvr", 0), 5.0, 100, False)
     
     strength_map = {"EXCELLENT": 1.0, "GOOD": 0.8, "AVERAGE": 0.5, "POOR": 0.2, "LOW": 0.1, "UNSPECIFIED": 0.5}
     strength = data.get("ad_strength", "AVERAGE").upper()
@@ -268,7 +285,9 @@ def score_google_rsa_module(data, target_cpl):
 
 def score_google_creative_module(data, target_cpl):
     is_video = "VIDEO" in data.get("type", "").upper() or data.get("is_video", False)
+    is_static = not is_video # Simplified
     breakdown = {}
+    
     if is_video:
         # Google Video: CPL (35), CPM (20), CTR (15), TSR (15), VHR (15)
         w = {"cpl": 35, "cpm": 20, "ctr": 15, "tsr": 15, "vhr": 15}

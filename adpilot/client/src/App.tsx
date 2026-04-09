@@ -56,7 +56,25 @@ function AppRouter() {
       <Route path="/command-center" component={CommandCenterPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/execution-log" component={ExecutionLogPage} />
-      <Route path="/manage-clients" component={ManageClientsPage} />
+      <Route path="/manage-clients">
+        {() => {
+          const { user } = useAuth();
+          if (user?.role !== "admin") {
+            return (
+              <div className="p-12 flex flex-col items-center justify-center text-center">
+                <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+                  <AlertTriangle className="h-6 w-6 text-red-500" />
+                </div>
+                <h2 className="text-lg font-bold text-foreground">Access Denied</h2>
+                <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+                  Administrator privileges are required to access client management.
+                </p>
+              </div>
+            );
+          }
+          return <ManageClientsPage />;
+        }}
+      </Route>
       <Route path="/benchmarks" component={BenchmarksPage} />
       <Route path="/breakdowns" component={BreakdownsPage} />
       <Route path="/google/quality-score" component={GoogleQualityScorePage} />

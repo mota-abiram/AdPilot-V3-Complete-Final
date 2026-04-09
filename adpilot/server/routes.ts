@@ -142,31 +142,7 @@ const LEGACY_GOOGLE_CREDS_FILE = path.resolve(import.meta.dirname, "../../ads_ag
 
 // ─── Registry persistence helpers ─────────────────────────────────
 
-const DEFAULT_CLIENT: ClientConfig = {
-  id: "amara",
-  name: "Deevyashakti Amara",
-  shortName: "Amara",
-  project: "Deevyashakti Amara",
-  location: "Hyderabad",
-  targetLocations: ["Hyderabad", "Secunderabad"],
-  platforms: {
-    meta: {
-      enabled: true,
-      dataPath: path.join(DATA_BASE, "clients/amara/meta/analysis.json"),
-      label: "Meta Ads",
-    },
-    google: {
-      enabled: true,
-      dataPath: path.join(DATA_BASE, "clients/amara/google/analysis.json"),
-      label: "Google Ads",
-    },
-  },
-  targets: {
-    meta: { budget: 200000, leads: 278, cpl: 720, svs: { low: 10, high: 12 }, cpsv: { low: 18000, high: 20000 } },
-    google: { budget: 800000, leads: 940, cpl: 850, svs: { low: 44, high: 44 }, cpsv: { low: 18000, high: 18000 } },
-  },
-  createdAt: new Date().toISOString(),
-};
+// All clients are DB-driven. No hardcoded defaults.
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_BASE)) fs.mkdirSync(DATA_BASE, { recursive: true });
@@ -174,8 +150,6 @@ function ensureDataDir() {
 
 async function loadRegistry(): Promise<ClientConfig[]> {
   const clients = await storage.getAllClients();
-  if (clients.length === 0) return [DEFAULT_CLIENT];
-  // Cast DB schema to ClientConfig interface
   return clients.map(c => ({
     ...c,
     targetLocations: c.targetLocations as string[] || [],
@@ -243,31 +217,10 @@ function getValidGoogleCreds(creds?: ClientCredentials) {
   return creds.google;
 }
 
-function getDefaultMetaCredsFromEnv() {
-  const accessToken = (process.env.META_ACCESS_TOKEN || "").trim();
-  const adAccountId = (process.env.META_AD_ACCOUNT_ID || "").trim();
-  if (!accessToken || !adAccountId) return null;
-  return { accessToken, adAccountId };
-}
+// Credentials are DB-only. No ENV fallbacks for client credentials.
 
-function getDefaultGoogleCredsFromEnv() {
-  const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
-  const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || "").trim();
-  const developerToken = (process.env.GOOGLE_DEVELOPER_TOKEN || "").trim();
-  const mccId = (process.env.GOOGLE_MCC_ID || "").trim();
-  const customerId = (process.env.GOOGLE_CUSTOMER_ID || "").trim();
-
-  if (!clientId || !clientSecret || !refreshToken) return null;
-
-  return {
-    clientId,
-    clientSecret,
-    refreshToken,
-    developerToken,
-    mccId,
-    customerId,
-  };
+function getEffectiveMetaCreds(clientId: string, credsStore: Record<string, ClientCredentials>) {
+  return getValidMetaCreds(credsStore[clientId]) || null;
 }
 
 function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): void {
@@ -284,9 +237,6 @@ function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): 
 
 // Live in-memory registry (loaded at startup, mutated by CRUD APIs)
 // Live registry is now loaded on-demand via await loadRegistry()
-
-// Also support the legacy flat file path as a fallback for amara/meta
-const LEGACY_META_PATH = path.join(DATA_BASE, "meta_analysis_v2.json");
 
 // Some deployments persist `clients_registry.json` with absolute, machine-specific
 // `dataPath` values (e.g. from a different laptop). Normalize those paths back
@@ -545,8 +495,7 @@ export async function registerRoutes(
     const platformStatusPromises = registry.flatMap(c => 
       Object.keys(c.platforms).map(async (platformId) => {
         // 1. Filesystem check
-        const fileExists = fs.existsSync(resolvePlatformDataPath(c.id, platformId, (c.platforms as any)[platformId])) ||
-                           (c.id === "amara" && platformId === "meta" && fs.existsSync(LEGACY_META_PATH));
+        const fileExists = fs.existsSync(resolvePlatformDataPath(c.id, platformId, (c.platforms as any)[platformId]));
         
         // 2. DB check (if available)
         let dbExists = false;
@@ -610,9 +559,7 @@ export async function registerRoutes(
         id: key,
         label: p.label,
         enabled: p.enabled,
-        hasData:
-          fs.existsSync(resolvePlatformDataPath(client.id, key, p)) ||
-          (client.id === "amara" && key === "meta" && fs.existsSync(LEGACY_META_PATH)),
+        hasData: fs.existsSync(resolvePlatformDataPath(client.id, key, p)),
       })),
       targets: client.targets || {},
     });
@@ -660,12 +607,19 @@ export async function registerRoutes(
       targets: {},
       createdAt: new Date().toISOString(),
     };
-    // Ensure data directories exist
-    fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/meta`), { recursive: true });
-    fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/google`), { recursive: true });
+    try {
+      // Ensure data directories exist
+      fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/meta`), { recursive: true });
+      fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/google`), { recursive: true });
 
-    await storage.createClient(newClient);
-    res.status(201).json({ id, name: newClient.name, shortName: newClient.shortName });
+      const insertPayload = { ...newClient };
+      delete insertPayload.createdAt; // let DB use defaultNow()
+      await storage.createClient(insertPayload);
+      res.status(201).json({ id, name: newClient.name, shortName: newClient.shortName });
+    } catch (err: any) {
+      console.error("[POST /api/clients] Failed to create client:", err);
+      res.status(500).json({ error: err.message || "Internal Server Error" });
+    }
   });
 
   // PUT /api/clients/:clientId — update name, location, targets, platform enable/disable
@@ -698,9 +652,6 @@ export async function registerRoutes(
   // DELETE /api/clients/:clientId — remove from registry (data files preserved)
   app.delete("/api/clients/:clientId", async (req, res) => {
     const { clientId } = req.params;
-    if (clientId === "amara") {
-      return res.status(403).json({ error: "The default client cannot be deleted" });
-    }
     const existing = await storage.getClient(clientId);
     if (!existing) return res.status(404).json({ error: "Client not found" });
     
@@ -711,85 +662,88 @@ export async function registerRoutes(
 
   // GET /api/clients/:clientId/credentials — return masked credentials (for display)
   app.get("/api/clients/:clientId/credentials", async (req, res) => {
+    const client = await storage.getClient(req.params.clientId);
+    if (!client) return res.status(404).json({ error: "Client not found" });
     const credsStore = await loadCredentials();
     const c = credsStore[req.params.clientId];
-    const envMeta = getDefaultMetaCredsFromEnv();
-    const envGoogle = getDefaultGoogleCredsFromEnv();
     const clientMeta = getValidMetaCreds(c);
     const clientGoogle = getValidGoogleCreds(c);
-    const effectiveMeta = clientMeta || envMeta;
-    const effectiveGoogle = clientGoogle || envGoogle;
     // Mask secrets — only send whether they exist plus last 6 chars of token
     const mask = (s?: string) => s ? `••••••${s.slice(-6)}` : "";
     res.json({
-      hasMeta: !!effectiveMeta?.accessToken,
-      hasGoogle: !!effectiveGoogle?.clientId,
-      metaSource: clientMeta ? "client" : envMeta ? "default" : "missing",
-      googleSource: clientGoogle ? "client" : envGoogle ? "default" : "missing",
-      meta: effectiveMeta ? {
-        accessToken: mask(effectiveMeta.accessToken),
-        adAccountId: effectiveMeta.adAccountId,
+      hasMeta: !!clientMeta?.accessToken,
+      hasGoogle: !!clientGoogle?.clientId,
+      metaSource: clientMeta ? "client" : "missing",
+      googleSource: clientGoogle ? "client" : "missing",
+      meta: clientMeta ? {
+        accessToken: mask(clientMeta.accessToken),
+        adAccountId: clientMeta.adAccountId,
       } : undefined,
-      google: effectiveGoogle ? {
-        clientId: mask(effectiveGoogle.clientId),
-        clientSecret: mask(effectiveGoogle.clientSecret),
-        refreshToken: mask(effectiveGoogle.refreshToken),
-        developerToken: mask(effectiveGoogle.developerToken),
-        mccId: effectiveGoogle.mccId,
-        customerId: effectiveGoogle.customerId,
+      google: clientGoogle ? {
+        clientId: mask(clientGoogle.clientId),
+        clientSecret: mask(clientGoogle.clientSecret),
+        refreshToken: mask(clientGoogle.refreshToken),
+        developerToken: mask(clientGoogle.developerToken),
+        mccId: clientGoogle.mccId,
+        customerId: clientGoogle.customerId,
       } : undefined,
     });
   });
 
   // PUT /api/clients/:clientId/credentials — save/update credentials
   app.put("/api/clients/:clientId/credentials", async (req, res) => {
-    const { clientId } = req.params;
-    const client = await storage.getClient(clientId);
-    if (!client) {
-      return res.status(404).json({ error: "Client not found" });
-    }
-    const { meta, google } = req.body;
-    const credsStore = await loadCredentials();
-    const existing = credsStore[clientId] || { clientId, updatedAt: "" };
-
-    if (meta) {
-      const { accessToken, adAccountId } = meta;
-      if (!accessToken || !adAccountId) {
-        return res.status(400).json({ error: "Meta credentials require accessToken and adAccountId" });
+    try {
+      const { clientId } = req.params;
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
       }
-      existing.meta = { accessToken: accessToken.trim(), adAccountId: adAccountId.trim() };
-    }
+      const { meta, google } = req.body;
+      const credsStore = await loadCredentials();
+      const existing = credsStore[clientId] || { clientId, updatedAt: "" };
 
-    if (google) {
-      const { clientId: gClientId, clientSecret, refreshToken, developerToken, mccId, customerId } = google;
-      if (!gClientId || !clientSecret || !refreshToken) {
-        return res.status(400).json({ error: "Google credentials require clientId, clientSecret, and refreshToken" });
+      if (meta) {
+        const { accessToken, adAccountId } = meta;
+        if (!accessToken || !adAccountId) {
+          return res.status(400).json({ error: "Meta credentials require accessToken and adAccountId" });
+        }
+        existing.meta = { accessToken: accessToken.trim(), adAccountId: adAccountId.trim() };
       }
-      existing.google = {
-        clientId: gClientId.trim(),
-        clientSecret: clientSecret.trim(),
-        refreshToken: refreshToken.trim(),
-        developerToken: (developerToken || "").trim(),
-        mccId: (mccId || "").trim(),
-        customerId: (customerId || "").trim(),
-      };
+
+      if (google) {
+        const { clientId: gClientId, clientSecret, refreshToken, developerToken, mccId, customerId } = google;
+        if (!gClientId || !clientSecret || !refreshToken) {
+          return res.status(400).json({ error: "Google credentials require clientId, clientSecret, and refreshToken" });
+        }
+        existing.google = {
+          clientId: gClientId.trim(),
+          clientSecret: clientSecret.trim(),
+          refreshToken: refreshToken.trim(),
+          developerToken: (developerToken || "").trim(),
+          mccId: (mccId || "").trim(),
+          customerId: (customerId || "").trim(),
+        };
+      }
+
+      existing.updatedAt = new Date().toISOString();
+      credsStore[clientId] = existing;
+      await saveCredentials(credsStore);
+
+      // Keep the legacy Python credentials file aligned for local scripts.
+      if (google) {
+        syncLegacyGoogleCredentialsFile(existing.google);
+      }
+
+      // Clear stale token cache so the new refresh token is used immediately.
+      if (google && fs.existsSync(GOOGLE_ADS_TOKEN_CACHE)) {
+        fs.unlinkSync(GOOGLE_ADS_TOKEN_CACHE);
+      }
+
+      res.json({ success: true, updatedAt: existing.updatedAt });
+    } catch (err: any) {
+      console.error("[PUT /api/clients/:clientId/credentials] Failed:", err);
+      res.status(500).json({ error: err.message || "Failed to save credentials" });
     }
-
-    existing.updatedAt = new Date().toISOString();
-    credsStore[clientId] = existing;
-    await saveCredentials(credsStore);
-
-    // Keep the legacy Python credentials file aligned for local scripts.
-    if (google) {
-      syncLegacyGoogleCredentialsFile(existing.google);
-    }
-
-    // Clear stale token cache so the new refresh token is used immediately.
-    if (google && fs.existsSync(GOOGLE_ADS_TOKEN_CACHE)) {
-      fs.unlinkSync(GOOGLE_ADS_TOKEN_CACHE);
-    }
-
-    res.json({ success: true, updatedAt: existing.updatedAt });
   });
 
   // ─── Analysis Data Endpoints (client + platform aware) ─────────
@@ -1205,51 +1159,7 @@ export async function registerRoutes(
     res.json(next);
   });
 
-  // ─── Legacy endpoints (backward compat — redirect to amara/meta) ───
-
-  app.get("/api/analysis", async (_req, res) => {
-    try {
-      const data = await readAnalysisData("amara", "meta");
-      res.json(data);
-    } catch (err: any) {
-      res.status(500).json({ error: "Failed to read analysis data", detail: err.message });
-    }
-  });
-
-  app.get("/api/analysis/summary", async (_req, res) => {
-    try {
-      const data = await readAnalysisData("amara", "meta");
-      res.json({
-        summary: (data as any).summary,
-        account_pulse: (data as any).account_pulse,
-        monthly_pacing: (data as any).monthly_pacing,
-      });
-    } catch (err: any) {
-      res.status(500).json({ error: "Failed to read summary", detail: err.message });
-    }
-  });
-
-  app.post("/api/recommendations/:id/action", (req, res) => {
-    const { id } = req.params;
-    const { action, strategic_call } = req.body;
-    if (!action || !["approved", "rejected", "deferred"].includes(action)) {
-      return res.status(400).json({ error: "Invalid action." });
-    }
-    if (!strategic_call || typeof strategic_call !== "string" || strategic_call.trim().length < 10) {
-      return res.status(400).json({ error: "strategic_call is required (min 10 chars)." });
-    }
-    const timestamp = new Date().toISOString();
-    const key = `amara:meta:${id}`;
-    setRecommendationAction(key, { action: action as RecommendationAction, timestamp, strategic_call: strategic_call.trim() });
-    appendActionLog({ id, clientId: "amara", platform: "meta", action, strategic_call: strategic_call.trim(), timestamp });
-    res.json({ success: true, id, action });
-  });
-
-  app.get("/api/recommendations/actions", (_req, res) => {
-    const prefix = "amara:meta:";
-    const actions = getRecommendationActionsForPrefix(prefix);
-    res.json(actions);
-  });
+  // Legacy /api/analysis endpoints removed — use /api/clients/:clientId/:platform/analysis
 
   // ─── Execution Engine Endpoints ─────────────────────────────────
 
@@ -1340,7 +1250,8 @@ export async function registerRoutes(
   // Reads latest analysis, finds auto_action insights, executes them
   app.post("/api/auto-execute", async (req, res) => {
     try {
-      const { clientId = "amara", platform = "meta" } = req.body || {};
+      const { clientId, platform = "meta" } = req.body || {};
+      if (!clientId) return res.status(400).json({ error: "clientId is required" });
       const data = await readAnalysisData(clientId, platform);
 
       const insights: any[] = data.intellect_insights || [];
@@ -2885,7 +2796,8 @@ export async function registerRoutes(
   // Parses natural language commands into executable actions
   app.post("/api/parse-command", async (req, res) => {
     try {
-      const { command, clientId = "amara", platform = "meta" } = req.body;
+      const { command, clientId, platform = "meta" } = req.body;
+      if (!clientId) return res.status(400).json({ error: "clientId is required" });
       if (!command || typeof command !== "string") {
         return res.status(400).json({ error: "Command text required" });
       }

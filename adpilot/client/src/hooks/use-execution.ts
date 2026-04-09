@@ -63,8 +63,9 @@ export function useExecution() {
           title: "Action Executed",
           description: `${params.action} on ${params.entityName}: ${result.previousValue} → ${result.newValue}`,
         });
-        // Invalidate analysis data to refresh dashboard
-        queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+        // Narrow invalidation: only refresh data for the affected client+platform, not all clients
+        queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform] });
+        queryClient.invalidateQueries({ queryKey: ["/api/audit-log"] });
       } else {
         toast({
           title: "Execution Failed",
@@ -121,15 +122,30 @@ export function useExecution() {
           title: "Batch Executed",
           description: `All ${result.total} actions completed successfully.`,
         });
+      } else if (result.succeeded === 0) {
+        toast({
+          title: "Batch Failed",
+          description: `All ${result.total} actions failed. Check execution log for details.`,
+          variant: "destructive",
+        });
       } else {
+        // Partial success — use warning tone, not destructive
+        const failed = result.total - result.succeeded;
+        const hardFailures = result.results.filter(
+          (r) => !r.success && r.error && !r.error.toLowerCase().includes("already")
+        );
         toast({
           title: "Batch Partially Complete",
-          description: `${result.succeeded}/${result.total} actions succeeded.`,
-          variant: "destructive",
+          description: hardFailures.length > 0
+            ? `${result.succeeded}/${result.total} succeeded. ${hardFailures.length} hard failure(s) — check execution log.`
+            : `${result.succeeded}/${result.total} succeeded. ${failed} already in target state.`,
+          variant: hardFailures.length > 0 ? "destructive" : "default",
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      // Narrow invalidation: only refresh affected client+platform
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audit-log"] });
       return result;
     } catch (err: any) {
       toast({

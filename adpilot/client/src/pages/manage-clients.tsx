@@ -575,7 +575,7 @@ export default function ManageClientsPage() {
       ) : (
         <div className="space-y-3">
           {clients.map((c) => (
-            <ClientRow key={c.id} client={c} isDefault={c.id === "amara"} />
+            <ClientRow key={c.id} client={c} isDefault={false} />
           ))}
         </div>
       )}

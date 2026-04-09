@@ -31,7 +31,8 @@ import {
   XCircle,
   BarChart2,
   RefreshCcw,
-  Info
+  Info,
+  AlertCircle
 } from "lucide-react";
 import { formatINR, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -453,7 +454,7 @@ export default function GoogleQualityScorePage() {
                       <table className="t-table w-full text-left">
                         <thead>
                           <tr className="bg-muted/30">
-                            {["Keyword", "Score", "Exp CTR", "Relevance", "LP Exp", "Conv", "CPL"].map(h => (
+                            {["Keyword", "Score", "Exp CTR", "Relevance", "LP Exp", "Conv", "CPL", "Doctor Action"].map(h => (
                               <th key={h} className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">{h}</th>
                             ))}
                           </tr>
@@ -478,6 +479,37 @@ export default function GoogleQualityScorePage() {
                               <td className="p-3"><FactorBadge val={kw.landing_page_experience} /></td>
                               <td className="p-3 font-semibold text-foreground">{kw.conversions}</td>
                               <td className="p-3 font-bold text-foreground/80">{kw.cpl > 0 ? formatINR(kw.cpl, 0) : "—"}</td>
+                              <td className="p-3">
+                                {kw.optimization_actions && kw.optimization_actions.length > 0 ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex items-center gap-1.5 cursor-help group/doc">
+                                        <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 max-w-[120px] truncate">
+                                          {kw.optimization_actions[0]}
+                                        </Badge>
+                                        {kw.optimization_actions.length > 1 && (
+                                          <div className="size-4 rounded-full bg-amber-500/10 flex items-center justify-center">
+                                            <AlertCircle className="w-2.5 h-2.5 text-amber-500" />
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="p-3 space-y-2 max-w-[280px]">
+                                      <p className="font-bold text-xs border-b border-border/40 pb-1.5">QS Doctor Recommendations</p>
+                                      <div className="space-y-1.5">
+                                        {kw.optimization_actions.map((action, i) => (
+                                          <p key={i} className="text-[10px] leading-relaxed text-muted-foreground flex gap-2">
+                                            <span className="text-primary font-bold">{i+1}.</span>
+                                            {action}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground italic">Optimal QS</span>
+                                )}
+                              </td>
                             </tr>
                           ))}
                         </tbody>

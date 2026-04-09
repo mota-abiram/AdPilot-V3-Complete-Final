@@ -1,9 +1,9 @@
+import { Classification, getClassification } from "./classification";
+
 /**
  * Shared Scoring Engine
- * Standardizes categorization across Campaigns, Adsets, and Ads.
+ * Standardizes categorization based on Mojo spec.
  */
-
-export type Classification = "WINNER" | "WATCH" | "UNDERPERFORMER";
 
 /**
  * Linear score mapping (0-100)
@@ -24,81 +24,167 @@ export function scoreLinear(actual: number, target: number, weight: number, lowe
 }
 
 /**
- * Classification based on standardized score bands
+ * Google Impression Share Scorer
  */
-export function getClassification(score: number): Classification {
-  if (score >= 70) return "WINNER";
-  if (score >= 35) return "WATCH";
-  return "UNDERPERFORMER";
+export function scoreImpressionShare(actualIS: number, targetIS: number): number {
+  if (targetIS <= 0) return 50;
+  const ratio = actualIS / targetIS;
+  if (ratio >= 1.0) return 100;
+  if (ratio >= 0.7) return 75 + ((ratio - 0.7) / (1.0 - 0.7)) * 25;
+  if (ratio >= 0.5) return 40 + ((ratio - 0.5) / (0.7 - 0.5)) * 35;
+  return Math.max(10, 10 + (ratio / 0.5) * 30);
 }
 
 /**
- * Calculate Performance Score (weighted average of core metrics)
- * CPL (35%) · CPM (20%) · CTR (15%) · CVR (15%) · Frequency (15%)
+ * Search Campaign Health Weights:
+ * CPL vs target → 30
+ * CVR → 22
+ * CPC vs target → 15
+ * QS avg → 13
+ * CTR → 10
+ * IS → 5
+ * RSA → 5
  */
-export function calculatePerformanceScore(metrics: {
+export function calculateSearchCampaignHealth(data: {
   cpl: number;
-  cpm: number;
-  ctr: number;
   cvr: number;
-  frequency: number;
+  cpc: number;
+  qs_avg: number;
+  ctr: number;
+  is: number;
+  rsa_count: number;
 }, targets: {
   cpl: number;
-  cpm: number;
-  ctr: number;
-  cvr: number;
-  frequency: number;
+  cpc: number;
+  is_target: number;
 }): { score: number; breakdown: Record<string, number> } {
-  const weights = {
-    cpl: 35,
-    cpm: 20,
-    ctr: 15,
-    cvr: 15,
-    frequency: 15
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targets.cpl, 30, true),
+    cvr: scoreLinear(data.cvr, 5.0, 22, false),
+    cpc: scoreLinear(data.cpc, targets.cpc, 15, true),
+    qs: (data.qs_avg / 10) * 13,
+    ctr: scoreLinear(data.ctr, 2.0, 10, false),
+    is: (scoreImpressionShare(data.is, targets.is_target) / 100) * 5,
+    rsa: Math.min(1, data.rsa_count / 3) * 5
   };
 
-  const scores = {
-    cpl: scoreLinear(metrics.cpl, targets.cpl, 100, true),
-    cpm: scoreLinear(metrics.cpm, targets.cpm, 100, true),
-    ctr: scoreLinear(metrics.ctr, targets.ctr, 100, false),
-    cvr: scoreLinear(metrics.cvr, targets.cvr, 100, false),
-    frequency: scoreLinear(metrics.frequency, targets.frequency, 100, true)
-  };
-
-  let totalWeighted = 0;
-  totalWeighted += (scores.cpl * weights.cpl) / 100;
-  totalWeighted += (scores.cpm * weights.cpm) / 100;
-  totalWeighted += (scores.ctr * weights.ctr) / 100;
-  totalWeighted += (scores.cvr * weights.cvr) / 100;
-  totalWeighted += (scores.frequency * weights.frequency) / 100;
-
-  return {
-    score: Math.round(totalWeighted * 10) / 10,
-    breakdown: scores
-  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Calculate Final Ad Score (weighted performance + age)
- * Perf (60%) + Age (40%)
+ * Demand Gen Campaign Weights:
+ * CPL 30, CPM 20, CVR 15, CTR 15, TSR 10, Frequency 10
  */
-export function calculateFinalAdScore(
-  performanceScore: number,
-  ageDays: number,
-  isPerformingWellThreshold: number = 70
-): number {
-  // Age Score: 0-100 (lower is better for age, so we invert)
-  // Logic: <30d = 100, >45d = 0
-  let ageScore = 100;
-  if (ageDays > 45) ageScore = 0;
-  else if (ageDays > 30) {
-    ageScore = scoreLinear(ageDays, 30, 100, true);
-  }
+export function calculateDGHealth(data: {
+  cpl: number;
+  cpm: number;
+  cvr: number;
+  ctr: number;
+  tsr: number;
+  frequency: number;
+}, targetCpl: number): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targetCpl, 30, true),
+    cpm: scoreLinear(data.cpm, 120, 20, true),
+    cvr: scoreLinear(data.cvr, 3.0, 15, false),
+    ctr: scoreLinear(data.ctr, 0.8, 15, false),
+    tsr: scoreLinear(data.tsr, 3.5, 10, false),
+    frequency: scoreLinear(data.frequency, 4.0, 10, true)
+  };
 
-  // Override: if performance is excellent, dampen age penalty
-  if (performanceScore >= isPerformingWellThreshold) {
-    return Math.round((performanceScore * 0.8 + ageScore * 0.2) * 10) / 10;
-  }
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
 
-  return Math.round((performanceScore * 0.6 + ageScore * 0.4) * 10) / 10;
+/**
+ * Search Ad Group Health Weights:
+ * CPL 30, CVR 25, CTR 15, QS 15, IS 10, CPC 5
+ */
+export function calculateSearchAdGroupHealth(data: {
+  cpl: number;
+  cvr: number;
+  ctr: number;
+  qs_avg: number;
+  is: number;
+  cpc: number;
+}, targets: {
+  cpl: number;
+  cpc: number;
+  is_target: number;
+}): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targets.cpl, 30, true),
+    cvr: scoreLinear(data.cvr, 5.0, 25, false),
+    ctr: scoreLinear(data.ctr, 2.0, 15, false),
+    qs: (data.qs_avg / 10) * 15,
+    is: (scoreImpressionShare(data.is, targets.is_target) / 100) * 10,
+    cpc: scoreLinear(data.cpc, targets.cpc, 5, true)
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
+
+/**
+ * Search Ad Health Weights:
+ * CPL 35, CTR 25, CVR 20, Ad Strength 10, Expected CTR 10
+ */
+export function calculateSearchAdHealth(data: {
+  cpl: number;
+  ctr: number;
+  cvr: number;
+  adStrengthScore: number; // 0 to 10
+  expectedCtrScore: number; // 0 to 10
+}, targetCpl: number): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targetCpl, 35, true),
+    ctr: scoreLinear(data.ctr, 2.0, 25, false),
+    cvr: scoreLinear(data.cvr, 5.0, 20, false),
+    adStrength: data.adStrengthScore,
+    expectedCtr: data.expectedCtrScore,
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
+
+/**
+ * Demand Gen Ad (Video) Health Weights:
+ * CPL 35, CPM 20, CTR 15, TSR 15, VHR 15
+ */
+export function calculateDGVideoAdHealth(data: {
+  cpl: number;
+  cpm: number;
+  ctr: number;
+  tsr: number;
+  vhr: number;
+}, targetCpl: number): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targetCpl, 35, true),
+    cpm: scoreLinear(data.cpm, 120, 20, true),
+    ctr: scoreLinear(data.ctr, 0.8, 15, false),
+    tsr: scoreLinear(data.tsr, 3.5, 15, false),
+    vhr: scoreLinear(data.vhr, 1.0, 15, false), // Example target VHR
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
+
+/**
+ * Demand Gen Ad (Static) Health Weights:
+ * CPL 45, CPM 25, CTR 20, CPC 10
+ */
+export function calculateDGStaticAdHealth(data: {
+  cpl: number;
+  cpm: number;
+  ctr: number;
+  cpc: number;
+}, targetCpl: number, targetCpc: number): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targetCpl, 45, true),
+    cpm: scoreLinear(data.cpm, 120, 25, true),
+    ctr: scoreLinear(data.ctr, 0.8, 20, false),
+    cpc: scoreLinear(data.cpc, targetCpc, 10, true), 
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
 }

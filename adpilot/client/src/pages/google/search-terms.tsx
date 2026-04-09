@@ -680,8 +680,9 @@ export default function GoogleSearchTermsPage() {
                     </th>
                     {[
                       { key: "search_term", label: "Search Term", align: "left" },
-                      { key: "campaign", label: "Campaign", align: "left" },
+                      { key: "campaign", label: "Campaign / Ad Group", align: "left" },
                       { key: "match_type", label: "Match", align: "left" },
+                      { key: "intent", label: "Intent", align: "left" },
                       { key: "impressions", label: "Impr", align: "right" },
                       { key: "clicks", label: "Clicks", align: "right" },
                       { key: "ctr", label: "CTR", align: "right" },
@@ -752,10 +753,37 @@ export default function GoogleSearchTermsPage() {
                           )}
                         </td>
                         <td className="p-3 max-w-[150px]">
-                          <span className="text-gray-400 truncate block">{truncate(term.campaign || "—", 25)}</span>
+                          <span className="text-gray-400 truncate block font-semibold">{truncate(term.campaign || "—", 25)}</span>
+                          <span className="text-[10px] text-gray-500 truncate block mt-0.5" title={term.ad_group || term.ad_group_name || "—"}>
+                            {truncate(term.ad_group || term.ad_group_name || "—", 25)}
+                          </span>
                         </td>
                         <td className="p-3">
                           <span className="text-gray-500 text-[10px] uppercase">{term.match_type || "—"}</span>
+                        </td>
+                        <td className="p-3">
+                          {(() => {
+                            const t = termText.toLowerCase();
+                            let intent = "LOW";
+                            let cls = "bg-gray-500/10 text-gray-400 border-gray-500/20";
+                            
+                            if (t.includes("rent") || t.includes("pg") || t.includes("job") || t.includes("resale") || t.includes("free") || t.includes("cheap")) {
+                              intent = "JUNK";
+                              cls = "bg-red-500/10 text-red-400 border-red-500/30";
+                            } else if (t.includes("sale") || t.includes("price") || t.includes("bhk") || t.includes("buy") || t.includes("cost") || t.includes("visit") || t.includes("near me")) {
+                              intent = "HIGH";
+                              cls = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                            } else if (t.includes(" in ") || t.includes(" near ") || t.includes(" area") || t.includes(" city")) {
+                              intent = "MEDIUM";
+                              cls = "bg-blue-500/10 text-blue-400 border-blue-500/30";
+                            }
+                            
+                            return (
+                              <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border", cls)}>
+                                {intent}
+                              </Badge>
+                            );
+                          })()}
                         </td>
                         <td className="p-3 text-right tabular-nums text-gray-400">{term.impressions.toLocaleString()}</td>
                         <td className="p-3 text-right tabular-nums text-gray-400">{term.clicks.toLocaleString()}</td>
@@ -796,7 +824,7 @@ export default function GoogleSearchTermsPage() {
                                 Block
                               </button>
                               {/* Promote to Keyword button for high-value terms */}
-                              {term.conversions > 0 && term.cost > 0 && (
+                              {term.conversions > 0 && term.cost > 0 && (term.cpl || term.cost / term.conversions) <= (((data as any)?.benchmarks?.cpl || 1000) * 1.3) && (
                                 <button
                                   className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded border transition-colors bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
                                   onClick={() => {
