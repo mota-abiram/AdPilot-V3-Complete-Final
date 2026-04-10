@@ -107,6 +107,7 @@ const opsNavItems = [
 
 const adminNavItems = [
   { title: "Manage Clients", url: "/manage-clients", icon: Users },
+  { title: "Users", url: "/users", icon: Users },
   { title: "Benchmarks", url: "/benchmarks", icon: SlidersHorizontal },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
@@ -234,152 +235,158 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
           </div>
         </div>
 
-        {/* ── Unified Workspace Switcher ──────────────────────────────── */}
-        <div className="grid gap-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center justify-between px-1">
-            Workspace
-            {syncState?.sync_status === "loading" && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
-          </p>
+        {isAdmin && (
+          <>
+            {/* ── Unified Workspace Switcher ──────────────────────────────── */}
+            <div className="grid gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center justify-between px-1">
+                Workspace
+                {syncState?.sync_status === "loading" && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
+              </p>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  "flex items-center justify-between w-full px-3 py-2.5 rounded-lg",
-                  "bg-card/84 border border-border/70 shadow-xs",
-                  "hover:bg-accent/70 hover:border-primary/30 transition-all duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                )}
-                data-testid="button-workspace-switcher"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 transition-transform group-hover:scale-105 border border-primary/20">
-                    <Zap className="size-4" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "flex items-center justify-between w-full px-3 py-2.5 rounded-lg",
+                      "bg-card/84 border border-border/70 shadow-xs",
+                      "hover:bg-accent/70 hover:border-primary/30 transition-all duration-200",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    )}
+                    data-testid="button-workspace-switcher"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0 transition-transform group-hover:scale-105 border border-primary/20">
+                        <Zap className="size-4" />
+                      </div>
+                      <div className="grid flex-1 text-left leading-tight">
+                        <span className="truncate font-bold text-[14px] leading-none">{activeClient?.shortName || activeClient?.name || "Select Client"}</span>
+                        <span className="truncate text-[10px] text-muted-foreground capitalize mt-1 flex items-center gap-1.5 leading-none">
+                          Client <span className="opacity-70">· {lastSynced || "Never"}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronDown className="ml-auto size-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent className="w-[260px] rounded-xl bg-background/95 backdrop-blur-xl border-border/60 shadow-2xl p-2" align="start" sideOffset={8}>
+                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    Switch Client
                   </div>
-                  <div className="grid flex-1 text-left leading-tight">
-                    <span className="truncate font-bold text-[14px] leading-none">{activeClient?.shortName || activeClient?.name || "Select Client"}</span>
-                    <span className="truncate text-[10px] text-muted-foreground capitalize mt-1 flex items-center gap-1.5 leading-none">
-                      Client <span className="opacity-70">· {lastSynced || "Never"}</span>
-                    </span>
+
+                  <div className="max-h-[350px] overflow-y-auto space-y-1 py-1">
+                    {clients.map((client) => {
+                      const isSelected = client.id === activeClientId;
+                      return (
+                        <DropdownMenuItem
+                          key={client.id}
+                          onClick={() => {
+                            setActiveClientId(client.id);
+                            // Also try to find a valid platform if the current one isn't valid for the new client
+                            if (!client.platforms.find(p => p.id === activePlatform && p.enabled && p.hasData)) {
+                              const validPlatform = client.platforms.find(p => p.enabled && p.hasData);
+                              if (validPlatform) setActivePlatform(validPlatform.id);
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150",
+                            isSelected
+                              ? "bg-primary/16 text-primary ring-1 ring-primary/30"
+                              : "hover:bg-accent/60"
+                          )}
+                        >
+                          <div className={cn(
+                            "size-6 flex items-center justify-center rounded-md border text-[10px] font-bold",
+                            isSelected ? "border-primary/30 bg-primary/20 text-primary" : "border-border/40 bg-muted/40 text-muted-foreground"
+                          )}>
+                            <Zap className="size-3.5" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[13px] font-medium leading-tight">{client.shortName || client.name}</span>
+                          </div>
+                          {isSelected && <Check className="ml-auto size-3.5 text-primary" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
                   </div>
-                </div>
-                <ChevronDown className="ml-auto size-3.5 text-muted-foreground shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
 
-            <DropdownMenuContent className="w-[260px] rounded-xl bg-background/95 backdrop-blur-xl border-border/60 shadow-2xl p-2" align="start" sideOffset={8}>
-              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                Switch Client
-              </div>
+                  {isAdmin && (
+                    <>
+                      <div className="border-t border-border/40 my-2" />
+                      <DropdownMenuItem
+                        onClick={() => setLocation("/manage-clients")}
+                        className="text-primary font-semibold flex items-center gap-2 px-2.5 py-2 hover:bg-primary/5 rounded-lg"
+                      >
+                        <Plus className="size-4" />
+                        <span className="text-[13px]">Manage Client Registry</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              <div className="max-h-[350px] overflow-y-auto space-y-1 py-1">
-                {clients.map((client) => {
-                  const isSelected = client.id === activeClientId;
+              {/* Platform Buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "meta", label: "Meta", icon: MetaLogo },
+                  { id: "google", label: "Google", icon: GoogleLogo }
+                ].map(p => {
+                  const platformConfig = activeClient?.platforms.find(cp => cp.id === p.id);
+                  const isEnabled = platformConfig?.enabled && platformConfig?.hasData;
+                  const isActiveLocal = activePlatform === p.id && isEnabled;
+                  const Icon = p.icon;
+
                   return (
-                    <DropdownMenuItem
-                      key={client.id}
-                      onClick={() => {
-                        setActiveClientId(client.id);
-                        // Also try to find a valid platform if the current one isn't valid for the new client
-                        if (!client.platforms.find(p => p.id === activePlatform && p.enabled && p.hasData)) {
-                          const validPlatform = client.platforms.find(p => p.enabled && p.hasData);
-                          if (validPlatform) setActivePlatform(validPlatform.id);
-                        }
-                      }}
+                    <button
+                      key={p.id}
+                      onClick={() => isEnabled && setActivePlatform(p.id)}
                       className={cn(
-                        "flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150",
-                        isSelected
-                          ? "bg-primary/16 text-primary ring-1 ring-primary/30"
-                          : "hover:bg-accent/60"
+                        "flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200",
+                        isActiveLocal
+                          ? "bg-primary/16 text-primary border-primary/35 shadow-xs"
+                          : isEnabled
+                            ? "bg-card/65 text-muted-foreground border-border/60 hover:bg-accent/70 hover:text-foreground"
+                            : "bg-muted/30 text-muted-foreground/40 border-border/30 cursor-not-allowed"
                       )}
+                      disabled={!isEnabled}
                     >
-                      <div className={cn(
-                        "size-6 flex items-center justify-center rounded-md border text-[10px] font-bold",
-                        isSelected ? "border-primary/30 bg-primary/20 text-primary" : "border-border/40 bg-muted/40 text-muted-foreground"
-                      )}>
-                        <Zap className="size-3.5" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[13px] font-medium leading-tight">{client.shortName || client.name}</span>
-                      </div>
-                      {isSelected && <Check className="ml-auto size-3.5 text-primary" />}
-                    </DropdownMenuItem>
+                      <Icon className="size-4" />
+                      <span className="text-[12px] font-semibold">{p.label}</span>
+                    </button>
                   );
                 })}
               </div>
+            </div>
 
-              <div className="border-t border-border/40 my-2" />
-              <DropdownMenuItem
-                onClick={() => setLocation("/manage-clients")}
-                className="text-primary font-semibold flex items-center gap-2 px-2.5 py-2 hover:bg-primary/5 rounded-lg"
-              >
-                <Plus className="size-4" />
-                <span className="text-[13px]">Manage Client Registry</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Platform Buttons */}
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { id: "meta", label: "Meta", icon: MetaLogo },
-              { id: "google", label: "Google", icon: GoogleLogo }
-            ].map(p => {
-              const platformConfig = activeClient?.platforms.find(cp => cp.id === p.id);
-              const isEnabled = platformConfig?.enabled && platformConfig?.hasData;
-              const isActiveLocal = activePlatform === p.id && isEnabled;
-              const Icon = p.icon;
-
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => isEnabled && setActivePlatform(p.id)}
-                  className={cn(
-                    "flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200",
-                    isActiveLocal
-                      ? "bg-primary/16 text-primary border-primary/35 shadow-xs"
-                      : isEnabled
-                        ? "bg-card/65 text-muted-foreground border-border/60 hover:bg-accent/70 hover:text-foreground"
-                        : "bg-muted/30 text-muted-foreground/40 border-border/30 cursor-not-allowed"
-                  )}
-                  disabled={!isEnabled}
-                >
-                  <Icon className="size-4" />
-                  <span className="text-[12px] font-semibold">{p.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-
-
-        {/* Cadence selector */}
-        <div className="grid gap-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Time Window</p>
-          <div className="grid grid-cols-5 gap-1.5">
-            {cadenceOptions.map((opt) => {
-              const isActive = opt.value === activeCadence;
-              return (
-                <button
-                  key={opt.value}
-                  className={cn(
-                    "py-1.5 text-[11px] font-semibold rounded-md border transition-colors duration-150",
-                    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                    isActive
-                      ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
-                      : "text-muted-foreground border-border/40 bg-card/65 hover:bg-accent/70 hover:text-foreground"
-                  )}
-                  onClick={() => setActiveCadence(opt.value)}
-                  data-testid={`button-cadence-${opt.value}`}
-                  title={opt.value.replace(/_/g, " ")}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            {/* Cadence selector */}
+            <div className="grid gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Time Window</p>
+              <div className="grid grid-cols-5 gap-1.5">
+                {cadenceOptions.map((opt) => {
+                  const isActive = opt.value === activeCadence;
+                  return (
+                    <button
+                      key={opt.value}
+                      className={cn(
+                        "py-1.5 text-[11px] font-semibold rounded-md border transition-colors duration-150",
+                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        isActive
+                          ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
+                          : "text-muted-foreground border-border/40 bg-card/65 hover:bg-accent/70 hover:text-foreground"
+                      )}
+                      onClick={() => setActiveCadence(opt.value)}
+                      data-testid={`button-cadence-${opt.value}`}
+                      title={opt.value.replace(/_/g, " ")}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </SidebarHeader>
 
       {/* ── Navigation groups ───────────────────────────────────────── */}
@@ -388,9 +395,13 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <SidebarContent className="gap-0">
-          <NavSection label="Analytics" items={[...coreNavItems, ...platformItems]} location={location} />
-          <NavSection label="Planning" items={planningNavItems} location={location} />
-          <NavSection label="Operations" items={opsNavItems} location={location} />
+          {isAdmin && (
+            <>
+              <NavSection label="Analytics" items={[...coreNavItems, ...platformItems]} location={location} />
+              <NavSection label="Planning" items={planningNavItems} location={location} />
+              <NavSection label="Operations" items={opsNavItems} location={location} />
+            </>
+          )}
           <NavSection label="Admin" items={adminItems} location={location} />
         </SidebarContent>
       </nav>

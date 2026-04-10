@@ -1,21 +1,21 @@
 {
   "amara": {
     "meta": {
-      "last_synced_at": "2026-04-09T05:28:35.237Z",
-      "last_successful_fetch": "2026-04-09T05:27:36.642Z",
+      "last_synced_at": "2026-04-10T07:43:17.876Z",
+      "last_successful_fetch": "2026-04-10T07:42:15.159Z",
       "sync_status": "success"
     },
     "google": {
-      "last_synced_at": "2026-04-09T05:28:35.557Z",
+      "last_synced_at": "2026-04-10T07:43:33.192Z",
       "last_successful_fetch": "2026-04-09T05:24:18.804Z",
-      "sync_status": "loading"
+      "sync_status": "failed"
     }
   },
   "revasa-aura": {
     "meta": {
-      "last_synced_at": "2026-04-09T05:50:17.879Z",
-      "last_successful_fetch": "2026-04-09T05:46:11.299Z",
-      "sync_status": "loading"
+      "last_synced_at": "2026-04-10T07:42:14.615Z",
+      "last_successful_fetch": "2026-04-10T07:40:55.244Z",
+      "sync_status": "success"
     }
   }
 }

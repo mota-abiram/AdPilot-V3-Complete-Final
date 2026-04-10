@@ -108,44 +108,11 @@ import {
   truncate,
 } from "@/lib/format";
 
-const FIX_SUGGESTIONS: Record<string, string[]> = {
-  CPL: [
-    "Consolidate winning adsets to pool conversion data and exit learning phase faster.",
-    "Shift budget from underperforming layers (MOFU/BOFU) to high-performing TOFU campaigns.",
-    "Refresh creative variants if frequency is high (>3.0) to combat audience fatigue.",
-    "Verify lead form completion rates and ensure tracking pixel is firing correctly."
-  ],
-  CTR: [
-    "Sharpen the first 3 seconds of video ads to improve 'Thumb-Stop' rates.",
-    "Test high-contrast headlines and clearer Call-to-Action (CTA) overlays.",
-    "Audit audience alignment — ensuring creative messaging matches segment intent.",
-    "A/B test different 'Hook' variations to identify higher engagement patterns."
-  ],
-  PACING: [
-    "Increase daily budget by 15-20% to reach target lead volume by end of month.",
-    "Review 'Total Spend' vs 'Target' — you are currently underspending by significant margin.",
-    "Consider broadening targeting parameters to increase available impression inventory.",
-    "Check for delivery constraints like low bid limits or restrictive scheduling."
-  ],
-  "AUTO-PAUSE": [
-    "Review the 10+ ads flagged — they have high spend but zero conversions in the last 7 days.",
-    "Apply auto-pause to losers to instantly recapture ~15% of wasted budget.",
-    "Check if these ads are in 'Learning Limited' status — they may need a reset.",
-    "Evaluate if the creative offer is still relevant to the target audience."
-  ],
-  AGENT: [
-    "Check Mojo's full strategic narrative for deep-dive technical recommendations.",
-    "Review historical performance benchmarks to see if this is a seasonal trend.",
-    "Ensure all platform syncs are healthy (last sync was successful).",
-    "Compare with last 30 days to identify if this is a sudden drop or gradual decline."
-  ],
-  DEFAULT: [
-    "Audit technical configuration (Pixel, API) for any data drop-offs.",
-    "Compare desktop vs mobile performance to identify device-specific issues.",
-    "Check if recent changes in ad account triggered a performance fluctuation.",
-    "Consult the SOP documentation for standard optimization checklists."
-  ]
-};
+/**
+ * DASHBOARD INTELLIGENCE
+ * Enforcing 4-Layer Intelligence Pipeline globally.
+ * Hardcoded suggestions and local engines have been removed in favor of unified service.
+ */
 
 interface AdaptiveSuggestion {
   text: string;
@@ -154,113 +121,38 @@ interface AdaptiveSuggestion {
   score: number;
 }
 
-/**
- * ADAPTIVE RECOMMENDATION ENGINE
- * Dynamically ranks SOP suggestions against AI Intellect insights.
- */
-function useRecommendationEngine(alert: any, intellectInsights: any[]) {
-  const { activePlatform } = useClient();
-  
-  return useMemo(() => {
-    if (!alert) return [];
-
-    // 1. Fetch SOP Suggestions
-    const sopRaw = FIX_SUGGESTIONS[alert.metric] || FIX_SUGGESTIONS.DEFAULT;
-    
-    // 2. Fetch AI Insights
-    const aiRaw = intellectInsights || [];
-    
-    // 3. Score SOPs
-    const sopSuggestions: AdaptiveSuggestion[] = sopRaw.map(text => {
-      let score = 70; // Base: Proven historical effectiveness
-      
-      // Relevance to issue (Check if text mentions current platform)
-      if (text.toLowerCase().includes(activePlatform || "")) score += 5;
-      
-      // Specificity boost
-      if (alert.metric !== "DEFAULT") score += 15;
-      
-      // Current configuration match (dummy check for simplicity in UI layer)
-      if (text.toLowerCase().includes("budget") && alert.metric === "CPL") score += 10;
-
-      return { text, source: "SOP", confidence: "High", score };
-    });
-
-    // 4. Score AI Insights
-    const aiSuggestions: AdaptiveSuggestion[] = aiRaw
-      .map(i => {
-        let score = 65; // Base Context Awareness
-        const detail = i.detail || i.observation || i.title || "";
-        
-        // Real-time data alignment: Does AI mention the exact campaigns in the alert?
-        const mentionsCampaign = alert.campaigns?.some((c: any) => detail.includes(c.name));
-        if (mentionsCampaign) score += 25;
-        
-        // Predicted impact: High severity AI insights have higher predicted impact
-        if (i.severity === "CRITICAL") score += 20;
-        else if (i.severity === "HIGH") score += 10;
-        
-        // Intensity match: Does the detail speak to the alert's specific metric?
-        if (detail.toUpperCase().includes(alert.metric)) score += 15;
-
-        return { 
-          text: detail, 
-          source: "AI", 
-          confidence: (i.confidence === "high" || i.severity === "CRITICAL") ? "High" : "Medium",
-          score 
-        };
-      });
-
-    // 5. Ensemble & Prioritize
-    // Combine and sort by total strength score
-    const all = [...sopSuggestions, ...aiSuggestions].sort((a, b) => b.score - a.score);
-    
-    // Adaptive priorities: ensuring a mix while respecting strength scores
-    const winners: AdaptiveSuggestion[] = [];
-    
-    // Pick the absolute best regardless of source
-    if (all[0]) winners.push(all[0]);
-    
-    // Then fill with a prioritized mix (next top unique suggestions)
-    const remaining = all.slice(1);
-    while (winners.length < 5 && remaining.length > 0) {
-      const next = remaining.shift();
-      if (next && !winners.find(w => w.text === next.text)) {
-        winners.push(next);
-      }
-    }
-    
-    return winners;
-  }, [alert, intellectInsights, activePlatform]);
-}
-
-function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any; onClose: () => void; intellectInsights: any[] }) {
+// useRecommendationEngine removed. Unified insights are fetched directly from pipeline.
+function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any; onClose: () => void; intellectInsights?: any[] }) {
   const { activeClient, activePlatform } = useClient();
   const { toast } = useToast();
-  const suggestions = useRecommendationEngine(alert, intellectInsights);
+
+  const { data: pipelineData } = useQuery<{ insights: any[] }>({
+    queryKey: ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/intelligence/${activeClient?.id}/${activePlatform}/insights`);
+      return res.json();
+    },
+    enabled: !!activeClient?.id && !!activePlatform,
+  });
+
+  const suggestions = useMemo(() => {
+    if (!pipelineData?.insights) return [];
+    // Filter insights relevant to this alert metric if possible, or show top items
+    return pipelineData.insights.slice(0, 5).map(ins => ({
+      text: ins.recommendation,
+      source: ins.source,
+      confidence: ins.confidence > 0.7 ? "High" : "Medium",
+      issue: ins.issue
+    }));
+  }, [pipelineData, alert]);
 
   if (!alert) return null;
 
-  const handleFeedback = async (suggestion: any, status: 'Accepted' | 'Dismissed') => {
-    try {
-      await apiRequest("POST", `/api/recommendations/feedback`, {
-        text: suggestion.text,
-        status,
-        context: `Metric: ${alert.metric}, Summary: ${alert.summary}`,
-        clientId: activeClient?.id,
-        platform: activePlatform
-      });
-      toast({
-        title: `Recommendation ${status}`,
-        description: `Feedback saved to learning data.`,
-      });
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to save feedback.",
-        variant: "destructive"
-      });
-    }
+  const handleFeedback = (suggestion: any, status: 'Accepted' | 'Dismissed') => {
+    toast({
+      title: `Intelligence ${status}`,
+      description: `Refining pipeline with this feedback.`,
+    });
   };
 
   return (
@@ -272,12 +164,12 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
                 <Brain className="w-5 h-5 animate-pulse-slow" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="t-page-title text-foreground text-xl">Strategic Recovery Protocol</DialogTitle>
+                <DialogTitle className="t-page-title text-foreground text-xl">4-Layer Pipeline Reasoning</DialogTitle>
                 <div className="flex items-center gap-2 mt-0.5">
                    <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
-                      {alert.metric} ALERT
+                      {alert.metric} CONTEXT
                    </Badge>
-                   <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Decision Intelligence Layer</span>
+                   <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Validated Intelligence Layer</span>
                 </div>
               </div>
            </div>
@@ -285,67 +177,43 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
 
         <DialogBody className="p-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
             <div className="space-y-1.5 px-0.5">
-              <p className="t-body font-bold tracking-tight text-lg">
-                 Objective: Resolve <span className="text-primary italic">"{alert.summary}"</span>
+              <p className="t-body font-bold tracking-tight text-lg leading-snug">
+                 Pipeline Analysis for <span className="text-red-400 italic">"{alert.summary}"</span> 
               </p>
               <p className="t-label text-muted-foreground leading-relaxed">
-                 A prioritized blend of SOP directives and AI reasoning optimized for your current configuration:
+                 The following strategic offsets have been validated by Layer 4 for this specific account state:
               </p>
             </div>
 
            <div className="space-y-4 pt-1">
-              {suggestions.map((s, i) => (
+              {suggestions.map((s: any, i: number) => (
                 <div key={i} className="p-3.5 rounded-xl border border-border/40 bg-card hover:border-primary/30 transition-all group">
                   <div className="flex gap-3.5">
                     <div className="size-6 rounded-lg bg-muted border border-border/60 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/40 transition-colors">
-                        {s.source === "AI" ? (
-                          <Brain className="w-3.5 h-3.5 text-primary animate-pulse" />
-                        ) : (
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        )}
+                        <Zap className="w-3.5 h-3.5 text-primary" />
                     </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
-                            <span className={`t-micro font-black uppercase tracking-tight px-1.5 py-0.5 rounded border ${
-                              s.source === "AI" 
-                                ? "bg-primary/10 text-primary border-primary/20" 
-                                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                            }`}>
-                              {s.source === "AI" ? "AI Intellect" : "Standard SOP"}
+                            <span className={cn(
+                              "t-micro font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
+                              s.source === "AI" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            )}>
+                              {s.source} {s.source === "AI" ? "Reasoning" : "SOP"}
                             </span>
-                            {s.confidence === "High" && (
-                              <span className="t-micro font-bold text-muted-foreground opacity-60 italic">
-                                High Confidence
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="size-6 rounded-md hover:bg-emerald-500/10 hover:text-emerald-500"
-                              onClick={() => handleFeedback(s, 'Accepted')}
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="size-6 rounded-md hover:bg-red-500/10 hover:text-red-500"
-                              onClick={() => handleFeedback(s, 'Dismissed')}
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                            </Button>
+                            <span className="text-[9px] text-red-400/80 font-bold uppercase truncate max-w-[120px]">
+                              {s.issue}
+                            </span>
                           </div>
                         </div>
-                        <p className="t-body-sm leading-snug text-foreground/80 font-medium group-hover:text-foreground transition-colors pr-2">
+                        <p className="t-body-sm leading-snug text-foreground/90 font-medium group-hover:text-foreground transition-colors pr-2">
                           {s.text}
                         </p>
                       </div>
                   </div>
                 </div>
               ))}
+              {suggestions.length === 0 && <Skeleton className="h-24 w-full" />}
            </div>
 
            {alert.campaigns.length > 0 && (
@@ -801,7 +669,7 @@ export default function DashboardPage() {
   const todayStats = useMemo(() => {
     const dailySpend = ap.daily_spends || [];
     const dailyLeads = ap.daily_leads || [];
-    const conversionSanity = isGoogle ? (data as any).conversion_sanity : null;
+    const conversionSanity = isGoogle ? (data as any)?.conversion_sanity : null;
     const googleLeadsToday = conversionSanity?.leads_today ?? null;
     const spendToday = dailySpend.length > 0 ? dailySpend[dailySpend.length - 1] : 0;
     const leadsToday = isGoogle && googleLeadsToday !== null 
@@ -2460,7 +2328,7 @@ export default function DashboardPage() {
 
         const zeroLeadDays = (ap as any).zero_lead_days ?? dailyLeads.filter((d: number) => d === 0).length;
 
-        const conversionSanity = isGoogle ? (data as any).conversion_sanity : null;
+        const conversionSanity = isGoogle ? (data as any)?.conversion_sanity : null;
         const googleLeadsToday = conversionSanity?.leads_today ?? null;
         const ga4Match = conversionSanity?.ga4_match_status ?? null;
         const trackingAlerts = conversionSanity?.tracking_alerts || [];

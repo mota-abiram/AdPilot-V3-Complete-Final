@@ -312,7 +312,7 @@ async function requireAuthenticatedUser(req: Request, res: Response, next: NextF
   next();
 }
 
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   requireAuthenticatedUser(req, res, () => {
     if (req.authUser?.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });

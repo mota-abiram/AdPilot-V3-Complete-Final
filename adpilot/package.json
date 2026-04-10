@@ -5,9 +5,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/index.ts",
-    "build": "tsx script/build.ts",
+    "build": "npm run check && npm run lint && tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "lint": "eslint . --ext .ts,.tsx",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
@@ -92,10 +93,15 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.5.13",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.31.8",
     "esbuild": "^0.25.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.11",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",

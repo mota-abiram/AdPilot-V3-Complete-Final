@@ -50,3 +50,13 @@ envVarGroups:
         sync: false
       - key: AUTH_BOOTSTRAP_PASSWORD
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAPI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: META_REVASA_AURA_ACCESS_TOKEN
+        sync: false
+      - key: META_REVASA_AURA_AD_ACCOUNT_ID
+        sync: false

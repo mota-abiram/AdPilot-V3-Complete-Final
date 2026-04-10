@@ -98,53 +98,7 @@ function getAgeBadgeClasses(level: FatigueLevel): string {
   }
 }
 
-// ─── Get refresh recommendation ───────────────────────────────────
-function getRefreshRecommendation(c: CreativeEntry, targetCpl: number): {
-  type: "pause" | "refresh";
-  text: string;
-  actionType: string;
-} {
-  // 1. Critical Failure Signal: Poor Performance (regardless of age)
-  // Logic: Score < 30 OR (Spent > 2.5x target without leads)
-  const isPoorPerf = (c.performance_score !== null && c.performance_score < 35) ||
-    (c.spend > targetCpl * 2.5 && c.leads === 0);
-
-  if (isPoorPerf) {
-    return {
-      type: "pause",
-      text: "Stop — poor performance baseline. No traction / high CPL.",
-      actionType: "PAUSE_AD",
-    };
-  }
-
-  // 2. High Age Signal: Aging / Fatigued but performance is "Okay" (35-70)
-  if (c.age_days !== null && c.age_days > 35) {
-    return {
-      type: "refresh",
-      text: `Fatigue — Creative is ${c.age_days}d old. Performance is stable but needs new visual.`,
-      actionType: "CREATIVE_REFRESH",
-    };
-  }
-
-  // 3. Middle ground: Check specific signals
-  const suggestions: string[] = [];
-  if (c.is_video && (c.thumb_stop_pct || 0) < 25) suggestions.push("fix hook");
-  if ((c.frequency || 0) > 3.0) suggestions.push("audience fatigue");
-
-  if (suggestions.length > 0) {
-    return {
-      type: "refresh",
-      text: `Optimize — ${suggestions.join(", ")}`,
-      actionType: "CREATIVE_REFRESH",
-    };
-  }
-
-  return {
-    type: "refresh",
-    text: "Healthy — Maintain rotation",
-    actionType: "MONITOR",
-  };
-}
+// Local recommendation engine removed. Insights are now globally managed by the 4-layer pipeline.
 
 // ─── Component ───────────────────────────────────────────────────
 
@@ -175,12 +129,23 @@ export default function CreativeCalendarPage() {
 
   const targetCpl = activeClient?.targets?.[activePlatform]?.cpl || (data as any)?.dynamic_thresholds?.cpl_target || 800;
 
-  // Extract creatives from both platforms
+  const { data: pipelineData } = useQuery<{ insights: any[] }>({
+    queryKey: ["/api/intelligence", activeClientId, activePlatform, "insights"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/intelligence/${activeClientId}/${activePlatform}/insights`);
+      return res.json();
+    },
+    enabled: !!activeClientId && !!activePlatform,
+  });
+
+  const creativeInsights = useMemo(() => {
+    return pipelineData?.insights?.filter(i => i.entityType === "ad") || [];
+  }, [pipelineData]);
+
+  // Fallback for older Google agent data or if creative_health missing
   const creatives = useMemo<CreativeEntry[]>(() => {
     if (!data) return [];
     const results: CreativeEntry[] = [];
-
-    // Unified path: both agents now provide 'creative_health' array
     const creativeHealth = (data as any).creative_health || [];
 
     if (creativeHealth.length > 0) {
@@ -210,62 +175,16 @@ export default function CreativeCalendarPage() {
         });
       }
     }
-
-    // Fallback for older Google agent data or if creative_health missing
-    if (results.length === 0 && isGoogle) {
-      const campaigns = (data as any).campaigns || [];
-      for (const camp of campaigns) {
-        const adGroups = camp.ad_groups || [];
-        for (const ag of adGroups) {
-          const ads = ag.ads || [];
-          for (const ad of ads) {
-            results.push({
-              id: ad.id || ad.ad_id || `${camp.id}-${ag.id}-${Math.random().toString(36).slice(2, 8)}`,
-              name: ad.name || ad.headline || `Ad ${ad.id || ""}`,
-              campaign_name: camp.name || "",
-              adset_name: ag.name || "",
-              age_days: ad.age_days ?? ad.creative_age_days ?? null,
-              creative_score: ad.score ?? ad.health_score ?? ad.creative_score ?? null,
-              performance_score: ad.performance_score ?? null,
-              age_score: ad.age_score ?? null,
-              ctr: ad.ctr || 0,
-              cpm: ad.cpm || 0,
-              cpl: ad.cost_per_conversion || ad.cpl || 0,
-              health_signals: ad.health_signals || [],
-              spend: ad.cost || ad.spend || 0,
-              impressions: ad.impressions || 0,
-              leads: ad.conversions || ad.leads || 0,
-              frequency: 0,
-              is_video: ad.ad_type === "VIDEO" || (ad.type?.includes?.("VIDEO") ?? false),
-              thumb_stop_pct: 0,
-              hold_rate_pct: 0,
-              source: "google",
-              campaign_type: camp.campaign_type,
-            });
-          }
-        }
-      }
-    }
     return results;
   }, [data, isGoogle]);
 
-  // Separate into refresh queue and timeline — use updated threshold (>35d, not >25d)
-  const refreshQueue = useMemo(() => {
-    return creatives
-      .filter((c) => {
-        if (c.age_days === null) return false;
-        if (refreshedIds.has(c.id)) return false;
-        // Override: if performance_score >= 70, don't flag for refresh even if old
-        if (c.performance_score !== null && c.performance_score >= 70) return false;
-        return c.age_days > 35;
-      })
-      .sort((a, b) => {
-        // Sort by creative_score (weighted) ascending — worst performers first
-        const scoreA = a.creative_score ?? 0;
-        const scoreB = b.creative_score ?? 0;
-        return scoreA - scoreB;
-      });
-  }, [creatives, refreshedIds]);
+  const refreshQueueItems = useMemo(() => {
+    return creativeInsights.map(ins => {
+      const creative = creatives.find(c => c.id === ins.entityId);
+      if (!creative) return null;
+      return { insight: ins, creative };
+    }).filter(Boolean);
+  }, [creativeInsights, creatives]);
 
   const timelineCreatives = useMemo(() => {
     return creatives
@@ -365,96 +284,55 @@ export default function CreativeCalendarPage() {
       </div>
 
       {/* ─── Refresh Queue ─────────────────────────────────────────── */}
-      {refreshQueue.length > 0 && (
+      {refreshQueueItems.length > 0 && (
         <Card className="border-orange-500/30">
           <CardHeader className="pb-2 px-4 pt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-orange-400" />
                 <CardTitle className="text-sm font-medium text-orange-400">
-                  Refresh Queue — {refreshQueue.length} Overdue
+                  Pipeline Creative Alerts — {refreshQueueItems.length} Detected
                 </CardTitle>
               </div>
-              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-orange-400 bg-orange-500/10">
-                &gt;35 days old (score &lt;70)
-              </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="space-y-3">
-              {refreshQueue.map((c) => {
+              {refreshQueueItems.map(({ insight: ins, creative: c }: any, idx: number) => {
                 const ageLevel = getAgeColor(c.age_days!, c.creative_score);
                 const ageClasses = getAgeBadgeClasses(ageLevel);
-                const rec = getRefreshRecommendation(c, targetCpl);
                 return (
                   <div
-                    key={c.id}
+                    key={idx}
                     className="p-3 rounded-md bg-muted/30 border border-border/30"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-xs font-medium text-foreground truncate max-w-[240px] block">
-                                {truncate(c.name, 40)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p className="text-xs max-w-sm">{c.name}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 shrink-0 ${ageClasses}`}>
+                          <span className="text-xs font-medium text-foreground truncate max-w-[240px] block">
+                            {truncate(c.name, 40)}
+                          </span>
+                          <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0 shrink-0", ageClasses)}>
                             {c.age_days}d old
                           </Badge>
-                          {c.creative_score !== null && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 shrink-0 ${c.creative_score >= 70 ? "text-emerald-400 bg-emerald-500/10" :
-                                  c.creative_score >= 40 ? "text-amber-400 bg-amber-500/10" :
-                                    "text-red-400 bg-red-500/10"
-                                  }`}>
-                                  Score: {c.creative_score.toFixed(0)}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-[10px] font-medium">60/40 Weighted Signal</p>
-                                <p className="text-[9px] text-muted-foreground mt-0.5">
-                                  Perf: {c.performance_score?.toFixed(0)} (60%) + Age: {c.age_score?.toFixed(0)} (40%)
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                          {/* Pause vs Refresh badge */}
-                          {rec.type === "pause" ? (
-                            <Badge variant="destructive" className="text-[9px] px-1.5 py-0 shrink-0">
-                              <Pause className="w-2.5 h-2.5 mr-0.5 inline" /> Pause
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 text-blue-400 bg-blue-500/10">
-                              <Sparkles className="w-2.5 h-2.5 mr-0.5 inline" /> Refresh
-                            </Badge>
-                          )}
+                          <Badge variant="outline" className={cn(
+                            "text-[9px] px-1.5 py-0 shrink-0",
+                            ins.priority === "CRITICAL" ? "border-red-500/30 text-red-400" : "border-amber-500/30 text-amber-400"
+                          )}>
+                            {ins.priority}
+                          </Badge>
                         </div>
                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground mb-1">
                           <span>CTR: {formatPct(c.ctr)}</span>
-                          <span>CPM: {formatINR(c.cpm, 0)}</span>
                           <span>Spend: {formatINR(c.spend, 0)}</span>
                           <span>Leads: {c.leads}</span>
-                          {c.cpl > 0 && <span>CPL: {formatINR(c.cpl, 0)}</span>}
-                          {c.frequency > 0 && <span>Freq: {c.frequency.toFixed(2)}</span>}
                         </div>
-                        <p className={`text-[10px] leading-relaxed ${rec.type === "pause" ? "text-red-400" : "text-blue-400"}`}>
-                          {rec.text}
+                        <p className="text-[11px] font-bold text-foreground italic mb-1">
+                          {ins.issue}: {ins.impact}
                         </p>
-                        {c.health_signals.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <ArrowRight className="w-2.5 h-2.5 text-primary shrink-0" />
-                            <span className="text-[10px] text-primary/80 truncate">
-                              {c.health_signals[0]}
-                            </span>
-                          </div>
-                        )}
+                        <p className="text-[10px] text-primary font-medium leading-relaxed">
+                          Recommendation: {ins.recommendation}
+                        </p>
                       </div>
                     </div>
                     {/* Unified Actions */}
@@ -463,9 +341,9 @@ export default function CreativeCalendarPage() {
                         entityId={c.id}
                         entityName={c.name}
                         entityType="ad"
-                        actionType={rec.actionType}
-                        isAutoExecutable={rec.type === "pause"}
-                        recommendation={rec.text}
+                        actionType={ins.priority === "CRITICAL" ? "PAUSE_AD" : "CREATIVE_REFRESH"}
+                        isAutoExecutable={ins.priority === "CRITICAL"}
+                        recommendation={ins.recommendation}
                         currentMetrics={{ spend: c.spend, leads: c.leads, cpl: c.cpl, ctr: c.ctr }}
                         compact
                       />

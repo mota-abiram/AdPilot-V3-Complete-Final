@@ -1165,7 +1165,7 @@ export default function GoogleBiddingPage() {
     queryFn: async () => {
       const res = await apiRequest(
         "GET",
-        `${apiBase}/api/clients/${activeClientId}/google/bidding-recommendations`
+        `${apiBase}/bidding-recommendations`
       );
       return res.json();
     },
@@ -1184,7 +1184,7 @@ export default function GoogleBiddingPage() {
     }) => {
       const res = await apiRequest(
         "POST",
-        `${apiBase}/api/clients/${activeClientId}/google/bidding-recommendations/action`,
+        `${apiBase}/bidding-recommendations/action`,
         payload
       );
       if (!res.ok) {

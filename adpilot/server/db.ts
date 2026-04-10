@@ -16,11 +16,15 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  // Render's external Postgres URL requires SSL but uses a self-signed cert chain
-  // that fails strict validation. rejectUnauthorized: false is safe here because
-  // the connection is still encrypted — we're only skipping CA chain verification.
-  // If you switch to the internal URL (same-region), set this to true.
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  // SSL configuration for Render Postgres:
+  // - Internal URL (postgres://dpg-xxxxx-a): Set ssl: false (encrypted on Render's network)
+  // - External URL (postgresql://...postgres.render.com): Set ssl: true (but only if using proper cert validation)
+  // For production, use the internal URL when app and DB are in the same region.
+  // The DATABASE_URL should start with "postgres://dpg-" for internal (no SSL needed)
+  // or "postgresql://" for external (requires SSL, handled by connection string if suffixed with ?sslmode=require).
+  ssl: process.env.NODE_ENV === "production"
+    ? (process.env.DATABASE_URL?.includes("dpg-") ? false : { rejectUnauthorized: false })
+    : false,
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,

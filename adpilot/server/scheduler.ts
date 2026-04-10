@@ -178,7 +178,7 @@ export function getPlatformSyncState(clientId: string, platform: string): Platfo
     return {
       last_synced_at: stored.last_synced_at || inferredFetch,
       last_successful_fetch: stored.last_successful_fetch || inferredFetch,
-      sync_status: stored.sync_status || (inferredFetch ? "success" : "idle"),
+      sync_status: inferredFetch ? "success" : (stored.sync_status || "idle"),
     };
   }
   return getDefaultPlatformSyncState(clientId, platform);

@@ -43,6 +43,8 @@ import { useExecution } from "@/hooks/use-execution";
 import { ExecutionButton } from "@/components/execution-button";
 import { UnifiedActions } from "@/components/unified-actions";
 import { usePausedEntities } from "@/hooks/use-paused-entities";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type SortKey = keyof CampaignAudit;
@@ -96,7 +98,13 @@ function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark:
 }
 
 export default function CampaignsPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, benchmarks } = useClient();
+  const { 
+    analysisData: data, 
+    isLoadingAnalysis: isLoading, 
+    activePlatform, 
+    activeClient,
+    benchmarks 
+  } = useClient();
   const { executeBatch, isExecuting } = useExecution();
   const { isPaused: isEntityPaused } = usePausedEntities();
   const isGoogle = activePlatform === "google";
@@ -124,14 +132,9 @@ export default function CampaignsPage() {
     return (benchmarks as any)?.meta?.cpl_target || 800;
   };
 
-  const calculateClassification = (c: any) => {
-    const health = c.health_score || 0;
-    const cpl = c.cpl || 0;
-    const target = getTargetCpl(c);
-
-    if (health >= 75 && cpl > 0 && cpl <= target) return "WINNER";
-    if (health < 50 || (cpl > 0 && cpl > (target * 1.3))) return "UNDERPERFORMER";
-    return "WATCH";
+  // campaign classification is now derived from the unified intelligence pipeline
+  const getClassification = (c: any) => {
+    return c.classification || "WATCH";
   };
 
   const campaigns = useMemo(() => {
@@ -195,12 +198,19 @@ export default function CampaignsPage() {
     });
   }, [campaigns, isGoogle]);
 
-  // Google-specific: critical alerts from account_pulse
+  const { data: pipelineData } = useQuery<{ insights: any[] }>({
+    queryKey: ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/intelligence/${activeClient?.id}/${activePlatform}/insights`);
+      return res.json();
+    },
+    enabled: !!activeClient?.id && !!activePlatform,
+  });
+
   const alerts = useMemo(() => {
-    if (!isGoogle || !data) return [];
-    const pulse = (data as any).account_pulse;
-    return pulse?.alerts || [];
-  }, [data, isGoogle]);
+     if (!pipelineData?.insights) return [];
+     return pipelineData.insights.filter(i => i.priority === "CRITICAL" || i.priority === "HIGH");
+  }, [pipelineData]);
 
   // Search and DG summaries
   const searchSummary = isGoogle ? (data as any)?.search_summary : null;
@@ -425,7 +435,7 @@ export default function CampaignsPage() {
         <tr
           key={c.campaign_id}
           className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : ""
-            } ${isPaused ? "opacity-50" : ""} ${calculateClassification(c) === "UNDERPERFORMER" ? "border-l-4 border-l-red-500" : ""}`}
+            } ${isPaused ? "opacity-50" : ""} ${getClassification(c) === "UNDERPERFORMER" ? "border-l-4 border-l-red-500" : ""}`}
           onClick={() => {
             setExpandedIds(prev => {
               const next = new Set(prev);
@@ -709,21 +719,24 @@ export default function CampaignsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── Google: Alerts Banner ──────────────────────────────────── */}
-      {isGoogle && alerts.length > 0 && (
+      {/* ─── Unified Pipeline Alerts ──────────────────────────────────── */}
+      {alerts.length > 0 && (
         <Card className="border-red-500/30 bg-red-500/5" data-testid="card-alerts-banner">
           <CardContent className="card-content-premium space-y-2">
-            <p className="t-label font-semibold text-red-400 flex items-center gap-1.5">
+            <p className="t-label font-semibold text-red-400 flex items-center gap-1.5 uppercase tracking-widest text-[10px]">
               <AlertTriangle className="w-4 h-4" />
-              {alerts.length} Critical Alert{alerts.length !== 1 ? "s" : ""}
+              {alerts.length} Intelligence Pipeline Alert{alerts.length !== 1 ? "s" : ""}
             </p>
             <div className="space-y-1.5">
               {alerts.map((alert: any, idx: number) => (
                 <div key={idx} className="flex items-start gap-2 t-caption">
-                  <span className="text-red-400 mt-0.5 shrink-0">-</span>
-                  <span className="text-red-300">
-                    {typeof alert === "string" ? alert : alert.message || alert.detail || JSON.stringify(alert)}
+                  <span className={cn("mt-0.5 shrink-0 px-1 py-0 rounded text-[9px] font-black", alert.priority === "CRITICAL" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400")}>
+                    {alert.priority}
                   </span>
+                  <div className="min-w-0">
+                    <p className="text-red-300 font-bold">{alert.issue}</p>
+                    <p className="text-red-400/80 text-[10px]">{alert.impact} → <span className="text-primary font-bold">{alert.recommendation}</span></p>
+                  </div>
                 </div>
               ))}
             </div>

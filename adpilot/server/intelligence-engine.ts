@@ -1,24 +1,9 @@
-/**
- * Intelligence Engine — Mojo AdCortex Orchestrator
- *
- * Core function: processQuery()
- *
- * Pipeline:
- *   1. Assemble 4-layer context
- *   2. Route to appropriate Claude model (Opus for strategic, Sonnet for commands)
- *   3. Build structured prompt
- *   4. Call Claude
- *   5. Parse JSON safely
- *   6. Apply guardrails (fallback if parsing fails)
- *   7. Return structured response
- */
-
 import { assembleContext, type QueryType } from "./context-assembler";
 import { callClaude, isClaudeAvailable, type ClaudeModelTier, type ClaudeResponse } from "./claude-provider";
+import { analyzeSop, type SopInsight } from "./sop-engine";
 import {
   buildStrategicPrompt,
   buildRecommendationPrompt,
-  buildTerminalPrompt,
   type AdCortexRecommendation,
   type AdCortexResponse,
 } from "./prompt-templates";
@@ -29,82 +14,199 @@ export interface IntelligenceQuery {
   type: QueryType;
   clientId: string;
   platform: "meta" | "google" | "all";
-  message: string;
+  message?: string;
   analysisData?: any;
   conversationHistory?: string[];
 }
 
+export interface StandardizedInsight {
+  issue: string;
+  impact: string;
+  recommendation: string;
+  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  entityId?: string;
+  entityName?: string;
+  entityType?: string;
+  confidence: number;
+  source: "SOP" | "AI" | "MIXED";
+}
+
 export interface IntelligenceResult {
+  insights: StandardizedInsight[];
   recommendations: AdCortexRecommendation[];
   layer_contributions: Record<string, any>;
   conflicts: string[];
   humanResponse: string;
   modelUsed: string;
-  inputTokens: number;
-  outputTokens: number;
-  costEstimate: number;
+  trace: {
+    layer1: any;
+    layer2: any;
+    layer3: any;
+    layer4: any;
+  };
 }
 
-// ─── Model Routing ────────────────────────────────────────────────
+// ─── Main Pipeline Service ──────────────────────────────────────────
 
-function routeModel(queryType: QueryType): ClaudeModelTier {
-  switch (queryType) {
-    case "strategic_analysis":
-      return "opus";
-    case "command":
-    case "recommendation":
-    case "insight":
-    default:
-      return "sonnet";
+/**
+ * 4-Layer Intelligence Pipeline
+ * 1. Layer 1: Data Preparation
+ * 2. Layer 2: SOP Deterministic Analysis
+ * 3. Layer 3: Claude AI Strategic Reasoning
+ * 4. Layer 4: Final Output Formatter & Validation
+ */
+export async function insightsEngine(query: IntelligenceQuery): Promise<IntelligenceResult> {
+  const { clientId, platform } = query;
+  console.log(`\x1b[35m[AdCortex Pipeline] Initializing for ${clientId}/${platform}...\x1b[0m`);
+
+  // --- LAYER 1: DATA PREPARATION ---
+  const ctx = await assembleContext(clientId, platform, query.type || "recommendation", query.analysisData);
+  const layer1Data = {
+    clientTargets: ctx.layer1.clientTargets,
+    platform: ctx.layer2.platformContext,
+    recordCount: (ctx.layer2.analysisData.campaign_audit || []).length
+  };
+  console.log(`[Layer 1: Data] Cleaned. Targets: ₹${layer1Data.clientTargets.cpl || 'N/A'} CPL`);
+
+  // --- LAYER 2: SOP ANALYSIS (Deterministic) ---
+  const sopInsights = analyzeSop(ctx.layer2.analysisData, ctx.layer1.clientTargets, platform);
+  console.log(`[Layer 2: SOP] Generated ${sopInsights.length} rule-based insights.`);
+
+  // --- LAYER 3: CLAUDE AI REASONING ---
+  let aiResponse: AdCortexResponse | null = null;
+  let modelUsed = "none";
+  let humanResponse = "";
+  
+  if (isClaudeAvailable()) {
+    const modelTier: ClaudeModelTier = query.type === "strategic_analysis" ? "opus" : "sonnet";
+    const prompt = buildPromptForQuery(query, ctx, sopInsights);
+    
+    try {
+      const claude = await callClaude({
+        systemPrompt: prompt.system,
+        userMessage: prompt.user,
+        modelTier,
+      });
+      modelUsed = claude.model;
+      aiResponse = parseAdCortexResponse(claude.content);
+      humanResponse = formatHumanResponse(aiResponse);
+      console.log(`[Layer 3: AI] Reasoning complete via ${modelUsed}.`);
+    } catch (err: any) {
+      console.error(`[Layer 3: AI] Failed: ${err.message}. Falling back to SOP.`);
+      humanResponse = `Strategic AI layer encountered an error: ${err.message}. Displaying SOP-based deterministic insights instead.`;
+    }
+  } else {
+    console.log(`[Layer 3: AI] Claude unavailable. Skipping reasoning layer.`);
+    humanResponse = "AI Reasoning layer skipped (No API Key). Displaying SOP-based insights.";
   }
-}
 
-// ─── Prompt Routing ───────────────────────────────────────────────
+  // --- LAYER 4: FINAL FORMATTER & VALIDATION ---
+  const finalInsights: StandardizedInsight[] = [];
+  const hasValidAiResponse = aiResponse && aiResponse.recommendations.length > 0 && !aiResponse.conflicts.includes("Claude response parsing failed");
 
-function buildPromptForQuery(
-  query: IntelligenceQuery,
-  ctx: Awaited<ReturnType<typeof assembleContext>>
-): { system: string; user: string } {
-  switch (query.type) {
-    case "strategic_analysis":
-      return buildStrategicPrompt(ctx);
-    case "recommendation":
-      return buildRecommendationPrompt(ctx);
-    case "command":
-    default:
-      return buildTerminalPrompt(ctx, query.message, query.conversationHistory);
+  // If AI succeeded, populate primary insights
+  if (hasValidAiResponse) {
+    aiResponse!.recommendations.forEach(rec => {
+      // Skip generic fallback messages
+      if (rec.action === "Clarification needed" && rec.confidence < 0.5) return;
+
+      finalInsights.push({
+        issue: rec.action_payload.intent || "AI Recommendation",
+        impact: rec.action_payload.strategic_rationale || rec.reasoning,
+        recommendation: rec.action,
+        priority: rec.risk_level === "high" ? "CRITICAL" : rec.risk_level === "medium" ? "HIGH" : "MEDIUM",
+        entityName: rec.action_payload.filters?.[0]?.value ? String(rec.action_payload.filters[0].value) : undefined,
+        confidence: rec.confidence,
+        source: "AI"
+      });
+    });
   }
+
+  // Always augment with SOP insights if they don't overlap significantly or if AI failed
+  sopInsights.forEach(sop => {
+    const isDuplicate = finalInsights.some(fi => 
+      fi.recommendation.toLowerCase().includes(sop.recommendation.toLowerCase().substring(0, 20)) ||
+      sop.recommendation.toLowerCase().includes(fi.recommendation.toLowerCase().substring(0, 20))
+    );
+
+    if (!isDuplicate || !hasValidAiResponse) {
+      finalInsights.push({
+        issue: sop.issue,
+        impact: sop.impact,
+        recommendation: sop.recommendation,
+        priority: sop.priority,
+        entityId: sop.entityId,
+        entityName: sop.entityName,
+        entityType: sop.entityType,
+        confidence: 0.9,
+        source: "SOP"
+      });
+    }
+  });
+
+  // Sort by priority and then confidence
+  const priorityMap = { "CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1 };
+  finalInsights.sort((a, b) => {
+    const pDiff = (priorityMap[b.priority] || 0) - (priorityMap[a.priority] || 0);
+    if (pDiff !== 0) return pDiff;
+    return b.confidence - a.confidence;
+  });
+
+  console.log(`[Layer 4: Output] Pipeline complete. Returning ${finalInsights.length} validated insights (AI: ${hasValidAiResponse ? 'YES' : 'FALLBACK'}).`);
+
+  return {
+    insights: finalInsights,
+    recommendations: aiResponse?.recommendations || [],
+    layer_contributions: aiResponse?.layer_contributions || { sop_fallback: true },
+    conflicts: aiResponse?.conflicts || [],
+    humanResponse,
+    modelUsed,
+    trace: {
+      layer1: layer1Data,
+      layer2: sopInsights,
+      layer3: aiResponse ? "Claude reasoning executed" : "AI layer failed or skipped",
+      layer4: finalInsights
+    }
+  };
 }
 
-// ─── JSON Parser with Guardrails ──────────────────────────────────
+function buildPromptForQuery(query: IntelligenceQuery, ctx: any, sopInsights: SopInsight[]) {
+  const base = query.type === "strategic_analysis" 
+    ? buildStrategicPrompt(ctx) 
+    : buildRecommendationPrompt(ctx);
+
+  const sopHint = `\n\n### DETERMINISTIC SOP FINDINGS (Layer 2)
+Your deterministic analysis layer has already identified these potential issues. Refine, validate, or challenge them using your strategic reasoning:
+${JSON.stringify(sopInsights.map(s => ({ issue: s.issue, rec: s.recommendation })), null, 2)}`;
+
+  return {
+    system: base.system,
+    user: base.user + sopHint
+  };
+}
+
+export async function processQuery(query: IntelligenceQuery): Promise<IntelligenceResult> {
+  return insightsEngine(query);
+}
 
 function parseAdCortexResponse(rawContent: string): AdCortexResponse {
-  // Try direct JSON parse first
   let parsed: any = null;
-
   try {
     parsed = JSON.parse(rawContent.trim());
   } catch {
-    // Try extracting JSON from code block (```json ... ```)
     const jsonBlockMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/i);
     if (jsonBlockMatch) {
-      try {
-        parsed = JSON.parse(jsonBlockMatch[1].trim());
-      } catch {}
+      try { parsed = JSON.parse(jsonBlockMatch[1].trim()); } catch {}
     }
   }
 
-  // If still not parsed, try finding first { ... } block
   if (!parsed) {
     const braceMatch = rawContent.match(/\{[\s\S]*\}/);
     if (braceMatch) {
-      try {
-        parsed = JSON.parse(braceMatch[0]);
-      } catch {}
+      try { parsed = JSON.parse(braceMatch[0]); } catch {}
     }
   }
 
-  // Validate structure
   if (parsed && Array.isArray(parsed.recommendations)) {
     return {
       recommendations: parsed.recommendations.map(sanitizeRecommendation),
@@ -112,9 +214,6 @@ function parseAdCortexResponse(rawContent: string): AdCortexResponse {
       conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
     };
   }
-
-  // Complete parse failure — return safe empty
-  console.warn("[AdCortex] Failed to parse Claude response as structured JSON. Falling back to raw text extraction.");
   return buildFallbackResponse(rawContent);
 }
 
@@ -139,7 +238,6 @@ function sanitizeActionPayload(payload: any): AdCortexRecommendation["action_pay
       action: { type: "clarify", parameters: { reason: "Could not parse action payload" } },
     };
   }
-
   return {
     intent: payload.intent || "Interpreted action",
     platform: payload.platform,
@@ -152,143 +250,34 @@ function sanitizeActionPayload(payload: any): AdCortexRecommendation["action_pay
 }
 
 function buildFallbackResponse(rawContent: string): AdCortexResponse {
-  // Extract what we can from non-JSON response
-  const isClarity = rawContent.toLowerCase().includes("clarif") || rawContent.toLowerCase().includes("could you");
-
+  const isClarity = rawContent.toLowerCase().includes("clarif");
   return {
-    recommendations: [
-      {
-        rank: 1,
-        action: isClarity ? "Clarification needed" : "Review analysis",
-        confidence: 0.3,
-        source_layers: ["layer2"],
-        sop_alignment: "agrees",
-        reasoning: rawContent.substring(0, 500),
-        execution_type: "manual",
-        risk_level: "low",
-        action_payload: {
-          intent: "Fallback — Claude response was not structured JSON",
-          action: { type: "clarify", parameters: { reason: "Response could not be parsed into action format" } },
-        },
+    recommendations: [{
+      rank: 1,
+      action: isClarity ? "Clarification needed" : "Review analysis",
+      confidence: 0.3,
+      source_layers: ["layer2"],
+      sop_alignment: "agrees",
+      reasoning: rawContent.substring(0, 500),
+      execution_type: "manual",
+      risk_level: "low",
+      action_payload: {
+        intent: "Fallback — Claude response was not structured JSON",
+        action: { type: "clarify", parameters: { reason: "Response could not be parsed into action format" } },
       },
-    ],
-    layer_contributions: {
-      note: "Response was not in expected JSON format. Raw text was preserved in reasoning.",
-    },
-    conflicts: ["Claude response was not valid JSON — human review recommended"],
+    }],
+    layer_contributions: { note: "Parse failure. Check reasoning." },
+    conflicts: ["Claude response parsing failed"],
   };
 }
-
-// ─── Human Response Formatter ─────────────────────────────────────
 
 function formatHumanResponse(result: AdCortexResponse): string {
-  if (result.recommendations.length === 0) {
-    return "I analysed your request but couldn't generate specific recommendations. Please try rephrasing your command.";
-  }
-
+  if (result.recommendations.length === 0) return "No specific recommendations generated.";
   const primary = result.recommendations[0];
-
-  // Build response
   let response = primary.reasoning;
-
-  // Add action summary
   if (primary.action_payload.action?.type && primary.action_payload.action.type !== "clarify") {
-    const actionType = primary.action_payload.action.type;
     const planSteps = primary.action_payload.execution_plan || [];
-    if (planSteps.length > 0) {
-      response += "\n\n📋 Execution Plan:\n" + planSteps.map((s) => `• ${s}`).join("\n");
-    }
-    if (primary.action_payload.strategic_rationale) {
-      response += `\n\n💡 ${primary.action_payload.strategic_rationale}`;
-    }
+    if (planSteps.length > 0) response += "\n\n📋 Execution Plan:\n" + planSteps.map((s) => `• ${s}`).join("\n");
   }
-
-  // Add layer conflict warnings
-  if (result.conflicts.length > 0) {
-    response += "\n\n⚠️ Layer Conflicts:\n" + result.conflicts.map((c) => `• ${c}`).join("\n");
-  }
-
-  // Note additional recommendations
-  if (result.recommendations.length > 1) {
-    response += `\n\n📊 ${result.recommendations.length - 1} additional recommendation${result.recommendations.length > 2 ? "s" : ""} available.`;
-  }
-
   return response;
-}
-
-// ─── Main Export ───────────────────────────────────────────────────
-
-/**
- * Process an intelligence query through the full AdCortex pipeline.
- *
- * Pipeline: Assemble Context → Route Model → Build Prompt → Call Claude → Parse → Guardrail
- */
-export async function processQuery(query: IntelligenceQuery): Promise<IntelligenceResult> {
-  // Pre-flight check
-  if (!isClaudeAvailable()) {
-    return {
-      recommendations: [],
-      layer_contributions: {},
-      conflicts: [],
-      humanResponse: "Mojo AdCortex requires a valid ANTHROPIC_API_KEY. Please configure it in Settings → AI Configuration.",
-      modelUsed: "none",
-      inputTokens: 0,
-      outputTokens: 0,
-      costEstimate: 0,
-    };
-  }
-
-  // 1. Assemble context
-  console.log(`[AdCortex] Assembling 4-layer context for ${query.clientId}/${query.platform}...`);
-  const ctx = await assembleContext(query.clientId, query.platform, query.type, query.analysisData);
-
-  // 2. Route model
-  const modelTier = routeModel(query.type);
-  console.log(`[AdCortex] Model route: ${query.type} → ${modelTier}`);
-
-  // 3. Build prompt
-  const prompt = buildPromptForQuery(query, ctx);
-
-  // 4. Call Claude
-  console.log(`[AdCortex] Calling Claude (${modelTier})...`);
-  let claudeResponse: ClaudeResponse;
-  try {
-    claudeResponse = await callClaude({
-      systemPrompt: prompt.system,
-      userMessage: prompt.user,
-      modelTier,
-    });
-  } catch (err: any) {
-    console.error(`[AdCortex] Claude call failed:`, err.message);
-    return {
-      recommendations: [],
-      layer_contributions: {},
-      conflicts: [],
-      humanResponse: `AdCortex error: ${err.message}. Please check your API key and try again.`,
-      modelUsed: modelTier,
-      inputTokens: 0,
-      outputTokens: 0,
-      costEstimate: 0,
-    };
-  }
-
-  console.log(`[AdCortex] Claude response received. Tokens: ${claudeResponse.inputTokens}in / ${claudeResponse.outputTokens}out. Cost: $${claudeResponse.costEstimate.toFixed(4)}`);
-
-  // 5. Parse JSON safely
-  const parsed = parseAdCortexResponse(claudeResponse.content);
-
-  // 6. Build human response
-  const humanResponse = formatHumanResponse(parsed);
-
-  // 7. Return structured result
-  return {
-    recommendations: parsed.recommendations,
-    layer_contributions: parsed.layer_contributions,
-    conflicts: parsed.conflicts,
-    humanResponse,
-    modelUsed: claudeResponse.model,
-    inputTokens: claudeResponse.inputTokens,
-    outputTokens: claudeResponse.outputTokens,
-    costEstimate: claudeResponse.costEstimate,
-  };
 }

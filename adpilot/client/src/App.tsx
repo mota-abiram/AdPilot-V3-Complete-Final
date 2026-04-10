@@ -9,7 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClientProvider, useClient } from "@/lib/client-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut, Sparkles, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -26,6 +26,7 @@ import CommandCenterPage from "@/pages/command-center";
 import AdsetsPage from "@/pages/adsets";
 import ExecutionLogPage from "@/pages/execution-log";
 import ManageClientsPage from "@/pages/manage-clients";
+import UsersPage from "@/pages/users";
 import BenchmarksPage from "@/pages/benchmarks";
 import BreakdownsPage from "@/pages/breakdowns";
 import GoogleQualityScorePage from "@/pages/google/quality-score";
@@ -75,6 +76,7 @@ function AppRouter() {
           return <ManageClientsPage />;
         }}
       </Route>
+      <Route path="/users" component={UsersPage} />
       <Route path="/benchmarks" component={BenchmarksPage} />
       <Route path="/breakdowns" component={BreakdownsPage} />
       <Route path="/google/quality-score" component={GoogleQualityScorePage} />

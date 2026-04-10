@@ -1,11 +1,46 @@
 {
-  "lastRun": "2026-04-09T05:25:40.510Z",
+  "lastRun": "2026-04-10T07:43:33.218Z",
   "lastRunSuccess": true,
-  "lastRunDuration": 136046,
+  "lastRunDuration": 158772,
   "lastError": null,
-  "nextRun": "2026-04-10T03:30:00.000Z",
+  "nextRun": "2026-04-11T03:30:00.000Z",
   "isRunning": false,
   "runHistory": [
+    {
+      "timestamp": "2026-04-10T07:43:33.218Z",
+      "success": true,
+      "duration": 158772
+    },
+    {
+      "timestamp": "2026-04-10T06:54:01.239Z",
+      "success": true,
+      "duration": 157212
+    },
+    {
+      "timestamp": "2026-04-10T06:36:21.056Z",
+      "success": true,
+      "duration": 155100
+    },
+    {
+      "timestamp": "2026-04-10T05:10:56.757Z",
+      "success": true,
+      "duration": 138013
+    },
+    {
+      "timestamp": "2026-04-10T05:07:30.541Z",
+      "success": true,
+      "duration": 141317
+    },
+    {
+      "timestamp": "2026-04-10T05:03:58.202Z",
+      "success": true,
+      "duration": 143224
+    },
+    {
+      "timestamp": "2026-04-10T05:01:13.742Z",
+      "success": true,
+      "duration": 163893
+    },
     {
       "timestamp": "2026-04-09T05:25:40.510Z",
       "success": true,
@@ -126,31 +161,6 @@
       "timestamp": "2026-04-03T11:00:27.761Z",
       "success": true,
       "duration": 113144
-    },
-    {
-      "timestamp": "2026-04-03T07:28:34.793Z",
-      "success": true,
-      "duration": 127163
-    },
-    {
-      "timestamp": "2026-04-03T04:58:53.437Z",
-      "success": true,
-      "duration": 112552
-    },
-    {
-      "timestamp": "2026-04-03T04:56:11.401Z",
-      "success": true,
-      "duration": 134645
-    },
-    {
-      "timestamp": "2026-04-02T05:24:44.253Z",
-      "success": true,
-      "duration": 117997
-    },
-    {
-      "timestamp": "2026-04-01T18:25:50.925Z",
-      "success": true,
-      "duration": 126167
     }
   ]
 }
