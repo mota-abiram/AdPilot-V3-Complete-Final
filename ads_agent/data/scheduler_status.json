@@ -1,11 +1,26 @@
 {
-  "lastRun": "2026-04-10T07:43:33.218Z",
+  "lastRun": "2026-04-10T11:00:12.672Z",
   "lastRunSuccess": true,
-  "lastRunDuration": 158772,
+  "lastRunDuration": 188561,
   "lastError": null,
   "nextRun": "2026-04-11T03:30:00.000Z",
   "isRunning": false,
   "runHistory": [
+    {
+      "timestamp": "2026-04-10T11:00:12.672Z",
+      "success": true,
+      "duration": 188561
+    },
+    {
+      "timestamp": "2026-04-10T09:56:13.884Z",
+      "success": true,
+      "duration": 158653
+    },
+    {
+      "timestamp": "2026-04-10T08:28:26.752Z",
+      "success": true,
+      "duration": 167710
+    },
     {
       "timestamp": "2026-04-10T07:43:33.218Z",
       "success": true,
@@ -144,23 +159,6 @@
       "success": false,
       "duration": 65410,
       "error": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py --multi-cadence\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 3284, in <module>\n    main()\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 3172, in main\n    result = _run_analysis_for_cadence(\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 2904, in _run_analysis_for_cadence\n    creative_health = analyze_creative_health(ad_insights, ds.get(\"active_ads\", []))\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 1151, in analyze_creative_health\n    \"scoring_type\": scoring[\"scoring_type\"],\nKeyError: 'scoring_type'\n"
-    },
-    {
-      "timestamp": "2026-04-05T10:07:59.147Z",
-      "success": false,
-      "duration": 68157,
-      "error": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py --multi-cadence\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 3283, in <module>\n    main()\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 3171, in main\n    result = _run_analysis_for_cadence(\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 2897, in _run_analysis_for_cadence\n    pulse = analyze_account_pulse(campaign_insights, daily_trends, ds.get(\"historical\", []))\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 736, in analyze_account_pulse\n    daily_ctrs = [round(safe_div(daily_aggr[dt][\"clicks\"], daily_aggr[dt][\"impressions\"]) * 100, 2) for dt in sorted_dates]\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 736, in <listcomp>\n    daily_ctrs = [round(safe_div(daily_aggr[dt][\"clicks\"], daily_aggr[dt][\"impressions\"]) * 100, 2) for dt in sorted_dates]\nNameError: name 'safe_div' is not defined\n"
-    },
-    {
-      "timestamp": "2026-04-04T08:33:08.637Z",
-      "success": false,
-      "duration": 823,
-      "error": "Command failed: python3 /Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py --multi-cadence\nTraceback (most recent call last):\n  File \"/Users/apple/Downloads/AdPilot-V3-Complete-Final/ads_agent/meta_ads_agent_v2.py\", line 35, in <module>\n    import ads_agent.scoring_engine as scoring_engine\nModuleNotFoundError: No module named 'ads_agent'\n"
-    },
-    {
-      "timestamp": "2026-04-03T11:00:27.761Z",
-      "success": true,
-      "duration": 113144
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-10T13:12:15.159516",
-  "strategic_narrative": "Mojo's Take: CPL for Meta Ads has skyrocketed to \u20b9737, way off track and indicative of poor performance despite pacing at 97%. Cut underperforming creatives now and reallocate budget to top-converting assets to salvage this month's results.",
+  "generated_at": "2026-04-10T16:28:43.966179",
+  "strategic_narrative": "Mojo's Take: Your Meta Ads CPL has soared to \u20b9737, indicating inefficiencies that could derail your ROI. Cut underperforming placements and reallocate budget to proven TOFU creatives to enhance CVR before hitting budget constraints.",
   "account_health_score": 81.4,
   "account_health_breakdown": {
     "cpsv": 100,
@@ -105,9 +105,9 @@
     }
   },
   "account_pulse": {
-    "total_spend_30d": 6542.17,
-    "daily_avg_spend": 6542.17,
-    "latest_daily_spend": 6542.17,
+    "total_spend_30d": 6542.53,
+    "daily_avg_spend": 6542.53,
+    "latest_daily_spend": 6542.53,
     "spend_ratio": 1.0,
     "spend_status": "NORMAL",
     "spend_trend": "STABLE",
@@ -118,19 +118,19 @@
     "leads_trend": "STABLE",
     "leads_change_pct": 0,
     "zero_lead_days": 0,
-    "total_impressions": 96093,
+    "total_impressions": 96106,
     "total_clicks": 346,
-    "total_reach": 70668,
-    "overall_ctr": 0.3600678509360723,
+    "total_reach": 70731,
+    "overall_ctr": 0.36001914552681413,
     "ctr_trend": "STABLE",
     "ctr_change_pct": 0,
-    "overall_cpc": 18.90800578034682,
-    "overall_cpm": 68.08165006816313,
-    "overall_cpl": 594.7427272727273,
+    "overall_cpc": 18.909046242774565,
+    "overall_cpm": 68.07618671050714,
+    "overall_cpl": 594.7754545454545,
     "not_spending_campaigns": [],
     "alerts": [],
     "daily_spends": [
-      6542.17
+      6542.53
     ],
     "daily_leads": [
       22.0
@@ -142,13 +142,13 @@
       68.08
     ],
     "daily_tsrs": [
-      9.96
+      9.97
     ],
     "daily_vhrs": [
       0.0
     ],
     "daily_impressions": [
-      96093
+      96106
     ],
     "daily_clicks": [
       346
@@ -160,26 +160,26 @@
       "MOFU": 0,
       "BOFU": 0
     },
-    "total_spend": 6542.17,
+    "total_spend": 6542.53,
     "layers": {
       "TOFU": {
         "aggregate": {
-          "spend": 6542.17,
-          "impressions": 96093,
+          "spend": 6542.53,
+          "impressions": 96106,
           "clicks": 346,
           "leads": 11,
-          "ctr": 0.3600678509360723,
-          "cpc": 18.90800578034682,
-          "cpm": 68.08165006816313,
-          "cpl": 594.7427272727273,
-          "avg_frequency": 1.361217,
+          "ctr": 0.36001914552681413,
+          "cpc": 18.909046242774565,
+          "cpm": 68.07618671050714,
+          "cpl": 594.7754545454545,
+          "avg_frequency": 1.3602515,
           "campaign_count": 2
         },
         "diagnostics": [
           {
             "metric": "CTR",
             "status": "CRITICAL",
-            "value": 0.3600678509360723,
+            "value": 0.36001914552681413,
             "message": "TOFU CTR at 0.36% is critically low (SOP alert: <0.4%)."
           },
           {
@@ -230,19 +230,19 @@
         "cvr": "poor"
       },
       "classification": "WINNER",
-      "spend": 4776.26,
-      "impressions": 93482,
+      "spend": 4776.61,
+      "impressions": 93494,
       "clicks": 318,
-      "ctr": 0.340172,
-      "cpc": 15.019686,
-      "cpm": 51.092831,
-      "frequency": 1.359699,
-      "reach": 68752,
+      "ctr": 0.340129,
+      "cpc": 15.020786,
+      "cpm": 51.090016,
+      "frequency": 1.358668,
+      "reach": 68813,
       "leads": 9,
-      "cpl": 530.6955555555555,
+      "cpl": 530.7344444444444,
       "daily_budget": 4784.0,
-      "budget_remaining": 2601.62,
-      "budget_utilization_pct": 3.327940356744705,
+      "budget_remaining": 1957.5700000000002,
+      "budget_utilization_pct": 3.3281842251950944,
       "is_lead_campaign": true,
       "is_awareness": false,
       "delivery_status": "DELIVERING",
@@ -274,19 +274,19 @@
         "cvr": "poor"
       },
       "classification": "WATCH",
-      "spend": 1765.91,
-      "impressions": 2611,
+      "spend": 1765.92,
+      "impressions": 2612,
       "clicks": 28,
-      "ctr": 1.072386,
-      "cpc": 63.068214,
-      "cpm": 676.334738,
-      "frequency": 1.362735,
-      "reach": 1916,
+      "ctr": 1.071976,
+      "cpc": 63.068571,
+      "cpm": 676.079632,
+      "frequency": 1.361835,
+      "reach": 1918,
       "leads": 2,
-      "cpl": 882.955,
+      "cpl": 882.96,
       "daily_budget": 2500.0,
-      "budget_remaining": 2167.21,
-      "budget_utilization_pct": 2.354546666666667,
+      "budget_remaining": 1920.0,
+      "budget_utilization_pct": 2.35456,
       "is_lead_campaign": true,
       "is_awareness": false,
       "delivery_status": "DELIVERING",
@@ -300,18 +300,18 @@
       "campaign_id": "120231984866140466",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "layer": "TOFU",
-      "spend": 3509.93,
-      "impressions": 79595,
+      "spend": 3510.24,
+      "impressions": 79606,
       "clicks": 283,
-      "ctr": 0.35555,
-      "cpc": 12.40258,
-      "cpm": 44.097368,
-      "frequency": 1.371146,
-      "reach": 58050,
+      "ctr": 0.355501,
+      "cpc": 12.403675,
+      "cpm": 44.095169,
+      "frequency": 1.370296,
+      "reach": 58094,
       "leads": 8,
-      "cpl": 438.74125,
+      "cpl": 438.78,
       "daily_budget": 3584.0,
-      "budget_utilization_pct": 13.990473533163264,
+      "budget_utilization_pct": 13.991709183673468,
       "delivery_status": "LOW_DELIVERY",
       "learning_status": "ACTIVE",
       "health_score": 85.0,
@@ -344,18 +344,18 @@
       "campaign_id": "120242148702000466",
       "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
       "layer": "TOFU",
-      "spend": 1143.01,
-      "impressions": 1978,
+      "spend": 1143.02,
+      "impressions": 1979,
       "clicks": 21,
-      "ctr": 1.061678,
-      "cpc": 54.429048,
-      "cpm": 577.861476,
-      "frequency": 1.373611,
-      "reach": 1440,
+      "ctr": 1.061142,
+      "cpc": 54.429524,
+      "cpm": 577.574533,
+      "frequency": 1.372399,
+      "reach": 1442,
       "leads": 2,
-      "cpl": 571.505,
+      "cpl": 571.51,
       "daily_budget": 1500.0,
-      "budget_utilization_pct": 10.885809523809524,
+      "budget_utilization_pct": 10.885904761904762,
       "delivery_status": "LOW_DELIVERY",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 79.2,
@@ -460,18 +460,18 @@
       "campaign_id": "120231984866140466",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "layer": "TOFU",
-      "spend": 1266.33,
-      "impressions": 13887,
+      "spend": 1266.37,
+      "impressions": 13888,
       "clicks": 35,
-      "ctr": 0.252034,
-      "cpc": 36.180857,
-      "cpm": 91.188162,
-      "frequency": 1.085516,
+      "ctr": 0.252016,
+      "cpc": 36.182,
+      "cpm": 91.184476,
+      "frequency": 1.085594,
       "reach": 12793,
       "leads": 1,
-      "cpl": 1266.33,
+      "cpl": 1266.37,
       "daily_budget": 1200.0,
-      "budget_utilization_pct": 15.075357142857143,
+      "budget_utilization_pct": 15.075833333333332,
       "delivery_status": "LOW_DELIVERY",
       "learning_status": "LEARNING_LIMITED",
       "health_score": 45.5,
@@ -519,8 +519,8 @@
     "age": [
       {
         "dimension": "25-34",
-        "spend": 135480.66,
-        "impressions": 1781244,
+        "spend": 135480.95,
+        "impressions": 1781254,
         "clicks": 9601,
         "ctr": 0.54,
         "cpc": 14.11,
@@ -531,8 +531,8 @@
       },
       {
         "dimension": "35-44",
-        "spend": 66414.89,
-        "impressions": 329161,
+        "spend": 66414.92,
+        "impressions": 329163,
         "clicks": 2361,
         "ctr": 0.72,
         "cpc": 28.13,
@@ -543,8 +543,8 @@
       },
       {
         "dimension": "45-54",
-        "spend": 30490.39,
-        "impressions": 105365,
+        "spend": 30490.43,
+        "impressions": 105366,
         "clicks": 843,
         "ctr": 0.8,
         "cpc": 36.17,
@@ -593,8 +593,8 @@
     "gender": [
       {
         "dimension": "male",
-        "spend": 175561.59,
-        "impressions": 1721672,
+        "spend": 175561.88,
+        "impressions": 1721681,
         "clicks": 10275,
         "ctr": 0.6,
         "cpc": 17.09,
@@ -605,8 +605,8 @@
       },
       {
         "dimension": "female",
-        "spend": 86057.61,
-        "impressions": 656360,
+        "spend": 86057.68,
+        "impressions": 656364,
         "clicks": 3684,
         "ctr": 0.56,
         "cpc": 23.36,
@@ -631,8 +631,8 @@
     "placement": [
       {
         "dimension": "instagram",
-        "spend": 176614.95,
-        "impressions": 2201434,
+        "spend": 176615.12,
+        "impressions": 2201442,
         "clicks": 9925,
         "ctr": 0.45,
         "cpc": 17.79,
@@ -643,22 +643,22 @@
       },
       {
         "dimension": "facebook",
-        "spend": 85810.23,
-        "impressions": 184392,
+        "spend": 85810.42,
+        "impressions": 184397,
         "clicks": 4074,
         "ctr": 2.21,
         "cpc": 21.06,
-        "cpm": 465.37,
+        "cpm": 465.36,
         "leads": 94,
-        "cpl": 912.87,
+        "cpl": 912.88,
         "classification": "NEUTRAL"
       }
     ],
     "device": [
       {
         "dimension": "mobile_app",
-        "spend": 262425.18,
-        "impressions": 2385826,
+        "spend": 262425.54,
+        "impressions": 2385839,
         "clicks": 13999,
         "ctr": 0.59,
         "cpc": 18.75,
@@ -671,8 +671,8 @@
     "region": [
       {
         "dimension": "Telangana",
-        "spend": 262425.18,
-        "impressions": 2385826,
+        "spend": 262425.54,
+        "impressions": 2385839,
         "clicks": 13999,
         "ctr": 0.59,
         "cpc": 18.75,
@@ -685,6 +685,175 @@
     ]
   },
   "campaign_breakdowns": {
+    "120241198022380466": {
+      "age": [
+        {
+          "dimension": "25-34",
+          "spend": 4907.01,
+          "impressions": 110336,
+          "clicks": 738,
+          "ctr": 0.67,
+          "cpc": 6.65,
+          "cpm": 44.47,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "35-44",
+          "spend": 2286.12,
+          "impressions": 20340,
+          "clicks": 149,
+          "ctr": 0.73,
+          "cpc": 15.34,
+          "cpm": 112.4,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "45-54",
+          "spend": 1094.86,
+          "impressions": 6125,
+          "clicks": 48,
+          "ctr": 0.78,
+          "cpc": 22.81,
+          "cpm": 178.75,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "65+",
+          "spend": 575.54,
+          "impressions": 6794,
+          "clicks": 43,
+          "ctr": 0.63,
+          "cpc": 13.38,
+          "cpm": 84.71,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "55-64",
+          "spend": 574.6,
+          "impressions": 2885,
+          "clicks": 23,
+          "ctr": 0.8,
+          "cpc": 24.98,
+          "cpm": 199.17,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "Unknown",
+          "spend": 0.02,
+          "impressions": 1,
+          "clicks": 0,
+          "ctr": 0.0,
+          "cpc": 0,
+          "cpm": 20.0,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "NEUTRAL"
+        }
+      ],
+      "gender": [
+        {
+          "dimension": "male",
+          "spend": 7142.97,
+          "impressions": 112010,
+          "clicks": 782,
+          "ctr": 0.7,
+          "cpc": 9.13,
+          "cpm": 63.77,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "female",
+          "spend": 2276.34,
+          "impressions": 34139,
+          "clicks": 217,
+          "ctr": 0.64,
+          "cpc": 10.49,
+          "cpm": 66.68,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "unknown",
+          "spend": 18.84,
+          "impressions": 332,
+          "clicks": 2,
+          "ctr": 0.6,
+          "cpc": 9.42,
+          "cpm": 56.75,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "NEUTRAL"
+        }
+      ],
+      "placement": [
+        {
+          "dimension": "instagram",
+          "spend": 5932.41,
+          "impressions": 131486,
+          "clicks": 910,
+          "ctr": 0.69,
+          "cpc": 6.52,
+          "cpm": 45.12,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        },
+        {
+          "dimension": "facebook",
+          "spend": 3505.74,
+          "impressions": 14995,
+          "clicks": 91,
+          "ctr": 0.61,
+          "cpc": 38.52,
+          "cpm": 233.79,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        }
+      ],
+      "device": [
+        {
+          "dimension": "mobile_app",
+          "spend": 9438.15,
+          "impressions": 146481,
+          "clicks": 1001,
+          "ctr": 0.68,
+          "cpc": 9.43,
+          "cpm": 64.43,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER"
+        }
+      ],
+      "region": [
+        {
+          "dimension": "Telangana",
+          "spend": 9438.15,
+          "impressions": 146481,
+          "clicks": 1001,
+          "ctr": 0.68,
+          "cpc": 9.43,
+          "cpm": 64.43,
+          "leads": 0,
+          "cpl": 0,
+          "classification": "UNDERPERFORMER",
+          "is_target_location": true
+        }
+      ]
+    },
     "120242148702000466": {
       "age": [
         {
@@ -701,12 +870,12 @@
         },
         {
           "dimension": "35-44",
-          "spend": 12040.2,
-          "impressions": 39033,
+          "spend": 12040.21,
+          "impressions": 39034,
           "clicks": 289,
           "ctr": 0.74,
           "cpc": 41.66,
-          "cpm": 308.46,
+          "cpm": 308.45,
           "leads": 22,
           "cpl": 547.28,
           "classification": "WINNER"
@@ -763,8 +932,8 @@
       "gender": [
         {
           "dimension": "male",
-          "spend": 32331.82,
-          "impressions": 191274,
+          "spend": 32331.83,
+          "impressions": 191275,
           "clicks": 1271,
           "ctr": 0.66,
           "cpc": 25.44,
@@ -813,12 +982,12 @@
         },
         {
           "dimension": "facebook",
-          "spend": 18885.42,
-          "impressions": 26786,
+          "spend": 18885.43,
+          "impressions": 26787,
           "clicks": 331,
           "ctr": 1.24,
           "cpc": 57.06,
-          "cpm": 705.05,
+          "cpm": 705.02,
           "leads": 18,
           "cpl": 1049.19,
           "classification": "NEUTRAL"
@@ -827,8 +996,8 @@
       "device": [
         {
           "dimension": "mobile_app",
-          "spend": 44268.79,
-          "impressions": 250562,
+          "spend": 44268.8,
+          "impressions": 250563,
           "clicks": 1684,
           "ctr": 0.67,
           "cpc": 26.29,
@@ -841,8 +1010,8 @@
       "region": [
         {
           "dimension": "Telangana",
-          "spend": 44268.79,
-          "impressions": 250562,
+          "spend": 44268.8,
+          "impressions": 250563,
           "clicks": 1684,
           "ctr": 0.67,
           "cpc": 26.29,
@@ -850,175 +1019,6 @@
           "leads": 49,
           "cpl": 903.44,
           "classification": "NEUTRAL",
-          "is_target_location": true
-        }
-      ]
-    },
-    "120231984866140466": {
-      "age": [
-        {
-          "dimension": "25-34",
-          "spend": 102457.19,
-          "impressions": 1444983,
-          "clicks": 7639,
-          "ctr": 0.53,
-          "cpc": 13.41,
-          "cpm": 70.91,
-          "leads": 165,
-          "cpl": 620.95,
-          "classification": "WINNER"
-        },
-        {
-          "dimension": "35-44",
-          "spend": 43535.86,
-          "impressions": 254260,
-          "clicks": 1840,
-          "ctr": 0.72,
-          "cpc": 23.66,
-          "cpm": 171.23,
-          "leads": 63,
-          "cpl": 691.05,
-          "classification": "WINNER"
-        },
-        {
-          "dimension": "45-54",
-          "spend": 18723.72,
-          "impressions": 80690,
-          "clicks": 638,
-          "ctr": 0.79,
-          "cpc": 29.35,
-          "cpm": 232.05,
-          "leads": 23,
-          "cpl": 814.07,
-          "classification": "NEUTRAL"
-        },
-        {
-          "dimension": "55-64",
-          "spend": 10592.55,
-          "impressions": 38383,
-          "clicks": 338,
-          "ctr": 0.88,
-          "cpc": 31.34,
-          "cpm": 275.97,
-          "leads": 7,
-          "cpl": 1513.22,
-          "classification": "UNDERPERFORMER"
-        },
-        {
-          "dimension": "65+",
-          "spend": 7776.19,
-          "impressions": 97319,
-          "clicks": 540,
-          "ctr": 0.55,
-          "cpc": 14.4,
-          "cpm": 79.9,
-          "leads": 13,
-          "cpl": 598.17,
-          "classification": "WINNER"
-        },
-        {
-          "dimension": "Unknown",
-          "spend": 8.14,
-          "impressions": 59,
-          "clicks": 3,
-          "ctr": 5.08,
-          "cpc": 2.71,
-          "cpm": 137.97,
-          "leads": 1,
-          "cpl": 8.14,
-          "classification": "WINNER"
-        }
-      ],
-      "gender": [
-        {
-          "dimension": "male",
-          "spend": 119816.8,
-          "impressions": 1371002,
-          "clicks": 8014,
-          "ctr": 0.58,
-          "cpc": 14.95,
-          "cpm": 87.39,
-          "leads": 171,
-          "cpl": 700.68,
-          "classification": "NEUTRAL"
-        },
-        {
-          "dimension": "female",
-          "spend": 62613.14,
-          "impressions": 538011,
-          "clicks": 2953,
-          "ctr": 0.55,
-          "cpc": 21.2,
-          "cpm": 116.38,
-          "leads": 101,
-          "cpl": 619.93,
-          "classification": "WINNER"
-        },
-        {
-          "dimension": "unknown",
-          "spend": 663.71,
-          "impressions": 6681,
-          "clicks": 31,
-          "ctr": 0.46,
-          "cpc": 21.41,
-          "cpm": 99.34,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
-        }
-      ],
-      "placement": [
-        {
-          "dimension": "instagram",
-          "spend": 128906.4,
-          "impressions": 1785222,
-          "clicks": 7497,
-          "ctr": 0.42,
-          "cpc": 17.19,
-          "cpm": 72.21,
-          "leads": 202,
-          "cpl": 638.15,
-          "classification": "WINNER"
-        },
-        {
-          "dimension": "facebook",
-          "spend": 54187.25,
-          "impressions": 130472,
-          "clicks": 3501,
-          "ctr": 2.68,
-          "cpc": 15.48,
-          "cpm": 415.32,
-          "leads": 70,
-          "cpl": 774.1,
-          "classification": "NEUTRAL"
-        }
-      ],
-      "device": [
-        {
-          "dimension": "mobile_app",
-          "spend": 183093.65,
-          "impressions": 1915694,
-          "clicks": 10998,
-          "ctr": 0.57,
-          "cpc": 16.65,
-          "cpm": 95.58,
-          "leads": 272,
-          "cpl": 673.14,
-          "classification": "WINNER"
-        }
-      ],
-      "region": [
-        {
-          "dimension": "Telangana",
-          "spend": 183093.65,
-          "impressions": 1915694,
-          "clicks": 10998,
-          "ctr": 0.57,
-          "cpc": 16.65,
-          "cpm": 95.58,
-          "leads": 272,
-          "cpl": 673.14,
-          "classification": "WINNER",
           "is_target_location": true
         }
       ]
@@ -1192,171 +1192,171 @@
         }
       ]
     },
-    "120241198022380466": {
+    "120231984866140466": {
       "age": [
         {
           "dimension": "25-34",
-          "spend": 4907.01,
-          "impressions": 110336,
-          "clicks": 738,
-          "ctr": 0.67,
-          "cpc": 6.65,
-          "cpm": 44.47,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 102457.48,
+          "impressions": 1444993,
+          "clicks": 7639,
+          "ctr": 0.53,
+          "cpc": 13.41,
+          "cpm": 70.91,
+          "leads": 165,
+          "cpl": 620.95,
+          "classification": "WINNER"
         },
         {
           "dimension": "35-44",
-          "spend": 2286.12,
-          "impressions": 20340,
-          "clicks": 149,
-          "ctr": 0.73,
-          "cpc": 15.34,
-          "cpm": 112.4,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 43535.88,
+          "impressions": 254261,
+          "clicks": 1840,
+          "ctr": 0.72,
+          "cpc": 23.66,
+          "cpm": 171.23,
+          "leads": 63,
+          "cpl": 691.05,
+          "classification": "WINNER"
         },
         {
           "dimension": "45-54",
-          "spend": 1094.86,
-          "impressions": 6125,
-          "clicks": 48,
-          "ctr": 0.78,
-          "cpc": 22.81,
-          "cpm": 178.75,
-          "leads": 0,
-          "cpl": 0,
+          "spend": 18723.76,
+          "impressions": 80691,
+          "clicks": 638,
+          "ctr": 0.79,
+          "cpc": 29.35,
+          "cpm": 232.04,
+          "leads": 23,
+          "cpl": 814.08,
+          "classification": "NEUTRAL"
+        },
+        {
+          "dimension": "55-64",
+          "spend": 10592.55,
+          "impressions": 38383,
+          "clicks": 338,
+          "ctr": 0.88,
+          "cpc": 31.34,
+          "cpm": 275.97,
+          "leads": 7,
+          "cpl": 1513.22,
           "classification": "UNDERPERFORMER"
         },
         {
           "dimension": "65+",
-          "spend": 575.54,
-          "impressions": 6794,
-          "clicks": 43,
-          "ctr": 0.63,
-          "cpc": 13.38,
-          "cpm": 84.71,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
-        },
-        {
-          "dimension": "55-64",
-          "spend": 574.6,
-          "impressions": 2885,
-          "clicks": 23,
-          "ctr": 0.8,
-          "cpc": 24.98,
-          "cpm": 199.17,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 7776.19,
+          "impressions": 97319,
+          "clicks": 540,
+          "ctr": 0.55,
+          "cpc": 14.4,
+          "cpm": 79.9,
+          "leads": 13,
+          "cpl": 598.17,
+          "classification": "WINNER"
         },
         {
           "dimension": "Unknown",
-          "spend": 0.02,
-          "impressions": 1,
-          "clicks": 0,
-          "ctr": 0.0,
-          "cpc": 0,
-          "cpm": 20.0,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "NEUTRAL"
+          "spend": 8.14,
+          "impressions": 59,
+          "clicks": 3,
+          "ctr": 5.08,
+          "cpc": 2.71,
+          "cpm": 137.97,
+          "leads": 1,
+          "cpl": 8.14,
+          "classification": "WINNER"
         }
       ],
       "gender": [
         {
           "dimension": "male",
-          "spend": 7142.97,
-          "impressions": 112010,
-          "clicks": 782,
-          "ctr": 0.7,
-          "cpc": 9.13,
-          "cpm": 63.77,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 119817.08,
+          "impressions": 1371010,
+          "clicks": 8014,
+          "ctr": 0.58,
+          "cpc": 14.95,
+          "cpm": 87.39,
+          "leads": 171,
+          "cpl": 700.68,
+          "classification": "NEUTRAL"
         },
         {
           "dimension": "female",
-          "spend": 2276.34,
-          "impressions": 34139,
-          "clicks": 217,
-          "ctr": 0.64,
-          "cpc": 10.49,
-          "cpm": 66.68,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 62613.21,
+          "impressions": 538015,
+          "clicks": 2953,
+          "ctr": 0.55,
+          "cpc": 21.2,
+          "cpm": 116.38,
+          "leads": 101,
+          "cpl": 619.93,
+          "classification": "WINNER"
         },
         {
           "dimension": "unknown",
-          "spend": 18.84,
-          "impressions": 332,
-          "clicks": 2,
-          "ctr": 0.6,
-          "cpc": 9.42,
-          "cpm": 56.75,
+          "spend": 663.71,
+          "impressions": 6681,
+          "clicks": 31,
+          "ctr": 0.46,
+          "cpc": 21.41,
+          "cpm": 99.34,
           "leads": 0,
           "cpl": 0,
-          "classification": "NEUTRAL"
+          "classification": "UNDERPERFORMER"
         }
       ],
       "placement": [
         {
           "dimension": "instagram",
-          "spend": 5932.41,
-          "impressions": 131486,
-          "clicks": 910,
-          "ctr": 0.69,
-          "cpc": 6.52,
-          "cpm": 45.12,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 128906.57,
+          "impressions": 1785230,
+          "clicks": 7497,
+          "ctr": 0.42,
+          "cpc": 17.19,
+          "cpm": 72.21,
+          "leads": 202,
+          "cpl": 638.15,
+          "classification": "WINNER"
         },
         {
           "dimension": "facebook",
-          "spend": 3505.74,
-          "impressions": 14995,
-          "clicks": 91,
-          "ctr": 0.61,
-          "cpc": 38.52,
-          "cpm": 233.79,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 54187.43,
+          "impressions": 130476,
+          "clicks": 3501,
+          "ctr": 2.68,
+          "cpc": 15.48,
+          "cpm": 415.31,
+          "leads": 70,
+          "cpl": 774.11,
+          "classification": "NEUTRAL"
         }
       ],
       "device": [
         {
           "dimension": "mobile_app",
-          "spend": 9438.15,
-          "impressions": 146481,
-          "clicks": 1001,
-          "ctr": 0.68,
-          "cpc": 9.43,
-          "cpm": 64.43,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER"
+          "spend": 183094.0,
+          "impressions": 1915706,
+          "clicks": 10998,
+          "ctr": 0.57,
+          "cpc": 16.65,
+          "cpm": 95.58,
+          "leads": 272,
+          "cpl": 673.14,
+          "classification": "WINNER"
         }
       ],
       "region": [
         {
           "dimension": "Telangana",
-          "spend": 9438.15,
-          "impressions": 146481,
-          "clicks": 1001,
-          "ctr": 0.68,
-          "cpc": 9.43,
-          "cpm": 64.43,
-          "leads": 0,
-          "cpl": 0,
-          "classification": "UNDERPERFORMER",
+          "spend": 183094.0,
+          "impressions": 1915706,
+          "clicks": 10998,
+          "ctr": 0.57,
+          "cpc": 16.65,
+          "cpm": 95.58,
+          "leads": 272,
+          "cpl": 673.14,
+          "classification": "WINNER",
           "is_target_location": true
         }
       ]
@@ -1373,15 +1373,15 @@
       "ad_name": "DM_Static_your_city_gives_traffic",
       "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
       "adset_name": "DM Amara | Adv+ OT",
-      "spend": 1143.01,
-      "impressions": 1978,
+      "spend": 1143.02,
+      "impressions": 1979,
       "clicks": 21,
       "leads": 2,
-      "cpl": 571.505,
-      "ctr": 1.061678,
-      "cpc": 54.429048,
-      "cpm": 577.861476,
-      "frequency": 1.373611,
+      "cpl": 571.51,
+      "ctr": 1.061142,
+      "cpc": 54.429524,
+      "cpm": 577.574533,
+      "frequency": 1.372399,
       "is_video": false,
       "creative_type": "static",
       "thumb_stop_pct": 0,
@@ -1420,20 +1420,20 @@
       "ad_name": "DM_Influencer",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "adset_name": "DM Amara | Adv+ OT",
-      "spend": 3509.93,
-      "impressions": 79595,
+      "spend": 3510.24,
+      "impressions": 79606,
       "clicks": 283,
       "leads": 8,
-      "cpl": 438.74125,
-      "ctr": 0.35555,
-      "cpc": 12.40258,
-      "cpm": 44.097368,
-      "frequency": 1.371146,
+      "cpl": 438.78,
+      "ctr": 0.355501,
+      "cpc": 12.403675,
+      "cpm": 44.095169,
+      "frequency": 1.370296,
       "is_video": true,
       "creative_type": "video",
-      "thumb_stop_pct": 10.181544066838368,
-      "hold_rate_pct": 33.470648815653966,
-      "first_frame_rate": 1.2199258747408757,
+      "thumb_stop_pct": 10.182649549028968,
+      "hold_rate_pct": 33.53909465020576,
+      "first_frame_rate": 1.2210134914453683,
       "creative_age_days": 177,
       "creative_score": 70.0,
       "performance_score": 70.0,
@@ -1447,9 +1447,9 @@
       "should_pause": false,
       "auto_pause_reasons": [],
       "scoring_type": "video",
-      "video_p25": 971,
-      "video_p50": 325,
-      "video_p75": 175,
+      "video_p25": 972,
+      "video_p50": 326,
+      "video_p75": 176,
       "video_p100": 109,
       "avg_watch_sec": 2.0,
       "weights_used": {
@@ -1526,20 +1526,20 @@
       "ad_name": "DM_Influencer - 2",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "adset_name": "DM Amara | Adv+ OT_2",
-      "spend": 1266.33,
-      "impressions": 13887,
+      "spend": 1266.37,
+      "impressions": 13888,
       "clicks": 35,
       "leads": 1,
-      "cpl": 1266.33,
-      "ctr": 0.252034,
-      "cpc": 36.180857,
-      "cpm": 91.188162,
-      "frequency": 1.085516,
+      "cpl": 1266.37,
+      "ctr": 0.252016,
+      "cpc": 36.182,
+      "cpm": 91.184476,
+      "frequency": 1.085594,
       "is_video": true,
       "creative_type": "video",
-      "thumb_stop_pct": 9.915748541801685,
+      "thumb_stop_pct": 9.922235023041475,
       "hold_rate_pct": 50.70921985815603,
-      "first_frame_rate": 2.0306761719593864,
+      "first_frame_rate": 2.0305299539170507,
       "creative_age_days": 149,
       "creative_score": 35.0,
       "performance_score": 35.0,
@@ -1616,9 +1616,9 @@
     "top_ads": [
       {
         "name": "DM_Influencer",
-        "cpl": 438.74125,
-        "ctr": 0.35555,
-        "spend": 3509.93,
+        "cpl": 438.78,
+        "ctr": 0.355501,
+        "spend": 3510.24,
         "leads": 8,
         "is_video": true,
         "score": 70.0
@@ -1627,9 +1627,9 @@
     "bottom_ads": [
       {
         "name": "DM_Influencer - 2",
-        "cpl": 1266.33,
-        "ctr": 0.252034,
-        "spend": 1266.33,
+        "cpl": 1266.37,
+        "ctr": 0.252016,
+        "spend": 1266.37,
         "leads": 1,
         "is_video": true,
         "score": 35.0
@@ -1663,14 +1663,14 @@
     ],
     "ad_count": 3,
     "top_avg": {
-      "cpl": 438.74125,
-      "ctr": 0.35555,
-      "cpm": 44.097368
+      "cpl": 438.78,
+      "ctr": 0.355501,
+      "cpm": 44.095169
     },
     "bottom_avg": {
-      "cpl": 1266.33,
-      "ctr": 0.252034,
-      "cpm": 91.188162
+      "cpl": 1266.37,
+      "ctr": 0.252016,
+      "cpm": 91.184476
     }
   },
   "recommendations": [
@@ -1751,19 +1751,19 @@
     }
   ],
   "budget_pacing": {
-    "avg_7d_spend": 6542.17,
-    "latest_spend": 6542.17,
+    "avg_7d_spend": 6542.53,
+    "latest_spend": 6542.53,
     "spend_anomalies": [],
     "exhausted_budgets": [],
     "under_spending": [
       {
         "name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
-        "pace": 159.2086666666667,
+        "pace": 159.22033333333331,
         "budget": 4784.0
       },
       {
         "name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
-        "pace": 58.86366666666667,
+        "pace": 58.864000000000004,
         "budget": 2500.0
       }
     ],
@@ -1772,7 +1772,7 @@
       "MOFU is under-indexed: 0% actual vs 35% target (-35pp)."
     ],
     "daily_spends": [
-      6542.17
+      6542.53
     ]
   },
   "monthly_pacing": {
@@ -1795,13 +1795,13 @@
     },
     "data_source": "MTD (2026-04-01 to 2026-04-10)",
     "mtd": {
-      "spend": 64870.98,
+      "spend": 64871.34,
       "leads": 88,
-      "cpl": 737.1702272727273,
-      "ctr": 0.4650564130703546,
-      "cpc": 15.749206117989804,
-      "cpm": 73.24269305938022,
-      "impressions": 885699,
+      "cpl": 737.1743181818182,
+      "ctr": 0.46504958722474127,
+      "cpc": 15.749293517844135,
+      "cpm": 73.24202449554708,
+      "impressions": 885712,
       "clicks": 4119
     },
     "expected": {
@@ -1809,12 +1809,12 @@
       "leads": 85.8
     },
     "projected_eom": {
-      "spend": 216236.6,
+      "spend": 216237.8,
       "leads": 293.33333333333337,
-      "cpl": 737.1702272727272
+      "cpl": 737.1743181818181
     },
     "pacing": {
-      "spend_pct": 108.1183,
+      "spend_pct": 108.1189,
       "spend_status": "ON TRACK",
       "leads_pct": 102.56410256410258,
       "leads_status": "ON TRACK",
@@ -1822,7 +1822,7 @@
     },
     "daily_needed": {
       "leads": 9.9,
-      "spend": 6756.450999999999
+      "spend": 6756.433
     },
     "alerts": []
   },
@@ -1884,10 +1884,10 @@
   "summary": {
     "total_campaigns": 2,
     "total_adsets": 4,
-    "total_spend": 6542.17,
+    "total_spend": 6542.53,
     "total_leads": 11,
-    "avg_cpl": 594.7427272727273,
-    "overall_ctr": 0.3600678509360723,
+    "avg_cpl": 594.7754545454545,
+    "overall_ctr": 0.36001914552681413,
     "total_fatigue_alerts": 0,
     "active_playbooks": 1,
     "total_recommendations": 5,
@@ -1902,7 +1902,7 @@
   "data_verification": {
     "verified": true,
     "discrepancy_pct": 0.0,
-    "verified_at": "2026-04-10T13:12:15.159516",
+    "verified_at": "2026-04-10T16:28:43.966179",
     "source": "api_daily_reconciliation",
     "daily_rows_found": 2,
     "verification_status": "MATCH"

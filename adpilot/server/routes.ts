@@ -653,7 +653,7 @@ export async function registerRoutes(
 
   // DELETE /api/clients/:clientId — remove from registry (data files preserved)
   app.delete("/api/clients/:clientId", requireAdmin, async (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const existing = await storage.getClient(clientId);
     if (!existing) return res.status(404).json({ error: "Client not found" });
     
@@ -695,7 +695,7 @@ export async function registerRoutes(
   // PUT /api/clients/:clientId/credentials — save/update credentials
   app.put("/api/clients/:clientId/credentials", requireAdmin, async (req, res) => {
     try {
-      const { clientId } = req.params;
+      const { clientId } = req.params as Record<string, string>;
       const client = await storage.getClient(clientId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
@@ -880,7 +880,7 @@ export async function registerRoutes(
   // ─── Recommendation Actions (client + platform scoped) ─────────
 
   app.post("/api/clients/:clientId/:platform/recommendations/:id/action", requireAdmin, async (req, res) => {
-    const { clientId, platform, id } = req.params;
+    const { clientId, platform, id } = req.params as Record<string, string>;
     const { action, executionDetails, strategic_call } = req.body;
     if (!action || !["approved", "rejected", "deferred"].includes(action)) {
       return res.status(400).json({ error: "Invalid action. Must be approved, rejected, or deferred." });
@@ -928,7 +928,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/clients/:clientId/:platform/recommendations/actions", (req, res) => {
-    const { clientId, platform } = req.params;
+    const { clientId, platform } = req.params as Record<string, string>;
     const prefix = `${clientId}:${platform}:`;
     const actions = getRecommendationActionsForPrefix(prefix);
     res.json(actions);
@@ -938,7 +938,7 @@ export async function registerRoutes(
 
   // List instructions for a client (newest first)
   app.get("/api/clients/:clientId/instructions", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const store = readInstructions();
     const clientInstructions = store.instructions
       .filter((i) => i.clientId === clientId)
@@ -948,7 +948,7 @@ export async function registerRoutes(
 
   // Create a new instruction
   app.post("/api/clients/:clientId/instructions", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const { instruction, platform, priority } = req.body;
     if (!instruction || typeof instruction !== "string" || !instruction.trim()) {
       return res.status(400).json({ error: "Instruction text is required" });
@@ -974,7 +974,7 @@ export async function registerRoutes(
 
   // Update instruction status
   app.patch("/api/clients/:clientId/instructions/:id", (req, res) => {
-    const { clientId, id } = req.params;
+    const { clientId, id } = req.params as Record<string, string>;
     const { status, result } = req.body;
     const validStatuses = ["pending", "in_progress", "completed", "cancelled"];
     if (status && !validStatuses.includes(status)) {
@@ -996,7 +996,7 @@ export async function registerRoutes(
 
   // Delete instruction
   app.delete("/api/clients/:clientId/instructions/:id", (req, res) => {
-    const { clientId, id } = req.params;
+    const { clientId, id } = req.params as Record<string, string>;
     const store = readInstructions();
     const idx = store.instructions.findIndex((i) => i.id === id && i.clientId === clientId);
     if (idx === -1) {
@@ -1013,7 +1013,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/clients/:clientId/creative-hub/setup", async (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const {
       projectName = "",
       logos = [],
@@ -1049,7 +1049,7 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/creative-hub/generate", requireAdmin, async (req, res) => {
     try {
-      const { clientId } = req.params;
+      const { clientId } = req.params as Record<string, string>;
       const hub = getCreativeHubState(clientId);
       if (!hub.setup) {
         return res.status(400).json({ error: "Creative SOP setup is required before generation." });
@@ -1093,7 +1093,7 @@ export async function registerRoutes(
   });
   app.post("/api/clients/:clientId/creative-hub/regenerate", async (req, res) => {
     try {
-      const { clientId } = req.params;
+      const { clientId } = req.params as Record<string, string>;
       const { threadId, sectionKey } = req.body;
       if (!threadId || !sectionKey) {
         return res.status(400).json({ error: "threadId and sectionKey are required." });
@@ -1128,7 +1128,7 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/creative-hub/:threadId/generate-image", async (req, res) => {
     try {
-      const { clientId, threadId } = req.params;
+      const { clientId, threadId } = req.params as Record<string, string>;
       const requestedSize = String(req.body?.requestedSize || "1080x1080") as any;
       const versionId = req.body?.versionId ? String(req.body.versionId) : undefined;
 
@@ -1146,7 +1146,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/clients/:clientId/creative-hub/:threadId/tag", async (req, res) => {
-    const { clientId, threadId } = req.params;
+    const { clientId, threadId } = req.params as Record<string, string>;
     const statusTag = req.body?.statusTag as CreativeStatusTag;
     if (!statusTag) {
       return res.status(400).json({ error: "statusTag is required." });
@@ -1156,7 +1156,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/clients/:clientId/creative-hub/:threadId/duplicate", async (req, res) => {
-    const { clientId, threadId } = req.params;
+    const { clientId, threadId } = req.params as Record<string, string>;
     const next = await duplicateCreativeThread({ clientId, threadId });
     res.json(next);
   });
@@ -1329,7 +1329,7 @@ export async function registerRoutes(
   // Execute batch actions: SCALE_WINNERS, PAUSE_UNDERPERFORMERS, FIX_LEARNING_LIMITED
   app.post("/api/clients/:clientId/:platform/quick-action", requireAdmin, async (req, res) => {
     try {
-      const { clientId, platform } = req.params;
+      const { clientId, platform } = req.params as Record<string, string>;
       const { actionType, scalePercent = 20 } = req.body as { actionType: QuickActionType; scalePercent?: number };
 
       if (!actionType || !["SCALE_WINNERS", "PAUSE_UNDERPERFORMERS", "FIX_LEARNING_LIMITED"].includes(actionType)) {
@@ -1425,7 +1425,7 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/:platform/auto-execute-now", requireAdmin, async (req, res) => {
     try {
-      const { clientId, platform } = req.params;
+      const { clientId, platform } = req.params as Record<string, string>;
       const data = await readAnalysisData(clientId, platform);
 
       const execRequests: ExecutionRequest[] = [];
@@ -1509,6 +1509,7 @@ export async function registerRoutes(
   // Supports MARK_COMPLETE, REJECT, DEFER (log-only, no API call)
   app.post("/api/clients/:clientId/:platform/execute-action", requireAdmin, async (req, res) => {
     try {
+      const { clientId, platform } = req.params as Record<string, string>;
       const { action, entityId, entityName, entityType, params, strategicCall } = req.body;
       const actorName = req.authUser?.name || req.authUser?.email || "User";
 
@@ -1545,11 +1546,11 @@ export async function registerRoutes(
 
         // Record to learning engine
         try {
-          const analysisData = await readAnalysisData(req.params.clientId, req.params.platform);
+          const analysisData = await readAnalysisData(clientId, platform);
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-            req.params.clientId,
-            req.params.platform === "google" ? "google" : "meta",
+            clientId,
+            platform === "google" ? "google" : "meta",
             entityId,
             entityName || entityId,
             entityType,
@@ -1598,11 +1599,11 @@ export async function registerRoutes(
       // Record execution for learning engine (best-effort)
       if (result.success) {
         try {
-          const analysisData = await readAnalysisData(req.params.clientId, req.params.platform);
+          const analysisData = await readAnalysisData(clientId, platform);
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-            req.params.clientId,
-            req.params.platform === "google" ? "google" : "meta",
+            clientId,
+            platform === "google" ? "google" : "meta",
             entityId,
             entityName || entityId,
             entityType,
@@ -1630,7 +1631,7 @@ export async function registerRoutes(
   }
 
   app.get("/api/clients/:clientId/benchmarks", requireAdmin, async (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const benchPath = getBenchmarksPath(clientId, platform);
     if (!fs.existsSync(benchPath)) {
@@ -1653,7 +1654,7 @@ export async function registerRoutes(
   });
 
   app.put("/api/clients/:clientId/benchmarks", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const benchPath = getBenchmarksPath(clientId, platform);
     const dir = path.dirname(benchPath);
@@ -1671,7 +1672,7 @@ export async function registerRoutes(
   // ─── Breakdowns Endpoint ───────────────────────────────────────────
 
   app.get("/api/clients/:clientId/:platform/breakdowns", requireAdmin, async (req, res) => {
-    const { clientId, platform } = req.params;
+    const { clientId, platform } = req.params as Record<string, string>;
     const cadence = req.query.cadence as string | undefined;
     const currentRegistry = await loadRegistry();
     const client = currentRegistry.find((c) => c.id === clientId);
@@ -1719,7 +1720,7 @@ export async function registerRoutes(
   // ─── Campaign-Specific Breakdowns Endpoint ───────────────────────
 
   app.get("/api/clients/:clientId/:platform/breakdowns/:campaignId", requireAdmin, async (req, res) => {
-    const { clientId, platform, campaignId } = req.params;
+    const { clientId, platform, campaignId } = req.params as Record<string, string>;
     const cadence = req.query.cadence as string | undefined;
     const currentRegistry = await loadRegistry();
     const client = currentRegistry.find((c) => c.id === clientId);
@@ -1758,6 +1759,7 @@ export async function registerRoutes(
   // Execute a single Google Ads action (accepts strategicCall for learning)
   app.post("/api/clients/:clientId/google/execute-action", requireAdmin, async (req, res) => {
     try {
+      const { clientId } = req.params as Record<string, string>;
       const { action, entityId, entityName, entityType, params, strategicCall } = req.body;
       const actorName = req.authUser?.name || req.authUser?.email || "User";
 
@@ -1795,10 +1797,10 @@ export async function registerRoutes(
       // Record execution for learning engine (best-effort)
       if (result.success) {
         try {
-          const analysisData = await readAnalysisData(req.params.clientId, "google");
+          const analysisData = await readAnalysisData(clientId, "google");
           recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-            req.params.clientId,
+            clientId,
             "google",
             entityId,
             entityName || entityId,
@@ -1850,7 +1852,7 @@ export async function registerRoutes(
   // Google auto-execute: pause underperformers from analysis
   app.post("/api/clients/:clientId/google/auto-execute-now", requireAdmin, async (req, res) => {
     try {
-      const { clientId } = req.params;
+      const { clientId } = req.params as Record<string, string>;
       const data = await readAnalysisData(clientId, "google");
 
       const execRequests: GoogleExecutionRequest[] = [];
@@ -1931,7 +1933,7 @@ export async function registerRoutes(
   // Google Quick Actions
   app.post("/api/clients/:clientId/google/quick-action", async (req, res) => {
     try {
-      const { clientId } = req.params;
+      const { clientId } = req.params as Record<string, string>;
       const { actionType, scalePercent = 20 } = req.body;
 
       if (!actionType || !["SCALE_WINNERS", "PAUSE_UNDERPERFORMERS", "FIX_LEARNING_LIMITED"].includes(actionType)) {
@@ -2155,7 +2157,7 @@ export async function registerRoutes(
 
   // ─── Consolidated MTD Deliverables (Source of Truth) ────────────
   app.get("/api/mtd-deliverables", requireAdmin, async (req, res) => {
-    const { client_id: clientId, platform: requestedPlatform } = req.query;
+    const { client_id: clientId, platform: requestedPlatform } = req.query as Record<string, string>;
     if (!clientId) return res.status(400).json({ error: "client_id is required" });
 
     const currentRegistry = await loadRegistry();
@@ -2272,7 +2274,7 @@ export async function registerRoutes(
 
   // ─── Monthly Pacing Pivot — all calculations backend-computed ─────
   app.get("/api/clients/:clientId/pacing", requireAdmin, async (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
 
     // Helper: safe divide
@@ -2470,7 +2472,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/clients/:clientId/mtd-deliverables", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const filePath = getMtdDeliverablesPath(clientId, platform);
     if (!fs.existsSync(filePath)) {
@@ -2507,7 +2509,7 @@ export async function registerRoutes(
   });
 
   app.put("/api/clients/:clientId/mtd-deliverables", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const filePath = getMtdDeliverablesPath(clientId, platform);
     const dir = path.dirname(filePath);
@@ -2549,7 +2551,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/clients/:clientId/mtd-deliverables/history", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const historyPath = getMtdHistoryPath(clientId, platform);
     if (!fs.existsSync(historyPath)) {
@@ -2629,7 +2631,7 @@ export async function registerRoutes(
 
   // ─── Data Verification Endpoint ─────────────────────────────────
   app.get("/api/clients/:clientId/:platform/verify-data", requireAdmin, async (req, res) => {
-    const { clientId, platform } = req.params;
+    const { clientId, platform } = req.params as Record<string, string>;
     const cadence = (req.query.cadence as string) || "twice_weekly";
 
     try {
@@ -2720,7 +2722,7 @@ export async function registerRoutes(
   });
 
     app.get("/api/clients/:clientId/:platform/check-new-entities", requireAdmin, async (req, res) => {
-      const { clientId, platform } = req.params;
+      const { clientId, platform } = req.params as Record<string, string>;
   
       try {
         const data = await readAnalysisData(clientId, platform);
@@ -3000,8 +3002,8 @@ export async function registerRoutes(
   // Enforces 4-layer pipeline globally
   app.get("/api/intelligence/:clientId/:platform/insights", requireAdmin, async (req, res) => {
     try {
-      const { clientId, platform } = req.params;
-      const { type = "recommendation" } = req.query;
+      const { clientId, platform } = req.params as Record<string, string>;
+      const { type = "recommendation" } = req.query as Record<string, string>;
 
       console.log(`[API] Unified Intelligence Request: client=${clientId} platform=${platform} type=${type}`);
 
@@ -3135,7 +3137,7 @@ export async function registerRoutes(
   // GET /api/clients/:clientId/google/bidding-recommendations
   // Computes per-campaign bidding decisions: Max Clicks or tCPA + reason + confidence
   app.get("/api/clients/:clientId/google/bidding-recommendations", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const dataDir = getClientDataDir(clientId);
     const analysisPath = path.join(dataDir, "google", "analysis.json");
 
@@ -3333,7 +3335,7 @@ export async function registerRoutes(
   // POST /api/clients/:clientId/google/bidding-recommendations/action
   // Records user action (Apply/Reject) with mandatory strategic rationale
   app.post("/api/clients/:clientId/google/bidding-recommendations/action", requireAdmin, (req, res) => {
-    const { clientId } = req.params;
+    const { clientId } = req.params as Record<string, string>;
     const { campaign_id, campaign_name, action, recommendation, rationale, params } = req.body;
 
     if (!rationale || rationale.trim().length < 10) {
@@ -3370,7 +3372,8 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/google/bidding-recommendations/trigger", requireAdmin, async (req, res) => {
     try {
-      await generateBiddingRecommendations(req.params.clientId);
+      const { clientId } = req.params as Record<string, string>;
+      await generateBiddingRecommendations(clientId);
       res.json({ success: true, message: "Bidding intelligence run completed." });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

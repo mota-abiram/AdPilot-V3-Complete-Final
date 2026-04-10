@@ -625,12 +625,12 @@
       "date_stop": "2026-04-08"
     },
     {
-      "spend": "6542.17",
-      "impressions": "96093",
+      "spend": "6542.53",
+      "impressions": "96106",
       "clicks": "346",
-      "ctr": "0.360068",
-      "cpc": "18.908006",
-      "cpm": "68.08165",
+      "ctr": "0.360019",
+      "cpc": "18.909046",
+      "cpm": "68.076187",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -642,7 +642,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "10382"
+          "value": "10385"
         },
         {
           "action_type": "landing_page_view",
@@ -658,7 +658,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "10382"
+          "value": "10385"
         },
         {
           "action_type": "post_interaction_gross",
@@ -710,7 +710,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "9575"
+          "value": "9578"
         },
         {
           "action_type": "post_reaction",
@@ -721,22 +721,22 @@
           "value": "13"
         }
       ],
-      "frequency": "1.372581",
-      "reach": "70009",
+      "frequency": "1.371532",
+      "reach": "70072",
       "date_start": "2026-04-09",
       "date_stop": "2026-04-09"
     },
     {
-      "spend": "2511.27",
-      "impressions": "30323",
-      "clicks": "120",
-      "ctr": "0.395739",
-      "cpc": "20.92725",
-      "cpm": "82.817333",
+      "spend": "3406.43",
+      "impressions": "40966",
+      "clicks": "156",
+      "ctr": "0.380804",
+      "cpc": "21.83609",
+      "cpm": "83.152614",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "6"
+          "value": "8"
         },
         {
           "action_type": "onsite_conversion.messaging_block",
@@ -744,31 +744,31 @@
         },
         {
           "action_type": "link_click",
-          "value": "58"
+          "value": "79"
         },
         {
           "action_type": "page_engagement",
-          "value": "3404"
+          "value": "4570"
         },
         {
           "action_type": "landing_page_view",
-          "value": "4"
+          "value": "6"
         },
         {
           "action_type": "omni_landing_page_view",
-          "value": "4"
+          "value": "6"
         },
         {
           "action_type": "onsite_conversion.post_unlike",
-          "value": "19"
+          "value": "26"
         },
         {
           "action_type": "post_engagement",
-          "value": "3404"
+          "value": "4570"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "209"
+          "value": "272"
         },
         {
           "action_type": "comment",
@@ -776,11 +776,11 @@
         },
         {
           "action_type": "post_interaction_net",
-          "value": "228"
+          "value": "298"
         },
         {
           "action_type": "post",
-          "value": "19"
+          "value": "22"
         },
         {
           "action_type": "onsite_conversion.post_net_comment",
@@ -788,39 +788,39 @@
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "6"
+          "value": "8"
         },
         {
           "action_type": "onsite_conversion.post_net_like",
-          "value": "170"
+          "value": "223"
         },
         {
           "action_type": "lead",
-          "value": "6"
+          "value": "8"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "6"
+          "value": "8"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "6"
+          "value": "8"
         },
         {
           "action_type": "video_view",
-          "value": "3137"
+          "value": "4219"
         },
         {
           "action_type": "post_reaction",
-          "value": "189"
+          "value": "249"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "10"
+          "value": "13"
         }
       ],
-      "frequency": "1.279074",
-      "reach": "23707",
+      "frequency": "1.292507",
+      "reach": "31695",
       "date_start": "2026-04-10",
       "date_stop": "2026-04-10"
     }
