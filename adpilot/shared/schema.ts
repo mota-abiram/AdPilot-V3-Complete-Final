@@ -228,11 +228,7 @@ export interface CreativeHealth {
   age_days?: number;
   tsr?: number;
   vhr?: number;
-  video_p75?: number;
-  video_p100?: number;
   cvr?: number;
-  cpc?: number;
-  cpm?: number;
 }
 
 export interface FatigueAlert {
