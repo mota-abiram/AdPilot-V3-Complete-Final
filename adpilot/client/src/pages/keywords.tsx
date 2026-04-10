@@ -45,6 +45,8 @@ interface KeywordEntry {
   cpc: number;
   quality_score: number;
   status: string;
+  cvr: number;
+  top_is: number;
   classification?: string;
   recommendation?: string;
 }
@@ -78,6 +80,7 @@ export default function KeywordsPage() {
       ctr: k.ctr || (k.impressions > 0 ? (k.clicks / k.impressions) * 100 : 0),
       cpc: k.cpc || (k.clicks > 0 ? (k.cost || k.spend || 0) / k.clicks : 0),
       quality_score: k.quality_score || 0,
+      status: k.status || "active",
       cvr: k.cvr || (k.clicks > 0 ? (k.conversions / k.clicks) * 100 : 0),
       top_is: k.top_is || k.search_top_impression_share || 0,
       classification: k.classification,

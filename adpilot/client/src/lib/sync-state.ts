@@ -4,6 +4,8 @@ export interface PlatformSyncState {
   last_synced_at: string | null;
   last_successful_fetch: string | null;
   sync_status: SyncStatus;
+  status?: SyncStatus;
+  error?: string | null;
 }
 
 export function parseSyncTimestamp(value?: string | null): Date | null {

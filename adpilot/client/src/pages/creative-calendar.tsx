@@ -30,6 +30,7 @@ import {
   getHealthBarBg,
 } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { UnifiedActions } from "@/components/unified-actions";
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -356,7 +357,7 @@ export default function CreativeCalendarPage() {
         </Card>
       )}
 
-      {refreshQueue.length === 0 && (
+      {refreshQueueItems.length === 0 && (
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-emerald-400">

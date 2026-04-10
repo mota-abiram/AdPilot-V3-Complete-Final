@@ -626,7 +626,7 @@ export async function registerRoutes(
 
   // PUT /api/clients/:clientId — update name, location, targets, platform enable/disable
   app.put("/api/clients/:clientId", requireAdmin, async (req, res) => {
-    const existing = await storage.getClient(req.params.clientId);
+    const existing = await storage.getClient(req.params.clientId as string);
     if (!existing) return res.status(404).json({ error: "Client not found" });
     const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle, targets } = req.body;
     
@@ -647,8 +647,8 @@ export async function registerRoutes(
       targets: targets !== undefined ? targets : existing.targets,
     };
     
-    await storage.updateClient(req.params.clientId, updatedClient);
-    res.json({ success: true, id: req.params.clientId });
+    await storage.updateClient(req.params.clientId as string, updatedClient);
+    res.json({ success: true, id: req.params.clientId as string });
   });
 
   // DELETE /api/clients/:clientId — remove from registry (data files preserved)
@@ -664,10 +664,10 @@ export async function registerRoutes(
 
   // GET /api/clients/:clientId/credentials — return masked credentials (for display)
   app.get("/api/clients/:clientId/credentials", requireAdmin, async (req, res) => {
-    const client = await storage.getClient(req.params.clientId);
+    const client = await storage.getClient(req.params.clientId as string);
     if (!client) return res.status(404).json({ error: "Client not found" });
     const credsStore = await loadCredentials();
-    const c = credsStore[req.params.clientId];
+    const c = credsStore[req.params.clientId as string];
     const clientMeta = getValidMetaCreds(c);
     const clientGoogle = getValidGoogleCreds(c);
     // Mask secrets — only send whether they exist plus last 6 chars of token
@@ -728,7 +728,7 @@ export async function registerRoutes(
       }
 
       existing.updatedAt = new Date().toISOString();
-      credsStore[clientId] = existing;
+      credsStore[clientId as string] = existing;
       await saveCredentials(credsStore);
 
       // Keep the legacy Python credentials file aligned for local scripts.
@@ -753,7 +753,7 @@ export async function registerRoutes(
   const handleAnalysisRequest = async (req: any, res: any) => {
     try {
       const cadence = req.query.cadence as string;
-      const data = await readAnalysisData(req.params.clientId, req.params.platform, cadence);
+      const data = await readAnalysisData(req.params.clientId as string, req.params.platform as string, cadence);
       res.json(data);
     } catch (err: any) {
       const status = err.message.includes("not found") || err.message.includes("not configured") ? 404
@@ -773,12 +773,12 @@ export async function registerRoutes(
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
-      const platformConfig = client.platforms[req.params.platform];
+      const platformConfig = client.platforms[req.params.platform as string];
       if (!platformConfig) {
         return res.status(404).json({ error: "Platform not configured" });
       }
 
-      res.json(getPlatformSyncState(req.params.clientId, req.params.platform));
+      res.json(getPlatformSyncState(req.params.clientId as string, req.params.platform as string));
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to load sync state" });
     }
@@ -786,14 +786,14 @@ export async function registerRoutes(
 
   // List available cadences for a client/platform
   app.get("/api/clients/:clientId/:platform/cadences", (req, res) => {
-    const cadences = listCadences(req.params.clientId, req.params.platform);
+    const cadences = listCadences(req.params.clientId as string, req.params.platform as string);
     res.json(cadences);
   });
 
   // Summary for a client/platform
   app.get("/api/clients/:clientId/platforms/:platform/performance", async (req, res) => {
     try {
-      const data = await readAnalysisData(req.params.clientId, req.params.platform);
+      const data = await readAnalysisData(req.params.clientId as string, req.params.platform as string);
       res.json({
         summary: data.summary,
         account_pulse: data.account_pulse,
@@ -1102,7 +1102,7 @@ export async function registerRoutes(
       const hub = getCreativeHubState(clientId);
       const input = (hub.threads.find((t) => t.id === threadId))?.input;
       const platform = input?.platform === "google_display" ? "google" : "facebook";
-      const analysis = await readAnalysisData(clientId, platform === "google" ? "google" : "meta");
+      const analysis = await readAnalysisData(clientId as string, platform === "google" ? "google" : "meta");
       const references = (((analysis as any)?.creative_health || []) as any[])
         .sort((a, b) => (b.creative_score || 0) - (a.creative_score || 0))
         .slice(0, 5)

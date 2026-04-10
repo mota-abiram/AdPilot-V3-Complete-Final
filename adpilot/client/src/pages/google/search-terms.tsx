@@ -55,6 +55,7 @@ interface SearchTermEntry {
   campaign?: string;
   campaign_id?: string;
   ad_group?: string;
+  ad_group_name?: string;
   ad_group_id?: string;
   impressions: number;
   clicks: number;

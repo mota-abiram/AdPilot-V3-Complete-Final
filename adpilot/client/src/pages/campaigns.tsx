@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal, BarChart3, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreIndicator } from "@/components/score-indicator";
 import {
@@ -152,14 +153,14 @@ export default function CampaignsPage() {
       });
     }
     if (filterStatus !== "ALL") {
-      list = list.filter((c) => {
+      list = list.filter((c: any) => {
         const s = (c.status || "").toUpperCase();
         if (filterStatus === "ACTIVE") return s === "ACTIVE" || s === "ENABLED";
         return s === filterStatus;
       });
     }
-    if (filterClassification !== "ALL") list = list.filter((c) => c.classification === filterClassification);
-    list.sort((a, b) => {
+    if (filterClassification !== "ALL") list = list.filter((c: any) => c.classification === filterClassification);
+    list.sort((a: any, b: any) => {
       const aVal = a[sortKey];
       const bVal = b[sortKey];
       if (typeof aVal === "number" && typeof bVal === "number") {
@@ -246,15 +247,15 @@ export default function CampaignsPage() {
     if (selectedIds.size === campaigns.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(campaigns.map((c) => c.campaign_id)));
+      setSelectedIds(new Set(campaigns.map((c: any) => c.campaign_id)));
     }
   }
 
   async function handleBulkAction(action: "pause" | "activate") {
     setBulkConfirm({ open: false, action: "pause" });
-    const selected = campaigns.filter((c) => selectedIds.has(c.campaign_id));
+    const selected = campaigns.filter((c: any) => selectedIds.has(c.campaign_id));
     const activateAction = isGoogle ? "ENABLE_CAMPAIGN" : "UNPAUSE_CAMPAIGN";
-    const actions = selected.map((c) => ({
+    const actions = selected.map((c: any) => ({
       action: action === "pause" ? "PAUSE_CAMPAIGN" : activateAction,
       entityId: c.campaign_id,
       entityName: c.campaign_name,
@@ -407,7 +408,7 @@ export default function CampaignsPage() {
         displayVal = "∞";
         colorClass = "text-red-400";
       } else {
-        displayVal = formatINR(val ?? 0, (col.key === "avg_cpc" || col.key === "average_cpm") ? 2 : 0);
+        displayVal = formatINR(val ?? 0, ((col.key as string) === "avg_cpc" || (col.key as string) === "average_cpm") ? 2 : 0);
         if (col.key === "cpl") {
           colorClass = getCplColor(val, thresholds);
         }

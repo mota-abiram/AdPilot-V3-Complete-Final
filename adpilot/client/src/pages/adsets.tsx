@@ -295,14 +295,14 @@ export default function AdsetsPage() {
   function renderAgCell(a: any, col: { key: SortKey, align: string, label: string }, isSearch: boolean) {
     const val = a[col.key];
     
-    if (col.key === "classification") return <td className="p-3"><StatusBadge classification={val} /></td>;
-    if (col.key === "recommendation") return <td className="p-3"><Badge variant="outline" className="text-[9px] font-bold uppercase py-0">{val || "Hold"}</Badge></td>;
-    if (col.key === "health_score") return (
+    if ((col.key as string) === "classification") return <td className="p-3"><StatusBadge classification={val} /></td>;
+    if ((col.key as string) === "recommendation") return <td className="p-3"><Badge variant="outline" className="text-[9px] font-bold uppercase py-0">{val || "Hold"}</Badge></td>;
+    if ((col.key as string) === "health_score") return (
       <td className="p-3">
         <ScoreIndicator score={val} breakdown={a.score_breakdown} label="Ad Group Health" description="Backend-calculated ad group health score" />
       </td>
     );
-    if (col.key === "status") return <td className="p-3"><Badge variant={val === "ENABLED" ? "outline" : "secondary"} className={`text-[9px] px-1 py-0 ${val === "ENABLED" ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>{val}</Badge></td>;
+    if ((col.key as string) === "status") return <td className="p-3"><Badge variant={val === "ENABLED" ? "outline" : "secondary"} className={`text-[9px] px-1 py-0 ${val === "ENABLED" ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>{val}</Badge></td>;
     
     const isPct = ["ctr", "cvr", "impression_share", "top_is_pct"].includes(col.key as string);
     const isINR = ["cost", "spend", "cpl", "avg_cpc", "cpm", "cpsv"].includes(col.key as string);
@@ -314,11 +314,11 @@ export default function AdsetsPage() {
       displayVal = formatPct(val ?? 0);
     } else if (isINR) {
       let calcVal = val;
-      if (col.key === "cpsv") {
+      if ((col.key as string) === "cpsv") {
         calcVal = val || (a.all_conversions > 0 ? a.cost / a.all_conversions : 0);
       }
-      displayVal = formatINR(calcVal ?? 0, col.key === "avg_cpc" ? 2 : 0);
-      if (col.key === "cpl") colorClass = getCplColor(calcVal, data.dynamic_thresholds);
+      displayVal = formatINR(calcVal ?? 0, (col.key as string) === "avg_cpc" ? 2 : 0);
+      if (col.key === "cpl") colorClass = getCplColor(calcVal, data?.dynamic_thresholds);
     } else if (typeof val === "number") {
       displayVal = formatNumber(val);
     }

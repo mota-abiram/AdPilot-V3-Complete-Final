@@ -10,7 +10,7 @@ interface ExecutionButtonProps {
   entityId: string;
   entityName: string;
   entityType: "campaign" | "adset" | "ad" | "ad_group";
-  label: string;
+  label?: string;
   variant?: "default" | "destructive" | "outline" | "ghost" | "secondary";
   size?: "sm" | "default" | "icon";
   params?: Record<string, any>;
