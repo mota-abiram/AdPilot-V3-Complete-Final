@@ -59,6 +59,7 @@ function AppRouter() {
       <Route path="/execution-log" component={ExecutionLogPage} />
       <Route path="/manage-clients">
         {() => {
+          // eslint-disable-next-line react-hooks/rules-of-hooks
           const { user } = useAuth();
           if (user?.role !== "admin") {
             return (

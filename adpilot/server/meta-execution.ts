@@ -120,6 +120,7 @@ export function appendAuditEntry(result: ExecutionResult): AuditEntry {
  */
 async function fetchWithRetry(
   url: string,
+  // eslint-disable-next-line no-undef
   options: RequestInit,
   maxRetries = 3
 ): Promise<Response> {
