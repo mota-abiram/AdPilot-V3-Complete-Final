@@ -1031,18 +1031,18 @@ export default function DashboardPage() {
     : (thresholds?.cpc_target || benchmarks?.cpc_target || mp?.targets?.cpc || 50);
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
-    { label: "CPSV", score: healthScoreComponents.cpsv * 0.25, weight: 25, value: mtdStats?.cpsv },
-    { label: "Budget", score: healthScoreComponents.pacing_budget * 0.20, weight: 20, value: mtdStats?.spend },
-    { label: "CPQL", score: healthScoreComponents.cpql * 0.20, weight: 20, value: mtdStats?.cpql },
-    { label: "CPL", score: healthScoreComponents.cpl * 0.10, weight: 10, value: mtdStats?.cpl },
-    { label: "Campaign", score: healthScoreComponents.campaign * 0.15, weight: 15 },
-    { label: "Creative", score: healthScoreComponents.creative * 0.10, weight: 10 },
+    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv },
+    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 20, value: mtdStats?.spend },
+    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql },
+    { label: "CPL", score: healthScoreComponents.cpl, weight: 10, value: mtdStats?.cpl },
+    { label: "Campaign", score: healthScoreComponents.campaign, weight: 15 },
+    { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
   ] : [
-    { label: "CPSV", score: healthScoreComponents.cpsv * 0.25, weight: 25, value: mtdStats?.cpsv },
-    { label: "Budget", score: healthScoreComponents.pacing_budget * 0.25, weight: 25, value: mtdStats?.spend },
-    { label: "CPQL", score: healthScoreComponents.cpql * 0.20, weight: 20, value: mtdStats?.cpql },
-    { label: "CPL", score: healthScoreComponents.cpl * 0.20, weight: 20, value: mtdStats?.cpl },
-    { label: "Creative", score: healthScoreComponents.creative * 0.10, weight: 10 },
+    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv },
+    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend },
+    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql },
+    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl },
+    { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
   ];
 
   // ─── 10. Missing Derived Variables ──────────────────────────────────
@@ -1619,8 +1619,7 @@ export default function DashboardPage() {
             <h3 className="t-label font-bold text-foreground uppercase tracking-wider mb-3">Health Score Breakdown (MTD Only)</h3>
             <div className={`grid gap-3 ${isGoogle ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {healthBreakdownItems.map((item) => {
-                const pct = item.weight > 0 ? (item.score / item.weight) * 100 : 0;
-                const normalized = Math.max(0, Math.min(pct, 100));
+                const normalized = Math.max(0, Math.min(item.score, 100));
 
                 let targetDisplay = null;
                 if (item.label === "CPSV") targetDisplay = formatINR(targetCpsvValue || 0, 0);
