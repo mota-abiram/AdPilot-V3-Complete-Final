@@ -98,6 +98,25 @@ export function getHealthBarBg(score: number): string {
 }
 
 /**
+ * Mojo AdCortex status (GREEN/YELLOW/RED based on 75/50 thresholds)
+ */
+export type MetricStatus = "GREEN" | "YELLOW" | "RED";
+
+export function getMetricStatus(score: number): MetricStatus {
+  if (score >= 75) return "GREEN";
+  if (score >= 50) return "YELLOW";
+  return "RED";
+}
+
+export function getMetricStatusColor(status: MetricStatus): { bg: string; text: string; border: string } {
+  switch (status) {
+    case "GREEN": return { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30" };
+    case "YELLOW": return { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" };
+    case "RED": return { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" };
+  }
+}
+
+/**
  * Layer badge colors
  */
 export function getLayerColor(layer: string): { bg: string; text: string } {

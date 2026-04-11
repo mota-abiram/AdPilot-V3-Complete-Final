@@ -101,6 +101,8 @@ import {
   getHealthBarBg,
   getLayerColor,
   getStatusColor,
+  getMetricStatus,
+  getMetricStatusColor,
   getCplColor,
   getClassificationColor,
   getCtrColor,
@@ -1031,18 +1033,18 @@ export default function DashboardPage() {
     : (thresholds?.cpc_target || benchmarks?.cpc_target || mp?.targets?.cpc || 50);
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 20, value: mtdStats?.spend },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 10, value: mtdStats?.cpl },
-    { label: "Campaign", score: healthScoreComponents.campaign, weight: 15 },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
+    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv) },
+    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 20, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget) },
+    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql) },
+    { label: "CPL", score: healthScoreComponents.cpl, weight: 10, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl) },
+    { label: "Campaign", score: healthScoreComponents.campaign, weight: 15, status: getMetricStatus(healthScoreComponents.campaign) },
+    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative) },
   ] : [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
+    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv) },
+    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget) },
+    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql) },
+    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl) },
+    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative) },
   ];
 
   // ─── 10. Missing Derived Variables ──────────────────────────────────
@@ -1608,9 +1610,17 @@ export default function DashboardPage() {
                   {accountHealthScore}
                 </span>
               </div>
-              <p className="mt-3 t-micro text-muted-foreground">
-                MTD-based static health analysis
-              </p>
+              {/* Override Rule Indicator */}
+              {healthBreakdownItems.some(item => item.status === "RED" && item.weight >= 15) && (
+                <p className="mt-3 t-micro text-amber-400 flex items-center gap-1">
+                  ⚠️ Override: High-weight metric below threshold caps status to YELLOW
+                </p>
+              )}
+              {!healthBreakdownItems.some(item => item.status === "RED" && item.weight >= 15) && (
+                <p className="mt-3 t-micro text-muted-foreground">
+                  MTD-based static health analysis
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1652,13 +1662,9 @@ export default function DashboardPage() {
                     </div>
                     <Badge
                       variant="secondary"
-                      className={`t-micro ${normalized >= 85 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                        normalized >= 70 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                          normalized >= 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
-                            "bg-red-500/10 text-red-400 border-red-500/20"
-                        }`}
+                      className={`t-micro border ${getMetricStatusColor(item.status).bg} ${getMetricStatusColor(item.status).text} ${getMetricStatusColor(item.status).border}`}
                     >
-                      {normalized >= 85 ? "Excellent" : normalized >= 70 ? "Good" : normalized >= 40 ? "Watch" : "Poor"}
+                      {item.status}
                     </Badge>
                   </div>
                 );
