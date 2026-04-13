@@ -39,3 +39,19 @@ process.once("SIGTERM", () => pool.end());
 process.once("SIGINT", () => pool.end());
 
 export const db = drizzle(pool, { schema });
+
+export async function runMigrations() {
+  if (!process.env.DATABASE_URL) return;
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_by text;
+    `);
+    console.log("[DB] Migrations applied");
+  } catch (err) {
+    console.error("[DB] Migration failed:", err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}

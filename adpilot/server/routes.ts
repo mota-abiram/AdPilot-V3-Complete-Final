@@ -62,7 +62,7 @@ import {
 } from "./creative-hub";
 import { generateBiddingRecommendations } from "./bidding-intelligence";
 import { storage } from "./storage";
-import { requireAdmin } from "./auth";
+import { requireAdmin, getUserById } from "./auth";
 import { insightsEngine } from "./intelligence-engine";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
@@ -94,6 +94,7 @@ interface ClientConfig {
   platforms: Record<string, PlatformConfig>;
   targets?: Record<string, ClientTargets>;
   createdAt?: string;
+  createdBy?: string | null;
 }
 
 // Per-client API credentials stored separately (never sent to the frontend)
@@ -403,7 +404,51 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
     raw = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
   }
 
-  // 3. Normalize Google data into canonical shape
+  // 3. Load Benchmarks for health score calculation
+  let benchmarksData: any = null;
+  try {
+    // Try multiple paths for benchmarks
+    let bmPath = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
+    if (!fs.existsSync(bmPath)) {
+      // Try platform-specific benchmarks
+      bmPath = path.join(DATA_BASE, "clients", clientId, `benchmarks_${platform}.json`);
+    }
+    if (!fs.existsSync(bmPath)) {
+      // Try BENCHMARKS_BASE directory
+      bmPath = path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
+    }
+    if (!fs.existsSync(bmPath)) {
+      // Final fallback to generic benchmarks.json in BENCHMARKS_BASE
+      bmPath = path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
+    }
+
+    if (fs.existsSync(bmPath)) {
+      benchmarksData = JSON.parse(fs.readFileSync(bmPath, "utf-8"));
+    }
+  } catch (e) {
+    // Silently fail if benchmarks don't exist
+    console.warn(`[readAnalysisData] Failed to load benchmarks for ${clientId}/${platform}:`, e);
+  }
+
+  // 4. Attach Benchmarks to raw data before normalization
+  if (benchmarksData) {
+    raw.sop_benchmarks = benchmarksData;
+  }
+
+  // 4b. Load and attach MTD Deliverables (svs_achieved, positive_leads_achieved) for CPSV/CPQL scoring
+  try {
+    let mtdPath = path.join(DATA_BASE, "clients", clientId, `mtd_deliverables_${platform}.json`);
+    if (!fs.existsSync(mtdPath) && platform === "meta") {
+      mtdPath = path.join(DATA_BASE, "clients", clientId, "mtd_deliverables.json");
+    }
+    if (fs.existsSync(mtdPath)) {
+      raw.mtd_deliverables = JSON.parse(fs.readFileSync(mtdPath, "utf-8"));
+    }
+  } catch (e) {
+    // Silently fail
+  }
+
+  // 5. Normalize Google data into canonical shape
   const data = platform === "google"
     ? normalizeGoogleAnalysis(raw)
     : normalizeMetaAnalysis(raw);
@@ -491,15 +536,21 @@ export async function registerRoutes(
 
   // ─── Client Registry Endpoints ─────────────────────────────────
   
-  app.get("/api/clients", requireAdmin, async (_req, res) => {
-    const registry = await loadRegistry();
-    // Collect all platforms across all clients to check DB presence efficiently
+  app.get("/api/clients", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) return res.status(401).json({ error: "Auth required" });
+
+    let registry = await loadRegistry();
+    
+    // Filter for members
+    if (user.role === "member") {
+      registry = registry.filter(c => c.createdBy === user.id);
+    }
+
+    // Collect all platforms across the filtered clients to check DB presence
     const platformStatusPromises = registry.flatMap(c => 
       Object.keys(c.platforms).map(async (platformId) => {
-        // 1. Filesystem check
         const fileExists = fs.existsSync(resolvePlatformDataPath(c.id, platformId, (c.platforms as any)[platformId]));
-        
-        // 2. DB check (if available)
         let dbExists = false;
         if (process.env.DATABASE_URL) {
           try {
@@ -516,7 +567,6 @@ export async function registerRoutes(
             console.error(`[hasData Check] Failed for ${c.id}/${platformId}:`, e);
           }
         }
-        
         return { clientId: c.id, platformId, hasData: fileExists || dbExists };
       })
     );
@@ -539,17 +589,24 @@ export async function registerRoutes(
         hasData: statusMap.get(`${c.id}:${key}`) ?? false,
       })),
       targets: c.targets || {},
+      createdBy: c.createdBy,
     }));
     res.json(clients);
   });
 
   // Get single client details
-  app.get("/api/clients/:clientId", requireAdmin, async (req, res) => {
-    const registry = await loadRegistry();
-    const client = registry.find((c) => c.id === req.params.clientId);
-    if (!client) {
-      return res.status(404).json({ error: "Client not found" });
+  app.get("/api/clients/:clientId", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) return res.status(401).json({ error: "Auth required" });
+
+    const client = await storage.getClient(req.params.clientId as string);
+    if (!client) return res.status(404).json({ error: "Client not found" });
+
+    // Access check: Admin can see everything, members only see their own
+    if (user.role === "member" && client.createdBy !== user.id) {
+      return res.status(403).json({ error: "Forbidden: You do not own this client" });
     }
+
     res.json({
       id: client.id,
       name: client.name,
@@ -557,7 +614,7 @@ export async function registerRoutes(
       project: client.project,
       location: client.location,
       targetLocations: client.targetLocations || [],
-      platforms: Object.entries(client.platforms).map(([key, p]) => ({
+      platforms: Object.entries(client.platforms as any).map(([key, p]: [string, any]) => ({
         id: key,
         label: p.label,
         enabled: p.enabled,
@@ -575,7 +632,10 @@ export async function registerRoutes(
   }
 
   // POST /api/clients — create a new client
-  app.post("/api/clients", requireAdmin, async (req, res) => {
+  app.post("/api/clients", async (req, res) => {
+    const userId = req.session.authUserId;
+    if (!userId) return res.status(401).json({ error: "Auth required" });
+
     const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Client name is required" });
@@ -608,6 +668,7 @@ export async function registerRoutes(
       },
       targets: {},
       createdAt: new Date().toISOString(),
+      createdBy: userId,
     };
     try {
       // Ensure data directories exist
@@ -615,7 +676,7 @@ export async function registerRoutes(
       fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/google`), { recursive: true });
 
       const insertPayload = { ...newClient };
-      delete insertPayload.createdAt; // let DB use defaultNow()
+      delete (insertPayload as any).createdAt; // let DB use defaultNow()
       await storage.createClient(insertPayload);
       res.status(201).json({ id, name: newClient.name, shortName: newClient.shortName });
     } catch (err: any) {
@@ -625,9 +686,18 @@ export async function registerRoutes(
   });
 
   // PUT /api/clients/:clientId — update name, location, targets, platform enable/disable
-  app.put("/api/clients/:clientId", requireAdmin, async (req, res) => {
+  app.put("/api/clients/:clientId", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) return res.status(401).json({ error: "Auth required" });
+
     const existing = await storage.getClient(req.params.clientId as string);
     if (!existing) return res.status(404).json({ error: "Client not found" });
+
+    // Ownership check
+    if (user.role === "member" && existing.createdBy !== user.id) {
+      return res.status(403).json({ error: "Forbidden: You do not own this client" });
+    }
+
     const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle, targets } = req.body;
     
     const updatedClient = {
@@ -652,20 +722,37 @@ export async function registerRoutes(
   });
 
   // DELETE /api/clients/:clientId — remove from registry (data files preserved)
-  app.delete("/api/clients/:clientId", requireAdmin, async (req, res) => {
+  app.delete("/api/clients/:clientId", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) return res.status(401).json({ error: "Auth required" });
+
     const { clientId } = req.params as Record<string, string>;
     const existing = await storage.getClient(clientId);
     if (!existing) return res.status(404).json({ error: "Client not found" });
-    
+
+    // Ownership check
+    if (user.role === "member" && existing.createdBy !== user.id) {
+      return res.status(403).json({ error: "Forbidden: You do not own this client" });
+    }
+
     await storage.deleteClient(clientId);
     await storage.deleteCredentials(clientId);
     res.json({ success: true });
   });
 
   // GET /api/clients/:clientId/credentials — return masked credentials (for display)
-  app.get("/api/clients/:clientId/credentials", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/credentials", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) return res.status(401).json({ error: "Auth required" });
+
     const client = await storage.getClient(req.params.clientId as string);
     if (!client) return res.status(404).json({ error: "Client not found" });
+
+    // Access check
+    if (user.role === "member" && client.createdBy !== user.id) {
+      return res.status(403).json({ error: "Forbidden: You do not own this client" });
+    }
+
     const credsStore = await loadCredentials();
     const c = credsStore[req.params.clientId as string];
     const clientMeta = getValidMetaCreds(c);
@@ -693,13 +780,22 @@ export async function registerRoutes(
   });
 
   // PUT /api/clients/:clientId/credentials — save/update credentials
-  app.put("/api/clients/:clientId/credentials", requireAdmin, async (req, res) => {
+  app.put("/api/clients/:clientId/credentials", async (req, res) => {
     try {
+      const user = await getUserById(req.session.authUserId);
+      if (!user) return res.status(401).json({ error: "Auth required" });
+
       const { clientId } = req.params as Record<string, string>;
       const client = await storage.getClient(clientId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
+
+      // Access check
+      if (user.role === "member" && client.createdBy !== user.id) {
+        return res.status(403).json({ error: "Forbidden: You do not own this client" });
+      }
+
       const { meta, google } = req.body;
       const credsStore = await loadCredentials();
       const existing = credsStore[clientId] || { clientId, updatedAt: "" };
@@ -2787,12 +2883,30 @@ export async function registerRoutes(
 
   // ─── Scheduler Endpoints ──────────────────────────────────────────
 
-  app.get("/api/scheduler/status", requireAdmin, (_req, res) => {
+  app.get("/api/scheduler/status", (_req, res) => {
     res.json(getSchedulerStatus());
   });
 
-  app.post("/api/scheduler/run-now", requireAdmin, (_req, res) => {
-    triggerManualRun();
+  app.post("/api/scheduler/run-now", async (req, res) => {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) return res.status(401).json({ error: "Auth required" });
+
+    if (user.role === "admin") {
+      // Admin runs agent for all clients
+      triggerManualRun();
+    } else {
+      // Member runs agent only for their own clients
+      const registry = await loadRegistry();
+      const ownedClientIds = registry
+        .filter((c) => c.createdBy === user.id)
+        .map((c) => c.id);
+
+      if (ownedClientIds.length === 0) {
+        return res.status(400).json({ error: "You have no clients to sync" });
+      }
+      triggerManualRun(ownedClientIds);
+    }
+
     res.json({ success: true, message: "Agent run triggered" });
   });
 
@@ -3003,14 +3117,24 @@ export async function registerRoutes(
   app.get("/api/intelligence/:clientId/:platform/insights", requireAdmin, async (req, res) => {
     try {
       const { clientId, platform } = req.params as Record<string, string>;
-      const { type = "recommendation" } = req.query as Record<string, string>;
+      const { type = "recommendation", alert_problem, alert_metric, alert_metrics } = req.query as Record<string, string>;
 
-      console.log(`[API] Unified Intelligence Request: client=${clientId} platform=${platform} type=${type}`);
+      // Build alertContext when the request comes from a specific alert modal
+      const alertContext = alert_problem
+        ? {
+            problem: alert_problem,
+            metric: alert_metric,
+            metrics: alert_metrics ? JSON.parse(alert_metrics) : undefined,
+          }
+        : undefined;
+
+      console.log(`[API] Unified Intelligence Request: client=${clientId} platform=${platform} type=${type}${alertContext ? ` alert="${alert_problem?.substring(0, 60)}"` : ""}`);
 
       const result = await insightsEngine({
         clientId,
         platform: platform as any,
         type: type as any,
+        alertContext,
       });
 
       res.json(result);

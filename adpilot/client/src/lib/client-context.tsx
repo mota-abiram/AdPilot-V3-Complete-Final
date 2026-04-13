@@ -136,6 +136,7 @@ export interface ClientInfo {
     svs: { low: number; high: number };
     cpsv: { low: number; high: number };
   }>;
+  createdBy?: string;
 }
 
 // Canonical query key for benchmarks — use this everywhere for consistent invalidation
@@ -164,6 +165,9 @@ interface ClientContextValue {
   analysisData: AnalysisData | undefined;
   isLoadingAnalysis: boolean;
   analysisError: Error | null;
+  // MTD-fixed analysis — always cadence=monthly, never changes on cadence switch
+  // Use this for Account Health and Health Score Breakdown
+  mtdAnalysisData: AnalysisData | undefined;
   syncState: PlatformSyncState | undefined;
   isLoadingSyncState: boolean;
 
@@ -266,6 +270,27 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     return recalcMetricsFromDailyArrays(rawAnalysisData, activeCadence) as AnalysisData;
   }, [rawAnalysisData, activeCadence]);
 
+  // ── MTD-fixed analysis — always fetches cadence=monthly, ignores activeCadence ──
+  // Used exclusively for Account Health and Health Score Breakdown sections so those
+  // KPIs remain stable regardless of the cadence window the user has selected.
+  const {
+    data: rawMtdAnalysisData,
+  } = useQuery<AnalysisData>({
+    queryKey: [apiBase, "analysis", "monthly", "mtd-fixed"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `${apiBase}/analysis?cadence=monthly`);
+      return res.json();
+    },
+    enabled: !!activePlatformInfo?.enabled && !!activePlatformInfo?.hasData,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const mtdAnalysisData = useMemo(() => {
+    if (!rawMtdAnalysisData) return undefined;
+    return recalcMetricsFromDailyArrays(rawMtdAnalysisData, "monthly") as AnalysisData;
+  }, [rawMtdAnalysisData]);
+
   // When switching clients, auto-select the first enabled platform
   const handleSetActiveClient = useCallback((id: string) => {
     setActiveClientId(id);
@@ -313,6 +338,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         analysisData,
         isLoadingAnalysis,
         analysisError: analysisError as Error | null,
+        mtdAnalysisData,
         syncState,
         isLoadingSyncState,
         benchmarks,

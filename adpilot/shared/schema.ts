@@ -25,6 +25,7 @@ export const clients = pgTable("clients", {
   targets: jsonb("targets").default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: text("created_by"),
 });
 
 export const clientCredentials = pgTable("client_credentials", {

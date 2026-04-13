@@ -722,27 +722,34 @@ export default function CampaignsPage() {
 
       {/* ─── Unified Pipeline Alerts ──────────────────────────────────── */}
       {alerts.length > 0 && (
-        <Card className="border-red-500/30 bg-red-500/5" data-testid="card-alerts-banner">
-          <CardContent className="card-content-premium space-y-2">
-            <p className="t-label font-semibold text-red-400 flex items-center gap-1.5 uppercase tracking-widest text-[10px]">
-              <AlertTriangle className="w-4 h-4" />
-              {alerts.length} Intelligence Pipeline Alert{alerts.length !== 1 ? "s" : ""}
-            </p>
-            <div className="space-y-1.5">
-              {alerts.map((alert: any, idx: number) => (
-                <div key={idx} className="flex items-start gap-2 t-caption">
-                  <span className={cn("mt-0.5 shrink-0 px-1 py-0 rounded text-[9px] font-black", alert.priority === "CRITICAL" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400")}>
-                    {alert.priority}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-red-300 font-bold">{alert.issue}</p>
-                    <p className="text-red-400/80 text-[10px]">{alert.impact} → <span className="text-primary font-bold">{alert.recommendation}</span></p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3" data-testid="card-alerts-banner">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
+              {alerts.length} Pipeline Alert{alerts.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {alerts.map((alert: any, idx: number) => (
+              <div key={idx} className="flex items-baseline gap-2">
+                <span className={cn(
+                  "shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide",
+                  alert.priority === "CRITICAL"
+                    ? "bg-red-500/15 text-red-400 border border-red-500/20"
+                    : "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                )}>
+                  {alert.priority}
+                </span>
+                <span className="text-[12px] text-foreground/90 leading-snug">
+                  {alert.issue}
+                  {alert.recommendation && (
+                    <span className="text-muted-foreground ml-1">— {alert.recommendation}</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between gap-4 flex-wrap">

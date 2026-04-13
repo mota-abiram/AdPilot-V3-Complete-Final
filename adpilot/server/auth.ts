@@ -223,7 +223,7 @@ async function ensureBootstrapUser() {
   }
 }
 
-async function getUserById(id?: string): Promise<User | undefined> {
+export async function getUserById(id?: string): Promise<User | undefined> {
   if (!id) return undefined;
   try {
     return await selectUserByIdFromDb(id);

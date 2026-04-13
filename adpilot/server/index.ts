@@ -5,6 +5,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initScheduler } from "./scheduler";
 import { setupAuth, protectApiRoutes } from "./auth";
+import { runMigrations } from "./db";
 import path from "path";
 import fs from "fs";
 
@@ -102,6 +103,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await runMigrations();
   await setupAuth(app);
   app.use(protectApiRoutes);
   await registerRoutes(httpServer, app);

@@ -105,25 +105,132 @@ export function scoreLinear(actual: number, target: number, weight: number, lowe
 
 /**
  * Google Impression Share Scorer
+ *
+ * Tier grading (same for all campaign types, target varies):
+ *   IS ≥ target        → 100% of pts
+ *   IS ≥ 70% of target → 75% of pts
+ *   IS ≥ 50% of target → 40% of pts
+ *   IS < 50% of target → 10% of pts
+ *
+ * Default IS targets by campaign type (pass via targetIS):
+ *   Branded: 80 | Location/Theme: 40
  */
 export function scoreImpressionShare(actualIS: number, targetIS: number): number {
   if (targetIS <= 0) return 50;
-  const ratio = actualIS / targetIS;
-  if (ratio >= 1.0) return 100;
-  if (ratio >= 0.7) return 75 + ((ratio - 0.7) / (1.0 - 0.7)) * 25;
-  if (ratio >= 0.5) return 40 + ((ratio - 0.5) / (0.7 - 0.5)) * 35;
-  return Math.max(10, 10 + (ratio / 0.5) * 30);
+  if (actualIS >= targetIS) return 100;
+  if (actualIS >= targetIS * 0.7) return 75;
+  if (actualIS >= targetIS * 0.5) return 40;
+  return 10;
+}
+
+// ─── Ad Strength / Rating helpers ───────────────────────────────────
+
+/** Map ad_strength string → 0-100 score: EXCELLENT=100, GOOD=70, POOR=30, PENDING=50 */
+export function scoreAdStrength(strength: string): number {
+  const map: Record<string, number> = { EXCELLENT: 100, GOOD: 70, PENDING: 50, POOR: 30 };
+  return map[(strength || "").toUpperCase()] ?? 50;
+}
+
+/** Map expected_ctr rating → 0-100 score: ABOVE_AVERAGE=100, AVERAGE=60, BELOW_AVERAGE=20 */
+export function scoreExpectedCtr(rating: string): number {
+  const map: Record<string, number> = { ABOVE_AVERAGE: 100, AVERAGE: 60, BELOW_AVERAGE: 20 };
+  return map[(rating || "").toUpperCase().replace(/ /g, "_")] ?? 50;
+}
+
+/** Map QS component rating (ABOVE_AVERAGE / AVERAGE / BELOW_AVERAGE) → 0-100 */
+export function scoreQsComponent(rating: string): number {
+  return scoreExpectedCtr(rating); // same scale
+}
+
+// ─── Campaign-Level Scoring ──────────────────────────────────────────
+
+/**
+ * Meta Campaign Health Weights:
+ * CPL vs target: 35 | Frequency: 15 | CPM: 15 | CTR: 10 | Lead Volume: 10 | Budget Utilization: 10 | CVR: 5
+ */
+export function calculateMetaCampaignHealth(data: {
+  cpl: number;
+  frequency: number;
+  cpm: number;
+  ctr: number;
+  leads: number;
+  budget_utilization_pct: number; // 0-100, ideal ≈ 90-110%
+  cvr: number;
+}, targets: {
+  cpl: number;
+  cpm_max: number;
+  ctr_min: number;
+  frequency_max: number;
+  lead_volume_target: number;
+}): { score: number; breakdown: Record<string, number> } {
+  const leadVolumeScore = targets.lead_volume_target > 0
+    ? Math.min(100, (data.leads / targets.lead_volume_target) * 100)
+    : 50;
+  const budgetUtilDev = Math.abs(data.budget_utilization_pct / 100 - 1);
+  const budgetUtilScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - budgetUtilDev * 2))));
+
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targets.cpl, 35, true),
+    frequency: scoreLinear(data.frequency, targets.frequency_max, 15, true),
+    cpm: scoreLinear(data.cpm, targets.cpm_max, 15, true),
+    ctr: scoreLinear(data.ctr, targets.ctr_min, 10, false),
+    lead_volume: (leadVolumeScore / 100) * 10,
+    budget_utilization: (budgetUtilScore / 100) * 10,
+    cvr: scoreLinear(data.cvr, 3.0, 5, false),
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Search Campaign Health Weights:
- * CPL vs target → 30
- * CVR → 22
- * CPC vs target → 15
- * QS avg → 13
- * CTR → 10
- * IS → 5
- * RSA → 5
+ * Meta Video Ad Health Weights:
+ * CPL 35 | CPM 20 | TSR 15 | VHR 15 | CTR 15
+ */
+export function calculateMetaVideoAdHealth(data: {
+  cpl: number;
+  cpm: number;
+  tsr: number;
+  vhr: number;
+  ctr: number;
+}, targets: { cpl: number; cpm_max: number; tsr_min: number; vhr_min: number; ctr_min: number }): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targets.cpl, 35, true),
+    cpm: scoreLinear(data.cpm, targets.cpm_max, 20, true),
+    tsr: scoreLinear(data.tsr, targets.tsr_min, 15, false),
+    vhr: scoreLinear(data.vhr, targets.vhr_min, 15, false),
+    ctr: scoreLinear(data.ctr, targets.ctr_min, 15, false),
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
+
+/**
+ * Meta Static Ad Health Weights:
+ * CPL 45 | CPM 25 | CTR 20 | CPC 10
+ */
+export function calculateDGStaticAdHealth(data: {
+  cpl: number;
+  cpm: number;
+  ctr: number;
+  cpc: number;
+}, targetCpl: number, targetCpc: number): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    cpl: scoreLinear(data.cpl, targetCpl, 45, true),
+    cpm: scoreLinear(data.cpm, 200, 25, true),
+    ctr: scoreLinear(data.ctr, 0.8, 20, false),
+    cpc: scoreLinear(data.cpc, targetCpc, 10, true),
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
+
+/**
+ * Google Search Campaign Health Weights:
+ * CPL vs target: 25 | CVR: 22 | CPC vs target: 20 | QS avg: 13 | CTR: 10 | IS: 10
+ *
+ * IS grading by campaign type:
+ *   Branded:        target 80% — 100/75/40/10 pts at ≥target/70%/50%/<50%
+ *   Location/Theme: target 40% — same tier multipliers
  */
 export function calculateSearchCampaignHealth(data: {
   cpl: number;
@@ -132,54 +239,57 @@ export function calculateSearchCampaignHealth(data: {
   qs_avg: number;
   ctr: number;
   is: number;
-  rsa_count: number;
+  campaign_type?: string; // "branded" | "location" | other
 }, targets: {
   cpl: number;
   cpc: number;
-  is_target: number;
+  is_target?: number; // override; derived from campaign_type if omitted
 }): { score: number; breakdown: Record<string, number> } {
+  const campaignType = (data.campaign_type || "").toLowerCase();
+  const isTarget = targets.is_target ?? (campaignType === "branded" ? 80 : 40);
+  const isScore = scoreImpressionShare(data.is, isTarget);
+
   const breakdown: Record<string, number> = {
-    cpl: scoreLinear(data.cpl, targets.cpl, 30, true),
+    cpl: scoreLinear(data.cpl, targets.cpl, 25, true),
     cvr: scoreLinear(data.cvr, 5.0, 22, false),
-    cpc: scoreLinear(data.cpc, targets.cpc, 15, true),
+    cpc: scoreLinear(data.cpc, targets.cpc, 20, true),
     qs: (data.qs_avg / 10) * 13,
     ctr: scoreLinear(data.ctr, 2.0, 10, false),
-    is: (scoreImpressionShare(data.is, targets.is_target) / 100) * 5,
-    rsa: Math.min(1, data.rsa_count / 3) * 5
+    is: (isScore / 100) * 10,
   };
-
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Demand Gen Campaign Weights:
- * CPL 30, CPM 20, CVR 15, CTR 15, TSR 10, Frequency 10
+ * Google Demand Gen Campaign Weights:
+ * CPL 25 | CPM 20 | CVR 15 | CTR 15 | VVR P25 (TSR proxy) 7.5 | Frequency 10 | VVR P50 (VHR proxy) 7.5
  */
 export function calculateDGHealth(data: {
   cpl: number;
   cpm: number;
   cvr: number;
   ctr: number;
-  tsr: number;
+  tsr: number;   // Video View Rate P25 proxy
+  vhr: number;   // Video View Rate P50 proxy
   frequency: number;
 }, targetCpl: number): { score: number; breakdown: Record<string, number> } {
   const breakdown: Record<string, number> = {
-    cpl: scoreLinear(data.cpl, targetCpl, 30, true),
-    cpm: scoreLinear(data.cpm, 120, 20, true),
+    cpl: scoreLinear(data.cpl, targetCpl, 25, true),
+    cpm: scoreLinear(data.cpm, 200, 20, true),
     cvr: scoreLinear(data.cvr, 3.0, 15, false),
     ctr: scoreLinear(data.ctr, 0.8, 15, false),
-    tsr: scoreLinear(data.tsr, 3.5, 10, false),
-    frequency: scoreLinear(data.frequency, 4.0, 10, true)
+    vvr_p25: scoreLinear(data.tsr, 3.5, 7.5, false),
+    frequency: scoreLinear(data.frequency, 2.0, 10, true),
+    vvr_p50: scoreLinear(data.vhr, 1.5, 7.5, false),
   };
-
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Search Ad Group Health Weights:
- * CPL 30, CVR 25, CTR 15, QS 15, IS 10, CPC 5
+ * Google Search Ad Group Health Weights:
+ * CPL 30 | CVR 25 | CTR 15 | QS avg 15 | IS 10 | CPC 5
  */
 export function calculateSearchAdGroupHealth(data: {
   cpl: number;
@@ -199,37 +309,40 @@ export function calculateSearchAdGroupHealth(data: {
     ctr: scoreLinear(data.ctr, 2.0, 15, false),
     qs: (data.qs_avg / 10) * 15,
     is: (scoreImpressionShare(data.is, targets.is_target) / 100) * 10,
-    cpc: scoreLinear(data.cpc, targets.cpc, 5, true)
+    cpc: scoreLinear(data.cpc, targets.cpc, 5, true),
   };
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Search Ad Health Weights:
- * CPL 35, CTR 25, CVR 20, Ad Strength 10, Expected CTR 10
+ * Google RSA (Search Ad) Health Weights:
+ * CPL 35 | CTR 25 | CVR 20 | Ad Strength 10 | Expected CTR 10
+ *
+ * Ad Strength: EXCELLENT=100, GOOD=70, PENDING=50, POOR=30
+ * Expected CTR: ABOVE_AVERAGE=100, AVERAGE=60, BELOW_AVERAGE=20
  */
 export function calculateSearchAdHealth(data: {
   cpl: number;
   ctr: number;
   cvr: number;
-  adStrengthScore: number; // 0 to 10
-  expectedCtrScore: number; // 0 to 10
+  adStrength: string;       // "EXCELLENT" | "GOOD" | "PENDING" | "POOR"
+  expectedCtrRating: string; // "ABOVE_AVERAGE" | "AVERAGE" | "BELOW_AVERAGE"
 }, targetCpl: number): { score: number; breakdown: Record<string, number> } {
   const breakdown: Record<string, number> = {
     cpl: scoreLinear(data.cpl, targetCpl, 35, true),
     ctr: scoreLinear(data.ctr, 2.0, 25, false),
     cvr: scoreLinear(data.cvr, 5.0, 20, false),
-    adStrength: data.adStrengthScore,
-    expectedCtr: data.expectedCtrScore,
+    ad_strength: (scoreAdStrength(data.adStrength) / 100) * 10,
+    expected_ctr: (scoreExpectedCtr(data.expectedCtrRating) / 100) * 10,
   };
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Demand Gen Ad (Video) Health Weights:
- * CPL 35, CPM 20, CTR 15, TSR 15, VHR 15
+ * Google Demand Gen Video Ad Health Weights:
+ * CPL 35 | CPM 20 | CTR 15 | TSR (P25/Impressions) 15 | VHR (P50/Impressions) 15
  */
 export function calculateDGVideoAdHealth(data: {
   cpl: number;
@@ -240,20 +353,20 @@ export function calculateDGVideoAdHealth(data: {
 }, targetCpl: number): { score: number; breakdown: Record<string, number> } {
   const breakdown: Record<string, number> = {
     cpl: scoreLinear(data.cpl, targetCpl, 35, true),
-    cpm: scoreLinear(data.cpm, 120, 20, true),
+    cpm: scoreLinear(data.cpm, 200, 20, true),
     ctr: scoreLinear(data.ctr, 0.8, 15, false),
     tsr: scoreLinear(data.tsr, 3.5, 15, false),
-    vhr: scoreLinear(data.vhr, 1.0, 15, false), // Example target VHR
+    vhr: scoreLinear(data.vhr, 1.5, 15, false),
   };
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };
 }
 
 /**
- * Demand Gen Ad (Static) Health Weights:
- * CPL 45, CPM 25, CTR 20, CPC 10
+ * Google DG Static Ad Health Weights:
+ * CPL 45 | CPM 25 | CTR 20 | CPC 10
  */
-export function calculateDGStaticAdHealth(data: {
+export function calculateDGStaticVideoAdHealth(data: {
   cpl: number;
   cpm: number;
   ctr: number;
@@ -261,9 +374,29 @@ export function calculateDGStaticAdHealth(data: {
 }, targetCpl: number, targetCpc: number): { score: number; breakdown: Record<string, number> } {
   const breakdown: Record<string, number> = {
     cpl: scoreLinear(data.cpl, targetCpl, 45, true),
-    cpm: scoreLinear(data.cpm, 120, 25, true),
+    cpm: scoreLinear(data.cpm, 200, 25, true),
     ctr: scoreLinear(data.ctr, 0.8, 20, false),
-    cpc: scoreLinear(data.cpc, targetCpc, 10, true), 
+    cpc: scoreLinear(data.cpc, targetCpc, 10, true),
+  };
+  const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
+  return { score: Math.round(total * 10) / 10, breakdown };
+}
+
+/**
+ * Quality Score Page — Component Weighting:
+ * Landing Page Experience: 35 | Expected CTR: 35 | Ad Relevance: 30
+ *
+ * Each component uses rating string → 0-100 score (ABOVE_AVERAGE=100, AVERAGE=60, BELOW_AVERAGE=20)
+ */
+export function calculateKeywordQualityScore(data: {
+  landing_page_experience: string; // "ABOVE_AVERAGE" | "AVERAGE" | "BELOW_AVERAGE"
+  expected_ctr: string;
+  ad_relevance: string;
+}): { score: number; breakdown: Record<string, number> } {
+  const breakdown: Record<string, number> = {
+    landing_page: (scoreQsComponent(data.landing_page_experience) / 100) * 35,
+    expected_ctr: (scoreQsComponent(data.expected_ctr) / 100) * 35,
+    ad_relevance: (scoreQsComponent(data.ad_relevance) / 100) * 30,
   };
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };

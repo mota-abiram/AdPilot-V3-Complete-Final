@@ -37,21 +37,31 @@ function recomputeHealthScore(data: any): {
 } {
   const ap = data.account_pulse || {};
   const mp = data.monthly_pacing || {};
-  const thresholds = data.dynamic_thresholds || data.sop_benchmarks || {};
-  const targets = mp.targets || {};
-
-  // Cadence-window totals (recalculated from daily arrays)
-  const dailySpends: number[] = ap.daily_spends || [];
-  const dailyLeads: number[] = ap.daily_leads || [];
-  const totalSpend = dailySpends.reduce((s: number, v: number) => s + v, 0);
-  const totalLeads = dailyLeads.reduce((s: number, v: number) => s + v, 0);
-  const windowCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+  const benchmarks = data.sop_benchmarks || data.dynamic_thresholds || data.sop_benchmarks_fallback || {};
 
   const weights: Record<string, number> = { cpsv: 25, budget: 25, cpql: 20, cpl: 20, creative: 10 };
 
+  // MTD deliverables (manually entered SVS, qualified leads)
+  const mtdDeliverables = data.mtd_deliverables || {};
+
+  // ── MTD-only actuals (never fall back to 30-day rolling data) ──────
+  // Source priority: monthly_pacing.mtd (agent MTD) → mtd_pacing (alt field)
+  const actualSpendMtd = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? 0;
+  const actualLeadsMtd = mp.mtd?.leads ?? ap.mtd_pacing?.leads_mtd ?? 0;
+  // Qualified leads from MTD deliverables (manually entered) — not in API
+  const actualQLeadsMtd = mtdDeliverables.positive_leads_achieved ?? mp.mtd?.qualified_leads ?? 0;
+  // SVS from MTD deliverables (manually entered) — not in API
+  const actualSvsMtd = mtdDeliverables.svs_achieved ?? mp.mtd?.svs ?? 0;
+
+  const existingBreakdown = data.account_health_breakdown || {};
+
   // ─── CPL Score (Lower is better) ───
-  const cplTarget = thresholds.cpl_target || targets.cpl || 850;
-  const cplScore = scoreLowerIsBetter(windowCpl, cplTarget, 1.5);
+  // benchmarks.cpl = "CPL Target" field in Benchmarks tab
+  const cplTarget = benchmarks.cpl || 800;
+  const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
+  const cplScore = actualLeadsMtd > 0
+    ? scoreLowerIsBetter(actualCplMtd, cplTarget, 1.5)
+    : 50;
 
   // ─── Budget/Pacing Score (Custom formula) ───
   // Pacing deviation from 100%: perfect = 100%, penalize overspend/underspend
@@ -61,18 +71,21 @@ function recomputeHealthScore(data: any): {
   const budgetScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - pacingDev * 2))) * 10) / 10;
 
   // ─── CPQL Score (Lower is better) ───
-  // Use existing breakdown if cadence-specific data unavailable
-  const existingBreakdown = data.account_health_breakdown || {};
-  const cpqlTarget = targets.cpql || thresholds.cpql_target || 1500;
-  const cpqlScore = existingBreakdown.cpql
-    ? existingBreakdown.cpql // Already 0-100 from previous run
-    : scoreLowerIsBetter(0, cpqlTarget, 1.5); // Fallback if no data
+  // benchmarks.cpql_target = "CPQL Target" field in Benchmarks tab
+  const cpqlTarget = benchmarks.cpql_target || 1500;
+  const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
+  const cpqlScore = actualQLeadsMtd > 0
+    ? scoreLowerIsBetter(actualCpqlMtd, cpqlTarget, 1.5)
+    : 50; // Neutral when no qualified leads entered
 
   // ─── CPSV Score (Lower is better) ───
-  const cpsvTarget = targets.cpsv || thresholds.cpsv_target || 20000;
-  const cpsvScore = existingBreakdown.cpsv
-    ? existingBreakdown.cpsv
-    : scoreLowerIsBetter(0, cpsvTarget, 1.5);
+  // benchmarks.cpsv_low = "CPSV Target Low" field in Benchmarks tab
+  // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
+  const cpsvTarget = benchmarks.cpsv_low || 0;
+  const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
+  const cpsvScore = (actualSvsMtd > 0 && cpsvTarget > 0)
+    ? scoreLowerIsBetter(actualCpsvMtd, cpsvTarget, 1.5)
+    : 50; // Neutral when no SVS data entered
 
   // ─── Creative Score (Higher is better) ───
   const creativeHealth: any[] = data.creative_health || [];

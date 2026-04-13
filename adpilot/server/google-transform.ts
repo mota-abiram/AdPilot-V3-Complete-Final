@@ -9,6 +9,104 @@
 // ─── Campaign Normalization ─────────────────────────────────────────
 
 import { getClassification } from "../shared/classification";
+import { scoreLowerIsBetter } from "../shared/scoring";
+
+function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
+  let total = 0;
+  for (const k in scores) {
+    total += (scores[k] * (weights[k] || 0)) / 100;
+  }
+  return Math.round(Math.max(0, Math.min(100, total)) * 10) / 10;
+}
+
+/**
+ * Recomputes Google account health score using:
+ * - Targets from benchmarks tab (google_cpl, google_cpsv_low, google_cpql_target, etc.)
+ * - Current values from API MTD data (mtd_pacing)
+ *
+ * Weights: CPSV 25 · Budget 20 · CPQL 20 · CPL 10 · Campaign 15 · Creative 10
+ */
+function recomputeGoogleHealthScore(data: any): {
+  score: number;
+  breakdown: Record<string, number>;
+  classification: string;
+} {
+  const ap = data.account_pulse || {};
+  const rawMtd = ap.mtd_pacing || {};                 // raw agent MTD pacing
+  const mp = data.monthly_pacing || {};               // normalized monthly_pacing (has mp.mtd, mp.pacing)
+  const benchmarks = data.sop_benchmarks || {};
+  const existingBreakdown = data.account_health_breakdown || {};
+  // MTD deliverables (manually entered SVS, qualified leads) — same as Meta
+  const mtdDeliverables = data.mtd_deliverables || {};
+
+  const weights: Record<string, number> = { cpsv: 25, budget: 20, cpql: 20, cpl: 10, campaign: 15, creative: 10 };
+
+  // ── MTD-only actuals — strictly MTD, no cadence-window or 30-day data ──
+  // Priority: normalized mp.mtd (from normalizeMonthlyPacing) → raw mtd_pacing
+  const actualSpendMtd = mp.mtd?.spend ?? rawMtd.spend_mtd ?? 0;
+  const actualLeadsMtd = mp.mtd?.leads ?? rawMtd.leads_mtd ?? 0;
+  // SVS and qualified leads from MTD deliverables (manually entered) — not available in API
+  const actualSvsMtd = mtdDeliverables.svs_achieved ?? rawMtd.svs_mtd ?? 0;
+  const actualQLeadsMtd = mtdDeliverables.positive_leads_achieved ?? rawMtd.qualified_leads_mtd ?? 0;
+
+  // ─── CPL Score (Lower is better) ───
+  // benchmarks.google_cpl = "Google CPL Target" from Benchmarks tab
+  const cplTarget = benchmarks.google_cpl || benchmarks.cpl || 850;
+  const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
+  const cplScore = actualLeadsMtd > 0
+    ? scoreLowerIsBetter(actualCplMtd, cplTarget, 1.5)
+    : 50;
+
+  // ─── Budget/Pacing Score (MTD spend vs pro-rated budget) ───
+  const pacingPct = mp.pacing?.spend_pct ?? rawMtd.pacing_spend_pct ?? 100;
+  const pacingDev = Math.abs(pacingPct / 100 - 1);
+  const budgetScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - pacingDev * 2))) * 10) / 10;
+
+  // ─── CPQL Score (Lower is better) ───
+  // benchmarks.google_cpql_target or benchmarks.cpql_target from Benchmarks tab
+  const cpqlTarget = benchmarks.google_cpql_target || benchmarks.cpql_target || 1500;
+  const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
+  const cpqlScore = actualQLeadsMtd > 0
+    ? scoreLowerIsBetter(actualCpqlMtd, cpqlTarget, 1.5)
+    : 50; // Neutral when no qualified leads entered
+
+  // ─── CPSV Score (Lower is better) ───
+  // benchmarks.google_cpsv_low = "Google CPSV Target Low" from Benchmarks tab
+  // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
+  const cpsvTarget = benchmarks.google_cpsv_low || benchmarks.cpsv_low || 0;
+  const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
+  const cpsvScore = (actualSvsMtd > 0 && cpsvTarget > 0)
+    ? scoreLowerIsBetter(actualCpsvMtd, cpsvTarget, 1.5)
+    : 50; // Neutral when no SVS data entered
+
+  // ─── Campaign Score — use agent's value if available ───
+  const campaignScore = existingBreakdown.campaign ?? 50;
+
+  // ─── Creative Score — use agent's value if available ───
+  const creativeScore = existingBreakdown.creative ?? 50;
+
+  const breakdown = {
+    cpsv: Math.round(cpsvScore * 100) / 100,
+    budget: Math.round(budgetScore * 100) / 100,
+    cpql: Math.round(cpqlScore * 100) / 100,
+    cpl: Math.round(cplScore * 100) / 100,
+    campaign: Math.round(campaignScore * 100) / 100,
+    creative: Math.round(creativeScore * 100) / 100,
+  };
+
+  let compositeScore = normalizeScore(breakdown, weights);
+
+  // Override rule: if any metric with weight ≥15 is RED, cap to YELLOW
+  const hasHighWeightRed = Object.entries(breakdown).some(
+    ([k, v]) => v < 50 && (weights[k] || 0) >= 15
+  );
+  if (hasHighWeightRed && compositeScore >= 75) {
+    compositeScore = 74;
+  }
+
+  const finalClassification = getClassification(compositeScore, cplScore, cplTarget);
+  return { score: compositeScore, breakdown, classification: finalClassification };
+}
 
 function cleanCampaignName(name: string): string {
   // Strip Render/deploy hash suffixes like " #d2r|dt7-dm_branded_..."
@@ -398,7 +496,19 @@ export function normalizeGoogleAnalysis(raw: any): any {
   const campaigns = (raw.campaigns || []).map(normalizeCampaign);
   const adGroupAnalysis = extractAdGroups(raw.campaigns || []);
   const creativeHealth = extractCreativeHealth(raw.campaigns || [], raw.creative_health);
+
+  // Normalize monthly pacing FIRST so recomputeGoogleHealthScore can use
+  // mp.mtd.spend / mp.mtd.leads / mp.pacing.spend_pct (MTD-only data)
   const monthlyPacing = normalizeMonthlyPacing(raw.account_pulse, raw.targets);
+
+  // Inject normalized monthly_pacing into raw before scoring so the health score
+  // recomputation sees proper MTD values (mp.mtd.spend, mp.pacing.spend_pct, etc.)
+  const dataForScoring = {
+    ...raw,
+    monthly_pacing: monthlyPacing ?? raw.monthly_pacing,
+  };
+
+  const recomputed = recomputeGoogleHealthScore(dataForScoring);
 
   return {
     // Metadata
@@ -408,10 +518,10 @@ export function normalizeGoogleAnalysis(raw: any): any {
     cadence: raw.cadence || "twice_weekly",
     window: raw.window || null,
 
-    // Scores (pre-computed by agent — NOT for frontend to recalculate)
-    account_health_score: raw.account_health_score ?? 0,
-    account_health_classification: getClassification(raw.account_health_score ?? 0),
-    account_health_breakdown: raw.account_health_breakdown || {},
+    // Scores — recomputed from benchmarks + MTD API data (never cadence-window data)
+    account_health_score: recomputed.score,
+    account_health_classification: recomputed.classification,
+    account_health_breakdown: recomputed.breakdown,
 
     // Canonical data keys (what frontend expects)
     account_pulse: raw.account_pulse || {},

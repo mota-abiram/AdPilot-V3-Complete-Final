@@ -228,7 +228,7 @@ async function loadClientsWithCredentials(): Promise<Array<{
   }
 }
 
-async function runAgent(): Promise<void> {
+async function runAgent(clientIds?: string[]): Promise<void> {
   if (schedulerStatus.isRunning) {
     log("Scheduler: Agent already running, skipping", "scheduler");
     return;
@@ -243,7 +243,13 @@ async function runAgent(): Promise<void> {
 
     const metaAgent = path.join(ADS_AGENT_DIR, "meta_ads_agent_v2.py");
     const googleAgent = path.join(ADS_AGENT_DIR, "google_ads_agent_v2.py");
-    const clients = await loadClientsWithCredentials();
+    let clients = await loadClientsWithCredentials();
+
+    // Filter to specific clients when triggered by a non-admin user
+    if (clientIds && clientIds.length > 0) {
+      clients = clients.filter((c) => clientIds.includes(c.id));
+      log(`Scheduler: Scoped run for clients: ${clientIds.join(", ")}`, "scheduler");
+    }
 
     if (fs.existsSync(metaAgent)) {
       const metaClients = clients.filter((c) => c.metaCreds?.META_ACCESS_TOKEN);
@@ -419,8 +425,8 @@ async function runAgent(): Promise<void> {
   }
 }
 
-export function triggerManualRun(): void {
-  runAgent().catch((err) => log(`Manual run error: ${err.message}`, "scheduler"));
+export function triggerManualRun(clientIds?: string[]): void {
+  runAgent(clientIds).catch((err) => log(`Manual run error: ${err.message}`, "scheduler"));
 }
 
 export function initScheduler(): void {

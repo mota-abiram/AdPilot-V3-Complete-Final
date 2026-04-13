@@ -18,8 +18,9 @@
       "ctr": 0.571871,
       "impressions": 568610
     },
-    "outcome": "PENDING",
-    "daysElapsed": 0
+    "outcome": "NEUTRAL",
+    "daysElapsed": 4,
+    "outcomeReason": "Entity no longer in active data"
   },
   {
     "executionId": "mnpxz082apki04",
@@ -40,8 +41,9 @@
       "ctr": 0.571871,
       "impressions": 568610
     },
-    "outcome": "PENDING",
-    "daysElapsed": 0
+    "outcome": "POSITIVE",
+    "daysElapsed": 4,
+    "outcomeReason": "Overall CPL ₹427 within target ₹720 after pause"
   },
   {
     "executionId": "google-22061347628-1775646132025",
@@ -62,8 +64,9 @@
       "ctr": 10.83,
       "impressions": 711
     },
-    "outcome": "PENDING",
-    "daysElapsed": 0
+    "outcome": "POSITIVE",
+    "daysElapsed": 4,
+    "outcomeReason": "Overall CPL ₹427 within target ₹720 after pause"
   },
   {
     "executionId": "google-22055144781-1775646131212",
@@ -84,7 +87,8 @@
       "ctr": 8.25,
       "impressions": 1528
     },
-    "outcome": "PENDING",
-    "daysElapsed": 0
+    "outcome": "POSITIVE",
+    "daysElapsed": 4,
+    "outcomeReason": "Overall CPL ₹427 within target ₹720 after pause"
   }
 ]

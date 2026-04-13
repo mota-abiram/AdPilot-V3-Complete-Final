@@ -14,10 +14,10 @@
     "id": "5f6e8d48-7c1b-4ee1-85bd-947ff71f5119",
     "email": "admin@adcortex.in",
     "name": "Administrator",
-    "passwordHash": "a659bfd45b6226a8ab13e38ec99bb146:3ddc4d2995a105736edd12b27c55406a44e518cfb00919912a9f621e217601f255ee1698a6db514aa8d6129bd4dce484927346874f3e3db0e2d6a67408bbfc07",
+    "passwordHash": "4620ff80c406b11f330eebdc19f039f5:e4c51c4591e00c312e6382850927414ab77fb8c128fde19254a53d6c8d74540cb5a57ba2fcaaaa54ff3c6ebeca06a4b2f9f84cd6df07cefbdd26722400fdb6d3",
     "role": "admin",
     "status": "active",
     "createdAt": "2026-04-10T11:21:43.570Z",
-    "updatedAt": "2026-04-10T11:21:43.570Z"
+    "updatedAt": "2026-04-13T06:32:07.366Z"
   }
 ]

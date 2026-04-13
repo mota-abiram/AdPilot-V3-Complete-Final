@@ -128,23 +128,110 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
   const { activeClient, activePlatform } = useClient();
   const { toast } = useToast();
 
+  // Build live account metrics to send as alert context (so Claude gets exact numbers)
+  const alertMetrics = useMemo(() => {
+    if (!alert) return undefined;
+    const campaigns: any[] = (alert.campaigns || []);
+    const m: Record<string, string | number> = {};
+    if (alert.value)     m[`${alert.metric} (current)`] = alert.value;
+    if (alert.benchmark) m[`${alert.metric} (target)`]  = alert.benchmark;
+    if (campaigns.length > 0) {
+      m["Affected campaigns"] = campaigns.map((c: any) => c.name).join(", ");
+    }
+    return Object.keys(m).length > 0 ? m : undefined;
+  }, [alert]);
+
+  const pipelineQueryKey = useMemo(() => {
+    if (!alert) return null;
+    return ["/api/intelligence", activeClient?.id, activePlatform, "insights", alert.summary, alert.metric];
+  }, [alert, activeClient?.id, activePlatform]);
+
   const { data: pipelineData } = useQuery<{ insights: any[] }>({
-    queryKey: ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
+    queryKey: pipelineQueryKey ?? ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/intelligence/${activeClient?.id}/${activePlatform}/insights`);
+      if (!activeClient?.id || !activePlatform || !alert) return { insights: [] };
+      const params = new URLSearchParams({ type: "recommendation" });
+      if (alert.summary)  params.set("alert_problem", alert.summary);
+      if (alert.metric)   params.set("alert_metric",  alert.metric);
+      if (alertMetrics)   params.set("alert_metrics",  JSON.stringify(alertMetrics));
+      const res = await apiRequest("GET", `/api/intelligence/${activeClient.id}/${activePlatform}/insights?${params.toString()}`);
       return res.json();
     },
-    enabled: !!activeClient?.id && !!activePlatform,
+    enabled: !!activeClient?.id && !!activePlatform && !!alert,
+    staleTime: 0, // Always re-fetch for each distinct alert
   });
 
   const suggestions = useMemo(() => {
-    if (!pipelineData?.insights) return [];
-    // Filter insights relevant to this alert metric if possible, or show top items
-    return pipelineData.insights.slice(0, 5).map(ins => ({
+    if (!pipelineData?.insights || !alert) return [];
+
+    const alertMetric = (alert.metric || "").toLowerCase();
+    const alertSummary = (alert.summary || "").toLowerCase();
+    const alertCampaignNames = (alert.campaigns || []).map((c: any) => (c.name || "").toLowerCase());
+    const isAccountLevel = !alert.campaigns?.length || alert.isGeneric;
+
+    // Keyword map: alert metric → terms that should appear in relevant insights
+    const metricKeywords: Record<string, string[]> = {
+      cpl:        ["cpl", "cost per lead", "conversion", "budget drain", "zero leads", "cpc inflation"],
+      ctr:        ["ctr", "click-through", "thumb stop", "creative", "fatigue", "audience saturation"],
+      pacing:     ["pacing", "budget", "spend", "daily", "month", "plan"],
+      agent:      ["campaign", "adset", "creative", "pause", "scale"],
+      status:     ["underperform", "pause", "classification", "review"],
+      "auto-pause": ["pause", "auto", "ad group", "ads flagged"],
+      vhr:        ["vhr", "hold rate", "video", "view"],
+      tsr:        ["tsr", "thumb stop", "video", "creative"],
+    };
+    const relevantTerms = metricKeywords[alertMetric] || [];
+
+    // Score each insight by relevance to this specific alert
+    const scored = pipelineData.insights.map((ins: any) => {
+      let score = 0;
+      const insIssue = (ins.issue || "").toLowerCase();
+      const insRec = (ins.recommendation || "").toLowerCase();
+      const insImpact = (ins.impact || "").toLowerCase();
+      const insEntity = (ins.entityName || "").toLowerCase();
+      const combined = `${insIssue} ${insRec} ${insImpact}`;
+
+      // +40: insight is directly about one of the campaigns in this alert
+      if (alertCampaignNames.some((cn: string) => cn && insEntity && insEntity.includes(cn.substring(0, 20)))) {
+        score += 40;
+      }
+      // +30: insight mentions a campaign from this alert by name in recommendation text
+      if (alertCampaignNames.some((cn: string) => cn && (insRec.includes(cn.substring(0, 20)) || insImpact.includes(cn.substring(0, 20))))) {
+        score += 30;
+      }
+      // +20: insight keyword matches the alert's metric
+      if (relevantTerms.some((term: string) => combined.includes(term))) {
+        score += 20;
+      }
+      // +15: alert summary words appear in the insight
+      const summaryWords = alertSummary.split(" ").filter((w: string) => w.length > 4);
+      if (summaryWords.some((w: string) => combined.includes(w))) {
+        score += 15;
+      }
+      // +10: account-level alert matches account-level insight
+      if (isAccountLevel && ins.entityType === "account") {
+        score += 10;
+      }
+      // -10: insight is for a different entity not in this alert (avoid cross-contamination)
+      if (!isAccountLevel && ins.entityType === "account" && score === 0) {
+        score -= 10;
+      }
+
+      return { ...ins, _score: score };
+    });
+
+    // Sort by relevance score desc, then confidence desc
+    scored.sort((a: any, b: any) => b._score - a._score || b.confidence - a.confidence);
+
+    // Take top 5 relevant; if none scored above 0, fall back to account/priority-sorted top 5
+    const relevant = scored.filter((s: any) => s._score > 0).slice(0, 5);
+    const result = relevant.length > 0 ? relevant : scored.slice(0, 5);
+
+    return result.map((ins: any) => ({
       text: ins.recommendation,
       source: ins.source,
       confidence: ins.confidence > 0.7 ? "High" : "Medium",
-      issue: ins.issue
+      issue: ins.issue,
     }));
   }, [pipelineData, alert]);
 
@@ -161,89 +248,89 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     <Dialog open={!!alert} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-0 shadow-2xl">
         <DialogHeader className="p-6 pb-4 bg-muted/20 relative border-b border-border/40">
-           <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
-                <Brain className="w-5 h-5 animate-pulse-slow" />
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
+              <Brain className="w-5 h-5 animate-pulse-slow" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle className="t-page-title text-foreground text-xl">4-Layer Pipeline Reasoning</DialogTitle>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
+                  {alert.metric} CONTEXT
+                </Badge>
+                <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Validated Intelligence Layer</span>
               </div>
-              <div className="min-w-0">
-                <DialogTitle className="t-page-title text-foreground text-xl">4-Layer Pipeline Reasoning</DialogTitle>
-                <div className="flex items-center gap-2 mt-0.5">
-                   <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
-                      {alert.metric} CONTEXT
-                   </Badge>
-                   <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Validated Intelligence Layer</span>
-                </div>
-              </div>
-           </div>
+            </div>
+          </div>
         </DialogHeader>
 
         <DialogBody className="p-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-            <div className="space-y-1.5 px-0.5">
-              <p className="t-body font-bold tracking-tight text-lg leading-snug">
-                 Pipeline Analysis for <span className="text-red-400 italic">"{alert.summary}"</span> 
-              </p>
-              <p className="t-label text-muted-foreground leading-relaxed">
-                 The following strategic offsets have been validated by Layer 4 for this specific account state:
-              </p>
-            </div>
+          <div className="space-y-1.5 px-0.5">
+            <p className="t-body font-bold tracking-tight text-lg leading-snug">
+              Pipeline Analysis for <span className="text-red-400 italic">"{alert.summary}"</span>
+            </p>
+            <p className="t-label text-muted-foreground leading-relaxed">
+              The following strategic offsets have been validated by Layer 4 for this specific account state:
+            </p>
+          </div>
 
-           <div className="space-y-4 pt-1">
-              {suggestions.map((s: any, i: number) => (
-                <div key={i} className="p-3.5 rounded-xl border border-border/40 bg-card hover:border-primary/30 transition-all group">
-                  <div className="flex gap-3.5">
-                    <div className="size-6 rounded-lg bg-muted border border-border/60 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/40 transition-colors">
-                        <Zap className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "t-micro font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
-                              s.source === "AI" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                            )}>
-                              {s.source} {s.source === "AI" ? "Reasoning" : "SOP"}
-                            </span>
-                            <span className="text-[9px] text-red-400/80 font-bold uppercase truncate max-w-[120px]">
-                              {s.issue}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="t-body-sm leading-snug text-foreground/90 font-medium group-hover:text-foreground transition-colors pr-2">
-                          {s.text}
-                        </p>
+          <div className="space-y-4 pt-1">
+            {suggestions.map((s: any, i: number) => (
+              <div key={i} className="p-3.5 rounded-xl border border-border/40 bg-card hover:border-primary/30 transition-all group">
+                <div className="flex gap-3.5">
+                  <div className="size-6 rounded-lg bg-muted border border-border/60 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/40 transition-colors">
+                    <Zap className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "t-micro font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
+                          s.source === "AI" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                        )}>
+                          {s.source} {s.source === "AI" ? "Reasoning" : "SOP"}
+                        </span>
+                        <span className="text-[9px] text-red-400/80 font-bold uppercase truncate max-w-[120px]">
+                          {s.issue}
+                        </span>
                       </div>
+                    </div>
+                    <p className="t-body-sm leading-snug text-foreground/90 font-medium group-hover:text-foreground transition-colors pr-2">
+                      {s.text}
+                    </p>
                   </div>
                 </div>
-              ))}
-              {suggestions.length === 0 && <Skeleton className="h-24 w-full" />}
-           </div>
-
-           {alert.campaigns.length > 0 && (
-              <div className="mt-4 p-4 rounded-xl bg-muted/10 border border-border/30">
-                 <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-3">Diagnostic Context ({alert.campaigns.length} campaigns)</p>
-                 <div className="grid grid-cols-1 gap-1.5">
-                    {alert.campaigns.map((c: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between text-[11px] font-semibold text-foreground/80 bg-background/40 p-1.5 px-2 rounded-lg border border-border/20">
-                         <span className="truncate">{c.name}</span>
-                         <span className="text-primary tabular-nums shrink-0 ml-2">{c.value}</span>
-                      </div>
-                    ))}
-                 </div>
               </div>
-           )}
+            ))}
+            {suggestions.length === 0 && <Skeleton className="h-24 w-full" />}
+          </div>
+
+          {alert.campaigns.length > 0 && (
+            <div className="mt-4 p-4 rounded-xl bg-muted/10 border border-border/30">
+              <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-3">Diagnostic Context ({alert.campaigns.length} campaigns)</p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {alert.campaigns.map((c: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-[11px] font-semibold text-foreground/80 bg-background/40 p-1.5 px-2 rounded-lg border border-border/20">
+                    <span className="truncate">{c.name}</span>
+                    <span className="text-primary tabular-nums shrink-0 ml-2">{c.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </DialogBody>
 
         <DialogFooter className="p-4 px-6 bg-muted/20 border-t border-border/40 flex items-center justify-between gap-4">
-           <div className="flex items-center gap-2">
-              <ShieldCheck className="w-3.5 h-3.5 text-primary opacity-60" />
-              <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">Standard Baseline Verified</span>
-           </div>
-           <Button 
-             className="h-10 px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-[#f5c723] text-primary-foreground transition-all active:scale-[0.97]"
-             onClick={onClose}
-           >
-             Acknowledge Fix
-           </Button>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary opacity-60" />
+            <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">Standard Baseline Verified</span>
+          </div>
+          <Button
+            className="h-10 px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-[#f5c723] text-primary-foreground transition-all active:scale-[0.97]"
+            onClick={onClose}
+          >
+            Acknowledge Fix
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -303,7 +390,7 @@ function KpiCard({
         {todayValue && (
           <div className="t-micro font-bold text-primary mt-1 flex items-center gap-1.5">
             <div className="size-2 rounded-full bg-primary animate-pulse" />
-            TODAY: {todayValue}
+            YESTERDAY: {todayValue}
           </div>
         )}
         <div className="mt-2 space-y-1">
@@ -415,13 +502,13 @@ export default function DashboardPage() {
 
   function findCampaignByEntity(entity: string, campaignData: any[]): { id: string; name: string } | null {
     if (!Array.isArray(campaignData)) return null;
-    const campaign = campaignData.find((c: any) => 
-      entity.toLowerCase().includes((c?.campaign_name || c?.name || "").toLowerCase()) || 
+    const campaign = campaignData.find((c: any) =>
+      entity.toLowerCase().includes((c?.campaign_name || c?.name || "").toLowerCase()) ||
       (c?.campaign_name || c?.name || "").toLowerCase().includes(entity.toLowerCase())
     );
-    if (campaign) return { 
-      id: campaign.campaign_id || campaign.id, 
-      name: campaign.campaign_name || campaign.name 
+    if (campaign) return {
+      id: campaign.campaign_id || campaign.id,
+      name: campaign.campaign_name || campaign.name
     };
     return null;
   }
@@ -446,6 +533,7 @@ export default function DashboardPage() {
     activeCadence,
     syncState,
     benchmarks,
+    mtdAnalysisData,
   } = useClient();
   const now = useNow();
 
@@ -570,7 +658,7 @@ export default function DashboardPage() {
     const apiMtd = mtdData?.mtd;
     // For agentMtd, we look in both rawMp and rawMtdPacing
     const agentMtd = rawMp?.mtd || rawMtdPacing;
-    
+
     return {
       spend: apiMtd?.spend ?? agentMtd?.spend ?? agentMtd?.spend_mtd ?? 0,
       leads: apiMtd?.leads ?? agentMtd?.leads ?? agentMtd?.leads_mtd ?? 0,
@@ -633,15 +721,19 @@ export default function DashboardPage() {
     let daily_leads: number[] = rawAp.daily_leads || [];
     let daily_ctrs: number[] = rawAp.daily_ctrs || [];
     let daily_cpms: number[] = rawAp.daily_cpms || [];
+    let daily_tsrs: number[] = rawAp.daily_tsrs || [];
+    let daily_vhrs: number[] = rawAp.daily_vhrs || [];
 
     // Google fallback: extract daily arrays from daily_trends when not yet present
     if (daily_spends.length === 0) {
       const dt: any[] = rawAp.daily_trends || (data as any)?.daily_trends || [];
       if (dt.length > 0) {
         daily_spends = dt.map((d: any) => d.spend ?? d.cost ?? 0);
-        daily_leads  = dt.map((d: any) => d.leads ?? d.conversions ?? 0);
-        daily_ctrs   = dt.map((d: any) => d.ctr ?? 0);
-        daily_cpms   = dt.map((d: any) => d.cpm ?? 0);
+        daily_leads = dt.map((d: any) => d.leads ?? d.conversions ?? 0);
+        daily_ctrs = dt.map((d: any) => d.ctr ?? 0);
+        daily_cpms = dt.map((d: any) => d.cpm ?? 0);
+        daily_tsrs = dt.map((d: any) => d.tsr ?? 0);
+        daily_vhrs = dt.map((d: any) => d.vhr ?? 0);
       }
     }
 
@@ -663,8 +755,8 @@ export default function DashboardPage() {
       daily_leads,
       daily_ctrs,
       daily_cpms,
-      daily_tsrs: rawAp.daily_tsrs || [],
-      daily_vhrs: rawAp.daily_vhrs || [],
+      daily_tsrs,
+      daily_vhrs,
     };
   }, [rawAp, data]);
 
@@ -674,8 +766,8 @@ export default function DashboardPage() {
     const conversionSanity = isGoogle ? (data as any)?.conversion_sanity : null;
     const googleLeadsToday = conversionSanity?.leads_today ?? null;
     const spendToday = dailySpend.length > 0 ? dailySpend[dailySpend.length - 1] : 0;
-    const leadsToday = isGoogle && googleLeadsToday !== null 
-      ? googleLeadsToday 
+    const leadsToday = isGoogle && googleLeadsToday !== null
+      ? googleLeadsToday
       : (dailyLeads.length > 0 ? dailyLeads[dailyLeads.length - 1] : 0);
     const cplToday = leadsToday > 0 ? spendToday / leadsToday : (spendToday > 0 ? spendToday : 0);
     return { spendToday, leadsToday, cplToday };
@@ -746,7 +838,7 @@ export default function DashboardPage() {
 
     // 1. Account Level
     if (selectedCampaignId === "ALL") {
-      if (cplCrit > 0 && ap.overall_cpl > cplCrit && (ap.total_leads_30d ?? 0) >= MIN_LEADS_FOR_CPL_ALERT) {
+      if (cplCrit > 0 && ap.overall_cpl > cplCrit && ap.total_leads_30d >= MIN_LEADS_FOR_CPL_ALERT) {
         raw.push({
           metric: "CPL",
           message: "Account Avg CPL exceeds critical threshold",
@@ -755,7 +847,7 @@ export default function DashboardPage() {
           level: "critical"
         });
       }
-      if (!isGoogle && ap.overall_ctr < ctrM && (ap.total_impressions ?? ap.daily_cpms?.length * 1000 ?? 0) >= MIN_IMPRESSIONS_FOR_CTR_ALERT) {
+      if (!isGoogle && ap.overall_ctr < ctrM && (ap.total_impressions ?? (ap.daily_cpms.length * 1000)) >= MIN_IMPRESSIONS_FOR_CTR_ALERT) {
         raw.push({
           metric: "CTR",
           message: "Account CTR is critically low",
@@ -782,7 +874,7 @@ export default function DashboardPage() {
         const detail = i.detail || i.observation || i.title || "";
         const campaign = campaignAudit.find((c: any) => detail.includes(c.campaign_name || "") || (i.entity && typeof i.entity === "string" && i.entity.includes(c.campaign_name || "")));
         const matchesCampaign = !filteredCampaign || (campaign && campaign.campaign_id === filteredCampaign.campaign_id);
-        
+
         if (matchesCampaign) {
           raw.push({
             metric: "AGENT",
@@ -831,11 +923,11 @@ export default function DashboardPage() {
     }
 
     // --- GROUPING LOGIC ---
-    const grouped: Array<{ 
-      metric: string; 
-      summary: string; 
-      level: "critical" | "warning"; 
-      value?: string | number; 
+    const grouped: Array<{
+      metric: string;
+      summary: string;
+      level: "critical" | "warning";
+      value?: string | number;
       benchmark?: string | number;
       campaigns: Array<{ id: string; name: string; value?: string | number }>;
       isGeneric?: boolean;
@@ -844,7 +936,7 @@ export default function DashboardPage() {
     raw.forEach(item => {
       // Find existing group for same metric AND message (to group campaign alerts)
       let group = grouped.find(g => g.metric === item.metric && g.summary === item.message && !item.campaignId === !g.campaigns.length);
-      
+
       if (item.campaignId) {
         // Look for group with this metric and message
         let campaignGroup = grouped.find(g => g.metric === item.metric && g.summary === item.message && g.campaigns.length > 0);
@@ -899,7 +991,7 @@ export default function DashboardPage() {
       }
       return `Day ${i + 1}`;
     }),
-  [ap.daily_spends, displayDateRange]);
+    [ap.daily_spends, displayDateRange]);
 
   const dailyChartData = useMemo(() =>
     ap.daily_spends.map((spend: number, i: number) => {
@@ -911,7 +1003,7 @@ export default function DashboardPage() {
         cpl: leads > 0 ? Math.round(spend / leads) : 0,
       };
     }),
-  [ap.daily_spends, ap.daily_leads, dayLabels]);
+    [ap.daily_spends, ap.daily_leads, dayLabels]);
 
   const safeCreativeHealth: any[] = useMemo(
     () => Array.isArray(creativeHealth) ? creativeHealth : [],
@@ -928,19 +1020,23 @@ export default function DashboardPage() {
     };
   }, [safeCreativeHealth]);
 
-  const multiMetricChartData = useMemo(() =>
-    (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((_: number, i: number) => {
+  const multiMetricChartData = useMemo(() => {
+    const dailyVhrs = ap.daily_vhrs ?? [];
+    const allVhrZero = dailyVhrs.length === 0 || dailyVhrs.every((v: number) => !v || v === 0);
+    const dailyTsrs = ap.daily_tsrs ?? [];
+    const allTsrZero = dailyTsrs.length === 0 || dailyTsrs.every((v: number) => !v || v === 0);
+    return (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((_: number, i: number) => {
       const dailyClick = ap.daily_clicks?.[i] ?? 0;
-      const dailyImp   = ap.daily_impressions?.[i] ?? 0;
+      const dailyImp = ap.daily_impressions?.[i] ?? 0;
       return {
         day: dayLabels[i],
         ctr: parseFloat(calculateCTR(dailyClick, dailyImp).toFixed(2)),
-        tsr: ap.daily_tsrs?.[i] ?? blendedTSR ?? 0,
-        vhr: ap.daily_vhrs?.[i] ?? blendedVHR ?? 0,
-        cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm ?? 0,
+        tsr: allTsrZero ? (blendedTSR ?? 0) : (dailyTsrs[i] ?? blendedTSR ?? 0),
+        vhr: allVhrZero ? (blendedVHR ?? 0) : (dailyVhrs[i] ?? blendedVHR ?? 0),
+        cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm,
       };
-    }),
-  [ap.daily_ctrs, ap.daily_clicks, ap.daily_impressions, ap.daily_tsrs, ap.daily_vhrs, ap.daily_cpms, ap.overall_cpm, dayLabels, blendedTSR, blendedVHR]);
+    });
+  }, [ap.daily_ctrs, ap.daily_clicks, ap.daily_impressions, ap.daily_tsrs, ap.daily_vhrs, ap.daily_cpms, ap.overall_cpm, dayLabels, blendedTSR, blendedVHR]);
 
   // ─── 6. Data Loading & Errors (Below hooks) ─────────────────────────
 
@@ -1003,15 +1099,18 @@ export default function DashboardPage() {
       .map(([key, val]) => ({ name: key, value: val as number }))
     : isGoogle && (data as any).search_summary && (data as any).dg_summary && ap.total_spend_30d > 0
       ? [
-        { name: "Search",     value: Math.round(((((data as any).search_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
-        { name: "Demand Gen", value: Math.round(((((data as any).dg_summary?.spend     ?? 0) / ap.total_spend_30d) * 100)) || 0 },
+        { name: "Search", value: Math.round(((((data as any).search_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
+        { name: "Demand Gen", value: Math.round(((((data as any).dg_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
       ].filter(d => d.value > 0)
       : [];
 
   // ─── 8. Performance Scoring & Insights ──────────────────────────────
+  // Account Health and Health Score Breakdown are MTD-fixed — they use
+  // mtdAnalysisData (always cadence=monthly) so cadence switching has no effect.
+  const mtdFixedData = (mtdAnalysisData as any) || (data as any);
 
-  const backendHealthScore = (data as any)?.account_health_score;
-  const backendBreakdown = (data as any)?.account_health_breakdown || {};
+  const backendHealthScore = mtdFixedData?.account_health_score;
+  const backendBreakdown = mtdFixedData?.account_health_breakdown || {};
   const accountHealthScore = typeof backendHealthScore === "number" ? backendHealthScore : 0;
 
   // Use backend account-health breakdown as the single source of truth.
@@ -1028,9 +1127,9 @@ export default function DashboardPage() {
   const svsMtd = authMtd.svs;
   const qLeadsMtd = authMtd.qualified_leads;
   const cpsvMtd = authMtd.svs > 0 ? authMtd.spend / authMtd.svs : 0;
-  const targetCpsvValue = isGoogle 
-    ? (thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000) 
-    : (thresholds?.cpc_target || benchmarks?.cpc_target || mp?.targets?.cpc || 50);
+  const targetCpsvValue = isGoogle
+    ? (benchmarks?.google_cpsv_low || thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000)
+    : (benchmarks?.cpsv_low || thresholds?.cpsv_low || mp?.targets?.cpsv?.low || 0);
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
     { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv) },
@@ -1085,8 +1184,8 @@ export default function DashboardPage() {
     .reduce((s: number, a: any) => s + (a.spend || 0), 0);
   const budgetEfficiencyPct: number = totalAdSpend > 0 ? Math.round((wastedSpend / totalAdSpend) * 100) : 0;
 
-  const proRatedBudgetThreshold = mp?.pct_through_month && mp?.targets?.budget 
-    ? (mp.targets.budget * (mp.pct_through_month / 100)) 
+  const proRatedBudgetThreshold = mp?.pct_through_month && mp?.targets?.budget
+    ? (mp.targets.budget * (mp.pct_through_month / 100))
     : (mp?.targets?.budget ?? 0);
 
   const budgetTargetMonthly = mp?.targets?.budget || clientTargets?.budget || 0;
@@ -1167,27 +1266,27 @@ export default function DashboardPage() {
             {(showAllCriticalAlerts ? criticalAlerts : criticalAlerts.slice(0, 3)).map((group, i) => {
               const isCritical = group.level === "critical";
               const isWarning = group.level === "warning";
-              
+
               return (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={cn(
                     "group relative flex flex-col gap-2 p-3.5 rounded-xl border transition-all hover:shadow-sm",
-                    isCritical ? "bg-red-500/[0.03] border-red-500/10" : 
-                    isWarning ? "bg-amber-500/[0.03] border-amber-500/10" : 
-                    "bg-blue-500/[0.03] border-blue-500/10"
+                    isCritical ? "bg-red-500/[0.03] border-red-500/10" :
+                      isWarning ? "bg-amber-500/[0.03] border-amber-500/10" :
+                        "bg-blue-500/[0.03] border-blue-500/10"
                   )}
                 >
                   {/* Metric Tag & Summary */}
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={cn(
                           "text-[9px] font-bold tracking-tight px-1.5 py-0 rounded h-4 border-0",
-                          isCritical ? "bg-red-500/15 text-red-500" : 
-                          isWarning ? "bg-amber-500/15 text-amber-600" : 
-                          "bg-blue-500/15 text-blue-600"
+                          isCritical ? "bg-red-500/15 text-red-500" :
+                            isWarning ? "bg-amber-500/15 text-amber-600" :
+                              "bg-blue-500/15 text-blue-600"
                         )}
                       >
                         {group.metric}
@@ -1251,18 +1350,18 @@ export default function DashboardPage() {
 
                   {/* Quick Actions — subtle hover revealed */}
                   <div className="mt-auto flex items-center justify-end gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
                       onClick={() => setActiveFixAlert(group)}
                     >
                       Fix Suggestion
                     </Button>
                     {group.campaigns.length === 1 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
                         onClick={() => setSelectedCampaignId(group.campaigns[0].id)}
                       >
@@ -1317,7 +1416,7 @@ export default function DashboardPage() {
                 {syncState?.status === "failed" ? "Data Synchronization Failed" : "No Performance Data Available"}
               </h2>
               <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                {syncState?.status === "failed" 
+                {syncState?.status === "failed"
                   ? "The last attempt to communicate with the advertising platform encountered an error. Please verify your connection settings or run the agent again."
                   : "We haven't received any campaigns or spend data for this client yet. Click 'Run Agent now' at the top to initiate the first extraction."}
               </p>
@@ -1386,26 +1485,18 @@ export default function DashboardPage() {
           />
 
           <KpiCard
-            title={isGoogle ? "Avg CPSV (MTD)" : "Avg CPC (MTD)"}
-            value={formatINR(isGoogle ? (cpsvMtd || 0) : ((mtdStats as any)?.cpc || displayAp.overall_cpc || 0), isGoogle ? 0 : 2)}
+            title="Avg CPSV (MTD)"
+            value={formatINR(cpsvMtd || 0, 0)}
             icon={Zap}
             isInverse
             status={
-              isGoogle 
-                ? ((cpsvMtd || 0) > 0
-                  ? (cpsvMtd || 0) <= targetCpsvValue
-                    ? { label: "On Target", variant: "success" }
-                    : (cpsvMtd || 0) <= targetCpsvValue * 1.3
-                      ? { label: "Watch", variant: "warning" }
-                      : { label: "Alert", variant: "destructive" }
-                  : { label: "Awaiting Data", variant: "secondary" })
-                : (((mtdStats as any)?.cpc || displayAp.overall_cpc || 0) > 0
-                  ? ((mtdStats as any)?.cpc || displayAp.overall_cpc || 0) <= targetCpsvValue
-                    ? { label: "On Target", variant: "success" }
-                    : ((mtdStats as any)?.cpc || displayAp.overall_cpc || 0) <= targetCpsvValue * 1.3
-                      ? { label: "Watch", variant: "warning" }
-                      : { label: "Alert", variant: "destructive" }
-                  : { label: "Awaiting Data", variant: "secondary" })
+              (cpsvMtd || 0) > 0
+                ? (cpsvMtd || 0) <= targetCpsvValue
+                  ? { label: "On Target", variant: "success" }
+                  : (cpsvMtd || 0) <= targetCpsvValue * 1.3
+                    ? { label: "Watch", variant: "warning" }
+                    : { label: "Alert", variant: "destructive" }
+                : { label: "Awaiting Data", variant: "secondary" }
             }
             subtitle={`vs target (${formatINR(targetCpsvValue, 0)})`}
           />
@@ -1415,7 +1506,7 @@ export default function DashboardPage() {
             value={authMtd.spend && proRatedBudgetThreshold > 0 ? `${Math.round((authMtd.spend / proRatedBudgetThreshold) * 100)}%` : "—"}
             icon={Gauge}
             status={
-              authMtd.spend && proRatedBudgetThreshold > 0 
+              authMtd.spend && proRatedBudgetThreshold > 0
                 ? (authMtd.spend / proRatedBudgetThreshold) >= 0.9 && (authMtd.spend / proRatedBudgetThreshold) <= 1.1
                   ? { label: "On Track", variant: "success" }
                   : (authMtd.spend / proRatedBudgetThreshold) > 1.1
@@ -1559,6 +1650,7 @@ export default function DashboardPage() {
           <CardContent className="p-4 flex flex-col justify-center flex-1">
             <div className="flex items-center gap-1.5 mb-4">
               <h3 className="t-label text-foreground/90">Account Health</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-400 bg-blue-500/10 border-blue-500/20">MTD Fixed</Badge>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
@@ -1597,7 +1689,7 @@ export default function DashboardPage() {
                   </p>
                   <p className="t-kpi text-foreground">{accountHealthScore}</p>
                 </div>
-                <StatusBadge classification={(data as any)?.account_health_classification || undefined} />
+                <StatusBadge classification={mtdFixedData?.account_health_classification || undefined} />
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <div className={`w-full h-2 rounded-full ${getHealthBarBg(accountHealthScore)}`}>
@@ -1626,15 +1718,19 @@ export default function DashboardPage() {
         </Card>
         <Card className="lg:col-span-2 h-full flex flex-col">
           <CardContent className="card-content-premium">
-            <h3 className="t-label font-bold text-foreground uppercase tracking-wider mb-3">Health Score Breakdown (MTD Only)</h3>
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="t-label font-bold text-foreground uppercase tracking-wider">Health Score Breakdown</h3>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-400 bg-blue-500/10 border-blue-500/20">MTD Fixed</Badge>
+            </div>
             <div className={`grid gap-3 ${isGoogle ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {healthBreakdownItems.map((item) => {
                 const normalized = Math.max(0, Math.min(item.score, 100));
+                const scoreOutOfWeight = (item.score / 100) * item.weight;
 
                 let targetDisplay = null;
                 if (item.label === "CPSV") targetDisplay = formatINR(targetCpsvValue || 0, 0);
                 else if (item.label === "Budget") targetDisplay = formatINR(proRatedBudgetThreshold || 0, 0);
-                else if (item.label === "CPQL") targetDisplay = formatINR(thresholds?.cpql_target || benchmarks?.cpql_target || mp?.targets?.cpql || 1500, 0);
+                else if (item.label === "CPQL") targetDisplay = formatINR((isGoogle ? benchmarks?.google_cpql_target : benchmarks?.cpql_target) || thresholds?.cpql_target || mp?.targets?.cpql || 0, 0);
                 else if (item.label === "CPL") targetDisplay = formatINR(targetCpl || 0, 0);
 
                 const cardContent = (
@@ -1645,7 +1741,7 @@ export default function DashboardPage() {
                           {item.label} ({item.weight})
                         </p>
                         <p className="t-body font-semibold tabular-nums text-foreground">
-                          {Math.round(item.score)}
+                          {Math.round(scoreOutOfWeight)}
                         </p>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
@@ -1655,9 +1751,6 @@ export default function DashboardPage() {
                             style={{ width: `${normalized}%` }}
                           />
                         </div>
-                        <span className="w-10 text-right t-micro tabular-nums text-muted-foreground">
-                          {Math.round(normalized)}%
-                        </span>
                       </div>
                     </div>
                     <Badge
@@ -2375,7 +2468,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg bg-red-500/15 border-b border-red-500/30">
                 <ShieldX className="w-4 h-4 text-red-400 shrink-0" />
                 <span className="t-micro text-red-300 font-semibold">
-                  TRACKING ALERT: Zero leads captured today — verify {isGoogle ? "conversion setup / GA4 linking" : "pixel / conversion setup"}
+                  TRACKING ALERT: Zero leads captured yesterday — verify {isGoogle ? "conversion setup / GA4 linking" : "pixel / conversion setup"}
                 </span>
               </div>
             )}
@@ -2442,7 +2535,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/30">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                   <span className="t-micro text-red-400 font-medium">
-                    Sudden drop detected: {leadsToday} leads today vs {prevDayLeads} yesterday ({prevDayLeads && prevDayLeads > 0 ? ((1 - leadsToday / prevDayLeads) * 100).toFixed(0) : 0}% decrease)
+                    Sudden drop detected: {leadsToday} leads yesterday vs {prevDayLeads} the day before ({prevDayLeads && prevDayLeads > 0 ? ((1 - leadsToday / prevDayLeads) * 100).toFixed(0) : 0}% decrease)
                   </span>
                 </div>
               )}
@@ -2933,8 +3026,8 @@ export default function DashboardPage() {
         const impressions: number = authMtd.impressions;
         const clicks: number = authMtd.clicks;
         const leads: number = authMtd.leads;
-        const svsMtd: number = authMtd.svs;
         const posLeads: number = authMtd.qualified_leads;
+        const svsMtd: number = authMtd.svs;
 
         const steps = [
           {
@@ -2958,13 +3051,6 @@ export default function DashboardPage() {
             sub: "Intent",
             icon: UserCheck
           },
-          ...(svsMtd > 0 ? [{
-            label: "SVs",
-            value: svsMtd,
-            color: "from-emerald-500/50 to-emerald-300/50",
-            sub: "Conversion",
-            icon: Home
-          }] : []),
           ...(posLeads > 0 ? [{
             label: "Positive Leads",
             value: posLeads,
@@ -2972,6 +3058,14 @@ export default function DashboardPage() {
             sub: "Quality",
             icon: Star
           }] : []),
+          ...(svsMtd > 0 ? [{
+            label: "SVs",
+            value: svsMtd,
+            color: "from-emerald-500/50 to-emerald-300/50",
+            sub: "Conversion",
+            icon: Home
+          }] : []),
+
         ];
 
         const maxVal = steps[0]?.value || 1;
@@ -2996,9 +3090,6 @@ export default function DashboardPage() {
                   <Filter className="w-4 h-4 text-primary" />
                   MTD Acquisition Funnel
                 </CardTitle>
-                <div className="t-page-title">
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">MTD (Month-To-Date)</span>
-                </div>
               </div>
             </CardHeader>
             <CardContent className="p-5">

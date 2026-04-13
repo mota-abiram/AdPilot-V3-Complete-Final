@@ -512,7 +512,7 @@ def collect_data(date_since=None, date_until=None):
          "limit": "200"})
     print(f"    -> {len(ds['campaigns'])} campaigns (all non-removed)")
 
-    insight_fields_campaign = "date_start,campaign_name,campaign_id,impressions,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency,reach,objective"
+    insight_fields_campaign = "date_start,campaign_name,campaign_id,impressions,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency,reach,objective,video_p25_watched_actions,video_p50_watched_actions"
     insight_fields_adset = "date_start,campaign_name,campaign_id,adset_name,adset_id,impressions,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency,reach"
     insight_fields_ad = "date_start,campaign_name,campaign_id,adset_name,adset_id,ad_name,ad_id,impressions,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency,reach,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions"
 
@@ -581,7 +581,7 @@ def collect_data(date_since=None, date_until=None):
     print("  Fetching daily trends (7d)...")
     ds["daily_trends"] = fetch_all_pages(
         f"act_{AD_ACCOUNT_ID}/insights",
-        {"fields": "spend,impressions,clicks,ctr,cpc,cpm,actions,frequency,reach",
+        {"fields": "spend,impressions,clicks,ctr,cpc,cpm,actions,frequency,reach,video_p25_watched_actions,video_p50_watched_actions",
          "time_range": json.dumps({"since": str(DATE_7D_AGO), "until": str(TODAY)}),
          "time_increment": "1", "level": "account", "limit": "30"})
     print(f"    -> {len(ds['daily_trends'])} daily records")
@@ -740,7 +740,7 @@ def collect_data(date_since=None, date_until=None):
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━ MODULE 3.1: ACCOUNT PULSE ━━━━━━━━━━━━━
 
-def analyze_account_pulse(campaign_insights, daily_trends, historical):
+def analyze_account_pulse(campaign_insights, daily_trends, historical, ad_daily=None):
     total_spend = sum(sf(c.get("spend")) for c in campaign_insights)
     total_leads = sum(get_action_value(c.get("actions"), LEAD_ACTION_TYPES) for c in campaign_insights)
     total_impressions = sum(si(c.get("impressions")) for c in campaign_insights)
@@ -754,16 +754,16 @@ def analyze_account_pulse(campaign_insights, daily_trends, historical):
         if not dt: continue
         if dt not in daily_aggr:
             daily_aggr[dt] = {
-                "spend": 0, "leads": 0, "impressions": 0, "clicks": 0, 
+                "spend": 0, "leads": 0, "impressions": 0, "clicks": 0,
                 "video_impressions": 0, "v3s": 0, "v50": 0, "v25": 0
             }
-        
+
         target = daily_aggr[dt]
         target["spend"] += sf(d.get("spend"))
         target["leads"] += get_action_value(d.get("actions"), LEAD_ACTION_TYPES)
         target["impressions"] += si(d.get("impressions"))
         target["clicks"] += si(d.get("clicks"))
-        
+
         # TSR/VHR Segregation: Only aggregate if it's a video row
         # (Assuming rows with video metrics are videos)
         v3s = get_action_value(d.get("actions"), ["video_view"])
@@ -774,6 +774,33 @@ def analyze_account_pulse(campaign_insights, daily_trends, historical):
             v50 = get_action_value(d.get("video_p50_watched_actions"), ["video_view"]) or 0
             target["v25"] += v25
             target["v50"] += v50
+
+    # Supplement v50/v25 from ad_daily rows (per-ad daily breakdown, which includes
+    # video_p50_watched_actions that Meta's account-level daily API does not return)
+    if ad_daily:
+        video_aggr = {}
+        for a in ad_daily:
+            dt = a.get("date_start")
+            if not dt: continue
+            v3s = get_action_value(a.get("actions"), ["video_view"])
+            v25 = get_action_value(a.get("video_p25_watched_actions"), ["video_view"]) or 0
+            v50 = get_action_value(a.get("video_p50_watched_actions"), ["video_view"]) or 0
+            if v3s > 0 or v25 > 0 or v50 > 0:
+                if dt not in video_aggr:
+                    video_aggr[dt] = {"video_impressions": 0, "v3s": 0, "v25": 0, "v50": 0}
+                video_aggr[dt]["video_impressions"] += si(a.get("impressions"))
+                video_aggr[dt]["v3s"] += v3s
+                video_aggr[dt]["v25"] += v25
+                video_aggr[dt]["v50"] += v50
+
+        # Merge ad-level video data into daily_aggr (fills v50 that account-level API misses)
+        for dt, va in video_aggr.items():
+            if dt in daily_aggr:
+                if va["v50"] > daily_aggr[dt]["v50"]:
+                    daily_aggr[dt]["video_impressions"] = va["video_impressions"]
+                    daily_aggr[dt]["v3s"] = va["v3s"]
+                    daily_aggr[dt]["v25"] = va["v25"]
+                    daily_aggr[dt]["v50"] = va["v50"]
 
     sorted_dates = sorted(daily_aggr.keys())
     daily_spends = [daily_aggr[dt]["spend"] for dt in sorted_dates]
@@ -2923,7 +2950,7 @@ def _run_analysis_for_cadence(cadence_name, date_since, date_until, ds, learning
     ad_insights = aggregate_insights(ad_daily, "ad_id")
 
     # Run all analysis modules
-    pulse = analyze_account_pulse(campaign_insights, daily_trends, ds.get("historical", []))
+    pulse = analyze_account_pulse(campaign_insights, daily_trends, ds.get("historical", []), ad_daily=ad_daily)
 
     # ── Patch daily_spends/leads arrays when daily_trends doesn't cover the full window ──
     # daily_trends is hardcoded to 7 days in collect_data(). For weekly (14d) and

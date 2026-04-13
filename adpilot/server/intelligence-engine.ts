@@ -17,6 +17,13 @@ export interface IntelligenceQuery {
   message?: string;
   analysisData?: any;
   conversationHistory?: string[];
+  /** Alert context: when the pipeline is triggered by a specific alert, pass the problem
+   *  statement and live metrics so the prompt is tailored to that exact issue. */
+  alertContext?: {
+    problem: string;
+    metric?: string;
+    metrics?: Record<string, string | number>;
+  };
 }
 
 export interface StandardizedInsight {
@@ -171,17 +178,20 @@ export async function insightsEngine(query: IntelligenceQuery): Promise<Intellig
 }
 
 function buildPromptForQuery(query: IntelligenceQuery, ctx: any, sopInsights: SopInsight[]) {
-  const base = query.type === "strategic_analysis" 
-    ? buildStrategicPrompt(ctx) 
-    : buildRecommendationPrompt(ctx);
+  const base = query.type === "strategic_analysis"
+    ? buildStrategicPrompt(ctx)
+    : buildRecommendationPrompt(ctx, query.alertContext);
 
-  const sopHint = `\n\n### DETERMINISTIC SOP FINDINGS (Layer 2)
-Your deterministic analysis layer has already identified these potential issues. Refine, validate, or challenge them using your strategic reasoning:
-${JSON.stringify(sopInsights.map(s => ({ issue: s.issue, rec: s.recommendation })), null, 2)}`;
+  // Inject SOP deterministic findings as the "available SOPs" for Layer 2 filtering.
+  // Each entry shows the issue, its impact, and the raw SOP recommendation so Claude
+  // can select only relevant ones and enhance them — rather than accepting them blindly.
+  const sopBlock = sopInsights.length > 0
+    ? `\n\n--------------------------------------------------\n📋 AVAILABLE SOPs (deterministic Layer 2 findings — use ONLY what is relevant to the problem above):\n--------------------------------------------------\n${sopInsights.map((s, i) => `${i + 1}. [${s.priority}] Issue: "${s.issue}"${s.entityName ? ` → Entity: "${s.entityName}"` : ""}\n   Impact: ${s.impact}\n   Raw SOP Action: ${s.recommendation}`).join("\n\n")}\n\nNow apply the 4-layer pipeline strictly. Reject SOPs unrelated to the problem. Enhance the relevant ones with account-specific data.`
+    : "";
 
   return {
     system: base.system,
-    user: base.user + sopHint
+    user: base.user + sopBlock,
   };
 }
 

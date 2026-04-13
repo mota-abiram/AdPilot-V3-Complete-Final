@@ -77,11 +77,15 @@ export function analyzeSop(analysisData: any, targets: any, platform: string): S
            ice_score: 8
          });
       }
-      if (cpc > 45) {
+    // Google CPCs are structurally higher (search intent), so use a platform-aware threshold
+    const cpcThreshold = platform === "google" ? 120 : 45;
+      if (cpc > cpcThreshold) {
          insights.push({
            issue: "CPC Inflation",
-           impact: `CPC (₹${cpc.toFixed(2)}) is pushing CPL above target boundaries.`,
-           recommendation: "Review bidding strategy or negative keyword list to reduce auction friction.",
+           impact: `CPC (₹${cpc.toFixed(2)}) exceeds ${platform} benchmark (₹${cpcThreshold}) and is pushing CPL above target.`,
+           recommendation: platform === "google"
+             ? "Review keyword match types, add negatives, or improve Quality Score to reduce CPCs."
+             : "Review bidding strategy or audience overlap to reduce auction friction.",
            priority: "MEDIUM",
            entityId: id,
            entityName: name,
@@ -121,12 +125,13 @@ export function analyzeSop(analysisData: any, targets: any, platform: string): S
        }
     }
 
-    // 2.3 Algorithm Learning Trap (Imported from Python PDE)
-    const daysActive = c.days_active || 0; // Provided by agents
-    if (daysActive > 7 && leads < 5 && imps > 1000) {
+    // 2.3 Algorithm Learning Trap — only fire when days_active is reliably populated
+    // (defaults to 0 when not provided by agent, which would match every campaign)
+    const daysActive = c.days_active || 0;
+    if (daysActive > 7 && leads < 5 && imps > 5000 && spend > targetCpl) {
        insights.push({
          issue: "Algorithm Learning Trap",
-         impact: "Stuck in learning phase with insufficient conversion signals.",
+         impact: `"${name}" has been active ${daysActive} days with only ${leads} leads from ${imps.toLocaleString()} impressions.`,
          recommendation: "Reset campaign with broader targeting or switch to 'Clicks' focus temporarily.",
          priority: "HIGH",
          entityId: id,
@@ -219,12 +224,13 @@ export function analyzeSop(analysisData: any, targets: any, platform: string): S
     }
   }
 
-  // Tracking Sanity
-  const todayLeads = ap.latest_daily_leads ?? 0;
-  if (todayLeads === 0 && ap.total_leads_30d > 0) {
+  // Tracking Sanity — only fire when latest_daily_leads is explicitly populated by agent
+  // (undefined/null means agent didn't report it, not that leads are actually zero)
+  const todayLeads = ap.latest_daily_leads;
+  if (todayLeads !== undefined && todayLeads !== null && todayLeads === 0 && (ap.total_leads_30d || ap.avg_daily_leads || 0) > 0) {
     insights.push({
       issue: "Tracking Anomaly",
-      impact: "Zero leads recorded in the last 24 hours despite historical conversion flow.",
+      impact: `Zero leads in the last 24 hours despite historical average of ${(ap.avg_daily_leads || 0).toFixed(1)}/day.`,
       recommendation: "Immediate check of pixel/CAPI status and form completion logs.",
       priority: "CRITICAL",
       entityType: "account",

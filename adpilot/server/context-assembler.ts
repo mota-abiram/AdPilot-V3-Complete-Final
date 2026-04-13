@@ -16,7 +16,7 @@
 import fs from "fs";
 import path from "path";
 import { loadAnalysisSnapshot } from "./analysis-persistence";
-import { getLearningData, getLearningSummary, type LearningEntry } from "./execution-learning";
+import { getLearningData, type LearningEntry } from "./execution-learning";
 
 // ─── Constants ────────────────────────────────────────────────────
 
@@ -141,8 +141,9 @@ function safeReadJson(filepath: string, fallback: any = {}): any {
 // ─── Layer Builders ───────────────────────────────────────────────
 
 function buildLayer1(clientConfig: any, platform: string): AssembledContext["layer1"] {
-  // Client targets — platform-specific first, then fallback
-  const targets = clientConfig?.targets?.[platform] || clientConfig?.targets?.meta || {};
+  // Client targets — platform-specific only; do NOT fall back to the other platform's
+  // targets (Meta CPL ≠ Google CPL — mixing them produces identical, meaningless alerts)
+  const targets = clientConfig?.targets?.[platform] || {};
   const clientTargets: ClientTargets = {
     cpl: targets.cpl,
     budget: targets.budget,
@@ -222,39 +223,46 @@ async function buildLayer2(
   return { analysisData, intellect_insights, platformContext };
 }
 
-function buildLayer3(): AssembledContext["layer3"] {
-  // Execution learning data
+function buildLayer3(platform: string): AssembledContext["layer3"] {
+  // Filter learning data to this platform so Google doesn't see Meta action outcomes
+  // and vice versa — cross-platform patterns are meaningless and cause duplicate alerts
   const allEntries = getLearningData();
-  const recentActions = allEntries.slice(0, 50); // Last 50 actions
+  const platformEntries = allEntries.filter((e) => !e.platform || e.platform === platform);
+  const recentActions = platformEntries.slice(0, 50);
 
-  // Summary
-  const summary = getLearningSummary();
-  const patterns: string[] = summary.patterns || [];
+  // Compute patterns from platform-filtered entries
+  const patterns: string[] = [];
+  const pauseEntries = platformEntries.filter((e) => e.action.startsWith("PAUSE") && e.outcome !== "PENDING");
+  const pausePositive = pauseEntries.filter((e) => e.outcome === "POSITIVE").length;
+  if (pauseEntries.length >= 3) {
+    const rate = ((pausePositive / pauseEntries.length) * 100).toFixed(0);
+    patterns.push(`Pausing underperformers had positive outcomes ${rate}% of the time (${pausePositive}/${pauseEntries.length}) on ${platform}`);
+  }
+
+  const scaleEntries = platformEntries.filter((e) => e.action.includes("SCALE") && e.outcome !== "PENDING");
+  const scalePositive = scaleEntries.filter((e) => e.outcome === "POSITIVE").length;
+  if (scaleEntries.length >= 3) {
+    const rate = ((scalePositive / scaleEntries.length) * 100).toFixed(0);
+    patterns.push(`Scaling winners succeeded ${rate}% of the time on ${platform}`);
+  }
 
   // Compute per-action success rates
   const byAction: SuccessRates["byAction"] = {};
-  for (const [action, stats] of Object.entries(summary.byAction || {})) {
-    const s = stats as any;
-    byAction[action] = {
-      total: s.total || 0,
-      positive: s.positive || 0,
-      negative: s.negative || 0,
-    };
+  for (const entry of platformEntries) {
+    const a = entry.action;
+    if (!byAction[a]) byAction[a] = { total: 0, positive: 0, negative: 0 };
+    byAction[a].total++;
+    if (entry.outcome === "POSITIVE") byAction[a].positive++;
+    if (entry.outcome === "NEGATIVE") byAction[a].negative++;
   }
 
-  // Pause success rate
-  const pauseEntries = allEntries.filter((e) => e.action.startsWith("PAUSE") && e.outcome !== "PENDING");
-  const pausePositive = pauseEntries.filter((e) => e.outcome === "POSITIVE").length;
   const pauseSuccessRate = pauseEntries.length > 0 ? pausePositive / pauseEntries.length : 0;
-
-  // Scale success rate
-  const scaleEntries = allEntries.filter((e) => e.action.includes("SCALE") && e.outcome !== "PENDING");
-  const scalePositive = scaleEntries.filter((e) => e.outcome === "POSITIVE").length;
   const scaleSuccessRate = scaleEntries.length > 0 ? scalePositive / scaleEntries.length : 0;
+  const positiveTotal = platformEntries.filter((e) => e.outcome === "POSITIVE").length;
 
   const successRates: SuccessRates = {
-    totalActions: summary.totalActions || 0,
-    positiveRate: summary.positiveRate || 0,
+    totalActions: platformEntries.length,
+    positiveRate: platformEntries.length > 0 ? positiveTotal / platformEntries.length : 0,
     pauseSuccessRate,
     scaleSuccessRate,
     byAction,
@@ -329,7 +337,7 @@ export async function assembleContext(
 
   // Layer 1 and 3-4 are sync or very fast
   const layer1 = buildLayer1(clientConfig, platform);
-  const layer3 = buildLayer3();
+  const layer3 = buildLayer3(platform);
   const layer4 = buildLayer4(platform);
 
   return { layer1, layer2, layer3, layer4 };

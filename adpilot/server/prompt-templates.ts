@@ -251,31 +251,108 @@ Analyse the full context across all 4 layers. Identify the most impactful opport
 /**
  * Recommendation prompt — used for generating specific actionable recommendations.
  * Routes to Sonnet for fast, cost-effective responses.
+ *
+ * alertContext is passed when the call is triggered from a specific alert (e.g. "Account CTR is
+ * critically low"). When present, the prompt becomes a problem-specific diagnosis + fix engine
+ * rather than a generic account health sweep.
  */
-export function buildRecommendationPrompt(ctx: AssembledContext): { system: string; user: string } {
-  const system = `You are Mojo AdCortex, an AI performance marketing engine for AdPilot.
+export function buildRecommendationPrompt(
+  ctx: AssembledContext,
+  alertContext?: { problem: string; metric?: string; metrics?: Record<string, string | number> }
+): { system: string; user: string } {
 
-Your role: Generate specific, executable recommendations based on the 4-layer intelligence context provided.
+  const hasProblem = !!alertContext?.problem;
 
-Focus on:
-- Campaigns that need immediate action (losers draining budget)
-- Winners that should be scaled
-- Budget reallocation opportunities
-- Learning phase entities that need protection
+  // ── System prompt ────────────────────────────────────────────────
+  const system = `You are an advanced Ad Performance Intelligence Engine operating on a strict 4-Layer Decision Architecture.
 
+Your task is to generate the TOP 5 highly customized, problem-specific, actionable recommendations based on:
+1) The given problem/alert
+2) Available SOPs (deterministic rule findings passed in the context)
+3) AI-driven performance reasoning grounded in the live account data
+
+--------------------------------------------------
+⚠️  CORE RULES — NEVER VIOLATE:
+--------------------------------------------------
+- Do NOT output generic SOP suggestions
+- Do NOT reuse SOPs blindly
+- Do NOT give vague advice (e.g., "improve creatives", "optimize campaigns")
+- Every recommendation must be tailored to the SPECIFIC problem identified
+- Reference SPECIFIC campaign names, ad names, or metrics from the data — not placeholders
+- Combine multiple SOPs when that produces a stronger, more targeted recommendation
+
+--------------------------------------------------
+🧠 MANDATORY 4-LAYER PIPELINE (execute in order):
+--------------------------------------------------
+
+LAYER 1 — Problem Diagnosis
+- Identify the most likely root causes of the specific problem/alert
+- Use performance marketing logic (e.g., low CTR → weak hooks, creative fatigue, audience mismatch)
+- Prioritize causes by expected revenue/lead impact
+
+LAYER 2 — SOP Filtering & Mapping (STRICT)
+- Select ONLY SOPs from the provided findings that are relevant to the identified root causes
+- Reject irrelevant SOPs entirely
+- Map each selected SOP to a specific cause within the problem
+
+LAYER 3 — AI Enhancement (CRITICAL)
+- Transform each relevant SOP into a sharp, customized, immediately executable action
+- Add: exact parameters to change, tactical execution details, platform-specific nuance
+- Combine SOPs where appropriate to create higher-impact recommendations
+- Draw on the account's specific campaign names, spend levels, CPLs from the data
+
+LAYER 4 — Prioritization & Output
+- Rank by expected performance impact (CPL reduction, lead volume, budget recovery)
+- Return ONLY the TOP 5 actions
+
+--------------------------------------------------
+📤 OUTPUT FORMAT — STRICT JSON (no markdown before or after):
+--------------------------------------------------
 ${OUTPUT_FORMAT_INSTRUCTION}`;
 
-  const user = `${serializeLayer1(ctx)}
+  // ── Live account metrics block ───────────────────────────────────
+  const { intellect_insights, analysisData, platformContext } = ctx.layer2;
+  const ap = analysisData?.account_pulse || {};
 
+  const liveMetrics = alertContext?.metrics
+    ? Object.entries(alertContext.metrics).map(([k, v]) => `- ${k}: ${v}`).join("\n")
+    : [
+        ap.overall_cpl   ? `- Account CPL: ₹${Math.round(ap.overall_cpl)}`   : null,
+        ap.overall_ctr   ? `- Account CTR: ${ap.overall_ctr}%`                : null,
+        ap.overall_cpm   ? `- Account CPM: ₹${Math.round(ap.overall_cpm)}`   : null,
+        ap.overall_cpc   ? `- Account CPC: ₹${Math.round(ap.overall_cpc)}`   : null,
+        intellect_insights.totalSpend  ? `- Total Spend: ₹${Math.round(intellect_insights.totalSpend)}` : null,
+        intellect_insights.totalLeads  ? `- Total Leads: ${intellect_insights.totalLeads}`              : null,
+        intellect_insights.healthScore ? `- Account Health Score: ${intellect_insights.healthScore}`    : null,
+        `- Platform: ${platformContext.platform}`,
+        platformContext.daysElapsed    ? `- Days Elapsed in Month: ${platformContext.daysElapsed}`      : null,
+        platformContext.daysRemaining  ? `- Days Remaining: ${platformContext.daysRemaining}`           : null,
+      ].filter(Boolean).join("\n");
+
+  // ── User message ─────────────────────────────────────────────────
+  const problemBlock = hasProblem
+    ? `🔴 PROBLEM / ALERT:\n${alertContext!.problem}${alertContext?.metric ? ` [Metric: ${alertContext.metric}]` : ""}`
+    : `🔴 PROBLEM / ALERT:\nGenerate a full account health sweep — identify the highest-impact issues across all active campaigns.`;
+
+  const user = `${problemBlock}
+
+--------------------------------------------------
+📊 ACCOUNT CONTEXT (live metrics):
+--------------------------------------------------
+${liveMetrics}
+
+--------------------------------------------------
 ${serializeLayer2(ctx)}
 
 ${serializeLayer3(ctx)}
 
 ${serializeLayer4(ctx)}
 
+${serializeLayer1(ctx)}
+
 ---
 
-Generate ranked recommendations. Focus on actions that can be executed immediately via the AdPilot platform. Each recommendation must reference specific campaigns by name.`;
+Now execute the 4-layer pipeline. For each of the TOP 5 recommendations, reference specific campaign names, ad names, or metrics from the data above. Make every recommendation feel like it came from a senior performance marketer making a real budget decision.`;
 
   return { system, user };
 }

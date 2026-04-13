@@ -195,7 +195,9 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
   const { isAdmin } = useAuth();
 
   const platformItems = activePlatform === "google" ? googleNavItems : metaNavItems;
-  const adminItems = isAdmin ? adminNavItems : adminNavItems.filter(i => i.title === "Settings");
+  const adminItems = isAdmin 
+    ? adminNavItems 
+    : adminNavItems.filter(i => i.title === "Settings" || i.title === "Manage Clients");
 
   const { toast } = useToast();
   const syncMutation = useMutation({
@@ -235,9 +237,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
           </div>
         </div>
 
-        {isAdmin && (
-          <>
-            {/* ── Unified Workspace Switcher ──────────────────────────────── */}
+        {/* ── Unified Workspace Switcher ──────────────────────────────── */}
             <div className="grid gap-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center justify-between px-1">
                 Workspace
@@ -385,8 +385,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                 })}
               </div>
             </div>
-          </>
-        )}
+
       </SidebarHeader>
 
       {/* ── Navigation groups ───────────────────────────────────────── */}
@@ -395,13 +394,9 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <SidebarContent className="gap-0">
-          {isAdmin && (
-            <>
-              <NavSection label="Analytics" items={[...coreNavItems, ...platformItems]} location={location} />
-              <NavSection label="Planning" items={planningNavItems} location={location} />
-              <NavSection label="Operations" items={opsNavItems} location={location} />
-            </>
-          )}
+          <NavSection label="Analytics" items={[...coreNavItems, ...platformItems]} location={location} />
+          <NavSection label="Planning" items={planningNavItems} location={location} />
+          <NavSection label="Operations" items={opsNavItems} location={location} />
           <NavSection label="Admin" items={adminItems} location={location} />
         </SidebarContent>
       </nav>
