@@ -9,7 +9,13 @@
 // ─── Campaign Normalization ─────────────────────────────────────────
 
 import { getClassification } from "../shared/classification";
-import { scoreLowerIsBetter } from "../shared/scoring";
+import {
+  scoreStagedCostDynamic,
+  scoreStagedBudgetDynamic,
+  getMetricWeights,
+  computeMinRatio,
+  computeDualGateStatus,
+} from "./scoring-config";
 
 function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
   let total = 0;
@@ -20,11 +26,18 @@ function normalizeScore(scores: Record<string, number>, weights: Record<string, 
 }
 
 /**
- * Recomputes Google account health score using:
+ * Recomputes Google account health score using Mojo AdCortex v2.0 formulas:
  * - Targets from benchmarks tab (google_cpl, google_cpsv_low, google_cpql_target, etc.)
  * - Current values from API MTD data (mtd_pacing)
  *
  * Weights: CPSV 25 · Budget 20 · CPQL 20 · CPL 10 · Campaign 15 · Creative 10
+ *
+ * Formulas:
+ *   - Cost metrics (CPSV, CPL, CPQL): Quadratic decay with acceleration
+ *   - Budget: Quadratic penalty for both overspend and underspend
+ *   - Campaign/Creative: Agent-provided values
+ *
+ * Status determination: Dual-gate system (composite + weakest-link veto)
  */
 function recomputeGoogleHealthScore(data: any): {
   score: number;
@@ -39,7 +52,7 @@ function recomputeGoogleHealthScore(data: any): {
   // MTD deliverables (manually entered SVS, qualified leads) — same as Meta
   const mtdDeliverables = data.mtd_deliverables || {};
 
-  const weights: Record<string, number> = { cpsv: 25, budget: 20, cpql: 20, cpl: 10, campaign: 15, creative: 10 };
+  const weights = getMetricWeights("google");
 
   // ── MTD-only actuals — strictly MTD, no cadence-window or 30-day data ──
   // Priority: normalized mp.mtd (from normalizeMonthlyPacing) → raw mtd_pacing
@@ -54,36 +67,68 @@ function recomputeGoogleHealthScore(data: any): {
   const cplTarget = benchmarks.google_cpl || benchmarks.cpl || 850;
   const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
   const cplScore = actualLeadsMtd > 0
-    ? scoreLowerIsBetter(actualCplMtd, cplTarget, 1.5)
+    ? scoreStagedCostDynamic(actualCplMtd, cplTarget)
     : 50;
 
-  // ─── Budget/Pacing Score (MTD spend vs pro-rated budget) ───
+  // ─── Budget/Pacing Score (MTD spend vs pro-rated budget: Staged) ───
   const pacingPct = mp.pacing?.spend_pct ?? rawMtd.pacing_spend_pct ?? 100;
-  const pacingDev = Math.abs(pacingPct / 100 - 1);
-  const budgetScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - pacingDev * 2))) * 10) / 10;
+  const budgetScore = scoreStagedBudgetDynamic(pacingPct);
 
-  // ─── CPQL Score (Lower is better) ───
+  // ─── CPQL Score (Lower is better: Staged) ───
   // benchmarks.google_cpql_target or benchmarks.cpql_target from Benchmarks tab
   const cpqlTarget = benchmarks.google_cpql_target || benchmarks.cpql_target || 1500;
   const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
   const cpqlScore = actualQLeadsMtd > 0
-    ? scoreLowerIsBetter(actualCpqlMtd, cpqlTarget, 1.5)
+    ? scoreStagedCostDynamic(actualCpqlMtd, cpqlTarget)
     : 50; // Neutral when no qualified leads entered
 
-  // ─── CPSV Score (Lower is better) ───
+  // ─── CPSV Score (Lower is better: Staged) ───
   // benchmarks.google_cpsv_low = "Google CPSV Target Low" from Benchmarks tab
   // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
   const cpsvTarget = benchmarks.google_cpsv_low || benchmarks.cpsv_low || 0;
   const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
   const cpsvScore = (actualSvsMtd > 0 && cpsvTarget > 0)
-    ? scoreLowerIsBetter(actualCpsvMtd, cpsvTarget, 1.5)
+    ? scoreStagedCostDynamic(actualCpsvMtd, cpsvTarget)
     : 50; // Neutral when no SVS data entered
 
   // ─── Campaign Score — use agent's value if available ───
   const campaignScore = existingBreakdown.campaign ?? 50;
 
-  // ─── Creative Score — use agent's value if available ───
-  const creativeScore = existingBreakdown.creative ?? 50;
+  // ─── Creative Score (Spend-weighted average + diversity factor) ───
+  // Formula: score = (H_avg / 100) × D where
+  //   H_avg = Σ(health_i × spend_i) / Σ(spend_i)  [spend-weighted average]
+  //   D = min(1.0, active_count / 4)               [diversity penalty]
+  const creativeHealth: any[] = data.creative_health || [];
+
+  let creativeScore = existingBreakdown.creative ?? 50; // Start with existing or neutral
+
+  // Only recompute if we have creative_health data
+  if (creativeHealth.length > 0) {
+    // Filter to active creatives with spend > 0
+    const activeCreatives = creativeHealth.filter(
+      (c: any) => (c.status === "ACTIVE" || !c.status) && (c.spend ?? 0) > 0
+    );
+
+    if (activeCreatives.length === 0) {
+      // Zero active ads with spend = worst state (forces attention)
+      creativeScore = 0;
+    } else {
+      // Compute spend-weighted average
+      const totalSpend = activeCreatives.reduce((s: number, c: any) => s + (c.spend ?? 0), 0);
+      const weightedSum = activeCreatives.reduce(
+        (s: number, c: any) => s + (c.creative_score ?? c.performance_score ?? 0) * (c.spend ?? 0),
+        0
+      );
+      const hAvg = totalSpend > 0 ? weightedSum / totalSpend : 0;
+
+      // Apply diversity factor: min(1.0, count / 4)
+      const diversity = Math.min(1.0, activeCreatives.length / 4);
+      creativeScore = hAvg * diversity;
+
+      // Clamp to 0-100
+      creativeScore = Math.max(0, Math.min(100, creativeScore));
+    }
+  }
 
   const breakdown = {
     cpsv: Math.round(cpsvScore * 100) / 100,
@@ -96,16 +141,29 @@ function recomputeGoogleHealthScore(data: any): {
 
   let compositeScore = normalizeScore(breakdown, weights);
 
-  // Override rule: if any metric with weight ≥15 is RED, cap to YELLOW
-  const hasHighWeightRed = Object.entries(breakdown).some(
-    ([k, v]) => v < 50 && (weights[k] || 0) >= 15
-  );
-  if (hasHighWeightRed && compositeScore >= 75) {
-    compositeScore = 74;
+  // ─── Apply Dual-Gate Status Determination ───
+  // Compute weakest-link ratio: min(score_i / weight_i) across all 6 metrics
+  const minRatio = computeMinRatio(breakdown, weights);
+
+  // Determine status using dual-gate (composite + veto)
+  const dualGateStatus = computeDualGateStatus(compositeScore, minRatio);
+
+  // Map dual-gate status to a capped score for classification compatibility
+  // This preserves the WINNER/WATCH/UNDERPERFORMER nomenclature
+  let finalScore = compositeScore;
+  if (dualGateStatus === "YELLOW") {
+    // Cap to max of YELLOW range (to prevent showing as GREEN when veto forces YELLOW)
+    finalScore = Math.min(compositeScore, 74);
+  } else if (dualGateStatus === "ORANGE") {
+    // Cap to max of ORANGE range (to prevent showing as YELLOW when veto forces ORANGE)
+    finalScore = Math.min(compositeScore, 54);
+  } else if (dualGateStatus === "RED") {
+    // Cap to max of RED range
+    finalScore = Math.min(compositeScore, 34);
   }
 
-  const finalClassification = getClassification(compositeScore, cplScore, cplTarget);
-  return { score: compositeScore, breakdown, classification: finalClassification };
+  const finalClassification = getClassification(finalScore, cplScore, cplTarget);
+  return { score: finalScore, breakdown, classification: finalClassification };
 }
 
 function cleanCampaignName(name: string): string {
@@ -192,6 +250,7 @@ function normalizeCampaign(c: any): any {
     health_score: healthScore,
     score_breakdown: c.score_breakdown || c.cost_stack?.statuses || {},
     score_bands: c.score_bands || {},
+    detailed_breakdown: c.detailed_breakdown || (c.campaign_type === "DEMAND_GEN" ? reconstructDetailed(c.score_breakdown, "google_dg", c, benchmarks) : reconstructDetailed(c.score_breakdown, "google_campaign", c, benchmarks)),
     classification,
 
     // Core metrics
@@ -291,6 +350,7 @@ function extractAdGroups(campaigns: any[]): any[] {
         // Score details
         score_breakdown: ag.score_breakdown || {},
         score_bands: ag.score_bands || {},
+        detailed_breakdown: ag.detailed_breakdown || reconstructDetailed(ag.score_breakdown, "google_adgroup", ag, benchmarks),
       });
     }
   }
@@ -367,6 +427,7 @@ function extractCreativeHealth(campaigns: any[], existingCreativeHealth: any[]):
           scoring_type: isVideo ? "video" : "static",
           score_breakdown: ad.score_breakdown || {},
           score_bands: {},
+          detailed_breakdown: ad.detailed_breakdown || reconstructDetailed(ad.score_breakdown, ad.ad_type === "VIDEO" ? "google_creative" : "google_rsa", ad, benchmarks),
           classification: getClassification(
             ad.health_score ?? ad.performance_score ?? ad.creative_score ?? 0
           ),
@@ -565,4 +626,39 @@ export function normalizeGoogleAnalysis(raw: any): any {
     // Backwards-compat: keep raw campaigns for pages that still reference it
     campaigns: campaigns,
   };
+}
+
+function reconstructDetailed(breakdown: any, type: string, item: any = {}, targets: any = {}): Record<string, any> {
+  if (!breakdown) return {};
+  const weights: Record<string, Record<string, number>> = {
+    google_campaign: { cpl: 30, cvr: 22, cpc: 15, qs: 13, ctr: 10, is: 5, rsa: 5 },
+    google_adgroup: { cpl: 30, cvr: 25, ctr: 15, qs: 15, is: 10, cpc: 5 },
+    google_dg: { cpl: 32, leads: 20, cvr: 15, ctr: 15, freq: 10, cpm: 8 },
+    google_creative: { cpl: 35, cpm: 25, cr: 20, cpc: 20 },
+    google_rsa: { ad_strength: 30, quality_score: 30, ctr: 20, expected_ctr: 20 }
+  };
+  const w = weights[type] || {};
+  const detailed: any = {};
+  
+  const targetCpl = targets.google_cpl || targets.cpl || 850;
+
+  for (const k in w) {
+    let score = breakdown[k];
+    
+    // Hot re-score cost metrics if raw data is available
+    if (k === 'cpl' && item.cpl > 0) {
+      score = scoreStagedCostDynamic(item.cpl, targetCpl);
+    } else if (k === 'cpc' && (item.cpc > 0 || item.avg_cpc > 0)) {
+      score = scoreStagedCostDynamic(item.cpc || item.avg_cpc, 30);
+    }
+
+    if (score !== undefined) {
+      detailed[k] = {
+        score: Math.round(score * 10) / 10,
+        weight: w[k],
+        contribution: Math.round((score * w[k] / 100) * 10) / 10
+      };
+    }
+  }
+  return detailed;
 }

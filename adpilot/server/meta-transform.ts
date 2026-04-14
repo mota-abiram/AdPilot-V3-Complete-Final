@@ -8,7 +8,13 @@
  */
 
 import { getClassification } from "../shared/classification";
-import { scoreLowerIsBetter } from "../shared/scoring";
+import {
+  scoreStagedCostDynamic,
+  scoreStagedBudgetDynamic,
+  getMetricWeights,
+  computeMinRatio,
+  computeDualGateStatus,
+} from "./scoring-config";
 
 function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
   let total = 0;
@@ -20,15 +26,20 @@ function normalizeScore(scores: Record<string, number>, weights: Record<string, 
 
 /**
  * Recomputes account_health_score and account_health_breakdown from
- * the cadence-window account_pulse metrics using Mojo AdCortex v1.0 formulas.
+ * the cadence-window account_pulse metrics using Mojo AdCortex v2.0 formulas.
  *
  * Weights (Mojo AdCortex Meta):
  *   CPSV 25% · Budget 25% · CPQL 20% · CPL 20% · Creative 10%
  *
- * Scores are 0-100 per metric, then weighted to produce composite 0-100.
- * Status bands: GREEN ≥75, YELLOW 50-74, RED <50
+ * Formulas:
+ *   - Cost metrics (CPSV, CPL, CPQL): Quadratic decay with acceleration
+ *   - Budget: Quadratic penalty for both overspend and underspend
+ *   - Creative: Spend-weighted average with diversity factor
  *
- * Override Rule: If any metric with weight ≥15% is RED, final status capped to YELLOW.
+ * Status determination: Dual-gate system
+ *   - Composite gate: Total score threshold (GREEN ≥75, YELLOW ≥55, ORANGE ≥35, RED <35)
+ *   - Veto gate: Weakest-link ratio (min(score/weight)), prevents weak metrics from hiding
+ *   - Final status = WORSE of the two gates
  */
 function recomputeHealthScore(data: any): {
   score: number;
@@ -39,7 +50,7 @@ function recomputeHealthScore(data: any): {
   const mp = data.monthly_pacing || {};
   const benchmarks = data.sop_benchmarks || data.dynamic_thresholds || data.sop_benchmarks_fallback || {};
 
-  const weights: Record<string, number> = { cpsv: 25, budget: 25, cpql: 20, cpl: 20, creative: 10 };
+  const weights = getMetricWeights("meta");
 
   // MTD deliverables (manually entered SVS, qualified leads)
   const mtdDeliverables = data.mtd_deliverables || {};
@@ -60,45 +71,62 @@ function recomputeHealthScore(data: any): {
   const cplTarget = benchmarks.cpl || 800;
   const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
   const cplScore = actualLeadsMtd > 0
-    ? scoreLowerIsBetter(actualCplMtd, cplTarget, 1.5)
+    ? scoreStagedCostDynamic(actualCplMtd, cplTarget)
     : 50;
 
-  // ─── Budget/Pacing Score (Custom formula) ───
+  // ─── Budget/Pacing Score (Custom formula: Staged) ───
   // Pacing deviation from 100%: perfect = 100%, penalize overspend/underspend
   const pacingPct = mp.pacing?.spend_pct ?? 100;
-  const pacingDev = Math.abs(pacingPct / 100 - 1);
-  // Formula: 100 * (1 - deviation*2), clamped 0-100
-  const budgetScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - pacingDev * 2))) * 10) / 10;
+  const budgetScore = scoreStagedBudgetDynamic(pacingPct);
 
-  // ─── CPQL Score (Lower is better) ───
+  // ─── CPQL Score (Lower is better: Staged) ───
   // benchmarks.cpql_target = "CPQL Target" field in Benchmarks tab
   const cpqlTarget = benchmarks.cpql_target || 1500;
   const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
   const cpqlScore = actualQLeadsMtd > 0
-    ? scoreLowerIsBetter(actualCpqlMtd, cpqlTarget, 1.5)
+    ? scoreStagedCostDynamic(actualCpqlMtd, cpqlTarget)
     : 50; // Neutral when no qualified leads entered
 
-  // ─── CPSV Score (Lower is better) ───
+  // ─── CPSV Score (Lower is better: Staged) ───
   // benchmarks.cpsv_low = "CPSV Target Low" field in Benchmarks tab
   // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
   const cpsvTarget = benchmarks.cpsv_low || 0;
   const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
   const cpsvScore = (actualSvsMtd > 0 && cpsvTarget > 0)
-    ? scoreLowerIsBetter(actualCpsvMtd, cpsvTarget, 1.5)
+    ? scoreStagedCostDynamic(actualCpsvMtd, cpsvTarget)
     : 50; // Neutral when no SVS data entered
 
-  // ─── Creative Score (Higher is better) ───
+  // ─── Creative Score (Spend-weighted average + diversity factor) ───
+  // Formula: score = (H_avg / 100) × D where
+  //   H_avg = Σ(health_i × spend_i) / Σ(spend_i)  [spend-weighted average]
+  //   D = min(1.0, active_count / 4)               [diversity penalty]
   const creativeHealth: any[] = data.creative_health || [];
-  let creativeScore = existingBreakdown.creative
-    ? existingBreakdown.creative
-    : 50; // Neutral default
 
+  let creativeScore = existingBreakdown.creative ?? 50; // Start with existing or neutral
+
+  // Only recompute if we have creative_health data
   if (creativeHealth.length > 0) {
-    const validScores = creativeHealth
-      .map((c: any) => c.creative_score ?? c.performance_score ?? 0)
-      .filter((s: number) => s > 0);
-    if (validScores.length > 0) {
-      creativeScore = validScores.reduce((s: number, v: number) => s + v, 0) / validScores.length;
+    // Filter to active creatives with spend > 0
+    const activeCreatives = creativeHealth.filter(
+      (c: any) => (c.status === "ACTIVE" || !c.status) && (c.spend ?? 0) > 0
+    );
+
+    if (activeCreatives.length === 0) {
+      // Zero active ads with spend = worst state (forces attention)
+      creativeScore = 0;
+    } else {
+      // Compute spend-weighted average
+      const totalSpend = activeCreatives.reduce((s: number, c: any) => s + (c.spend ?? 0), 0);
+      const weightedSum = activeCreatives.reduce(
+        (s: number, c: any) => s + (c.creative_score ?? c.performance_score ?? 0) * (c.spend ?? 0),
+        0
+      );
+      const hAvg = totalSpend > 0 ? weightedSum / totalSpend : 0;
+
+      // Apply diversity factor: min(1.0, count / 4)
+      const diversity = Math.min(1.0, activeCreatives.length / 4);
+      creativeScore = hAvg * diversity;
+
       // Clamp to 0-100
       creativeScore = Math.max(0, Math.min(100, creativeScore));
     }
@@ -116,29 +144,49 @@ function recomputeHealthScore(data: any): {
   // ─── Calculate Composite Score ───
   let compositeScore = normalizeScore(breakdown, weights);
 
-  // ─── Apply Override Rule ───
-  // If any metric with weight ≥15% is RED (score < 50), cap final status to YELLOW
-  // This means capping the composite score below 75 (GREEN threshold)
-  const metricScores = [
-    { name: "cpsv", score: cpsvScore, weight: weights.cpsv },
-    { name: "budget", score: budgetScore, weight: weights.budget },
-    { name: "cpql", score: cpqlScore, weight: weights.cpql },
-    { name: "cpl", score: cplScore, weight: weights.cpl },
-    { name: "creative", score: creativeScore, weight: weights.creative },
-  ];
+  // ─── Apply Dual-Gate Status Determination ───
+  // Compute weakest-link ratio: min(score_i / weight_i) across all 5 metrics
+  const minRatio = computeMinRatio(breakdown, weights);
 
-  const hasHighWeightRedMetric = metricScores.some(
-    (m) => m.score < 50 && m.weight >= 15
-  );
+  // Determine status using dual-gate (composite + veto)
+  const dualGateStatus = computeDualGateStatus(compositeScore, minRatio);
 
-  // If override applies and score would be GREEN, cap to max YELLOW (74)
-  if (hasHighWeightRedMetric && compositeScore >= 75) {
-    compositeScore = 74;
+  // Map dual-gate status to a capped score for classification compatibility
+  // This preserves the WINNER/WATCH/UNDERPERFORMER nomenclature
+  let finalScore = compositeScore;
+  if (dualGateStatus === "YELLOW") {
+    // Cap to max of YELLOW range (to prevent showing as GREEN when veto forces YELLOW)
+    finalScore = Math.min(compositeScore, 74);
+  } else if (dualGateStatus === "ORANGE") {
+    // Cap to max of ORANGE range (to prevent showing as YELLOW when veto forces ORANGE)
+    finalScore = Math.min(compositeScore, 54);
+  } else if (dualGateStatus === "RED") {
+    // Cap to max of RED range
+    finalScore = Math.min(compositeScore, 34);
   }
 
-  const finalClassification = getClassification(compositeScore, cplScore, cplTarget);
+  const finalClassification = getClassification(finalScore, cplScore, cplTarget);
 
-  return { score: compositeScore, breakdown, classification: finalClassification };
+  return { score: finalScore, breakdown, classification: finalClassification };
+}
+
+function scoreLinearMeta(actual: number, target: number, weight: number, lowerIsBetter: boolean): number {
+  if (target <= 0) return weight * 0.5;
+  const ratio = actual / target;
+  if (lowerIsBetter) {
+    // Staged logic for CPL/CPC
+    let score100 = 10;
+    if (ratio <= 1.1) score100 = 100;
+    else if (ratio <= 1.2) score100 = 70;
+    else if (ratio <= 1.3) score100 = 40;
+    return weight * (score100 / 100);
+  } else {
+    // Relaxed real-estate floor (0.3 instead of 0.5) for CTR/CVR
+    if (actual >= target * 1.2) return weight;
+    if (actual <= target * 0.3) return 0;
+    const score_ratio = (ratio - 0.3) / (1.2 - 0.3);
+    return weight * Math.max(0, Math.min(1, score_ratio));
+  }
 }
 
 // ── Main normalizer ───────────────────────────────────────────────────────────
@@ -149,26 +197,126 @@ export function normalizeMetaAnalysis(raw: any): any {
   const data = { ...raw };
 
   if (Array.isArray(data.campaign_audit)) {
-    data.campaign_audit = data.campaign_audit.map((campaign: any) => ({
-      ...campaign,
-      classification: getClassification(campaign.health_score),
-    }));
+    const weights: Record<string, number> = { cpl: 25, cvr: 15, ctr: 15, leads: 15, freq: 10, cpm: 10, budget: 10 };
+    data.campaign_audit = data.campaign_audit.map((campaign: any) => {
+      const breakdown = campaign.score_breakdown || {};
+      const detailed: any = {};
+      
+      const ctrTarget = 0.45;
+      const cvrTarget = 1.5;
+      const cplTarget = data.targets?.cpl || 850;
+
+      for (const k in weights) {
+        let score = breakdown[k];
+        if (k === 'ctr' && campaign.ctr > 0) {
+          score = scoreLinearMeta(campaign.ctr, ctrTarget, 100, false);
+        } else if (k === 'cvr' && (campaign.cvr > 0 || (campaign.clicks > 0 && campaign.leads > 0))) {
+          const actualCvr = campaign.cvr || (campaign.leads / campaign.clicks) * 100;
+          score = scoreLinearMeta(actualCvr, cvrTarget, 100, false);
+        } else if (k === 'cpl' && campaign.cpl > 0) {
+          score = scoreLinearMeta(campaign.cpl, cplTarget, 100, true);
+        } else if (k === 'budget' && campaign.budget_utilization !== undefined) {
+          score = scoreStagedBudgetDynamic(campaign.budget_utilization);
+        }
+
+        if (score !== undefined) {
+          detailed[k] = {
+            score: Math.round(score * 10) / 10,
+            weight: weights[k],
+            contribution: Math.round((score * weights[k] / 100) * 10) / 10
+          };
+        }
+      }
+      return {
+        ...campaign,
+        classification: getClassification(campaign.health_score),
+        detailed_breakdown: detailed
+      };
+    });
   }
 
   if (Array.isArray(data.adset_analysis)) {
-    data.adset_analysis = data.adset_analysis.map((adset: any) => ({
-      ...adset,
-      classification: getClassification(adset.health_score),
-    }));
+    const weights: Record<string, number> = { cpl: 25, cvr: 15, ctr: 15, leads: 15, freq: 10, cpm: 10, budget: 10 };
+    data.adset_analysis = data.adset_analysis.map((adset: any) => {
+      const breakdown = adset.score_breakdown || {};
+      const detailed: any = {};
+      
+      // Determine targets (relaxed for Luxury Real Estate / Amara)
+      const ctrTarget = 0.45;
+      const cvrTarget = 1.5;
+      const cplTarget = data.targets?.cpl || 850;
+
+      for (const k in weights) {
+        let score = breakdown[k];
+        
+        // RE-CALCULATE CTR and CVR locally if we suspect they are zeroed out by strict benchmarks
+        if (k === 'ctr' && adset.ctr > 0) {
+          score = scoreLinearMeta(adset.ctr, ctrTarget, 100, false);
+        } else if (k === 'cvr' && (adset.cvr > 0 || (adset.clicks > 0 && adset.leads > 0))) {
+          const actualCvr = adset.cvr || (adset.leads / adset.clicks) * 100;
+          score = scoreLinearMeta(actualCvr, cvrTarget, 100, false);
+        } else if (k === 'cpl' && adset.cpl > 0) {
+          score = scoreLinearMeta(adset.cpl, cplTarget, 100, true);
+        } else if (k === 'budget' && adset.budget_utilization !== undefined) {
+          score = scoreStagedBudgetDynamic(adset.budget_utilization);
+        }
+
+        if (score !== undefined) {
+          detailed[k] = {
+            score: Math.round(score * 10) / 10,
+            weight: weights[k],
+            contribution: Math.round((score * weights[k] / 100) * 10) / 10
+          };
+        }
+      }
+
+      return {
+        ...adset,
+        classification: getClassification(adset.health_score),
+        detailed_breakdown: detailed // Always use fresh re-computed detailed breakdown
+      };
+    });
   }
 
   if (Array.isArray(data.creative_health)) {
-    data.creative_health = data.creative_health.map((creative: any) => ({
-      ...creative,
-      classification: getClassification(
-        creative.health_score ?? creative.creative_score ?? creative.performance_score ?? 0
-      ),
-    }));
+    // Creative weights (from scoring_engine.py): hook (25), hold (25), cpl (30), age (10), delivery (10)
+    // Actually scoring_engine has: thumb_stop, hold_rate, cpl, age, cpc/delivery
+    const weights: Record<string, number> = { thumb_stop_pct: 25, hold_rate_pct: 25, cpl: 30, ctr: 10, delivery: 10 };
+    data.creative_health = data.creative_health.map((creative: any) => {
+      const breakdown = creative.score_breakdown || {};
+      const detailed: any = {};
+      
+      const ctrTarget = 0.45;
+      const cplTarget = data.targets?.cpl || 850;
+
+      for (const k in weights) {
+        let score = breakdown[k];
+        if (k === 'ctr' && creative.ctr > 0) {
+          score = scoreLinearMeta(creative.ctr, ctrTarget, 100, false);
+        } else if (k === 'thumb_stop_pct' && creative.thumb_stop_pct > 0) {
+          score = scoreLinearMeta(creative.thumb_stop_pct, 25, 100, false);
+        } else if (k === 'hold_rate_pct' && creative.hold_rate_pct > 0) {
+          score = scoreLinearMeta(creative.hold_rate_pct, 25, 100, false);
+        } else if (k === 'cpl' && creative.cpl > 0) {
+          score = scoreLinearMeta(creative.cpl, cplTarget, 100, true);
+        }
+
+        if (score !== undefined) {
+          detailed[k] = {
+            score: Math.round(score * 10) / 10,
+            weight: weights[k],
+            contribution: Math.round((score * weights[k] / 100) * 10) / 10
+          };
+        }
+      }
+      return {
+        ...creative,
+        classification: getClassification(
+          creative.health_score ?? creative.creative_score ?? creative.performance_score ?? 0
+        ),
+        detailed_breakdown: detailed
+      };
+    });
   }
 
   // ── 1. Account health score — recompute from cadence-window data ─────
