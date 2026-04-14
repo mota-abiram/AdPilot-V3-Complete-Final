@@ -335,7 +335,9 @@ function GoogleBenchmarks() {
     onSuccess: () => {
       // Invalidate the canonical key — propagates to dashboard, campaigns, adsets, MTD
       queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId, "google") });
-      toast({ title: "Google Benchmarks Saved", description: "Benchmark values updated and applied across all modules." });
+      // Invalidate analysis data so health scores recalculate immediately
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${activeClientId}/google`, "analysis"] });
+      toast({ title: "Google Benchmarks Saved", description: "Health scores updated instantly on dashboard." });
     },
     onError: (err: Error) => {
       toast({ title: "Save Failed", description: err.message, variant: "destructive" });
@@ -599,7 +601,9 @@ function MetaBenchmarks() {
     onSuccess: () => {
       // Invalidate canonical key — propagates to dashboard, campaigns, adsets, MTD
       queryClient.invalidateQueries({ queryKey: benchmarksQueryKey(activeClientId, "meta") });
-      toast({ title: "Benchmarks Saved", description: "Benchmark values updated and applied across all modules instantly." });
+      // Invalidate analysis data so health scores recalculate immediately
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${activeClientId}/meta`, "analysis"] });
+      toast({ title: "Benchmarks Saved", description: "Health scores updated instantly on dashboard." });
     },
     onError: (err: Error) => {
       toast({ title: "Save Failed", description: err.message, variant: "destructive" });
