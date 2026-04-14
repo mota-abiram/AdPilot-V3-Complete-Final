@@ -15450,12 +15450,12 @@
       "campaign_id": "120231984866140466",
       "adset_name": "DM Amara | Adv+ OT",
       "adset_id": "120231984866130466",
-      "impressions": "94004",
+      "impressions": "94043",
       "clicks": "743",
-      "ctr": "0.790392",
-      "cpc": "4.601588",
-      "cpm": "36.37058",
-      "spend": "3418.98",
+      "ctr": "0.790064",
+      "cpc": "4.603338",
+      "cpm": "36.36932",
+      "spend": "3420.28",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -15553,71 +15553,71 @@
       "cost_per_action_type": [
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "video_view",
-          "value": "162.808571"
+          "value": "162.870476"
         },
         {
           "action_type": "link_click",
-          "value": "5.409778"
+          "value": "5.411835"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "14.673734"
+          "value": "14.679313"
         },
         {
           "action_type": "onsite_conversion.messaging_user_depth_2_message_send",
-          "value": "3418.98"
+          "value": "3420.28"
         },
         {
           "action_type": "lead",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "post_engagement",
-          "value": "3.858894"
+          "value": "3.860361"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "landing_page_view",
-          "value": "854.745"
+          "value": "855.07"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "569.83"
+          "value": "570.046667"
         },
         {
           "action_type": "page_engagement",
-          "value": "3.858894"
+          "value": "3.860361"
         },
         {
           "action_type": "omni_landing_page_view",
-          "value": "854.745"
+          "value": "855.07"
         }
       ],
-      "frequency": "1.488583",
-      "reach": "63150",
+      "frequency": "1.489082",
+      "reach": "63155",
       "date_stop": "2026-04-13"
     },
     {
@@ -15626,12 +15626,12 @@
       "campaign_id": "120231984866140466",
       "adset_name": "DM Amara | Adv+ OT_2",
       "adset_id": "120235869581350466",
-      "impressions": "14059",
+      "impressions": "14061",
       "clicks": "47",
-      "ctr": "0.334305",
-      "cpc": "27.654043",
-      "cpm": "92.448965",
-      "spend": "1299.74",
+      "ctr": "0.334258",
+      "cpc": "27.655745",
+      "cpm": "92.441505",
+      "spend": "1299.82",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -15717,66 +15717,66 @@
       "cost_per_action_type": [
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "649.87"
+          "value": "649.91"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "video_view",
-          "value": "0.943208"
+          "value": "0.943266"
         },
         {
           "action_type": "link_click",
-          "value": "61.892381"
+          "value": "61.89619"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "24.523396"
+          "value": "24.524906"
         },
         {
           "action_type": "lead",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "post_engagement",
-          "value": "0.895138"
+          "value": "0.895193"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "landing_page_view",
-          "value": "649.87"
+          "value": "649.91"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "1299.74"
+          "value": "1299.82"
         },
         {
           "action_type": "page_engagement",
-          "value": "0.895138"
+          "value": "0.895193"
         },
         {
           "action_type": "omni_landing_page_view",
-          "value": "649.87"
+          "value": "649.91"
         }
       ],
-      "frequency": "1.082127",
+      "frequency": "1.082281",
       "reach": "12992",
       "date_stop": "2026-04-13"
     },
@@ -15786,12 +15786,12 @@
       "campaign_id": "120242148702000466",
       "adset_name": "DM Amara | Adv+ OT_2",
       "adset_id": "120242148702070466",
-      "impressions": "1341",
+      "impressions": "1342",
       "clicks": "22",
-      "ctr": "1.640567",
-      "cpc": "61.160455",
-      "cpm": "1003.378076",
-      "spend": "1345.53",
+      "ctr": "1.639344",
+      "cpc": "61.586364",
+      "cpm": "1009.612519",
+      "spend": "1354.9",
       "actions": [
         {
           "action_type": "link_click",
@@ -15829,26 +15829,26 @@
       "cost_per_action_type": [
         {
           "action_type": "video_view",
-          "value": "5.058383"
+          "value": "5.093609"
         },
         {
           "action_type": "link_click",
-          "value": "168.19125"
+          "value": "169.3625"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "672.765"
+          "value": "677.45"
         },
         {
           "action_type": "post_engagement",
-          "value": "4.875109"
+          "value": "4.909058"
         },
         {
           "action_type": "page_engagement",
-          "value": "4.875109"
+          "value": "4.909058"
         }
       ],
-      "frequency": "1.200537",
+      "frequency": "1.201432",
       "reach": "1117",
       "date_stop": "2026-04-13"
     },
@@ -15858,12 +15858,12 @@
       "campaign_id": "120242148702000466",
       "adset_name": "DM Amara | Adv+ OT",
       "adset_id": "120242148702090466",
-      "impressions": "3092",
+      "impressions": "3100",
       "clicks": "29",
-      "ctr": "0.937904",
-      "cpc": "56.135862",
-      "cpm": "526.500647",
-      "spend": "1627.94",
+      "ctr": "0.935484",
+      "cpc": "56.433103",
+      "cpm": "527.922581",
+      "spend": "1636.56",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -15925,55 +15925,55 @@
       "cost_per_action_type": [
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "813.97"
+          "value": "818.28"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "link_click",
-          "value": "81.397"
+          "value": "81.828"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "271.323333"
+          "value": "272.76"
         },
         {
           "action_type": "lead",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "post_engagement",
-          "value": "62.613077"
+          "value": "62.944615"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "1627.94"
+          "value": "1636.56"
         },
         {
           "action_type": "page_engagement",
-          "value": "62.613077"
+          "value": "62.944615"
         }
       ],
-      "frequency": "1.412517",
-      "reach": "2189",
+      "frequency": "1.414234",
+      "reach": "2192",
       "date_stop": "2026-04-13"
     }
   ]

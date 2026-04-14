@@ -278,63 +278,90 @@ export default function CampaignsPage() {
   const thresholds = data.dynamic_thresholds;
   const hasSelection = selectedIds.size > 0;
 
-  // ─── Google: search-specific columns (AdCortex Spec) ────────────────
+  // ─── Column Groupings (Pivot Table Style) ─────────────────────────
+  const googleSearchGroups = [
+    { label: "Identity", span: 3 },
+    { label: "Health", span: 2 },
+    { label: "Bidding & Budget", span: 3 },
+    { label: "Performance", span: 4 },
+    { label: "Efficiency", span: 3 },
+    { label: "Delivery", span: 3 },
+    { label: "", span: 1 }, // Actions
+  ];
+
+  const googleDgGroups = [
+    { label: "Identity", span: 3 },
+    { label: "Health", span: 2 },
+    { label: "Bidding & Budget", span: 2 },
+    { label: "Performance", span: 4 },
+    { label: "Efficiency", span: 3 },
+    { label: "", span: 1 }, // Actions
+  ];
+
+  const metaColumnGroups = [
+    { label: "Identity", span: 5 },
+    { label: "Health", span: 1 },
+    { label: "Bidding & Budget", span: 1 },
+    { label: "Performance", span: 3 },
+    { label: "Efficiency", span: 3 },
+    { label: "Delivery", span: 2 },
+    { label: "", span: 1 }, // Actions
+  ];
+
   const googleSearchColumns = [
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "Identity" },
-    { key: "campaign_type" as SortKey, label: "Type", align: "left", group: "Identity" },
-    { key: "classification" as SortKey, label: "Class", align: "left", group: "Identity" },
-    { key: "health_score" as SortKey, label: "Health", align: "left", group: "Health" },
-    { key: "status" as SortKey, label: "Status", align: "left", group: "Health" },
-    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left", group: "Bidding & Budget" },
-    { key: "target_cpa" as SortKey, label: "tCPA", align: "right", group: "Bidding & Budget" },
-    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "Bidding & Budget" },
-    { key: "spend" as SortKey, label: "Spend", align: "right", group: "Performance" },
-    { key: "impressions" as SortKey, label: "Impr.", align: "right", group: "Performance" },
-    { key: "clicks" as SortKey, label: "Clicks", align: "right", group: "Performance" },
-    { key: "leads" as SortKey, label: "Leads", align: "right", group: "Performance" },
-    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "Efficiency" },
-    { key: "cvr" as SortKey, label: "CVR", align: "right", group: "Efficiency" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "Efficiency" },
-    { key: "search_impression_share" as SortKey, label: "Imp. Share", align: "right", group: "Delivery" },
-    { key: "search_rank_lost_is" as SortKey, label: "Rank Lost", align: "right", group: "Delivery" },
-    { key: "search_budget_lost_is" as SortKey, label: "Budg. Lost", align: "right", group: "Delivery" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
+    { key: "campaign_type" as SortKey, label: "Type", align: "left" },
+    { key: "classification" as SortKey, label: "Class", align: "left" },
+    { key: "health_score" as SortKey, label: "Health", align: "left" },
+    { key: "status" as SortKey, label: "Status", align: "left" },
+    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left" },
+    { key: "target_cpa" as SortKey, label: "tCPA", align: "right" },
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right" },
+    { key: "spend" as SortKey, label: "Spend", align: "right" },
+    { key: "impressions" as SortKey, label: "Impr.", align: "right" },
+    { key: "clicks" as SortKey, label: "Clicks", align: "right" },
+    { key: "leads" as SortKey, label: "Leads", align: "right" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right" },
+    { key: "cvr" as SortKey, label: "CVR", align: "right" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right" },
+    { key: "search_impression_share" as SortKey, label: "Imp. Share", align: "right" },
+    { key: "search_rank_lost_is" as SortKey, label: "Rank Lost", align: "right" },
+    { key: "search_budget_lost_is" as SortKey, label: "Budg. Lost", align: "right" },
   ];
 
-  // ─── Google: DG-specific columns (AdCortex Spec) ────────────────────
   const googleDgColumns = [
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "Identity" },
-    { key: "campaign_type" as SortKey, label: "Type", align: "left", group: "Identity" },
-    { key: "classification" as SortKey, label: "Class", align: "left", group: "Identity" },
-    { key: "health_score" as SortKey, label: "Health", align: "left", group: "Health" },
-    { key: "status" as SortKey, label: "Status", align: "left", group: "Health" },
-    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left", group: "Bidding & Budget" },
-    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "Bidding & Budget" },
-    { key: "spend" as SortKey, label: "Spend", align: "right", group: "Performance" },
-    { key: "leads" as SortKey, label: "Leads", align: "right", group: "Performance" },
-    { key: "tsr" as SortKey, label: "TSR", align: "right", group: "Performance" },
-    { key: "vhr" as SortKey, label: "VHR", align: "right", group: "Performance" },
-    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "Efficiency" },
-    { key: "cvr" as SortKey, label: "CVR", align: "right", group: "Efficiency" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "Efficiency" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
+    { key: "campaign_type" as SortKey, label: "Type", align: "left" },
+    { key: "classification" as SortKey, label: "Class", align: "left" },
+    { key: "health_score" as SortKey, label: "Health", align: "left" },
+    { key: "status" as SortKey, label: "Status", align: "left" },
+    { key: "bidding_strategy" as SortKey, label: "Bidding", align: "left" },
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right" },
+    { key: "spend" as SortKey, label: "Spend", align: "right" },
+    { key: "leads" as SortKey, label: "Leads", align: "right" },
+    { key: "tsr" as SortKey, label: "TSR", align: "right" },
+    { key: "vhr" as SortKey, label: "VHR", align: "right" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right" },
+    { key: "cvr" as SortKey, label: "CVR", align: "right" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right" },
   ];
-
 
   const metaColumns = [
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "Identity" },
-    { key: "layer" as SortKey, label: "Layer", align: "left", group: "Identity" },
-    { key: "classification" as SortKey, label: "Class", align: "left", group: "Identity" },
-    { key: "learning_status" as SortKey, label: "Learn", align: "left", group: "Identity" },
-    { key: "delivery_status" as SortKey, label: "Deliv", align: "left", group: "Identity" },
-    { key: "health_score" as SortKey, label: "Health", align: "left", group: "Health" },
-    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "Bidding & Budget" },
-    { key: "spend" as SortKey, label: "Spend", align: "right", group: "Performance" },
-    { key: "leads" as SortKey, label: "Leads", align: "right", group: "Performance" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "Performance" },
-    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "Efficiency" },
-    { key: "cpc" as SortKey, label: "CPC", align: "right", group: "Efficiency" },
-    { key: "cpm" as SortKey, label: "CPM", align: "right", group: "Efficiency" },
-    { key: "frequency" as SortKey, label: "Freq", align: "right", group: "Delivery" },
-    { key: "budget_utilization_pct" as SortKey, label: "Utility", align: "right", group: "Delivery" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
+    { key: "layer" as SortKey, label: "Layer", align: "left" },
+    { key: "classification" as SortKey, label: "Class", align: "left" },
+    { key: "learning_status" as SortKey, label: "Learn", align: "left" },
+    { key: "delivery_status" as SortKey, label: "Deliv", align: "left" },
+    { key: "health_score" as SortKey, label: "Health", align: "left" },
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right" },
+    { key: "spend" as SortKey, label: "Spend", align: "right" },
+    { key: "leads" as SortKey, label: "Leads", align: "right" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right" },
+    { key: "cpc" as SortKey, label: "CPC", align: "right" },
+    { key: "cpm" as SortKey, label: "CPM", align: "right" },
+    { key: "frequency" as SortKey, label: "Freq", align: "right" },
+    { key: "budget_utilization_pct" as SortKey, label: "Utility", align: "right" },
   ];
 
   // ─── Render a campaign table cell (reusable helper) ───────────────
@@ -625,15 +652,15 @@ export default function CampaignsPage() {
           <div className="overflow-x-auto">
             <table className="t-table w-full" data-testid={`table-${sectionId}`}>
               <thead>
-                {/* Group Labels Header Row */}
+                {/* Pivot Group Header Row */}
                 <tr className="border-b border-border/10 bg-muted/5">
-                  <th className="p-1 w-8"></th>
-                  {Object.entries(groups).map(([name, span]) => (
-                    <th key={name} colSpan={span} className="px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground/60 border-r border-border/20 last:border-0 text-center">
-                      {name}
+                  <th className="p-0 w-8"></th>
+                  {(sectionType === "search" ? googleSearchGroups : googleDgGroups).map((g, i) => (
+                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                      {g.label}
                     </th>
                   ))}
-                  <th className="p-1"></th>
+                  <th className="p-0 w-10"></th>
                 </tr>
                 <tr className="border-b border-border/50 bg-muted/20">
                   <th className="p-3 w-8">
@@ -655,7 +682,7 @@ export default function CampaignsPage() {
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className={`px-4 py-3 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
+                      className={`px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
                         }`}
                       onClick={() => toggleSort(col.key)}
                     >
@@ -666,8 +693,8 @@ export default function CampaignsPage() {
                       </span>
                     </th>
                   ))}
-                  <th className="px-4 py-3 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
-                    Actions
+                  <th className="px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
+                    Act
                   </th>
                 </tr>
               </thead>
@@ -889,7 +916,17 @@ export default function CampaignsPage() {
             <div className="overflow-x-auto">
               <table className="t-table w-full">
                 <thead>
-                  <tr className="border-b border-border/50">
+                  {/* Pivot Group Header Row */}
+                  <tr className="border-b border-border/10 bg-muted/5">
+                    <th className="p-0 w-8"></th>
+                    {metaColumnGroups.map((g, i) => (
+                      <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                        {g.label}
+                      </th>
+                    ))}
+                    <th className="p-0 w-10"></th>
+                  </tr>
+                  <tr className="border-b border-border/50 bg-muted/20">
                     <th className="p-3 w-8">
                       <div className="flex flex-col gap-2">
                         <Checkbox
@@ -914,7 +951,7 @@ export default function CampaignsPage() {
                     {metaColumns.map((col) => (
                       <th
                         key={col.key}
-                        className={`px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"
+                        className={`px-4 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
                           }`}
                         onClick={() => toggleSort(col.key)}
                       >
@@ -924,8 +961,8 @@ export default function CampaignsPage() {
                         </span>
                       </th>
                     ))}
-                    <th className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
-                      Actions
+                    <th className="px-4 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
+                      Act
                     </th>
                   </tr>
                 </thead>
@@ -982,6 +1019,7 @@ export default function CampaignsPage() {
                                 <ScoreIndicator 
                                     score={val} 
                                     breakdown={c.score_breakdown} 
+                                    detailedBreakdown={(c as any).detailed_breakdown}
                                     label="Meta Health"
                                 />
                             </td>
@@ -1076,7 +1114,9 @@ export default function CampaignsPage() {
                                   Health Score Breakdown — {c.campaign_name}
                                 </p>
                                 <div className="flex flex-wrap gap-3">
-                                  {Object.entries(c.score_breakdown).map(([metric, score]) => {
+                                  {Object.entries(c.score_breakdown || {}).map(([metric, score]) => {
+                                    const detailed = (c as any).detailed_breakdown?.[metric];
+                                    const displayScore = detailed ? `${detailed.contribution.toFixed(1)} / ${detailed.weight}` : (typeof score === "number" ? score.toFixed(1) : String(score));
                                     let band = (c.score_bands?.[metric] || "UNKNOWN").toUpperCase();
 
                                     // Fallback: Calculate band from score if unknown
@@ -1096,8 +1136,8 @@ export default function CampaignsPage() {
                                     return (
                                       <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
                                         <div className="flex-1">
-                                          <p className="text-[10px] text-muted-foreground capitalize">{metric.replace(/_/g, " ")}</p>
-                                          <p className="text-sm font-semibold tabular-nums text-foreground">{typeof score === "number" ? score.toFixed(1) : String(score)}</p>
+                                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{metric.replace(/_/g, " ")}</p>
+                                          <p className="text-sm font-black tabular-nums text-foreground">{displayScore}</p>
                                         </div>
                                         <Badge variant="secondary" className={`text-[9px] ${bandColor}`}>
                                           {band}

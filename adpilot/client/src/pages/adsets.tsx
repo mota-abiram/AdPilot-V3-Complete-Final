@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useClient } from "@/lib/client-context";
 import { DataTablePagination } from "@/components/data-table-pagination";
 import type { AdsetAnalysis } from "@shared/schema";
@@ -255,6 +255,28 @@ export default function AdsetsPage() {
     { key: "recommendation" as SortKey, label: "Action", align: "left" },
   ];
 
+  const GOOGLE_SEARCH_AG_GROUPS = [
+    { label: "Identity", span: 4 },
+    { label: "Setup", span: 1 },
+    { label: "Finance", span: 1 },
+    { label: "Performance", span: 3 },
+    { label: "Efficiency", span: 2 },
+    { label: "Delivery", span: 2 },
+    { label: "SVs", span: 2 },
+    { label: "Quality", span: 4 },
+  ];
+
+  const GOOGLE_DG_AG_GROUPS = [
+    { label: "Identity", span: 4 },
+    { label: "Audience", span: 2 },
+    { label: "Finance", span: 1 },
+    { label: "Performance", span: 2 },
+    { label: "Efficiency", span: 4 },
+    { label: "Delivery", span: 2 },
+    { label: "SVs", span: 2 },
+    { label: "Setup", span: 1 },
+  ];
+
   // Meta column groups for visual separation
   const metaColumnGroups = [
     { label: "Identity", span: 3 },
@@ -335,24 +357,71 @@ export default function AdsetsPage() {
     const entityName = a.ad_group_name || a.name;
     const isPaused = isEntityPaused(entityId) || a.status === "PAUSED";
     const isSelected = selectedIds.has(entityId);
+    const isExpanded = expandedIds.has(entityId);
     return (
-      <tr key={entityId} className={`border-b border-border/30 hover:bg-muted/3 transition-colors ${isSelected ? "bg-primary/5" : ""} ${isPaused ? "opacity-50" : ""} ${a.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}>
-        <td className="p-3"><Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entityId)} /></td>
-        
-        {/* Ad Group Name always first */}
-        <td className="p-3 font-medium text-foreground truncate max-w-[200px]">{entityName}</td>
-        
-        {/* Render rest of columns bypass name */}
-        {columns.slice(1).map(col => renderAgCell(a, col, isSearch))}
-        
-        <td className="p-3 text-center">
-            <ExecutionButton action={isPaused ? "ENABLE_AD_GROUP" : "PAUSE_AD_GROUP"} entityId={entityId} entityName={entityName} entityType="ad_group" variant="ghost" size="icon" icon={isPaused ? <Play className="w-3.5 h-3.5 text-emerald-500" /> : <Pause className="w-3.5 h-3.5 text-muted-foreground" />} />
-        </td>
-      </tr>
+      <Fragment key={entityId}>
+        <tr className={`border-b border-border/30 hover:bg-muted/3 transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : ""} ${isPaused ? "opacity-50" : ""} ${a.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}
+            onClick={() => {
+              setExpandedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(entityId)) next.delete(entityId);
+                else next.add(entityId);
+                return next;
+              });
+            }}
+        >
+          <td className="p-3" onClick={(e) => e.stopPropagation()}><Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entityId)} /></td>
+          
+          <td className="p-3 font-medium text-foreground truncate max-w-[200px]">{entityName}</td>
+          
+          {columns.slice(1).map(col => renderAgCell(a, col, isSearch))}
+          
+          <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+              <ExecutionButton action={isPaused ? "ENABLE_AD_GROUP" : "PAUSE_AD_GROUP"} entityId={entityId} entityName={entityName} entityType="ad_group" variant="ghost" size="icon" icon={isPaused ? <Play className="w-3.5 h-3.5 text-emerald-500" /> : <Pause className="w-3.5 h-3.5 text-muted-foreground" />} />
+          </td>
+        </tr>
+        {isExpanded && a.score_breakdown && (
+          <tr className="border-b border-border/30 bg-muted/20">
+            <td colSpan={columns.length + 2} className="p-4">
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                  Health Score Breakdown — {entityName}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(a.score_breakdown).map(([metric, score]: [string, any]) => {
+                    let band = (a.score_bands?.[metric] || "UNKNOWN").toUpperCase();
+                    if (band === "UNKNOWN" && typeof score === "number") {
+                      if (score >= 85) band = "EXCELLENT";
+                      else if (score >= 70) band = "GOOD";
+                      else if (score >= 40) band = "WATCH";
+                      else band = "POOR";
+                    }
+                    const bandColor = band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
+                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                                      band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-muted-foreground";
+                    return (
+                      <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
+                        <div className="flex-1">
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{metric.replace(/_/g, " ")}</p>
+                          <p className="text-xs font-black tabular-nums text-foreground">{typeof score === "number" ? score.toFixed(1) : String(score)}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-[8px] font-black uppercase px-1 py-0 ${bandColor}`}>
+                          {band}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </td>
+          </tr>
+        )}
+      </Fragment>
     );
   }
 
-  function renderAgTable(rows: any[], columns: any[], isSearch: boolean, pg: number, ps: number, setPg: any, setPs: any) {
+  function renderAgTable(rows: any[], columns: any[], groups: any[], isSearch: boolean, pg: number, ps: number, setPg: any, setPs: any) {
     const paginatedItems = rows.slice((pg - 1) * ps, pg * ps);
     return (
       <Card>
@@ -360,7 +429,18 @@ export default function AdsetsPage() {
           <div className="overflow-x-auto">
             <table className="t-table w-full">
               <thead>
-                <tr className="border-b border-border/50">
+                {/* Pivot Group Header Row */}
+                <tr className="border-b border-border/10 bg-muted/5">
+                  <th className="p-0 w-8"></th>
+                  <th className="p-0 w-[200px]"></th>
+                  {groups.slice(0, -1).map((g, i) => (
+                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                      {g.label}
+                    </th>
+                  ))}
+                  <th className="p-0"></th>
+                </tr>
+                <tr className="border-b border-border/50 bg-muted/20">
                   <th className="p-3 w-8"><Checkbox checked={rows.length > 0 && rows.every(r => selectedIds.has(r.ad_group_id || r.id))} onCheckedChange={(c) => {
                     const ids = rows.map(r => r.ad_group_id || r.id);
                     setSelectedIds(prev => {
@@ -369,8 +449,16 @@ export default function AdsetsPage() {
                       return next;
                     });
                   }} /></th>
-                  {columns.map(col => <th key={col.key} className={`p-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer ${col.align === "right" ? "text-right" : "text-left"}`} onClick={() => toggleSort(col.key)}>{col.label} <SortIcon col={col.key} /></th>)}
-                  <th className="p-4 t-label text-center">Actions</th>
+                  {columns.map(col => (
+                    <th
+                      key={col.key}
+                      className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
+                      onClick={() => toggleSort(col.key)}
+                    >
+                      <span className="inline-flex items-center gap-1">{col.label} <SortIcon col={col.key} /></span>
+                    </th>
+                  ))}
+                  <th className="px-3 py-4 t-label text-center font-black uppercase tracking-widest text-muted-foreground/80">Act</th>
                 </tr>
               </thead>
               <tbody>
@@ -438,8 +526,8 @@ export default function AdsetsPage() {
 
       {isGoogle ? (
         <div className="space-y-6">
-          <div><h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2"><Info className="w-3 h-3 text-primary" /> Search Ad Groups</h2>{renderAgTable(searchAdGroups, googleAgColumns, true, searchPage, searchPageSize, setSearchPage, setSearchPageSize)}</div>
-          <div><h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2"><Info className="w-3 h-3 text-amber-500" /> Demand Gen Ad Groups</h2>{renderAgTable(dgAdGroups, googleDgAgColumns, false, dgPage, dgPageSize, setDgPage, setDgPageSize)}</div>
+          <div><h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2"><Info className="w-3 h-3 text-primary" /> Search Ad Groups</h2>{renderAgTable(searchAdGroups, googleAgColumns, GOOGLE_SEARCH_AG_GROUPS, true, searchPage, searchPageSize, setSearchPage, setSearchPageSize)}</div>
+          <div><h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2"><Info className="w-3 h-3 text-amber-500" /> Demand Gen Ad Groups</h2>{renderAgTable(dgAdGroups, googleDgAgColumns, GOOGLE_DG_AG_GROUPS, false, dgPage, dgPageSize, setDgPage, setDgPageSize)}</div>
         </div>
       ) : (
         <Card>
@@ -485,184 +573,227 @@ export default function AdsetsPage() {
                   {adsets.slice((page - 1) * pageSize, page * pageSize).map((a: any) => {
                     const isPaused = isEntityPaused(a.adset_id) || a.delivery_status === "PAUSED";
                     const isSelected = selectedIds.has(a.adset_id);
+                    const isExpanded = expandedIds.has(a.adset_id);
 
                     // Compute derived metrics
                     const cvr = a.cvr ?? (a.clicks > 0 && a.leads > 0 ? (a.leads / a.clicks) * 100 : 0);
                     const cpc = a.cpc ?? (a.clicks > 0 ? a.spend / a.clicks : 0);
                     const cpm = a.cpm ?? (a.impressions > 0 ? (a.spend / a.impressions) * 1000 : 0);
 
-                    function cellVal(key: string) {
-                      if (key === "cvr") return cvr;
-                      if (key === "cpc") return cpc;
-                      if (key === "cpm") return cpm;
-                      return a[key];
-                    }
-
                     return (
-                      <tr
-                        key={a.adset_id}
-                        className={`border-b border-border/20 hover:bg-muted/5 transition-colors
-                          ${isSelected ? "bg-primary/5" : ""}
-                          ${isPaused ? "opacity-50" : ""}
-                          ${a.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}
-                          ${a.should_pause ? "bg-red-500/3" : ""}
-                        `}
-                      >
-                        <td className="p-3">
-                          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(a.adset_id)} />
-                        </td>
+                      <Fragment key={a.adset_id}>
+                        <tr
+                          className={`border-b border-border/20 hover:bg-muted/5 transition-colors cursor-pointer
+                            ${isSelected ? "bg-primary/5" : ""}
+                            ${isPaused ? "opacity-50" : ""}
+                            ${a.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}
+                            ${a.should_pause ? "bg-red-500/3" : ""}
+                          `}
+                          onClick={() => {
+                            setExpandedIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(a.adset_id)) next.delete(a.adset_id);
+                              else next.add(a.adset_id);
+                              return next;
+                            });
+                          }}
+                        >
+                          <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(a.adset_id)} />
+                          </td>
 
-                        {/* adset_name */}
-                        <td className="p-3 max-w-[180px]">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <p className="font-bold text-foreground text-xs truncate cursor-default">{a.adset_name}</p>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[10px]">{a.adset_name}</TooltipContent>
-                          </Tooltip>
-                          {a.learning_status && a.learning_status !== "ACTIVE" && (
-                            <span className={`text-[8px] font-bold uppercase ${getLearningStatusColor(a.learning_status)}`}>
-                              {a.learning_status.replace(/_/g, " ")}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* campaign_name */}
-                        <td className="p-3 max-w-[140px]">
-                          <p className="text-xs text-muted-foreground truncate">{a.campaign_name || "—"}</p>
-                        </td>
-
-                        {/* layer */}
-                        <td className="p-3">
-                          <Badge variant="outline" className={`text-[8px] font-black uppercase px-1.5 py-0 ${getLayerColor(a.layer)}`}>
-                            {a.layer || "—"}
-                          </Badge>
-                        </td>
-
-                        {/* classification */}
-                        <td className="p-3">
-                          <StatusBadge classification={a.classification} />
-                        </td>
-
-                        {/* health_score */}
-                        <td className="p-3">
-                          <ScoreIndicator
-                            score={a.health_score}
-                            breakdown={a.score_breakdown}
-                            label="Adset Health"
-                            description="Backend-calculated adset health score"
-                          />
-                        </td>
-
-                        {/* daily_budget */}
-                        <td className="p-3 text-right tabular-nums text-xs">
-                          {a.daily_budget > 0 ? formatINR(a.daily_budget, 0) : "—"}
-                        </td>
-
-                        {/* spend */}
-                        <td className="p-3 text-right tabular-nums text-xs font-bold">
-                          {formatINR(a.spend ?? 0, 0)}
-                        </td>
-
-                        {/* budget_utilization_pct */}
-                        <td className="p-3 text-right tabular-nums text-xs">
-                          {a.budget_utilization_pct > 0 ? (
-                            <span className={
-                              a.budget_utilization_pct > 90 ? "text-red-400 font-bold" :
-                              a.budget_utilization_pct > 70 ? "text-amber-400" :
-                              "text-muted-foreground"
-                            }>
-                              {a.budget_utilization_pct.toFixed(0)}%
-                            </span>
-                          ) : "—"}
-                        </td>
-
-                        {/* leads */}
-                        <td className="p-3 text-right tabular-nums text-xs font-bold">
-                          <span className={
-                            (a.leads ?? 0) >= 5 ? "text-emerald-400" :
-                            (a.leads ?? 0) >= 1 ? "text-amber-400" :
-                            "text-muted-foreground"
-                          }>
-                            {a.leads ?? 0}
-                          </span>
-                        </td>
-
-                        {/* cpl */}
-                        <td className={`p-3 text-right tabular-nums text-xs font-black ${(a.leads ?? 0) > 0 ? getCplColor(a.cpl, data.dynamic_thresholds) : "text-muted-foreground"}`}>
-                          {(a.leads ?? 0) > 0 ? formatINR(a.cpl ?? 0, 0) : "—"}
-                        </td>
-
-                        {/* ctr */}
-                        <td className="p-3 text-right tabular-nums text-xs">
-                          <span className={
-                            (a.ctr ?? 0) >= 1 ? "text-emerald-400 font-bold" :
-                            (a.ctr ?? 0) >= 0.5 ? "text-amber-400" :
-                            "text-muted-foreground"
-                          }>
-                            {(a.ctr ?? 0) > 0 ? formatPct(a.ctr) : "—"}
-                          </span>
-                        </td>
-
-                        {/* cvr */}
-                        <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
-                          {cvr > 0 ? `${cvr.toFixed(2)}%` : "—"}
-                        </td>
-
-                        {/* cpc */}
-                        <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
-                          {cpc > 0 ? formatINR(cpc, 0) : "—"}
-                        </td>
-
-                        {/* impressions */}
-                        <td className="p-3 text-right tabular-nums text-xs">
-                          {(a.impressions ?? 0) > 0 ? formatNumber(a.impressions) : "—"}
-                        </td>
-
-                        {/* clicks */}
-                        <td className="p-3 text-right tabular-nums text-xs">
-                          {(a.clicks ?? 0) > 0 ? formatNumber(a.clicks) : "—"}
-                        </td>
-
-                        {/* frequency */}
-                        <td className="p-3 text-right tabular-nums text-xs">
-                          {(a.frequency ?? 0) > 0 ? (
+                          {/* adset_name */}
+                          <td className="p-3 max-w-[180px]">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className={`cursor-default ${(a.frequency ?? 0) > 3 ? "text-red-400 font-bold" : (a.frequency ?? 0) > 2 ? "text-amber-400" : ""}`}>
-                                  {(a.frequency ?? 0).toFixed(2)}
-                                </span>
+                                <p className="font-bold text-foreground text-xs truncate cursor-default">{a.adset_name}</p>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="text-[10px]">
-                                {(a.frequency ?? 0) > 3 ? "High frequency — creative fatigue risk" :
-                                 (a.frequency ?? 0) > 2 ? "Monitor — approaching fatigue threshold" :
-                                 "Frequency within healthy range"}
-                              </TooltipContent>
+                              <TooltipContent side="top" className="text-[10px]">{a.adset_name}</TooltipContent>
                             </Tooltip>
-                          ) : "—"}
-                        </td>
+                            {a.learning_status && a.learning_status !== "ACTIVE" && (
+                              <span className={`text-[8px] font-bold uppercase ${getLearningStatusColor(a.learning_status)}`}>
+                                {a.learning_status.replace(/_/g, " ")}
+                              </span>
+                            )}
+                          </td>
 
-                        {/* cpm */}
-                        <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
-                          {cpm > 0 ? formatINR(cpm, 0) : "—"}
-                        </td>
+                          {/* campaign_name */}
+                          <td className="p-3 max-w-[140px]">
+                            <p className="text-xs text-muted-foreground truncate">{a.campaign_name || "—"}</p>
+                          </td>
 
-                        {/* Pause / Activate action */}
-                        <td className="p-3 text-center">
-                          <ExecutionButton
-                            action={isPaused ? "UNPAUSE_ADSET" : "PAUSE_ADSET"}
-                            entityId={a.adset_id}
-                            entityName={a.adset_name}
-                            entityType="adset"
-                            variant="ghost"
-                            size="icon"
-                            icon={isPaused
-                              ? <Play className="w-3.5 h-3.5 text-emerald-500" />
-                              : <Pause className="w-3.5 h-3.5 text-muted-foreground" />
-                            }
-                          />
-                        </td>
-                      </tr>
+                          {/* layer */}
+                          <td className="p-3">
+                            <Badge variant="outline" className={`text-[8px] font-black uppercase px-1.5 py-0 ${getLayerColor(a.layer)}`}>
+                              {a.layer || "—"}
+                            </Badge>
+                          </td>
+
+                          {/* classification */}
+                          <td className="p-3">
+                            <StatusBadge classification={a.classification} />
+                          </td>
+
+                          {/* health_score */}
+                          <td className="p-3">
+                            <ScoreIndicator
+                              score={a.health_score}
+                              breakdown={a.score_breakdown}
+                              detailedBreakdown={a.detailed_breakdown}
+                              label="Adset Health"
+                              description="Backend-calculated adset health score"
+                            />
+                          </td>
+
+                          {/* daily_budget */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            {a.daily_budget > 0 ? formatINR(a.daily_budget, 0) : "—"}
+                          </td>
+
+                          {/* spend */}
+                          <td className="p-3 text-right tabular-nums text-xs font-bold">
+                            {formatINR(a.spend ?? 0, 0)}
+                          </td>
+
+                          {/* budget_utilization_pct */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            {a.budget_utilization_pct > 0 ? (
+                              <span className={
+                                a.budget_utilization_pct > 90 ? "text-red-400 font-bold" :
+                                a.budget_utilization_pct > 70 ? "text-amber-400" :
+                                "text-muted-foreground"
+                              }>
+                                {a.budget_utilization_pct.toFixed(0)}%
+                              </span>
+                            ) : "—"}
+                          </td>
+
+                          {/* leads */}
+                          <td className="p-3 text-right tabular-nums text-xs font-bold">
+                            <span className={
+                              (a.leads ?? 0) >= 5 ? "text-emerald-400" :
+                              (a.leads ?? 0) >= 1 ? "text-amber-400" :
+                              "text-muted-foreground"
+                            }>
+                              {a.leads ?? 0}
+                            </span>
+                          </td>
+
+                          {/* cpl */}
+                          <td className={`p-3 text-right tabular-nums text-xs font-black ${(a.leads ?? 0) > 0 ? getCplColor(a.cpl, data.dynamic_thresholds) : "text-muted-foreground"}`}>
+                            {(a.leads ?? 0) > 0 ? formatINR(a.cpl ?? 0, 0) : "—"}
+                          </td>
+
+                          {/* ctr */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            <span className={
+                              (a.ctr ?? 0) >= 1 ? "text-emerald-400 font-bold" :
+                              (a.ctr ?? 0) >= 0.5 ? "text-amber-400" :
+                              "text-muted-foreground"
+                            }>
+                              {(a.ctr ?? 0) > 0 ? formatPct(a.ctr) : "—"}
+                            </span>
+                          </td>
+
+                          {/* cvr */}
+                          <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
+                            {cvr > 0 ? `${cvr.toFixed(2)}%` : "—"}
+                          </td>
+
+                          {/* cpc */}
+                          <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
+                            {cpc > 0 ? formatINR(cpc, 0) : "—"}
+                          </td>
+
+                          {/* impressions */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            {(a.impressions ?? 0) > 0 ? formatNumber(a.impressions) : "—"}
+                          </td>
+
+                          {/* clicks */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            {(a.clicks ?? 0) > 0 ? formatNumber(a.clicks) : "—"}
+                          </td>
+
+                          {/* frequency */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            {(a.frequency ?? 0) > 0 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={`cursor-default ${(a.frequency ?? 0) > 3 ? "text-red-400 font-bold" : (a.frequency ?? 0) > 2 ? "text-amber-400" : ""}`}>
+                                    {(a.frequency ?? 0).toFixed(2)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-[10px]">
+                                  {(a.frequency ?? 0) > 3 ? "High frequency — creative fatigue risk" :
+                                   (a.frequency ?? 0) > 2 ? "Monitor — approaching fatigue threshold" :
+                                   "Frequency within healthy range"}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : "—"}
+                          </td>
+
+                          {/* cpm */}
+                          <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
+                            {cpm > 0 ? formatINR(cpm, 0) : "—"}
+                          </td>
+
+                          {/* Pause / Activate action */}
+                          <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                            <ExecutionButton
+                              action={isPaused ? "UNPAUSE_ADSET" : "PAUSE_ADSET"}
+                              entityId={a.adset_id}
+                              entityName={a.adset_name}
+                              entityType="adset"
+                              variant="ghost"
+                              size="icon"
+                              icon={isPaused
+                                ? <Play className="w-3.5 h-3.5 text-emerald-500" />
+                                : <Pause className="w-3.5 h-3.5 text-muted-foreground" />
+                              }
+                            />
+                          </td>
+                        </tr>
+                        {isExpanded && a.score_breakdown && (
+                          <tr className="border-b border-border/30 bg-muted/20">
+                            <td colSpan={20} className="p-4">
+                              <div className="space-y-3">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                                  Health Score Breakdown — {a.adset_name}
+                                </p>
+                                <div className="flex flex-wrap gap-3">
+                                  {Object.entries(a.score_breakdown || {}).map(([metric, score]: [string, any]) => {
+                                    const detailed = a.detailed_breakdown?.[metric];
+                                    const displayScore = detailed ? `${detailed.contribution.toFixed(1)} / ${detailed.weight}` : (typeof score === "number" ? score.toFixed(1) : String(score));
+                                    let band = (a.score_bands?.[metric] || "UNKNOWN").toUpperCase();
+                                    if (band === "UNKNOWN" && typeof score === "number") {
+                                      if (score >= 85) band = "EXCELLENT";
+                                      else if (score >= 70) band = "GOOD";
+                                      else if (score >= 40) band = "WATCH";
+                                      else band = "POOR";
+                                    }
+                                    const bandColor = band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
+                                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
+                                                      band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-muted-foreground";
+                                    return (
+                                      <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
+                                        <div className="flex-1">
+                                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{metric.replace(/_/g, " ")}</p>
+                                          <p className="text-sm font-black tabular-nums text-foreground">{displayScore}</p>
+                                        </div>
+                                        <Badge variant="outline" className={`text-[8px] font-black uppercase px-1 py-0 ${bandColor}`}>
+                                          {band}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                   {adsets.length === 0 && (

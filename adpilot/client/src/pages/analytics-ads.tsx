@@ -100,8 +100,35 @@ class AnalyticsErrorBoundary extends Component<{ children: ReactNode; location?:
 
 // ─── Column definitions ──────────────────────────────────────────────
 
+const SEARCH_AD_GROUPS = [
+  { label: "Identity", span: 3 },
+  { label: "Ad Setup", span: 2 },
+  { label: "Performance", span: 2 },
+  { label: "Efficiency", span: 4 },
+  { label: "Ad Assets", span: 2 },
+  { label: "Asset Quality", span: 2 },
+];
+
+const DG_AD_GROUPS = [
+  { label: "Identity", span: 2 },
+  { label: "Health", span: 2 },
+  { label: "Delivery", span: 2 },
+  { label: "Performance", span: 4 },
+  { label: "Efficiency", span: 3 },
+  { label: "Video Metrics", span: 3 },
+];
+
+const META_AD_GROUPS = [
+  { label: "Identity", span: 2 },
+  { label: "Health", span: 2 },
+  { label: "Status", span: 1 },
+  { label: "Performance", span: 4 },
+  { label: "Efficiency", span: 1 },
+  { label: "Video", span: 2 },
+];
+
 const SEARCH_AD_COLS: ColDef[] = [
-  { key: "name",         label: "Ad / Ad Group",  align: "left"  },
+  { key: "name",         label: "Ad Group / Ad",  align: "left"  },
   { key: "classification", label: "Class",        align: "left"  },
   { key: "health_score", label: "Health",         align: "left"  },
   { key: "ad_strength",  label: "Strength",       align: "left"  },
@@ -415,7 +442,7 @@ export default function AnalyticsAdsPage() {
   }
 
   // ─── Table component ─────────────────────────────────────────────
-  function AdTable({ title, rows, cols, accent = "primary" }: { title: string; rows: AdsPanelCreative[]; cols: ColDef[]; accent?: string }) {
+  function AdTable({ title, rows, cols, groups, accent = "primary" }: { title: string; rows: AdsPanelCreative[]; cols: ColDef[]; groups?: { label: string, span: number }[], accent?: string }) {
     return (
       <section>
         <h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2">
@@ -424,11 +451,23 @@ export default function AnalyticsAdsPage() {
           <span className="text-muted-foreground font-normal">({rows.length})</span>
         </h2>
         <Card>
-          <CardContent className="p-0 overflow-x-auto overflow-y-hidden">
+          <CardContent className="card-content-premium p-0 overflow-x-auto overflow-y-hidden">
             <table className="t-table w-full text-xs">
               <thead>
-                <tr className="border-b border-border/50">
-                  <th className="p-3 w-8">
+                {/* Pivot Group Header Row */}
+                {groups && (
+                  <tr className="border-b border-border/10 bg-muted/5">
+                    <th className="p-0 w-10"></th>
+                    {groups.map((g, i) => (
+                      <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                        {g.label}
+                      </th>
+                    ))}
+                    <th className="p-0 w-10"></th>
+                  </tr>
+                )}
+                <tr className="border-b border-border/50 bg-muted/20">
+                  <th className="p-3 w-10">
                     <Checkbox
                       checked={rows.length > 0 && rows.every(c => selectedIds.has(c.id))}
                       onCheckedChange={checked => {
@@ -443,7 +482,7 @@ export default function AnalyticsAdsPage() {
                   {cols.map(col => (
                     <th
                       key={col.key}
-                      className={`px-3 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
+                      className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
                       onClick={() => {
                         if (sortKey === col.key) setSortDir(d => d === "asc" ? "desc" : "asc");
                         else { setSortKey(col.key); setSortDir("desc"); }
@@ -452,8 +491,8 @@ export default function AnalyticsAdsPage() {
                       {col.label}
                     </th>
                   ))}
-                  <th className="px-3 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-center">
-                    Actions
+                  <th className="px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center">
+                    Act
                   </th>
                 </tr>
               </thead>
@@ -584,8 +623,8 @@ export default function AnalyticsAdsPage() {
         {/* ── Tables ─────────────────────────────────────────────── */}
         {isGoogle ? (
           <div className="space-y-8">
-            <AdTable title="Search Ads (RSA)" rows={searchAds} cols={SEARCH_AD_COLS} accent="blue" />
-            <AdTable title="Demand Gen Ads" rows={dgAds} cols={DG_AD_COLS} accent="purple" />
+            <AdTable title="Search Ads (RSA)" rows={searchAds} cols={SEARCH_AD_COLS} groups={SEARCH_AD_GROUPS} accent="blue" />
+            <AdTable title="Demand Gen Ads" rows={dgAds} cols={DG_AD_COLS} groups={DG_AD_GROUPS} accent="purple" />
             <DataTablePagination
               totalItems={creatives.length}
               pageSize={pageSize}
@@ -596,7 +635,7 @@ export default function AnalyticsAdsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <AdTable title="Meta Creatives" rows={paginated} cols={META_AD_COLS} accent="blue" />
+            <AdTable title="Meta Creatives" rows={paginated} cols={META_AD_COLS} groups={META_AD_GROUPS} accent="blue" />
             <DataTablePagination
               totalItems={creatives.length}
               pageSize={pageSize}

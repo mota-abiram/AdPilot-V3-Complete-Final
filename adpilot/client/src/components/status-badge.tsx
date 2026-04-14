@@ -4,7 +4,9 @@ import type { Classification } from "@shared/classification";
 
 export function StatusBadge({ classification }: { classification: string | Classification | undefined }) {
   const rawValue = (classification || "WATCH").toString().toUpperCase();
-  const normalized = (["WINNER", "WATCH", "UNDERPERFORMER"].includes(rawValue) ? rawValue : "WATCH") as Classification;
+  const normalized = ["GREEN", "YELLOW", "ORANGE", "RED", "WINNER", "WATCH", "UNDERPERFORMER"].includes(rawValue)
+    ? rawValue
+    : "WATCH";
   const colors = getClassificationColor(normalized);
   
   return (

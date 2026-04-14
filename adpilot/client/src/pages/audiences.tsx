@@ -305,6 +305,13 @@ export default function AudiencesPage() {
         <div className="overflow-x-auto">
           <table className="t-table w-full">
             <thead>
+              {/* Pivot Group Header Row */}
+              <tr className="border-b border-border/10 bg-muted/5">
+                <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Identity</th>
+                <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Delivery</th>
+                <th colSpan={4} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Efficiency/Performance</th>
+                <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 text-center">Health</th>
+              </tr>
               <tr className="bg-muted/20 border-b border-border/50">
                 {([
                   { key: "name", label: "Audience / Adset", align: "left" },
@@ -322,7 +329,7 @@ export default function AudiencesPage() {
                   <th
                     key={col.key}
                     className={cn(
-                      "p-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap hover:text-foreground transition-colors",
+                      "p-3 py-4 text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 hover:text-foreground transition-colors",
                       col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
                     )}
                     onClick={() => toggleSort(col.key)}

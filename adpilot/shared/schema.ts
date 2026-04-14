@@ -610,3 +610,21 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ExecutionLog = typeof executionLogs.$inferSelect;
 export type ExecutionOutcome = typeof executionOutcomes.$inferSelect;
+
+export const performanceAlerts = pgTable("performance_alerts", {
+  id: serial("id").primaryKey(),
+  clientId: text("client_id").notNull(),
+  platform: text("platform").notNull(),
+  type: text("type").notNull(),
+  entityId: text("entity_id"),
+  entityName: text("entity_name"),
+  metric: text("metric"),
+  severity: text("severity").notNull(), // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  message: text("message").notNull(),
+  status: text("status", { enum: ["active", "completed", "rejected"] }).notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPerformanceAlertSchema = createInsertSchema(performanceAlerts);
+export type PerformanceAlert = typeof performanceAlerts.$inferSelect;

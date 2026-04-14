@@ -7,21 +7,81 @@
  * cadences (1D / 2×wk / Wkly / Bi-wk / Mo) reflects the actual window.
  */
 
+import fs from "fs";
+import path from "path";
 import { getClassification } from "../shared/classification";
 import {
   scoreStagedCostDynamic,
   scoreStagedBudgetDynamic,
   getMetricWeights,
+  scoreWeightedCostMetric,
+  scoreWeightedBudgetMetric,
+  sumMetricScores,
   computeMinRatio,
   computeDualGateStatus,
 } from "./scoring-config";
 
-function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
-  let total = 0;
-  for (const k in scores) {
-    total += (scores[k] * (weights[k] || 0)) / 100;
+function resolveMetaBenchmarks(data: any): Record<string, any> {
+  const base = {
+    ...(data.sop_benchmarks_fallback || {}),
+    ...(data.dynamic_thresholds || {}),
+    ...(data.sop_benchmarks || {}),
+  };
+
+  const sourcePath = data.benchmarks_source;
+  if (typeof sourcePath === "string" && sourcePath) {
+    const candidates = [
+      sourcePath,
+      sourcePath.replace(/benchmarks\.json$/, "benchmarks_meta.json"),
+    ];
+
+    for (const candidate of candidates) {
+      const resolved = path.resolve(candidate);
+      if (!fs.existsSync(resolved)) continue;
+
+      try {
+        return {
+          ...base,
+          ...JSON.parse(fs.readFileSync(resolved, "utf-8")),
+        };
+      } catch {
+        // Ignore malformed external benchmark files and fall back to attached data.
+      }
+    }
   }
-  return Math.round(Math.max(0, Math.min(100, total)) * 10) / 10;
+
+  return base;
+}
+
+function getCreativeAgeFactor(ageDays: number): number {
+  if (!Number.isFinite(ageDays) || ageDays <= 0 || ageDays < 30) return 100;
+  if (ageDays >= 45) return 0;
+  return ((45 - ageDays) / 15) * 100;
+}
+
+function scoreWeightedMetaCreativeMetric(creatives: any[], weight: number): number {
+  const liveCreatives = (creatives || []).filter(
+    (creative: any) =>
+      (creative?.status === "ACTIVE" || creative?.status === undefined || creative?.status === null) &&
+      (creative?.spend ?? 0) > 0
+  );
+
+  if (liveCreatives.length === 0) return 0;
+
+  const totalSpend = liveCreatives.reduce((sum: number, creative: any) => sum + (creative?.spend ?? 0), 0);
+  if (totalSpend <= 0) return 0;
+
+  const weightedHealth = liveCreatives.reduce((sum: number, creative: any) => {
+    const performance = creative?.performance_score ?? creative?.creative_score ?? creative?.health_score ?? 0;
+    const ageDays = creative?.creative_age_days ?? creative?.age_days ?? 0;
+    const ageFactor = getCreativeAgeFactor(ageDays);
+    const health = performance * 0.6 + ageFactor * 0.4;
+    return sum + health * (creative?.spend ?? 0);
+  }, 0);
+
+  const hAvg = weightedHealth / totalSpend;
+  const diversity = Math.min(1, liveCreatives.length / 4);
+  return weight * (hAvg / 100) * diversity;
 }
 
 /**
@@ -44,11 +104,11 @@ function normalizeScore(scores: Record<string, number>, weights: Record<string, 
 function recomputeHealthScore(data: any): {
   score: number;
   breakdown: Record<string, number>;
-  classification: string;
+  status: string;
 } {
   const ap = data.account_pulse || {};
   const mp = data.monthly_pacing || {};
-  const benchmarks = data.sop_benchmarks || data.dynamic_thresholds || data.sop_benchmarks_fallback || {};
+  const benchmarks = resolveMetaBenchmarks(data);
 
   const weights = getMetricWeights("meta");
 
@@ -60,79 +120,61 @@ function recomputeHealthScore(data: any): {
   const actualSpendMtd = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? 0;
   const actualLeadsMtd = mp.mtd?.leads ?? ap.mtd_pacing?.leads_mtd ?? 0;
   // Qualified leads from MTD deliverables (manually entered) — not in API
-  const actualQLeadsMtd = mtdDeliverables.positive_leads_achieved ?? mp.mtd?.qualified_leads ?? 0;
+  const actualQLeadsMtd =
+    mtdDeliverables.positive_leads_achieved ??
+    mtdDeliverables.quality_lead_count ??
+    mp.mtd?.qualified_leads ??
+    0;
   // SVS from MTD deliverables (manually entered) — not in API
   const actualSvsMtd = mtdDeliverables.svs_achieved ?? mp.mtd?.svs ?? 0;
-
-  const existingBreakdown = data.account_health_breakdown || {};
-
   // ─── CPL Score (Lower is better) ───
   // benchmarks.cpl = "CPL Target" field in Benchmarks tab
-  const cplTarget = benchmarks.cpl || 800;
+  const cplTarget = benchmarks.cpl || benchmarks.cpl_target || 800;
   const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
-  const cplScore = actualLeadsMtd > 0
-    ? scoreStagedCostDynamic(actualCplMtd, cplTarget)
-    : 50;
+  const cplScore = scoreWeightedCostMetric(
+    actualLeadsMtd > 0 ? actualCplMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
+    cplTarget,
+    weights.cpl
+  );
 
-  // ─── Budget/Pacing Score (Custom formula: Staged) ───
-  // Pacing deviation from 100%: perfect = 100%, penalize overspend/underspend
-  const pacingPct = mp.pacing?.spend_pct ?? 100;
-  const budgetScore = scoreStagedBudgetDynamic(pacingPct);
+  // ─── Budget/Pacing Score (MTD spend vs prorated monthly budget) ───
+  const now = new Date();
+  const derivedDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysInMonth = (mp.days_elapsed ?? 0) + (mp.days_remaining ?? 0) || derivedDaysInMonth;
+  const daysElapsed = mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? Math.min(now.getDate(), daysInMonth);
+  const monthlyBudget = mp.targets?.budget ?? ap.mtd_pacing?.target_budget ?? data.targets?.budget ?? 0;
+  const budgetScore = scoreWeightedBudgetMetric(
+    actualSpendMtd,
+    monthlyBudget,
+    daysElapsed,
+    daysInMonth,
+    weights.budget
+  );
 
   // ─── CPQL Score (Lower is better: Staged) ───
   // benchmarks.cpql_target = "CPQL Target" field in Benchmarks tab
-  const cpqlTarget = benchmarks.cpql_target || 1500;
+  const cpqlTarget = benchmarks.cpql_target || benchmarks.cpql || 1500;
   const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
   const cpqlScore = actualQLeadsMtd > 0
-    ? scoreStagedCostDynamic(actualCpqlMtd, cpqlTarget)
-    : 50; // Neutral when no qualified leads entered
+    ? scoreWeightedCostMetric(actualCpqlMtd, cpqlTarget, weights.cpql)
+    : 10;
 
   // ─── CPSV Score (Lower is better: Staged) ───
   // benchmarks.cpsv_low = "CPSV Target Low" field in Benchmarks tab
   // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
-  const cpsvTarget = benchmarks.cpsv_low || 0;
+  const cpsvTarget = benchmarks.cpsv_low || benchmarks.cpsv_target_low || 0;
   const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
-  const cpsvScore = (actualSvsMtd > 0 && cpsvTarget > 0)
-    ? scoreStagedCostDynamic(actualCpsvMtd, cpsvTarget)
-    : 50; // Neutral when no SVS data entered
+  const cpsvScore = scoreWeightedCostMetric(
+    actualSvsMtd > 0 ? actualCpsvMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
+    cpsvTarget,
+    weights.cpsv
+  );
 
   // ─── Creative Score (Spend-weighted average + diversity factor) ───
-  // Formula: score = (H_avg / 100) × D where
-  //   H_avg = Σ(health_i × spend_i) / Σ(spend_i)  [spend-weighted average]
-  //   D = min(1.0, active_count / 4)               [diversity penalty]
   const creativeHealth: any[] = data.creative_health || [];
+  const creativeScore = scoreWeightedMetaCreativeMetric(creativeHealth, weights.creative);
 
-  let creativeScore = existingBreakdown.creative ?? 50; // Start with existing or neutral
-
-  // Only recompute if we have creative_health data
-  if (creativeHealth.length > 0) {
-    // Filter to active creatives with spend > 0
-    const activeCreatives = creativeHealth.filter(
-      (c: any) => (c.status === "ACTIVE" || !c.status) && (c.spend ?? 0) > 0
-    );
-
-    if (activeCreatives.length === 0) {
-      // Zero active ads with spend = worst state (forces attention)
-      creativeScore = 0;
-    } else {
-      // Compute spend-weighted average
-      const totalSpend = activeCreatives.reduce((s: number, c: any) => s + (c.spend ?? 0), 0);
-      const weightedSum = activeCreatives.reduce(
-        (s: number, c: any) => s + (c.creative_score ?? c.performance_score ?? 0) * (c.spend ?? 0),
-        0
-      );
-      const hAvg = totalSpend > 0 ? weightedSum / totalSpend : 0;
-
-      // Apply diversity factor: min(1.0, count / 4)
-      const diversity = Math.min(1.0, activeCreatives.length / 4);
-      creativeScore = hAvg * diversity;
-
-      // Clamp to 0-100
-      creativeScore = Math.max(0, Math.min(100, creativeScore));
-    }
-  }
-
-  // ─── Build Breakdown (raw 0-100 scores) ───
+  // ─── Build Breakdown (weighted metric scores) ───
   const breakdown = {
     cpsv: Math.round(cpsvScore * 100) / 100,
     budget: Math.round(budgetScore * 100) / 100,
@@ -142,7 +184,7 @@ function recomputeHealthScore(data: any): {
   };
 
   // ─── Calculate Composite Score ───
-  let compositeScore = normalizeScore(breakdown, weights);
+  const compositeScore = Math.round(sumMetricScores(breakdown) * 100) / 100;
 
   // ─── Apply Dual-Gate Status Determination ───
   // Compute weakest-link ratio: min(score_i / weight_i) across all 5 metrics
@@ -150,35 +192,17 @@ function recomputeHealthScore(data: any): {
 
   // Determine status using dual-gate (composite + veto)
   const dualGateStatus = computeDualGateStatus(compositeScore, minRatio);
-
-  // Map dual-gate status to a capped score for classification compatibility
-  // This preserves the WINNER/WATCH/UNDERPERFORMER nomenclature
-  let finalScore = compositeScore;
-  if (dualGateStatus === "YELLOW") {
-    // Cap to max of YELLOW range (to prevent showing as GREEN when veto forces YELLOW)
-    finalScore = Math.min(compositeScore, 74);
-  } else if (dualGateStatus === "ORANGE") {
-    // Cap to max of ORANGE range (to prevent showing as YELLOW when veto forces ORANGE)
-    finalScore = Math.min(compositeScore, 54);
-  } else if (dualGateStatus === "RED") {
-    // Cap to max of RED range
-    finalScore = Math.min(compositeScore, 34);
-  }
-
-  const finalClassification = getClassification(finalScore, cplScore, cplTarget);
-
-  return { score: finalScore, breakdown, classification: finalClassification };
+  return { score: compositeScore, breakdown, status: dualGateStatus };
 }
 
 function scoreLinearMeta(actual: number, target: number, weight: number, lowerIsBetter: boolean): number {
   if (target <= 0) return weight * 0.5;
   const ratio = actual / target;
   if (lowerIsBetter) {
-    // Staged logic for CPL/CPC
-    let score100 = 10;
-    if (ratio <= 1.1) score100 = 100;
-    else if (ratio <= 1.2) score100 = 70;
-    else if (ratio <= 1.3) score100 = 40;
+    // We proxy through the new continuous dynamic logic for cost metrics 
+    // which scales 0-100, then we multiply by legacy weight (or we scale down weight).
+    // Using the exact quadratic formula imported from scoring-config:
+    const score100 = scoreStagedCostDynamic(actual, target);
     return weight * (score100 / 100);
   } else {
     // Relaxed real-estate floor (0.3 instead of 0.5) for CTR/CVR
@@ -326,7 +350,7 @@ export function normalizeMetaAnalysis(raw: any): any {
   // Uses Mojo AdCortex v1.0 formulas with override rule for high-weight RED metrics.
   const recomputed = recomputeHealthScore(data);
   data.account_health_score = recomputed.score;
-  data.account_health_classification = recomputed.classification;
+  data.account_health_classification = recomputed.status;
   data.account_health_breakdown = recomputed.breakdown;
 
   // ── 2. playbooks_triggered ───────────────────────────────────────────

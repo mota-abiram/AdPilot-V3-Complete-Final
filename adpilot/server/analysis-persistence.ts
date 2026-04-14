@@ -1,8 +1,9 @@
 import { db } from "./db";
-import { analysisSnapshots } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { analysisSnapshots, performanceAlerts } from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import { invalidateCachePattern } from "./cache";
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
 
@@ -50,13 +51,118 @@ export async function saveAnalysisSnapshot(clientId: string, platform: string, d
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(targetFile, JSON.stringify(data, null, 2));
 
-    // Bust cache so the next dashboard load fetches fresh data
+    // Bust both analysis and intelligence caches so the next load fetches fresh data
     invalidateAnalysisCache(clientId, platform);
+    invalidateCachePattern(`intelligence:${clientId}:${platform}`);
 
     console.log(`[Analysis] [File] Persisted ${platform} (${cadence}) snapshot to local disk for ${clientId}.`);
+
+    // --- SYNC PERFORMANCE ALERTS ---
+    if (process.env.DATABASE_URL && cadence === "twice_weekly") {
+      await syncPerformanceAlerts(clientId, platform, data);
+    }
   } catch (err) {
     console.error(`[Analysis] [CRITICAL] Error persisting snapshot for ${clientId}/${platform}/${cadence}:`, err);
     // Don't rethrow, ensure the scheduler continues even if persistence for one cadence fails
+  }
+}
+
+async function syncPerformanceAlerts(clientId: string, platform: string, data: any) {
+  const alerts: any[] = [];
+
+  // --- 1. Extract from Account Health Breakdown (The health-drivers) ---
+  if (data.account_health_breakdown) {
+    const weights: Record<string, number> = {
+      cpsv: 25,
+      budget: 25,
+      cpql: 20,
+      cpl: 20,
+      creative: 10
+    };
+
+    Object.entries(data.account_health_breakdown).forEach(([metric, score]: [string, any]) => {
+      const weight = weights[metric] || (metric === 'creative' ? 10 : 20);
+      const ratio = score / weight; // 0.0 to 1.0
+
+      if (ratio < 0.5) { // Under 50% performance is an alert
+        const severity = ratio < 0.2 ? "CRITICAL" : "HIGH";
+        let message = "";
+        
+        switch(metric) {
+          case 'cpl': message = "Cost Per Lead (CPL) is significantly above target, dragging down account health."; break;
+          case 'cpql': message = "Quality Lead cost is excessive, indicating poor lead quality or high acquisition costs."; break;
+          case 'cpsv': message = "Cost Per Site Visit is critical; traffic acquisition is expensive and inefficient."; break;
+          case 'budget': message = "Budget pacing is erratic (significant underspend or overspend), impacting scaling stability."; break;
+          case 'creative': message = "Creative performance is lagging; high fatigue or low engagement detected across active ads."; break;
+          default: message = `${metric.toUpperCase()} performance is dragging down account health.`;
+        }
+
+        alerts.push({
+          clientId,
+          platform,
+          type: "HEALTH_DRIVER",
+          entityName: "Account",
+          severity,
+          message,
+          metric: metric.toUpperCase(),
+        });
+      }
+    });
+  }
+
+  // --- 2. Extract from Intellect Insights ---
+  if (Array.isArray(data.intellect_insights)) {
+    data.intellect_insights.forEach((insight: any) => {
+      // Only promote high/critical severity insights to the alert system
+      if (insight.severity === "CRITICAL" || insight.severity === "HIGH") {
+        alerts.push({
+          clientId,
+          platform,
+          type: insight.type || "Performance",
+          entityName: insight.entity || "Account",
+          severity: insight.severity || "MEDIUM",
+          message: insight.detail || insight.observation || "",
+          metric: insight.type === "CPL" ? "CPL" : insight.type === "CTR" ? "CTR" : null,
+        });
+      }
+    });
+  }
+
+  // --- 3. Extract from Fatigue Alerts ---
+  if (Array.isArray(data.fatigue_alerts)) {
+    data.fatigue_alerts.forEach((fatigue: any) => {
+      alerts.push({
+        clientId,
+        platform,
+        type: "FATIGUE",
+        entityName: fatigue.ad_name,
+        severity: fatigue.severity || "HIGH",
+        message: fatigue.message,
+        metric: "CTR",
+      });
+    });
+  }
+
+  // Upsert into performance_alerts
+  for (const alert of alerts) {
+    try {
+      // Find if alert already exists to prevent duplicates and preserve status
+      const [existing] = await db.select().from(performanceAlerts).where(
+        and(
+          eq(performanceAlerts.clientId, clientId),
+          eq(performanceAlerts.platform, platform),
+          eq(performanceAlerts.type, alert.type),
+          eq(performanceAlerts.entityName, alert.entityName),
+          eq(performanceAlerts.message, alert.message)
+        )
+      ).limit(1);
+
+      if (!existing) {
+        await db.insert(performanceAlerts).values(alert);
+      }
+    } catch (err) {
+      console.error("[Analysis] Alert sync error:", err);
+    }
   }
 }
 

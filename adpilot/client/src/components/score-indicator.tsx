@@ -7,12 +7,10 @@ import { getHealthBgColor, getHealthBarBg } from "@/lib/format";
 
 interface ScoreIndicatorProps {
   score: number;
-  breakdown?: Record<string, number>;
-  label?: string;
-  description?: string;
+   detailedBreakdown?: Record<string, { contribution: number; weight: number }>;
 }
 
-export function ScoreIndicator({ score, breakdown, label, description }: ScoreIndicatorProps) {
+export function ScoreIndicator({ score, breakdown, detailedBreakdown, label, description }: ScoreIndicatorProps) {
   const safeScore = Math.round(Math.max(0, Math.min(100, score || 0)));
   
   return (
@@ -41,20 +39,27 @@ export function ScoreIndicator({ score, breakdown, label, description }: ScoreIn
           
           {description && <p className="text-[10px] text-muted-foreground pb-1">{description}</p>}
           
-          {breakdown ? (
+          {detailedBreakdown || breakdown ? (
             <div className="space-y-1">
-              {Object.entries(breakdown).map(([k, v]) => {
-                const val = typeof v === "number" ? Math.round(v) : 0;
+              {Object.entries(detailedBreakdown || breakdown || {}).map(([k, v]) => {
+                const isDetailed = detailedBreakdown && detailedBreakdown[k];
+                const displayVal = isDetailed 
+                  ? `${detailedBreakdown[k].contribution.toFixed(1)} / ${detailedBreakdown[k].weight}`
+                  : (typeof v === "number" ? Math.round(v) : 0);
+                
+                // For color coding, use normalized score if available
+                const scoreForColor = isDetailed ? (detailedBreakdown[k].contribution / detailedBreakdown[k].weight) * 100 : (typeof v === "number" ? v : 0);
+
                 let color = "text-muted-foreground";
-                if (val >= 85) color = "text-emerald-400";
-                else if (val >= 70) color = "text-emerald-500/80";
-                else if (val >= 40) color = "text-amber-400";
+                if (scoreForColor >= 85) color = "text-emerald-400";
+                else if (scoreForColor >= 70) color = "text-emerald-500/80";
+                else if (scoreForColor >= 40) color = "text-amber-400";
                 else color = "text-red-400";
 
                 return (
                   <div key={k} className="flex justify-between gap-4">
                     <span className="uppercase text-[9px] font-bold opacity-70">{k.replace(/_/g, ' ')}</span>
-                    <span className={`font-bold tabular-nums ${color}`}>{val}</span>
+                    <span className={`font-bold tabular-nums text-[10px] ${color}`}>{displayVal}</span>
                   </div>
                 );
               })}

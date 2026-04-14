@@ -689,12 +689,12 @@
       "date_stop": "2026-04-12"
     },
     {
-      "spend": "7692.19",
-      "impressions": "112496",
+      "spend": "7711.56",
+      "impressions": "112546",
       "clicks": "841",
-      "ctr": "0.747582",
-      "cpc": "9.14648",
-      "cpm": "68.377453",
+      "ctr": "0.74725",
+      "cpc": "9.169512",
+      "cpm": "68.519183",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -789,8 +789,8 @@
           "value": "10"
         }
       ],
-      "frequency": "1.434185",
-      "reach": "78439",
+      "frequency": "1.434676",
+      "reach": "78447",
       "video_p25_watched_actions": [
         {
           "action_type": "video_view",
@@ -807,32 +807,48 @@
       "date_stop": "2026-04-13"
     },
     {
-      "spend": "2256.14",
-      "impressions": "33499",
-      "clicks": "264",
-      "ctr": "0.788083",
-      "cpc": "8.545985",
-      "cpm": "67.349473",
+      "spend": "5067.15",
+      "impressions": "82974",
+      "clicks": "637",
+      "ctr": "0.76771",
+      "cpc": "7.95471",
+      "cpm": "61.06913",
       "actions": [
         {
+          "action_type": "onsite_conversion.total_messaging_connection",
+          "value": "2"
+        },
+        {
+          "action_type": "offsite_complete_registration_add_meta_leads",
+          "value": "4"
+        },
+        {
           "action_type": "link_click",
-          "value": "212"
+          "value": "505"
         },
         {
           "action_type": "page_engagement",
-          "value": "656"
+          "value": "2174"
+        },
+        {
+          "action_type": "landing_page_view",
+          "value": "3"
+        },
+        {
+          "action_type": "omni_landing_page_view",
+          "value": "3"
         },
         {
           "action_type": "onsite_conversion.post_unlike",
-          "value": "9"
+          "value": "20"
         },
         {
           "action_type": "post_engagement",
-          "value": "656"
+          "value": "2174"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "76"
+          "value": "213"
         },
         {
           "action_type": "comment",
@@ -840,41 +856,77 @@
         },
         {
           "action_type": "post_interaction_net",
-          "value": "85"
+          "value": "233"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_first_reply",
+          "value": "2"
         },
         {
           "action_type": "post",
-          "value": "5"
+          "value": "12"
+        },
+        {
+          "action_type": "onsite_conversion.post_save",
+          "value": "2"
         },
         {
           "action_type": "onsite_conversion.post_net_comment",
           "value": "1"
         },
         {
+          "action_type": "onsite_conversion.post_net_save",
+          "value": "2"
+        },
+        {
+          "action_type": "offsite_search_add_meta_leads",
+          "value": "4"
+        },
+        {
           "action_type": "onsite_conversion.post_net_like",
-          "value": "61"
+          "value": "178"
+        },
+        {
+          "action_type": "lead",
+          "value": "4"
+        },
+        {
+          "action_type": "offsite_content_view_add_meta_leads",
+          "value": "4"
+        },
+        {
+          "action_type": "onsite_conversion.messaging_conversation_started_7d",
+          "value": "2"
+        },
+        {
+          "action_type": "onsite_conversion.lead_grouped",
+          "value": "4"
         },
         {
           "action_type": "video_view",
-          "value": "368"
+          "value": "1456"
         },
         {
           "action_type": "post_reaction",
-          "value": "70"
+          "value": "198"
+        },
+        {
+          "action_type": "offsite_conversion.fb_pixel_custom",
+          "value": "5"
         }
       ],
-      "frequency": "1.304224",
-      "reach": "25685",
+      "frequency": "1.423274",
+      "reach": "58298",
       "video_p25_watched_actions": [
         {
           "action_type": "video_view",
-          "value": "64"
+          "value": "278"
         }
       ],
       "video_p50_watched_actions": [
         {
           "action_type": "video_view",
-          "value": "27"
+          "value": "111"
         }
       ],
       "date_start": "2026-04-14",

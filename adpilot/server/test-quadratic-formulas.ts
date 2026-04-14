@@ -4,8 +4,9 @@
  */
 
 import {
-  scoreStagedCostDynamic,
-  scoreStagedBudgetDynamic,
+  scoreWeightedCostMetric,
+  scoreWeightedBudgetMetric,
+  scoreWeightedCreativeMetric,
   computeMinRatio,
   computeDualGateStatus,
 } from "./scoring-config";
@@ -14,42 +15,50 @@ import {
 console.log("=== Testing Cost Metric Formula ===");
 
 // Test case 1: CPL at target
-let result = scoreStagedCostDynamic(700, 700);
-console.log(`CPL 700 vs target 700: ${result} (expected: 100)`);
+let result = scoreWeightedCostMetric(700, 700, 20);
+console.log(`CPL 700 vs target 700: ${result.toFixed(2)} (expected: 20.00)`);
 
 // Test case 2: CPL 4.1% over target
-result = scoreStagedCostDynamic(729, 700);
-console.log(`CPL 729 vs target 700 (4.1% over): ${result} (expected: ~93)`);
+result = scoreWeightedCostMetric(729, 700, 20);
+console.log(`CPL 729 vs target 700 (4.1% over): ${result.toFixed(2)} (expected: ~18.60)`);
 
 // Test case 3: CPQL 51.9% over target (in RED zone)
-result = scoreStagedCostDynamic(4481, 2950);
-console.log(`CPQL 4481 vs target 2950 (51.9% over): ${result} (expected: ~37)`);
+result = scoreWeightedCostMetric(4481, 2950, 20);
+console.log(`CPQL 4481 vs target 2950 (51.9% over): ${result.toFixed(2)} (expected: 0.00)`);
 
-// Test case 4: Cost 100% over target (at red_multiplier)
-result = scoreStagedCostDynamic(1400, 700);
-console.log(`Cost 1400 vs target 700 (100% over): ${result} (expected: ~50)`);
+// Test case 4: Cost 20% over target
+result = scoreWeightedCostMetric(840, 700, 20);
+console.log(`Cost 840 vs target 700 (20% over): ${result.toFixed(2)} (expected: 10.00)`);
 
 // Test case 5: Cost 34%+ over target (at zero point)
-result = scoreStagedCostDynamic(936, 700);
-console.log(`Cost 936 vs target 700 (34% over): ${result} (expected: ~0)`);
+result = scoreWeightedCostMetric(936, 700, 20);
+console.log(`Cost 936 vs target 700 (34% over): ${result.toFixed(2)} (expected: ~0.00)`);
 
 console.log("\n=== Testing Budget Pacing Formula ===");
 
 // Test case 1: Perfect pacing
-result = scoreStagedBudgetDynamic(100);
-console.log(`Pacing 100%: ${result} (expected: 100)`);
+result = scoreWeightedBudgetMetric(25000, 50000, 15, 30, 25);
+console.log(`Perfect pacing: ${result.toFixed(2)} (expected: 25.00)`);
 
 // Test case 2: 8.6% overspend (from your case)
-result = scoreStagedBudgetDynamic(108.6);
-console.log(`Pacing 108.6% (8.6% deviation): ${result} (expected: ~84)`);
+result = scoreWeightedBudgetMetric(27150, 50000, 15, 30, 25);
+console.log(`Budget 8.6% over plan: ${result.toFixed(2)} (expected: ~21.00)`);
 
 // Test case 3: 10% deviation
-result = scoreStagedBudgetDynamic(110);
-console.log(`Pacing 110% (10% deviation): ${result} (expected: ~80)`);
+result = scoreWeightedBudgetMetric(27500, 50000, 15, 30, 25);
+console.log(`Budget 10% over plan: ${result.toFixed(2)} (expected: 20.00)`);
 
 // Test case 4: 20% deviation
-result = scoreStagedBudgetDynamic(120);
-console.log(`Pacing 120% (20% deviation): ${result} (expected: ~40)`);
+result = scoreWeightedBudgetMetric(30000, 50000, 15, 30, 25);
+console.log(`Budget 20% over plan: ${result.toFixed(2)} (expected: 10.00)`);
+
+console.log("\n=== Testing Creative Formula ===");
+
+result = scoreWeightedCreativeMetric([
+  { status: "ACTIVE", spend: 1000, creative_score: 80 },
+  { status: "ACTIVE", spend: 1000, creative_score: 80 },
+], 10);
+console.log(`Two active ads at 80 health: ${result.toFixed(2)} (expected: 4.00)`);
 
 console.log("\n=== Testing Min Ratio Calculation ===");
 
@@ -90,7 +99,7 @@ console.log(`Composite 76, minRatio 0.45: ${status} (expected: GREEN)`);
 
 // Test case: composite=70, min_ratio=0.15
 status = computeDualGateStatus(70, 0.15);
-console.log(`Composite 70, minRatio 0.15: ${status} (expected: YELLOW)`);
+console.log(`Composite 70, minRatio 0.15: ${status} (expected: ORANGE)`);
 
 // Test case: composite=30, min_ratio=0.02
 status = computeDualGateStatus(30, 0.02);

@@ -30,7 +30,6 @@ export interface MetricWeights {
       budget: number;
       cpql: number;
       cpl: number;
-      campaign: number;
       creative: number;
     };
   };
@@ -79,10 +78,9 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
     google: {
       account_level: {
         cpsv: 25,
-        budget: 20,
+        budget: 25,
         cpql: 20,
-        cpl: 10,
-        campaign: 15,
+        cpl: 20,
         creative: 10,
       },
     },
@@ -193,6 +191,58 @@ export function scoreStagedBudgetDynamic(pacingPct: number): number {
   return Math.round(rawScore * 100);
 }
 
+export function scoreWeightedCostMetric(actual: number, target: number, weight: number): number {
+  if (target <= 0) return weight;
+
+  const safeActual = Number.isFinite(actual) ? actual : Number.POSITIVE_INFINITY;
+  const d = Math.max(0, (safeActual - target) / target);
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+}
+
+export function scoreWeightedBudgetMetric(
+  actualSpend: number,
+  monthlyBudget: number,
+  daysElapsed: number,
+  daysInMonth: number,
+  weight: number
+): number {
+  if (monthlyBudget <= 0 || daysInMonth <= 0) return weight;
+
+  const safeDaysElapsed = Math.max(0, Math.min(daysElapsed, daysInMonth));
+  const planned = monthlyBudget * (safeDaysElapsed / daysInMonth);
+  if (planned <= 0) return weight;
+
+  const b = Math.abs(actualSpend - planned) / planned;
+  return weight * Math.max(0, 1 - b - 10 * b * b);
+}
+
+export function scoreWeightedCreativeMetric(creatives: any[], weight: number): number {
+  const activeCreatives = (creatives || []).filter(
+    (creative: any) => creative?.status === "ACTIVE" && (creative?.spend ?? 0) > 0
+  );
+
+  if (activeCreatives.length === 0) return 0;
+
+  const totalSpend = activeCreatives.reduce(
+    (sum: number, creative: any) => sum + (creative?.spend ?? 0),
+    0
+  );
+  if (totalSpend <= 0) return 0;
+
+  const weightedHealth = activeCreatives.reduce((sum: number, creative: any) => {
+    const health = creative?.health_score ?? creative?.creative_score ?? creative?.performance_score ?? 0;
+    return sum + health * (creative?.spend ?? 0);
+  }, 0);
+
+  const hAvg = weightedHealth / totalSpend;
+  const diversity = Math.min(1, activeCreatives.length / 4);
+  return weight * (hAvg / 100) * diversity;
+}
+
+export function sumMetricScores(scores: Record<string, number>): number {
+  return Object.values(scores).reduce((total, score) => total + score, 0);
+}
+
 /**
  * Get metric weights for a platform
  */
@@ -238,9 +288,9 @@ export function getClassificationThresholds(): {
  * Used to prevent a single catastrophic metric from hiding behind strong averages.
  * min_ratio represents: the worst metric as a percentage of its maximum possible score.
  *
- * Example: CPL score 20/100 with weight 20% → ratio = 20/20 = 1.0
- *         CPQL score 10/100 with weight 25% → ratio = 10/25 = 0.4
- *         min_ratio = 0.4 (CPQL is the weakest link at 40% of max)
+ * Example: CPL score 20/20 → ratio = 20/20 = 1.0
+ *         CPQL score 10/20 → ratio = 10/20 = 0.5
+ *         min_ratio = 0.5 (CPQL is the weakest link at 50% of max)
  */
 export function computeMinRatio(
   scores: Record<string, number>,

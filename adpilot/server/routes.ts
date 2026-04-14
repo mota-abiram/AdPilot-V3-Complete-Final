@@ -30,7 +30,7 @@ import {
   invalidateAnalysisCache,
 } from "./analysis-persistence";
 import { pool, db } from "./db";
-import { analysisSnapshots, biddingRecommendations } from "@shared/schema";
+import { analysisSnapshots, biddingRecommendations, performanceAlerts } from "@shared/schema";
 import { and, eq, desc } from "drizzle-orm";
 import { normalizeGoogleAnalysis } from "./google-transform";
 import { normalizeMetaAnalysis } from "./meta-transform";
@@ -3524,6 +3524,46 @@ export async function registerRoutes(
       res.json({ success: true, message: "Bidding intelligence run completed." });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/performance-alerts/:clientId/:platform", requireAdmin, async (req, res) => {
+    try {
+      const { clientId, platform } = req.params;
+      const alerts = await db.select().from(performanceAlerts).where(
+        and(
+          eq(performanceAlerts.clientId, clientId),
+          eq(performanceAlerts.platform, platform),
+          eq(performanceAlerts.status, "active")
+        )
+      );
+      res.json(alerts);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/performance-alerts/:id/complete", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(performanceAlerts)
+        .set({ status: "completed", updatedAt: new Date() })
+        .where(eq(performanceAlerts.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/performance-alerts/:id/reject", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.update(performanceAlerts)
+        .set({ status: "rejected", updatedAt: new Date() })
+        .where(eq(performanceAlerts.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   });
 

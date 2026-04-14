@@ -31,10 +31,9 @@
       "account_level": {
         "_comment": "Google account health score weights (sum should = 100)",
         "cpsv": 25,
-        "budget": 20,
+        "budget": 25,
         "cpql": 20,
-        "cpl": 10,
-        "campaign": 15,
+        "cpl": 20,
         "creative": 10
       }
     },

@@ -72,6 +72,21 @@ export async function insightsEngine(query: IntelligenceQuery): Promise<Intellig
 
   // --- LAYER 1: DATA PREPARATION ---
   const ctx = await assembleContext(clientId, platform, query.type || "recommendation", query.analysisData);
+  
+  // Extract entities mentioned in the alert context to prioritize them in the prompt
+  if (query.alertContext) {
+    const related: string[] = [];
+    const metrics = query.alertContext.metrics || {};
+    if (metrics["Affected campaigns"]) {
+      const names = String(metrics["Affected campaigns"]).split(",").map(n => n.trim());
+      related.push(...names);
+    }
+    // Deep scanning for anything looking like an ID or common campaign name patterns in the problem text
+    const idMatch = query.alertContext.problem.match(/\d{10,20}/g);
+    if (idMatch) related.push(...idMatch);
+    
+    (ctx.layer2 as any).alertRelatedEntities = related;
+  }
   const layer1Data = {
     clientTargets: ctx.layer1.clientTargets,
     platform: ctx.layer2.platformContext,

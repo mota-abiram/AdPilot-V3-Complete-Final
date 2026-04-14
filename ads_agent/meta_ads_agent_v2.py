@@ -1043,8 +1043,11 @@ def score_meta_ad(ad_data, cpl_target):
     
     # Maintain existing metadata for backwards compatibility/internal logic
     result["total_score"] = result["score"]
-    result["performance_score"] = result["score"] # In new system, they are same
-    result["age_score"] = ad_data.get("age_score", 100) # Keep age separate if needed
+    result["performance_score"] = result["score"]
+    result["age_score"] = ad_data.get("age_score", 100)
+    result["scores"] = result.get("breakdown", {})
+    result["bands"] = result.get("bands", {})
+    result["detailed_breakdown"] = result.get("detailed_breakdown", {})
     
     score = result["score"]
     if score >= SOP["winner_threshold"]:
@@ -1087,6 +1090,7 @@ def score_meta_campaign(campaign_data, cpl_target):
     result["total_score"] = result["score"]
     result["scores"] = result.get("breakdown", {})
     result["bands"] = result.get("bands", {})
+    result["detailed_breakdown"] = result.get("detailed_breakdown", {})
     score = result["score"]
     if score >= SOP.get("winner_threshold", 70):
         result["classification"] = "WINNER"
@@ -1248,6 +1252,7 @@ def analyze_creative_health(ad_insights, active_ads):
             "weights_used": scoring["weights_used"],
             "score_breakdown": scoring["scores"],
             "score_bands": scoring["bands"],
+            "detailed_breakdown": scoring.get("detailed_breakdown", {}),
         })
 
     return sorted(results, key=lambda x: x["creative_score"], reverse=True)
@@ -1413,7 +1418,8 @@ def audit_campaigns(campaign_insights, campaigns_list, active_adsets, cost_stack
             "campaign_id": cid, "campaign_name": name, "layer": layer, "objective": objective,
             "status": bi.get("status", "ACTIVE"),
             "health_score": scoring["total_score"], "score_breakdown": scoring["scores"],
-            "score_bands": scoring["bands"], "classification": scoring["classification"],
+            "score_bands": scoring["bands"], "detailed_breakdown": scoring.get("detailed_breakdown", {}),
+            "classification": scoring["classification"],
             "spend": spend, "impressions": impressions, "clicks": clicks,
             "ctr": ctr, "cpc": cpc, "cpm": cpm, "frequency": frequency, "reach": reach,
             "leads": leads, "cpl": cpl,
@@ -1555,6 +1561,7 @@ def analyze_adsets(adset_insights, active_adsets, all_adsets, cost_stack):
             "delivery_status": delivery_status, "learning_status": learning_status,
             "health_score": scoring["total_score"], "classification": scoring["classification"],
             "score_breakdown": scoring["scores"], "score_bands": scoring["bands"],
+            "detailed_breakdown": scoring.get("detailed_breakdown", {}),
             "should_pause": len(auto_pause_reasons) > 0, "auto_pause_reasons": auto_pause_reasons,
             "diagnostics": diagnostics,
         })

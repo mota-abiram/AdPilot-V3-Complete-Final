@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
 import { apiRequest } from "@/lib/queryClient";
 import type { AnalysisData } from "@shared/schema";
 import { useNow } from "@/hooks/use-now";
 import { formatHoursAgo, parseSyncTimestamp } from "@/lib/sync-state";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,6 @@ import {
   Database,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
-import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,8 +133,8 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     if (!alert) return undefined;
     const campaigns: any[] = (alert.campaigns || []);
     const m: Record<string, string | number> = {};
-    if (alert.value)     m[`${alert.metric} (current)`] = alert.value;
-    if (alert.benchmark) m[`${alert.metric} (target)`]  = alert.benchmark;
+    if (alert.value) m[`${alert.metric} (current)`] = alert.value;
+    if (alert.benchmark) m[`${alert.metric} (target)`] = alert.benchmark;
     if (campaigns.length > 0) {
       m["Affected campaigns"] = campaigns.map((c: any) => c.name).join(", ");
     }
@@ -146,14 +146,14 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     return ["/api/intelligence", activeClient?.id, activePlatform, "insights", alert.summary, alert.metric];
   }, [alert, activeClient?.id, activePlatform]);
 
-  const { data: pipelineData } = useQuery<{ insights: any[] }>({
+  const { data: pipelineData } = useQuery<{ insights: any[]; recommendations: any[] }>({
     queryKey: pipelineQueryKey ?? ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
     queryFn: async () => {
-      if (!activeClient?.id || !activePlatform || !alert) return { insights: [] };
+      if (!activeClient?.id || !activePlatform || !alert) return { insights: [], recommendations: [] };
       const params = new URLSearchParams({ type: "recommendation" });
-      if (alert.summary)  params.set("alert_problem", alert.summary);
-      if (alert.metric)   params.set("alert_metric",  alert.metric);
-      if (alertMetrics)   params.set("alert_metrics",  JSON.stringify(alertMetrics));
+      if (alert.summary) params.set("alert_problem", alert.summary);
+      if (alert.metric) params.set("alert_metric", alert.metric);
+      if (alertMetrics) params.set("alert_metrics", JSON.stringify(alertMetrics));
       const res = await apiRequest("GET", `/api/intelligence/${activeClient.id}/${activePlatform}/insights?${params.toString()}`);
       return res.json();
     },
@@ -161,84 +161,22 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     staleTime: 0, // Always re-fetch for each distinct alert
   });
 
+  const isLoadingAI = !pipelineData && !!pipelineQueryKey;
+
   const suggestions = useMemo(() => {
-    if (!pipelineData?.insights || !alert) return [];
+    const recs = pipelineData?.recommendations || [];
 
-    const alertMetric = (alert.metric || "").toLowerCase();
-    const alertSummary = (alert.summary || "").toLowerCase();
-    const alertCampaignNames = (alert.campaigns || []).map((c: any) => (c.name || "").toLowerCase());
-    const isAccountLevel = !alert.campaigns?.length || alert.isGeneric;
-
-    // Keyword map: alert metric → terms that should appear in relevant insights
-    const metricKeywords: Record<string, string[]> = {
-      cpl:        ["cpl", "cost per lead", "conversion", "budget drain", "zero leads", "cpc inflation"],
-      ctr:        ["ctr", "click-through", "thumb stop", "creative", "fatigue", "audience saturation"],
-      pacing:     ["pacing", "budget", "spend", "daily", "month", "plan"],
-      agent:      ["campaign", "adset", "creative", "pause", "scale"],
-      status:     ["underperform", "pause", "classification", "review"],
-      "auto-pause": ["pause", "auto", "ad group", "ads flagged"],
-      vhr:        ["vhr", "hold rate", "video", "view"],
-      tsr:        ["tsr", "thumb stop", "video", "creative"],
-    };
-    const relevantTerms = metricKeywords[alertMetric] || [];
-
-    // Score each insight by relevance to this specific alert
-    const scored = pipelineData.insights.map((ins: any) => {
-      let score = 0;
-      const insIssue = (ins.issue || "").toLowerCase();
-      const insRec = (ins.recommendation || "").toLowerCase();
-      const insImpact = (ins.impact || "").toLowerCase();
-      const insEntity = (ins.entityName || "").toLowerCase();
-      const combined = `${insIssue} ${insRec} ${insImpact}`;
-
-      // +40: insight is directly about one of the campaigns in this alert
-      if (alertCampaignNames.some((cn: string) => cn && insEntity && insEntity.includes(cn.substring(0, 20)))) {
-        score += 40;
-      }
-      // +30: insight mentions a campaign from this alert by name in recommendation text
-      if (alertCampaignNames.some((cn: string) => cn && (insRec.includes(cn.substring(0, 20)) || insImpact.includes(cn.substring(0, 20))))) {
-        score += 30;
-      }
-      // +20: insight keyword matches the alert's metric
-      if (relevantTerms.some((term: string) => combined.includes(term))) {
-        score += 20;
-      }
-      // +15: alert summary words appear in the insight
-      const summaryWords = alertSummary.split(" ").filter((w: string) => w.length > 4);
-      if (summaryWords.some((w: string) => combined.includes(w))) {
-        score += 15;
-      }
-      // +10: account-level alert matches account-level insight
-      if (isAccountLevel && ins.entityType === "account") {
-        score += 10;
-      }
-      // -10: insight is for a different entity not in this alert (avoid cross-contamination)
-      if (!isAccountLevel && ins.entityType === "account" && score === 0) {
-        score -= 10;
-      }
-
-      return { ...ins, _score: score };
-    });
-
-    // Sort by relevance score desc, then confidence desc
-    scored.sort((a: any, b: any) => b._score - a._score || b.confidence - a.confidence);
-
-    // Take top 5 relevant; if none scored above 0, fall back to account/priority-sorted top 5
-    const relevant = scored.filter((s: any) => s._score > 0).slice(0, 5);
-    const result = relevant.length > 0 ? relevant : scored.slice(0, 5);
-
-    return result.map((ins: any, idx: number) => ({
+    return recs.map((rec: any, idx: number) => ({
       rank: idx + 1,
-      action: ins.recommendation,        // brief one-liner action
-      reasoning: ins.impact || "",       // root-cause analysis paragraph
-      executionPlan: ins.executionPlan || ins.execution_plan || [], // step-by-step plan from AI
-      source: ins.source,
-      confidence: ins.confidence > 0.7 ? "High" : "Medium",
-      issue: ins.issue,
-      executionType: ins.executionType || ins.execution_type || "manual",
-      actionType: ins.actionType || ins.action_type || "",
+      issue: rec.action, // Title of the card
+      action: rec.action,
+      reasoning: rec.reasoning,
+      executionPlan: rec.action_payload?.execution_plan || rec.executionPlan || [],
+      source: "AI", // Vertical recommendations are AI-consolidated
+      executionType: rec.execution_type || "manual",
+      actionType: rec.action_payload?.action?.type || "",
     }));
-  }, [pipelineData, alert]);
+  }, [pipelineData]);
 
   if (!alert) return null;
 
@@ -261,12 +199,21 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
               <Brain className="w-5 h-5 animate-pulse-slow" />
             </div>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="t-page-title text-foreground text-xl">4-Layer AI Diagnosis</DialogTitle>
+              <div className="flex items-center gap-2">
+                <DialogTitle className="t-page-title text-foreground text-xl">4-Layer AI Diagnosis</DialogTitle>
+                {isLoadingAI && (
+                  <Badge variant="outline" className="animate-pulse bg-primary/10 text-primary border-primary/20 text-[9px] font-black uppercase py-0">
+                    Strategic AI Reasoning...
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
                   {alert.metric} ALERT
                 </Badge>
-                <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Root-cause analysis across all 4 layers</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">
+                  {isLoadingAI ? "Parallelizing SOP, Data & Execution History..." : "Root-cause analysis across all 4 layers"}
+                </span>
               </div>
             </div>
           </div>
@@ -360,7 +307,7 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
         <DialogFooter className="p-4 px-6 bg-muted/20 border-t border-border/40 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-primary opacity-60" />
-            <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">Claude AI + SOP Layer Validated</span>
+            <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">AI Engine + SOP Layer Validated</span>
           </div>
           <Button
             className="h-10 px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-[#f5c723] text-primary-foreground transition-all active:scale-[0.97]"
@@ -526,8 +473,11 @@ function getCadencePeriodLabel(cadence: string): string {
 export default function DashboardPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("ALL");
   const [activeFixAlert, setActiveFixAlert] = useState<any>(null);
+  const { toast } = useToast();
   const [showAllCriticalAlerts, setShowAllCriticalAlerts] = useState(false);
   const [showAllFatigueAlerts, setShowAllFatigueAlerts] = useState(false);
+
+
 
   // ─── 1. Helper Functions ─────────────────────────────────────────
 
@@ -573,6 +523,35 @@ export default function DashboardPage() {
     mtdAnalysisData,
   } = useClient();
   const now = useNow();
+
+  // --- Stateful Performance Alerts ---
+  const { data: statefulAlerts = [], refetch: refetchAlerts } = useQuery({
+    queryKey: [`/api/performance-alerts/${activeClient?.id}/${activePlatform}`],
+    enabled: !!activeClient?.id && !!activePlatform
+  });
+
+  const completeAlert = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/performance-alerts/${id}/complete`);
+    },
+    onSuccess: () => {
+      refetchAlerts();
+      toast({ title: "Alert resolved", description: "Marked as completed" });
+    }
+  });
+
+  const rejectAlert = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/performance-alerts/${id}/reject`);
+    },
+    onSuccess: () => {
+      refetchAlerts();
+      toast({ title: "Alert dismissed", description: "Alert has been rejected" });
+    }
+  });
+
+  const handleComplete = (id: number) => completeAlert.mutate(id);
+  const handleReject = (id: number) => rejectAlert.mutate(id);
 
   const { data: verifyData } = useQuery<{
     verified: boolean;
@@ -864,103 +843,101 @@ export default function DashboardPage() {
 
 
   const criticalAlerts = useMemo(() => {
-    type AlertItem = { message: string; level: "critical" | "warning"; metric: string; value?: string | number; benchmark?: string | number; campaignId?: string; campaignName?: string };
+    // 1. Snapshot-based alerts
+    type AlertItem = { 
+      id?: number;
+      message: string; 
+      level: "critical" | "warning"; 
+      metric: string; 
+      value?: string | number; 
+      benchmark?: string | number; 
+      campaignId?: string; 
+      campaignName?: string;
+      type: string;
+      isStateful?: boolean;
+    };
     const raw: AlertItem[] = [];
     const cplCrit = t_cpl_critical;
     const ctrM = t_ctr_min;
 
-    // Minimum data thresholds — prevents false-positive alerts on brand-new or low-traffic entities
     const MIN_LEADS_FOR_CPL_ALERT = 5;
     const MIN_IMPRESSIONS_FOR_CTR_ALERT = 1000;
 
-    // 1. Account Level
+    // A. Account Level & Health Drivers
     if (selectedCampaignId === "ALL") {
+      // 1. Hardcoded thresholds (fallback)
       if (cplCrit > 0 && ap.overall_cpl > cplCrit && ap.total_leads_30d >= MIN_LEADS_FOR_CPL_ALERT) {
-        raw.push({
-          metric: "CPL",
-          message: "Account Avg CPL exceeds critical threshold",
-          value: `₹${Math.round(ap.overall_cpl)}`,
-          benchmark: `₹${Math.round(cplCrit)}`,
-          level: "critical"
-        });
+        raw.push({ metric: "CPL", message: "Account Avg CPL critical", value: `₹${Math.round(ap.overall_cpl)}`, benchmark: `₹${Math.round(cplCrit)}`, level: "critical", type: "ACCOUNT_CPL" });
       }
-      if (!isGoogle && ap.overall_ctr < ctrM && (ap.total_impressions ?? (ap.daily_cpms.length * 1000)) >= MIN_IMPRESSIONS_FOR_CTR_ALERT) {
-        raw.push({
-          metric: "CTR",
-          message: "Account CTR is critically low",
-          value: `${formatPct(ap.overall_ctr)}`,
-          benchmark: `${ctrM}%`,
-          level: "critical"
-        });
-      }
-      if (isGoogle && mp && mp.pacing.leads_pct < 50) {
-        raw.push({
-          metric: "PACING",
-          message: "Lead pacing shortfall detected",
-          value: `${(mp?.pacing?.leads_pct ?? 0).toFixed(0)}%`,
-          benchmark: "100%",
-          level: "critical"
+
+      // 2. Real-time Breakdown Audit (Captures issues like 0.00 CPQL score instantly)
+      const healthBreakdown = (data as any)?.account_health_breakdown;
+      if (healthBreakdown) {
+        const weights: Record<string, number> = { cpsv: 25, budget: 25, cpql: 20, cpl: 20, creative: 10 };
+        Object.entries(healthBreakdown).forEach(([m, s]: [string, any]) => {
+          const w = weights[m] || 20;
+          const ratio = s / w;
+          if (ratio < 0.5) {
+            let msg = "";
+            switch(m) {
+              case 'cpl': msg = "Cost Per Lead (CPL) is dragging down account health."; break;
+              case 'cpql': msg = "Quality Lead cost (CPQL) is critical (currently 0.00 or excessive)."; break;
+              case 'cpsv': msg = "Cost Per Site Visit (MTD) is inefficient."; break;
+              case 'budget': msg = "Budget pacing is erratic (underspend/overspend)."; break;
+              case 'creative': msg = "Creative engagement is lagging."; break;
+              default: msg = `${m.toUpperCase()} performance is critical.`;
+            }
+            raw.push({
+              metric: m.toUpperCase(),
+              message: msg,
+              level: ratio < 0.2 ? "critical" : "warning",
+              type: `LIVE_HEALTH_${m.toUpperCase()}`
+            });
+          }
         });
       }
     }
 
-    // 2. Intellect Insights
-    intellectInsights
-      .filter((i: any) => i.severity === "HIGH" || i.confidence === "high")
-      .forEach((i: any) => {
-        const detail = i.detail || i.observation || i.title || "";
-        const campaign = campaignAudit.find((c: any) => detail.includes(c.campaign_name || "") || (i.entity && typeof i.entity === "string" && i.entity.includes(c.campaign_name || "")));
-        const matchesCampaign = !filteredCampaign || (campaign && campaign.campaign_id === filteredCampaign.campaign_id);
-
-        if (matchesCampaign) {
-          raw.push({
-            metric: "AGENT",
-            message: detail,
-            level: "critical",
-            campaignId: campaign?.campaign_id,
-            campaignName: campaign?.campaign_name
-          });
-        }
-      });
-
-    // 3. Campaign Level
+    // B. Campaign Level
     const campaignsToCheck = filteredCampaign ? [filteredCampaign] : campaignAudit;
     campaignsToCheck.forEach((c: any) => {
       const name = c.campaign_name || "Unknown Campaign";
       if (c.status === "ACTIVE" || c.status === "ENABLED") {
         if (cplCrit > 0 && c.cpl > cplCrit && (c.leads ?? c.conversions ?? 0) >= MIN_LEADS_FOR_CPL_ALERT) {
-          raw.push({
-            metric: "CPL",
-            message: "Campaign CPL is critical",
-            value: `₹${Math.round(c.cpl)}`,
-            benchmark: `₹${Math.round(cplCrit)}`,
-            level: "critical",
-            campaignId: c.campaign_id,
-            campaignName: name
-          });
-        }
-        if (c.should_pause || c.classification === "UNDERPERFORMER") {
-          raw.push({
-            metric: "STATUS",
-            message: `Flagged for review due to ${(c.classification || "UNKNOWN").toLowerCase()} performance`,
-            level: "critical",
-            campaignId: c.campaign_id,
-            campaignName: name
-          });
+          raw.push({ metric: "CPL", message: "Campaign CPL critical", value: `₹${Math.round(c.cpl)}`, benchmark: `₹${Math.round(cplCrit)}`, level: "critical", campaignId: c.campaign_id, campaignName: name, type: "CAMPAIGN_CPL" });
         }
       }
     });
 
-    if (isGoogle && autoPauseCandidates.length > 10 && selectedCampaignId === "ALL") {
-      raw.push({
-        metric: "AUTO-PAUSE",
-        message: `${autoPauseCandidates.length} ads/ad groups flagged for auto-pause`,
-        level: "warning"
-      });
-    }
+    // 2. Merge with Stateful Alerts from DB
+    // These alerts are now synchronized with Health Drivers (CPSV, CPL, CPQL, Budget, Creative)
+    statefulAlerts.forEach((a: any) => {
+      if (a.status === "active" && (a.severity === "CRITICAL" || a.severity === "HIGH")) {
+        raw.push({
+          id: a.id,
+          metric: a.metric || a.type,
+          message: a.message,
+          level: (a.severity === "CRITICAL" || a.type === "HEALTH_DRIVER") ? "critical" : "warning",
+          campaignName: a.entityName,
+          type: a.type,
+          isStateful: true
+        });
+      }
+    });
 
-    // --- GROUPING LOGIC ---
+    // 3. Deduplicate
+    const uniqueMap = new Map();
+    raw.forEach(a => {
+      const key = `${a.type}-${a.campaignId || a.campaignName || "all"}-${a.metric}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, a);
+      }
+    });
+    const uniqueRaw = Array.from(uniqueMap.values());
+
+    // 4. Group for UI
     const grouped: Array<{
+      id?: number;
       metric: string;
       summary: string;
       level: "critical" | "warning";
@@ -968,44 +945,115 @@ export default function DashboardPage() {
       benchmark?: string | number;
       campaigns: Array<{ id: string; name: string; value?: string | number }>;
       isGeneric?: boolean;
+      isStateful?: boolean;
+      type: string;
     }> = [];
 
-    raw.forEach(item => {
-      // Find existing group for same metric AND message (to group campaign alerts)
-      let group = grouped.find(g => g.metric === item.metric && g.summary === item.message && !item.campaignId === !g.campaigns.length);
-
-      if (item.campaignId) {
-        // Look for group with this metric and message
-        let campaignGroup = grouped.find(g => g.metric === item.metric && g.summary === item.message && g.campaigns.length > 0);
-        if (campaignGroup) {
-          campaignGroup.campaigns.push({ id: item.campaignId, name: item.campaignName!, value: item.value });
-          // Promote to critical if any item is critical
-          if (item.level === "critical") campaignGroup.level = "critical";
-        } else {
-          grouped.push({
-            metric: item.metric,
-            summary: item.message,
-            level: item.level,
-            benchmark: item.benchmark,
-            campaigns: [{ id: item.campaignId, name: item.campaignName!, value: item.value }]
-          });
-        }
+    uniqueRaw.forEach((alert) => {
+      const existing = grouped.find(g => g.metric === alert.metric && g.summary === alert.message);
+      if (existing && alert.campaignId) {
+        existing.campaigns.push({ id: alert.campaignId, name: alert.campaignName || "Campaign", value: alert.value });
       } else {
-        // Account level - single entry
         grouped.push({
-          metric: item.metric,
-          summary: item.message,
-          level: item.level,
-          value: item.value,
-          benchmark: item.benchmark,
-          campaigns: [],
-          isGeneric: true
+          id: alert.id,
+          metric: alert.metric,
+          summary: alert.message,
+          level: alert.level,
+          value: alert.value,
+          benchmark: alert.benchmark,
+          isGeneric: !alert.campaignId,
+          isStateful: alert.isStateful,
+          type: alert.type,
+          campaigns: alert.campaignId ? [{ id: alert.campaignId, name: alert.campaignName || "Campaign", value: alert.value }] : []
         });
       }
     });
 
     return grouped;
-  }, [selectedCampaignId, filteredCampaign, ap, campaignAudit, t_cpl_critical, t_ctr_min, intellectInsights, isGoogle, mp, autoPauseCandidates]);
+  }, [ap, filteredCampaign, campaignAudit, statefulAlerts, t_cpl_critical, t_ctr_min, mp, isGoogle]);
+
+  // --- Global Alerts (Used for Dropdown Indicators to avoid context-switching glitch) ---
+  const allCampaignAlerts = useMemo(() => {
+    type AlertItem = { 
+      id?: number;
+      message: string; 
+      level: "critical" | "warning"; 
+      metric: string; 
+      value?: string | number; 
+      benchmark?: string | number; 
+      campaignId?: string; 
+      campaignName?: string;
+      type: string;
+      isStateful?: boolean;
+    };
+    const raw: AlertItem[] = [];
+    const cplCrit = t_cpl_critical;
+
+    const MIN_LEADS_FOR_CPL_ALERT = 5;
+
+    // A. Account Level
+    if (cplCrit > 0 && ap.overall_cpl > cplCrit && ap.total_leads_30d >= MIN_LEADS_FOR_CPL_ALERT) {
+      raw.push({ metric: "CPL", message: "Account Avg CPL critical", value: `₹${Math.round(ap.overall_cpl)}`, benchmark: `₹${Math.round(cplCrit)}`, level: "critical", type: "ACCOUNT_CPL" });
+    }
+
+    // B. Campaign Level (Always check all campaigns for the dropdown)
+    rawCampaignAudit.forEach((c: any) => {
+      const name = c.campaign_name || "Unknown Campaign";
+      if (c.status === "ACTIVE" || c.status === "ENABLED") {
+        if (cplCrit > 0 && c.cpl > cplCrit && (c.leads ?? c.conversions ?? 0) >= MIN_LEADS_FOR_CPL_ALERT) {
+          raw.push({ metric: "CPL", message: "Campaign CPL critical", value: `₹${Math.round(c.cpl)}`, benchmark: `₹${Math.round(cplCrit)}`, level: "critical", campaignId: c.campaign_id, campaignName: name, type: "CAMPAIGN_CPL" });
+        }
+      }
+    });
+
+    // 2. Merge with Stateful Alerts (Always global)
+    statefulAlerts.forEach((a: any) => {
+      if (a.status === "active" && (a.severity === "CRITICAL" || a.severity === "HIGH")) {
+        raw.push({
+          id: a.id,
+          metric: a.metric || a.type,
+          message: a.message,
+          level: (a.severity === "CRITICAL" || a.type === "HEALTH_DRIVER") ? "critical" : "warning",
+          campaignName: a.entityName,
+          type: a.type,
+          isStateful: true
+        });
+      }
+    });
+
+    // Deduplicate and group
+    const uniqueMap = new Map();
+    raw.forEach(a => {
+      const key = `${a.type}-${a.campaignId || a.campaignName || "all"}-${a.metric}`;
+      if (!uniqueMap.has(key)) uniqueMap.set(key, a);
+    });
+    
+    const uniqueRaw = Array.from(uniqueMap.values());
+    const grouped: any[] = [];
+
+    uniqueRaw.forEach((alert: any) => {
+      const existing = grouped.find(g => g.metric === alert.metric && g.summary === alert.message);
+      if (existing && alert.campaignId) {
+        existing.campaigns.push({ id: alert.campaignId, name: alert.campaignName || "Campaign", value: alert.value });
+      } else {
+        grouped.push({
+          id: alert.id,
+          metric: alert.metric,
+          summary: alert.message,
+          level: alert.level,
+          value: alert.value,
+          benchmark: alert.benchmark,
+          isGeneric: !alert.campaignId,
+          isStateful: alert.isStateful,
+          type: alert.type,
+          campaigns: alert.campaignId ? [{ id: alert.campaignId, name: alert.campaignName || "Campaign", value: alert.value }] : []
+        });
+      }
+    });
+
+    return grouped;
+  }, [ap, rawCampaignAudit, statefulAlerts, t_cpl_critical]);
+
 
   // ─── Chart-data derivations (memoized so Recharts doesn't re-render on unrelated state changes) ───
 
@@ -1158,7 +1206,6 @@ export default function DashboardPage() {
     cpql: backendBreakdown?.cpql ?? 0,
     cpl: backendBreakdown?.cpl ?? 0,
     creative: backendBreakdown?.creative ?? 0,
-    campaign: backendBreakdown?.campaign ?? 0,
   };
 
   const svsMtd = authMtd.svs;
@@ -1169,18 +1216,17 @@ export default function DashboardPage() {
     : (benchmarks?.cpsv_low || thresholds?.cpsv_low || mp?.targets?.cpsv?.low || 0);
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = isGoogle ? [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv) },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 20, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget) },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql) },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 10, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl) },
-    { label: "Campaign", score: healthScoreComponents.campaign, weight: 15, status: getMetricStatus(healthScoreComponents.campaign) },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative) },
+    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv, 25) },
+    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget, 25) },
+    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql, 20) },
+    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl, 20) },
+    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative, 10) },
   ] : [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv) },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget) },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql) },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl) },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative) },
+    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv, 25) },
+    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget, 25) },
+    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql, 20) },
+    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl, 20) },
+    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative, 10) },
   ];
 
   // ─── 10. Missing Derived Variables ──────────────────────────────────
@@ -1256,22 +1302,74 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <select
-              value={selectedCampaignId}
-              onChange={(e) => setSelectedCampaignId(e.target.value)}
-              className="bg-muted/50 border border-border/70 rounded-lg px-3 py-1.5 text-xs font-medium text-foreground outline-none focus:ring-1 focus:ring-primary/50 transition-all cursor-pointer w-full sm:w-auto sm:min-w-[200px]"
-              disabled={rawCampaignAudit.length === 0}
-            >
-              <option value="ALL">
-                {rawCampaignAudit.length === 0 ? "No data yet — Run Agent" : "All Campaigns"}
-              </option>
-              {rawCampaignAudit.map((c: any) => (
-                <option key={c.campaign_id} value={c.campaign_id}>
-                  {c.campaign_name}
-                </option>
-              ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-muted/50 border-border/70 text-xs font-semibold h-9 min-w-[200px] justify-between transition-all hover:bg-muted/80 px-3"
+                  disabled={rawCampaignAudit.length === 0}
+                >
+                  <span className="truncate mr-2">
+                    {selectedCampaignId === "ALL" 
+                      ? (rawCampaignAudit.length === 0 ? "No data yet" : "All Campaigns")
+                      : (rawCampaignAudit.find((c: any) => c.campaign_id === selectedCampaignId)?.campaign_name || "Select Campaign")
+                    }
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[280px] bg-background/95 backdrop-blur-xl border-border/60 shadow-2xl p-1.5" align="end">
+                <DropdownMenuItem
+                  className="text-xs font-medium cursor-pointer rounded-md focus:bg-primary/10 focus:text-primary transition-colors"
+                  onClick={() => setSelectedCampaignId("ALL")}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full shrink-0",
+                      allCampaignAlerts.length === 0 ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+                    )} />
+                    All Campaigns
+                  </div>
+                </DropdownMenuItem>
+                
+                <div className="h-px bg-border/40 my-1 mx-1" />
 
-            </select>
+                {rawCampaignAudit.map((c: any) => {
+                  const hasAlerts = allCampaignAlerts.some((g: any) => g.campaigns.some((camp: any) => camp.id === c.campaign_id));
+                  return (
+                    <DropdownMenuItem
+                      key={c.campaign_id}
+                      className="text-xs font-medium cursor-pointer rounded-md focus:bg-primary/10 focus:text-primary transition-colors py-2"
+                      onClick={() => setSelectedCampaignId(c.campaign_id)}
+                    >
+                      <div className="flex items-center justify-between w-full gap-3 overflow-hidden">
+                        <div className="flex items-center gap-2 truncate">
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0",
+                            !hasAlerts ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                          )} />
+                          <span className={cn(
+                            "truncate transition-colors",
+                            !hasAlerts ? "text-emerald-500/90 font-bold" : "text-foreground"
+                          )}>
+                            {c.campaign_name}
+                          </span>
+                        </div>
+                        {hasAlerts && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-amber-500/20 bg-amber-500/5 text-amber-600 shrink-0">
+                            Action
+                          </Badge>
+                        )}
+                        {!hasAlerts && (
+                          <Check className="h-3 w-3 text-emerald-500 shrink-0 opacity-40" />
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -1386,24 +1484,48 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Quick Actions — subtle hover revealed */}
-                  <div className="mt-auto flex items-center justify-end gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
-                      onClick={() => setActiveFixAlert(group)}
-                    >
-                      Fix Suggestion
-                    </Button>
-                    {group.campaigns.length === 1 && (
+                  <div className="mt-auto flex items-center justify-between gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                    <div className="flex gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
-                        onClick={() => setSelectedCampaignId(group.campaigns[0].id)}
+                        onClick={() => setActiveFixAlert(group)}
                       >
-                        View Campaign
+                        Fix Suggestion
                       </Button>
+                      {group.campaigns.length === 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
+                          onClick={() => setSelectedCampaignId(group.campaigns[0].id)}
+                        >
+                          View Campaign
+                        </Button>
+                      )}
+                    </div>
+                    {group.isStateful && group.id && (
+                      <div className="flex gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[9px] px-2 py-0 border border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 font-bold flex items-center gap-1"
+                          onClick={() => handleComplete(group.id!)}
+                        >
+                          <Check className="w-2.5 h-2.5" />
+                          Mark as Complete
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[9px] px-2 py-0 border border-red-500/20 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1"
+                          onClick={() => handleReject(group.id!)}
+                        >
+                          <Ban className="w-2.5 h-2.5" />
+                          Reject
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1739,17 +1861,9 @@ export default function DashboardPage() {
                   {accountHealthScore}
                 </span>
               </div>
-              {/* Override Rule Indicator */}
-              {healthBreakdownItems.some(item => item.status === "RED" && item.weight >= 15) && (
-                <p className="mt-3 t-micro text-amber-400 flex items-center gap-1">
-                  ⚠️ Override: High-weight metric below threshold caps status to YELLOW
-                </p>
-              )}
-              {!healthBreakdownItems.some(item => item.status === "RED" && item.weight >= 15) && (
-                <p className="mt-3 t-micro text-muted-foreground">
-                  MTD-based static health analysis
-                </p>
-              )}
+              <p className="mt-3 t-micro text-muted-foreground">
+                MTD-based dual-gate health analysis
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1761,8 +1875,25 @@ export default function DashboardPage() {
             </div>
             <div className={`grid gap-3 ${isGoogle ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {healthBreakdownItems.map((item) => {
-                const normalized = Math.max(0, Math.min(item.score, 100));
-                const scoreOutOfWeight = (item.score / 100) * item.weight;
+                const normalized = item.weight > 0 ? Math.max(0, Math.min((item.score / item.weight) * 100, 100)) : 0;
+                const scoreOutOfWeight = item.score;
+                const ratioStatus = getMetricStatus(item.score, item.weight);
+                const ratioBarClass =
+                  ratioStatus === "GREEN"
+                    ? "bg-emerald-400"
+                    : ratioStatus === "YELLOW"
+                      ? "bg-amber-500"
+                      : ratioStatus === "ORANGE"
+                        ? "bg-orange-500"
+                        : "bg-red-500";
+                const ratioTrackClass =
+                  ratioStatus === "GREEN"
+                    ? "bg-emerald-400/20"
+                    : ratioStatus === "YELLOW"
+                      ? "bg-amber-500/20"
+                      : ratioStatus === "ORANGE"
+                        ? "bg-orange-500/20"
+                        : "bg-red-500/20";
 
                 let targetDisplay = null;
                 if (item.label === "CPSV") targetDisplay = formatINR(targetCpsvValue || 0, 0);
@@ -1771,31 +1902,33 @@ export default function DashboardPage() {
                 else if (item.label === "CPL") targetDisplay = formatINR(targetCpl || 0, 0);
 
                 const cardContent = (
-                  <div key={item.label} className="flex items-center gap-3 rounded-md border border-border/30 bg-card p-3 shadow-xs hover:border-primary/20 transition-colors">
+                  <div key={item.label} className="rounded-md border border-border/30 bg-card p-4 shadow-xs hover:border-primary/20 transition-colors">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="t-label text-muted-foreground uppercase tracking-widest">
-                          {item.label} ({item.weight})
-                        </p>
-                        <p className="t-body font-semibold tabular-nums text-foreground">
-                          {Math.round(scoreOutOfWeight)}
-                        </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <p className="t-label text-muted-foreground uppercase tracking-widest">
+                            {item.label} ({item.weight})
+                          </p>
+                          <p className="text-lg font-semibold tabular-nums text-foreground whitespace-nowrap leading-none">
+                            {scoreOutOfWeight.toFixed(2)}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="secondary"
+                          className={`t-micro border shrink-0 whitespace-nowrap self-start ${getMetricStatusColor(item.status).bg} ${getMetricStatusColor(item.status).text} ${getMetricStatusColor(item.status).border}`}
+                        >
+                          {item.status}
+                        </Badge>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <div className={`w-full h-1.5 rounded-full ${getHealthBarBg(normalized)}`}>
+                        <div className={`w-full h-1.5 rounded-full ${ratioTrackClass}`}>
                           <div
-                            className={`h-full rounded-full transition-all ${getHealthBgColor(normalized)}`}
+                            className={`h-full rounded-full transition-all ${ratioBarClass}`}
                             style={{ width: `${normalized}%` }}
                           />
                         </div>
                       </div>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className={`t-micro border ${getMetricStatusColor(item.status).bg} ${getMetricStatusColor(item.status).text} ${getMetricStatusColor(item.status).border}`}
-                    >
-                      {item.status}
-                    </Badge>
                   </div>
                 );
 
@@ -1945,30 +2078,45 @@ export default function DashboardPage() {
             return projectedDenominator > 0 ? div(projectedNumerator, projectedDenominator) : 0;
           }
 
-          // Status logic — volume metrics (higher is better)
-          function pacingStatus(delivered: number, target: number): { label: string; cls?: string } {
-            if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
-            const ratio = div(delivered, target);
-            if (ratio >= 1.0) return { label: "ON TRACK", cls: "bg-green-100 text-green-700 hover:bg-green-100 border-none dark:bg-green-500/20 dark:text-green-300" };
-            if (ratio >= 0.8) return { label: "SLIGHTLY BEHIND", cls: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none dark:bg-yellow-500/20 dark:text-yellow-300" };
-            return { label: "OFF TRACK", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
+          // Status logic — volume metrics (Leads, SVs, etc. — more is better)
+          function pacingStatus(delivered: number, target: number): { label: string; status: MetricStatus } {
+            if (target <= 0) return { label: "—", status: "YELLOW" };
+
+            // Overperformance is good for volume metrics
+            if (delivered >= target) return { label: "ON TRACK", status: "GREEN" };
+
+            // Underperformance uses the Quadratic Deviation curve
+            const b = (target - delivered) / target;
+            const score = 100 * Math.max(0, 1 - b - 10 * b * b);
+
+            if (score >= 75) return { label: "ON TRACK", status: "GREEN" };
+            if (score >= 55) return { label: "SLIGHTLY BEHIND", status: "YELLOW" };
+            if (score >= 35) return { label: "SIGNIFICANT DRIFT", status: "ORANGE" };
+            return { label: "OFF TRACK", status: "RED" };
           }
-          // Status logic — cost metrics (lower is better)
-          function costStatus(delivered: number, target: number): { label: string; cls?: string } {
-            if (target <= 0 || delivered <= 0) return { label: "—", cls: "text-muted-foreground" };
-            const ratio = div(delivered, target);
-            if (ratio <= 1.0) return { label: "ON TARGET", cls: "bg-blue-100 text-blue-700 hover:bg-blue-100 border-none dark:bg-blue-500/20 dark:text-blue-300" };
-            if (ratio <= 1.15) return { label: "SLIGHTLY HIGH", cls: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none dark:bg-yellow-500/20 dark:text-yellow-300" };
-            return { label: "OFF TARGET", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
+
+          // Status logic — cost metrics (lower is better) using Quadratic Decay Formula
+          function costStatus(delivered: number, target: number): { label: string; status: MetricStatus } {
+            if (target <= 0 || delivered <= 0) return { label: "—", status: "YELLOW" };
+            const d = Math.max(0, (delivered - target) / target);
+            const score = 100 * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+
+            if (score >= 75) return { label: "ON TRACK", status: "GREEN" };
+            if (score >= 55) return { label: "SLIGHTLY HIGH", status: "YELLOW" };
+            if (score >= 35) return { label: "COST ALERT", status: "ORANGE" };
+            return { label: "CRITICAL OVER", status: "RED" };
           }
-          // Budget status — on track when within ±10%
-          function budgetStatus(delivered: number, target: number): { label: string; cls?: string } {
-            if (target <= 0) return { label: "—", cls: "text-muted-foreground" };
-            const ratio = div(delivered, target);
-            if (ratio >= 0.9 && ratio <= 1.1) return { label: "ON TRACK", cls: "bg-green-100 text-green-700 hover:bg-green-100 border-none dark:bg-green-500/20 dark:text-green-300" };
-            if (ratio > 1.1) return { label: "OVERSPENT", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
-            if (ratio >= 0.8) return { label: "SLIGHTLY UNDER", cls: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-none dark:bg-yellow-500/20 dark:text-yellow-300" };
-            return { label: "UNDERSPENT", cls: "bg-red-100 text-red-700 hover:bg-red-100 border-none dark:bg-red-500/20 dark:text-red-300" };
+
+          // Status logic — budget pacing using Absolute Quadratic Deviation Formula
+          function budgetStatus(delivered: number, target: number): { label: string; status: MetricStatus } {
+            if (target <= 0) return { label: "—", status: "YELLOW" };
+            const b = Math.abs(delivered - target) / target;
+            const score = 100 * Math.max(0, 1 - b - 10 * b * b);
+
+            if (score >= 75) return { label: "ON TRACK", status: "GREEN" };
+            if (score >= 55) return { label: "TIGHTEN SPEND", status: "YELLOW" };
+            if (score >= 35) return { label: "PACING DRIFT", status: "ORANGE" };
+            return { label: "OUT OF CONTROL", status: "RED" };
           }
 
           type RowDef = {
@@ -1977,7 +2125,7 @@ export default function DashboardPage() {
             mtdTarget: React.ReactNode;
             delivered: React.ReactNode;
             projectedNode: React.ReactNode;
-            status: { label: string; cls?: string; variant?: string };
+            status: { label: string; status: MetricStatus; variant?: string };
             daily: React.ReactNode;
             highlight?: boolean;
           };
@@ -2040,7 +2188,7 @@ export default function DashboardPage() {
             mtdTarget: qLeadTargetMonthly > 0 ? Math.round(mtdTarget(qLeadTargetMonthly)) : <Dash />,
             delivered: <span className="font-semibold">{mtdQLeads > 0 ? mtdQLeads : <Dash />}</span>,
             projectedNode: projectedQLeads > 0 ? Math.round(projectedQLeads) : <Dash />,
-            status: qLeadTargetMonthly > 0 ? pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)) : { label: "Awaiting", cls: "text-muted-foreground", variant: "secondary" },
+            status: qLeadTargetMonthly > 0 ? pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)) : { label: "Awaiting", status: "YELLOW", variant: "secondary" },
             daily: qLeadTargetMonthly > 0 && daysRemaining > 0 ? dailyNeeded(qLeadTargetMonthly, mtdQLeads).toFixed(1) : <Dash />,
           };
           const cpqlRow = {
@@ -2048,7 +2196,7 @@ export default function DashboardPage() {
             mtdTarget: cpqlTargetVal > 0 ? formatINR(cpqlTargetVal, 0) : <Dash />,
             delivered: <span className="font-semibold">{mtdCpql > 0 ? formatINR(mtdCpql, 0) : <Dash />}</span>,
             projectedNode: projectedRatio(projectedSpend, projectedQLeads) > 0 ? formatINR(projectedRatio(projectedSpend, projectedQLeads), 0) : <Dash />,
-            status: cpqlTargetVal > 0 ? costStatus(mtdCpql, cpqlTargetVal) : { label: "Awaiting", cls: "text-muted-foreground", variant: "secondary" },
+            status: cpqlTargetVal > 0 ? costStatus(mtdCpql, cpqlTargetVal) : { label: "Awaiting", status: "YELLOW", variant: "secondary" },
             daily: <Dash />,
           };
           const svsRow = {
@@ -2056,16 +2204,16 @@ export default function DashboardPage() {
             mtdTarget: svsTargetLow > 0 ? Math.round(mtdTarget(svsTargetLow)) : <Dash />,
             delivered: <span className="font-semibold">{mtdSvs > 0 ? mtdSvs : <Dash />}</span>,
             projectedNode: projectedSvs > 0 ? Math.round(projectedSvs) : <Dash />,
-            status: mtdSvs > 0 ? pacingStatus(mtdSvs, mtdTarget(svsTargetLow)) : { label: "Awaiting data", cls: "text-muted-foreground", variant: "secondary" },
+            status: mtdSvs > 0 ? pacingStatus(mtdSvs, mtdTarget(svsTargetLow)) : { label: "Awaiting data", status: "YELLOW", variant: "secondary" },
             daily: svsTargetLow > 0 && daysRemaining > 0 ? dailyNeeded(svsTargetLow, mtdSvs).toFixed(1) : <Dash />,
             highlight: true,
           };
           const cpsvRow = {
             target: cpsvTargetHigh > 0 ? `${formatINR(cpsvTargetLow, 0)}–${formatINR(cpsvTargetHigh, 0)}` : <Dash />,
-            mtdTarget: cpsvTargetHigh > 0 ? formatINR(mtdTarget(cpsvTargetHigh), 0) : <Dash />,
+            mtdTarget: cpsvTargetHigh > 0 ? `${formatINR(cpsvTargetLow, 0)}–${formatINR(cpsvTargetHigh, 0)}` : <Dash />,
             delivered: <span className="font-semibold">{mtdCpsv > 0 ? formatINR(mtdCpsv, 0) : <Dash />}</span>,
             projectedNode: projectedRatio(projectedSpend, projectedSvs) > 0 ? formatINR(projectedRatio(projectedSpend, projectedSvs), 0) : <Dash />,
-            status: mtdCpsv > 0 ? costStatus(mtdCpsv, cpsvTargetHigh) : { label: "Awaiting data", cls: "text-muted-foreground", variant: "secondary" },
+            status: mtdCpsv > 0 ? costStatus(mtdCpsv, cpsvTargetHigh) : { label: "Awaiting data", status: "YELLOW", variant: "secondary" },
             daily: <Dash />,
           };
           const cpmRow = {
@@ -2092,7 +2240,7 @@ export default function DashboardPage() {
             mtdTarget: <Dash />,
             delivered: <span className="font-semibold">{mtdClosures > 0 ? mtdClosures : <Dash />}</span>,
             projectedNode: <Dash />,
-            status: mtdClosures > 0 ? { label: "TRACKING", variant: "success" } : { label: "Awaiting data", cls: "text-muted-foreground", variant: "secondary" },
+            status: mtdClosures > 0 ? { label: "TRACKING", status: "GREEN", variant: "success" } : { label: "Awaiting data", status: "YELLOW", variant: "secondary" },
             daily: <Dash />,
           };
 
@@ -2160,10 +2308,19 @@ export default function DashboardPage() {
                 <div className="overflow-x-auto">
                   <table className="t-table w-full">
                     <thead>
-                      <tr className="border-b border-border/50">
-                        <th className="text-left t-micro font-medium uppercase tracking-wider text-muted-foreground sticky left-0 bg-card">Metric</th>
-                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground">Target</th>
-                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                      {/* Pivot Group Header Row */}
+                      <tr className="border-b border-border/10 bg-muted/5">
+                        <th className="p-0 w-8"></th>
+                        <th colSpan={1} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Identity</th>
+                        <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Targets</th>
+                        <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Performance</th>
+                        <th colSpan={1} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Health</th>
+                        <th colSpan={1} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 text-center">Pace</th>
+                      </tr>
+                      <tr className="border-b border-border/50 bg-muted/20">
+                        <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 sticky left-0 bg-card border-r border-border/5">Metric</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Target</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5 cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>MTD Target</span>
@@ -2173,8 +2330,8 @@ export default function DashboardPage() {
                             </TooltipContent>
                           </Tooltip>
                         </th>
-                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground">MTD Delivered</th>
-                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">MTD Delivered</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5 cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>Projected</span>
@@ -2184,8 +2341,8 @@ export default function DashboardPage() {
                             </TooltipContent>
                           </Tooltip>
                         </th>
-                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                        <th className="text-right t-micro font-medium uppercase tracking-wider text-muted-foreground cursor-help">
+                        <th className="text-center px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Status</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>Daily Needed</span>
@@ -2202,11 +2359,19 @@ export default function DashboardPage() {
                         <tr key={row.label} className={`border-b border-border/30 ${row.highlight ? "bg-primary/3" : ""} hover:bg-muted/20 transition-colors`}>
                           <td className="t-body font-medium sticky left-0 bg-card">{row.label}</td>
                           <td className="t-body tabular-nums text-muted-foreground text-right">{row.target}</td>
-                          <td className="t-body tabular-nums text-primary/80 text-right">{row.mtdTarget}</td>
+                          <td className="t-body tabular-nums text-foreground/80 text-right">{row.mtdTarget}</td>
                           <td className="t-body tabular-nums text-right">{row.delivered}</td>
                           <td className="t-body tabular-nums text-right">{row.projectedNode}</td>
                           <td className="text-right">
-                            <Badge variant={(row.status as any).variant || "outline"} className={`t-micro ${row.status.cls || ""}`}>
+                            <Badge
+                              variant={(row.status as any).variant || "outline"}
+                              className={cn(
+                                "t-micro border shrink-0 whitespace-nowrap self-start",
+                                getMetricStatusColor(row.status.status).bg,
+                                getMetricStatusColor(row.status.status).text,
+                                getMetricStatusColor(row.status.status).border
+                              )}
+                            >
                               {row.status.label}
                             </Badge>
                           </td>
@@ -2581,144 +2746,6 @@ export default function DashboardPage() {
         );
       })()}
 
-      {/* ─── Performance Insights (Enhanced) ────────────────────── */}
-      <Card>
-        <CardHeader className="card-header-premium">
-          <CardTitle className="t-section-title font-medium flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" />
-            Performance Insights
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-0 space-y-3">
-          {/* Summary insights */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {totalAdsAnalyzed > 0 && (
-              <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
-                <BarChart3 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <span className="t-micro text-foreground leading-relaxed">
-                  Analyzing <strong>{totalAdsAnalyzed} ads</strong> across <strong>{totalCampaignsAnalyzed} campaigns</strong>
-                </span>
-              </div>
-            )}
-            {bestAd && (
-              <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-emerald-500/20">
-                <Trophy className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <span className="t-micro text-foreground leading-relaxed">
-                    Best performing: <strong className="text-emerald-400">{truncate(bestAd.ad_name, 30)}</strong> — CPL {formatINR(bestAd.cpl, 0)}, {bestAd.leads} leads, CTR {formatPct(bestAd.ctr / 100)}
-                  </span>
-                </div>
-              </div>
-            )}
-            {worstAd && (
-              <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-red-500/20">
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <span className="t-micro text-foreground leading-relaxed">
-                    Worst performing: <strong className="text-red-400">{truncate(worstAd.ad_name, 30)}</strong> — CPL {worstAd.cpl > 0 ? formatINR(worstAd.cpl, 0) : "N/A"}, ₹{Math.round(worstAd.spend)} spent, {worstAd.leads} leads
-                  </span>
-                  {worstAd.ad_id && (
-                    <div className="mt-1.5">
-                      <UnifiedActions
-                        entityId={worstAd.ad_id}
-                        entityName={worstAd.ad_name}
-                        entityType="ad"
-                        actionType="PAUSE_AD"
-                        isAutoExecutable={true}
-                        recommendation={`Worst performer — CPL ${worstAd.cpl > 0 ? formatINR(worstAd.cpl, 0) : "N/A"}, consider pausing`}
-                        currentMetrics={{ spend: worstAd.spend, leads: worstAd.leads, cpl: worstAd.cpl, ctr: worstAd.ctr }}
-                        compact
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {budgetEfficiencyPct > 0 && (
-              <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
-                <IndianRupee className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span className="t-micro text-foreground leading-relaxed">
-                  Budget efficiency: <strong className={budgetEfficiencyPct > 40 ? "text-red-400" : "text-amber-400"}>{budgetEfficiencyPct}%</strong> of spend going to ads with CPL &gt; target (₹{Math.round(targetCpl)})
-                </span>
-              </div>
-            )}
-            {/* Google-specific insights */}
-            {isGoogle && (
-              <>
-                {searchSummary && (
-                  <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-blue-500/20">
-                    <BarChart3 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                    <span className="t-micro text-foreground leading-relaxed">
-                      Search: <strong>{searchSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(searchSummary.cpl || 0, 0)} · CTR {formatPct(searchSummary.ctr / 100 || 0)} · IS {formatPct(searchSummary.impression_share || 0)}
-                    </span>
-                  </div>
-                )}
-                {dgSummary && (
-                  <div className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-amber-500/20">
-                    <BarChart3 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <span className="t-micro text-foreground leading-relaxed">
-                      Demand Gen: <strong>{dgSummary.campaign_count || 0}</strong> campaigns · CPL {formatINR(dgSummary.cpl || 0, 0)} · CPM {formatINR(dgSummary.cpm || 0, 0)} · CTR {formatPct(dgSummary.ctr / 100 || 0)}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* MV2-N19: Execution cooldown indicator */}
-          {(() => {
-            const lastAuditEntry = recentAuditLog && recentAuditLog.length > 0 ? recentAuditLog[0] : null;
-            const timeAgoLabel = (() => {
-              if (!lastAuditEntry) return null;
-              const ms = Date.now() - new Date(lastAuditEntry.timestamp).getTime();
-              const mins = Math.round(ms / 60000);
-              const hours = Math.round(ms / 3600000);
-              const days = Math.round(ms / 86400000);
-              if (mins < 60) return `${mins}m ago`;
-              if (hours < 24) return `${hours}h ago`;
-              return `${days}d ago`;
-            })();
-            const recentActionDays = lastAuditEntry
-              ? (Date.now() - new Date(lastAuditEntry.timestamp).getTime()) / 86400000
-              : null;
-            const isRecent = recentActionDays !== null && recentActionDays < 5;
-            return (
-              <div className="col-span-full flex items-start gap-2 p-2.5 rounded-md bg-blue-500/5 border border-blue-500/20 mt-1">
-                <Clock className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <span className="t-micro text-blue-300 font-medium">
-                    SOP: Wait 3–5 days before overreacting to performance dips
-                  </span>
-                  {isRecent && timeAgoLabel && (
-                    <p className="t-micro text-muted-foreground">
-                      Last action {timeAgoLabel} ({lastAuditEntry?.action?.replace(/_/g, " ")} on {lastAuditEntry?.entityName ? lastAuditEntry.entityName.slice(0, 40) : "entity"}). Allow time for data to stabilize.
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Pattern analysis insights */}
-          {patternAnalysis && patternAnalysis.patterns.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-border/30">
-              {patternAnalysis.patterns.map((p: { type: string; detail: string }, i: number) => (
-                <div key={i} className="flex items-start gap-2 p-2.5 rounded-md bg-muted/30 border border-border/30">
-                  <Badge variant="secondary" className="t-micro px-1 py-0 shrink-0 mt-0.5">{p.type.replace(/_/g, " ")}</Badge>
-                  <span className="t-micro text-foreground leading-relaxed">{p.detail}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {patternAnalysis?.top_avg && patternAnalysis?.bottom_avg && (
-            <div className="flex items-center gap-4 t-micro text-muted-foreground">
-              <span>Top avg CPL: <span className="text-emerald-400 tabular-nums">{formatINR(patternAnalysis.top_avg.cpl, 0)}</span></span>
-              <span>Bottom avg CPL: <span className="text-red-400 tabular-nums">{formatINR(patternAnalysis.bottom_avg.cpl, 0)}</span></span>
-              <span>Ratio: <span className="text-foreground tabular-nums">{patternAnalysis.bottom_avg.cpl > 0 && patternAnalysis.top_avg.cpl > 0 ? (patternAnalysis.bottom_avg.cpl / patternAnalysis.top_avg.cpl).toFixed(1) : "—"}x</span></span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Ad Set Breakdown Table + Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2744,19 +2771,27 @@ export default function DashboardPage() {
             <div className="overflow-x-auto custom-scrollbar">
               <table className="t-table w-full">
                 <thead>
-                  <tr className="border-b border-border/60 bg-muted/20">
-                    <th className="text-left px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Campaign</th>
-                    <th className="text-left px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Status/Class</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Budget</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Spend</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Spend %</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Leads</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Impr</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Clicks</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">CTR</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">CPM</th>
-                    <th className="text-right px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">CPL</th>
-                    <th className="text-center px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Action</th>
+                  {/* Pivot Group Header Row */}
+                  <tr className="border-b border-border/10 bg-muted/5">
+                    <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Identity/Status</th>
+                    <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Budget</th>
+                    <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Performance</th>
+                    <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Efficiency</th>
+                    <th className="p-0"></th>
+                  </tr>
+                  <tr className="border-b border-border/50 bg-muted/20">
+                    <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Campaign</th>
+                    <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Class</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Budget</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Spend</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Utility</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Leads</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Impr</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Clicks</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">CTR</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">CPM</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">CPL</th>
+                    <th className="text-center px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 whitespace-nowrap">Act</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -2928,63 +2963,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Performance Intelligence — Intellect Insights with UnifiedActions */}
-      {intellectInsights.length > 0 && (
-        <Card>
-          <CardHeader className="card-header-premium">
-            <CardTitle className="t-section-title font-medium">Performance Intelligence</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {intellectInsights.map((insight: any, i: number) => {
-                const sev = insight.severity || (insight.confidence === "high" ? "HIGH" : insight.confidence === "medium" ? "MEDIUM" : "LOW");
-                const severityColor =
-                  sev === "HIGH"
-                    ? "text-red-400 bg-red-500/10"
-                    : sev === "MEDIUM"
-                      ? "text-amber-400 bg-amber-500/10"
-                      : "text-blue-400 bg-blue-500/10";
-                const insightType = insight.type || "insight";
-                const insightEntity = insight.entity || insight.title || "";
-                const insightDetail = insight.detail || insight.observation || "";
-                const insightRec = insight.recommendation || "";
-                const campaignMatch = findCampaignByEntity(insightEntity, campaignAnalysis);
-                return (
-                  <div
-                    key={i}
-                    className="p-3 rounded-md bg-muted/30 border border-border/30 space-y-2"
-                    data-testid={`insight-card-${i}`}
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="secondary" className={`t-micro px-1.5 py-0 ${severityColor}`}>
-                        {sev}
-                      </Badge>
-                      <span className="t-micro font-medium text-muted-foreground uppercase tracking-wider">
-                        {insightType}
-                      </span>
-                    </div>
-                    <p className="t-micro font-medium text-foreground">{insightEntity}</p>
-                    <p className="t-micro text-muted-foreground leading-relaxed">{insightDetail}</p>
-                    {insightRec && <p className="t-micro text-primary/80 leading-relaxed">{insightRec}</p>}
-                    {campaignMatch && (
-                      <UnifiedActions
-                        entityId={campaignMatch.id}
-                        entityName={campaignMatch.name}
-                        entityType="campaign"
-                        actionType={insight.auto_action ? "PAUSE_CAMPAIGN" : "MANUAL_ACTION"}
-                        isAutoExecutable={!!insight.auto_action}
-                        recommendation={insightRec || insightDetail}
-                        currentMetrics={insight.metrics}
-                        compact
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ─── Funnel Diagnostics (moved from Audit Panel) ────────── */}
       {(data as any).funnel_diagnostics && (
@@ -3219,80 +3197,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {/* ─── MV2-N16: Notification badge ────────────────────────── */}
-      {(() => {
-        const notifications: Array<{ icon: any; color: string; bg: string; text: string }> = [];
-
-        // CPL change notification
-        const cplChangePct = Math.abs((ap as any).cpl_change_pct ?? 0);
-        if (cplChangePct > 15) {
-          const dir = ((ap as any).cpl_change_pct ?? 0) > 0 ? "increased" : "decreased";
-          notifications.push({
-            icon: TrendingUp,
-            color: "text-amber-400",
-            bg: "bg-amber-500/10 border-amber-500/20",
-            text: `CPL ${dir} by ${(cplChangePct ?? 0).toFixed(1)}% since last analysis`,
-          });
-        }
-
-        // New entities notification
-        if (newEntities?.hasNewEntities && (newEntities.totalNew ?? 0) > 0) {
-          notifications.push({
-            icon: AlertCircle,
-            color: "text-blue-400",
-            bg: "bg-blue-500/10 border-blue-500/20",
-            text: `${newEntities.totalNew} new ${newEntities.totalNew === 1 ? "entity" : "entities"} since last run`,
-          });
-        }
-
-        // Auto-pause candidates
-        if (autoPauseCandidates.length > 0) {
-          notifications.push({
-            icon: Pause,
-            color: "text-red-400",
-            bg: "bg-red-500/10 border-red-500/20",
-            text: `${autoPauseCandidates.length} ${autoPauseCandidates.length === 1 ? "entity" : "entities"} flagged for auto-pause`,
-          });
-        }
-
-        // Playbooks triggered
-        if (playbooksTriggered.length > 0) {
-          notifications.push({
-            icon: Zap,
-            color: "text-purple-400",
-            bg: "bg-purple-500/10 border-purple-500/20",
-            text: `${playbooksTriggered.length} SOP ${playbooksTriggered.length === 1 ? "playbook" : "playbooks"} triggered`,
-          });
-        }
-
-        if (notifications.length === 0) return null;
-
-        return (
-          <Card>
-            <CardHeader className="card-header-premium">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Bell className="w-4 h-4 text-primary" />
-                Notifications
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-primary bg-primary/10 ml-1">
-                  {notifications.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-2">
-              {notifications.map((n, i) => {
-                const NIcon = n.icon;
-                return (
-                  <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-md border ${n.bg}`}>
-                    <NIcon className={`w-3.5 h-3.5 shrink-0 ${n.color}`} />
-                    <span className={`text-[11px] font-medium ${n.color}`}>{n.text}</span>
-                  </div>
-                );
-              })}
             </CardContent>
           </Card>
         );

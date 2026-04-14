@@ -98,13 +98,21 @@ export function getHealthBarBg(score: number): string {
 }
 
 /**
- * Mojo AdCortex status (GREEN/YELLOW/RED based on 75/50 thresholds)
+ * Mojo AdCortex status bands for weighted metric points.
  */
-export type MetricStatus = "GREEN" | "YELLOW" | "RED";
+export type MetricStatus = "GREEN" | "YELLOW" | "ORANGE" | "RED" | "BLUE";
 
-export function getMetricStatus(score: number): MetricStatus {
+export function getMetricStatus(score: number, weight?: number): MetricStatus {
+  if (weight && weight > 0) {
+    const ratio = score / weight;
+    if (ratio >= 0.7) return "GREEN";
+    if (ratio >= 0.4) return "ORANGE";
+    return "RED";
+  }
+
   if (score >= 75) return "GREEN";
-  if (score >= 50) return "YELLOW";
+  if (score >= 55) return "YELLOW";
+  if (score >= 35) return "ORANGE";
   return "RED";
 }
 
@@ -112,7 +120,9 @@ export function getMetricStatusColor(status: MetricStatus): { bg: string; text: 
   switch (status) {
     case "GREEN": return { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30" };
     case "YELLOW": return { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" };
+    case "ORANGE": return { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20" };
     case "RED": return { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" };
+    case "BLUE": return { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20" };
   }
 }
 
@@ -167,6 +177,10 @@ export function getCplColor(cpl: number, thresholds?: { cpl_target: number; cpl_
  */
 export function getClassificationColor(classification: string): { bg: string; text: string } {
   switch (classification?.toUpperCase()) {
+    case "GREEN": return { bg: "bg-emerald-500/15", text: "text-emerald-400" };
+    case "YELLOW": return { bg: "bg-amber-500/15", text: "text-amber-400" };
+    case "ORANGE": return { bg: "bg-orange-500/15", text: "text-orange-400" };
+    case "RED": return { bg: "bg-red-500/15", text: "text-red-400" };
     case "WINNER": return { bg: "bg-emerald-500/15", text: "text-emerald-400" };
     case "WATCH": return { bg: "bg-amber-500/15", text: "text-amber-400" };
     case "UNDERPERFORMER": return { bg: "bg-red-500/15", text: "text-red-400" };

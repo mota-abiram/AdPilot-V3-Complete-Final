@@ -11,26 +11,21 @@
 import { getClassification } from "../shared/classification";
 import {
   scoreStagedCostDynamic,
-  scoreStagedBudgetDynamic,
   getMetricWeights,
+  scoreWeightedCostMetric,
+  scoreWeightedBudgetMetric,
+  scoreWeightedCreativeMetric,
+  sumMetricScores,
   computeMinRatio,
   computeDualGateStatus,
 } from "./scoring-config";
-
-function normalizeScore(scores: Record<string, number>, weights: Record<string, number>): number {
-  let total = 0;
-  for (const k in scores) {
-    total += (scores[k] * (weights[k] || 0)) / 100;
-  }
-  return Math.round(Math.max(0, Math.min(100, total)) * 10) / 10;
-}
 
 /**
  * Recomputes Google account health score using Mojo AdCortex v2.0 formulas:
  * - Targets from benchmarks tab (google_cpl, google_cpsv_low, google_cpql_target, etc.)
  * - Current values from API MTD data (mtd_pacing)
  *
- * Weights: CPSV 25 · Budget 20 · CPQL 20 · CPL 10 · Campaign 15 · Creative 10
+ * Weights: CPSV 25 · Budget 25 · CPQL 20 · CPL 20 · Creative 10
  *
  * Formulas:
  *   - Cost metrics (CPSV, CPL, CPQL): Quadratic decay with acceleration
@@ -42,13 +37,12 @@ function normalizeScore(scores: Record<string, number>, weights: Record<string, 
 function recomputeGoogleHealthScore(data: any): {
   score: number;
   breakdown: Record<string, number>;
-  classification: string;
+  status: string;
 } {
   const ap = data.account_pulse || {};
   const rawMtd = ap.mtd_pacing || {};                 // raw agent MTD pacing
   const mp = data.monthly_pacing || {};               // normalized monthly_pacing (has mp.mtd, mp.pacing)
   const benchmarks = data.sop_benchmarks || {};
-  const existingBreakdown = data.account_health_breakdown || {};
   // MTD deliverables (manually entered SVS, qualified leads) — same as Meta
   const mtdDeliverables = data.mtd_deliverables || {};
 
@@ -66,104 +60,66 @@ function recomputeGoogleHealthScore(data: any): {
   // benchmarks.google_cpl = "Google CPL Target" from Benchmarks tab
   const cplTarget = benchmarks.google_cpl || benchmarks.cpl || 850;
   const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
-  const cplScore = actualLeadsMtd > 0
-    ? scoreStagedCostDynamic(actualCplMtd, cplTarget)
-    : 50;
+  const cplScore = scoreWeightedCostMetric(
+    actualLeadsMtd > 0 ? actualCplMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
+    cplTarget,
+    weights.cpl
+  );
 
-  // ─── Budget/Pacing Score (MTD spend vs pro-rated budget: Staged) ───
-  const pacingPct = mp.pacing?.spend_pct ?? rawMtd.pacing_spend_pct ?? 100;
-  const budgetScore = scoreStagedBudgetDynamic(pacingPct);
+  // ─── Budget/Pacing Score (MTD spend vs prorated monthly budget) ───
+  const now = new Date();
+  const derivedDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysInMonth = (mp.days_elapsed ?? 0) + (mp.days_remaining ?? 0) || derivedDaysInMonth;
+  const daysElapsed = mp.days_elapsed ?? rawMtd.days_elapsed ?? Math.min(now.getDate(), daysInMonth);
+  const monthlyBudget = mp.targets?.budget ?? rawMtd.target_budget ?? data.targets?.budget ?? 0;
+  const budgetScore = scoreWeightedBudgetMetric(
+    actualSpendMtd,
+    monthlyBudget,
+    daysElapsed,
+    daysInMonth,
+    weights.budget
+  );
 
   // ─── CPQL Score (Lower is better: Staged) ───
   // benchmarks.google_cpql_target or benchmarks.cpql_target from Benchmarks tab
   const cpqlTarget = benchmarks.google_cpql_target || benchmarks.cpql_target || 1500;
   const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
   const cpqlScore = actualQLeadsMtd > 0
-    ? scoreStagedCostDynamic(actualCpqlMtd, cpqlTarget)
-    : 50; // Neutral when no qualified leads entered
+    ? scoreWeightedCostMetric(actualCpqlMtd, cpqlTarget, weights.cpql)
+    : 10;
 
   // ─── CPSV Score (Lower is better: Staged) ───
   // benchmarks.google_cpsv_low = "Google CPSV Target Low" from Benchmarks tab
   // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
   const cpsvTarget = benchmarks.google_cpsv_low || benchmarks.cpsv_low || 0;
   const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
-  const cpsvScore = (actualSvsMtd > 0 && cpsvTarget > 0)
-    ? scoreStagedCostDynamic(actualCpsvMtd, cpsvTarget)
-    : 50; // Neutral when no SVS data entered
-
-  // ─── Campaign Score — use agent's value if available ───
-  const campaignScore = existingBreakdown.campaign ?? 50;
+  const cpsvScore = scoreWeightedCostMetric(
+    actualSvsMtd > 0 ? actualCpsvMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
+    cpsvTarget,
+    weights.cpsv
+  );
 
   // ─── Creative Score (Spend-weighted average + diversity factor) ───
-  // Formula: score = (H_avg / 100) × D where
-  //   H_avg = Σ(health_i × spend_i) / Σ(spend_i)  [spend-weighted average]
-  //   D = min(1.0, active_count / 4)               [diversity penalty]
   const creativeHealth: any[] = data.creative_health || [];
-
-  let creativeScore = existingBreakdown.creative ?? 50; // Start with existing or neutral
-
-  // Only recompute if we have creative_health data
-  if (creativeHealth.length > 0) {
-    // Filter to active creatives with spend > 0
-    const activeCreatives = creativeHealth.filter(
-      (c: any) => (c.status === "ACTIVE" || !c.status) && (c.spend ?? 0) > 0
-    );
-
-    if (activeCreatives.length === 0) {
-      // Zero active ads with spend = worst state (forces attention)
-      creativeScore = 0;
-    } else {
-      // Compute spend-weighted average
-      const totalSpend = activeCreatives.reduce((s: number, c: any) => s + (c.spend ?? 0), 0);
-      const weightedSum = activeCreatives.reduce(
-        (s: number, c: any) => s + (c.creative_score ?? c.performance_score ?? 0) * (c.spend ?? 0),
-        0
-      );
-      const hAvg = totalSpend > 0 ? weightedSum / totalSpend : 0;
-
-      // Apply diversity factor: min(1.0, count / 4)
-      const diversity = Math.min(1.0, activeCreatives.length / 4);
-      creativeScore = hAvg * diversity;
-
-      // Clamp to 0-100
-      creativeScore = Math.max(0, Math.min(100, creativeScore));
-    }
-  }
+  const creativeScore = scoreWeightedCreativeMetric(creativeHealth, weights.creative);
 
   const breakdown = {
     cpsv: Math.round(cpsvScore * 100) / 100,
     budget: Math.round(budgetScore * 100) / 100,
     cpql: Math.round(cpqlScore * 100) / 100,
     cpl: Math.round(cplScore * 100) / 100,
-    campaign: Math.round(campaignScore * 100) / 100,
     creative: Math.round(creativeScore * 100) / 100,
   };
 
-  let compositeScore = normalizeScore(breakdown, weights);
+  const compositeScore = Math.round(sumMetricScores(breakdown) * 100) / 100;
 
   // ─── Apply Dual-Gate Status Determination ───
-  // Compute weakest-link ratio: min(score_i / weight_i) across all 6 metrics
+  // Compute weakest-link ratio: min(score_i / weight_i) across all 5 metrics
   const minRatio = computeMinRatio(breakdown, weights);
 
   // Determine status using dual-gate (composite + veto)
   const dualGateStatus = computeDualGateStatus(compositeScore, minRatio);
-
-  // Map dual-gate status to a capped score for classification compatibility
-  // This preserves the WINNER/WATCH/UNDERPERFORMER nomenclature
-  let finalScore = compositeScore;
-  if (dualGateStatus === "YELLOW") {
-    // Cap to max of YELLOW range (to prevent showing as GREEN when veto forces YELLOW)
-    finalScore = Math.min(compositeScore, 74);
-  } else if (dualGateStatus === "ORANGE") {
-    // Cap to max of ORANGE range (to prevent showing as YELLOW when veto forces ORANGE)
-    finalScore = Math.min(compositeScore, 54);
-  } else if (dualGateStatus === "RED") {
-    // Cap to max of RED range
-    finalScore = Math.min(compositeScore, 34);
-  }
-
-  const finalClassification = getClassification(finalScore, cplScore, cplTarget);
-  return { score: finalScore, breakdown, classification: finalClassification };
+  return { score: compositeScore, breakdown, status: dualGateStatus };
 }
 
 function cleanCampaignName(name: string): string {
@@ -193,7 +149,7 @@ function parseAgeDaysFromName(name: string): number | null {
   return days >= 0 ? days : null;
 }
 
-function normalizeCampaign(c: any): any {
+function normalizeCampaign(c: any, benchmarks: any = {}): any {
   const cost = c.cost || 0;
   const clicks = c.clicks || 0;
   const impressions = c.impressions || 0;
@@ -306,7 +262,7 @@ function normalizeCampaign(c: any): any {
 
 // ─── Ad Group Extraction & Normalization ────────────────────────────
 
-function extractAdGroups(campaigns: any[]): any[] {
+function extractAdGroups(campaigns: any[], benchmarks: any = {}): any[] {
   const adGroups: any[] = [];
 
   for (const campaign of campaigns) {
@@ -360,7 +316,7 @@ function extractAdGroups(campaigns: any[]): any[] {
 
 // ─── Creative Health Extraction ─────────────────────────────────────
 
-function extractCreativeHealth(campaigns: any[], existingCreativeHealth: any[]): any[] {
+function extractCreativeHealth(campaigns: any[], existingCreativeHealth: any[], benchmarks: any = {}): any[] {
   // If the agent already populated creative_health, use it
   if (existingCreativeHealth && existingCreativeHealth.length > 0) {
     return existingCreativeHealth.map((creative: any) => {
@@ -554,9 +510,10 @@ function normalizeRecommendation(rec: any): any {
 // ─── Main Normalization Entry Point ─────────────────────────────────
 
 export function normalizeGoogleAnalysis(raw: any): any {
-  const campaigns = (raw.campaigns || []).map(normalizeCampaign);
-  const adGroupAnalysis = extractAdGroups(raw.campaigns || []);
-  const creativeHealth = extractCreativeHealth(raw.campaigns || [], raw.creative_health);
+  const benchmarks = raw.sop_benchmarks || {};
+  const campaigns = (raw.campaigns || []).map((campaign: any) => normalizeCampaign(campaign, benchmarks));
+  const adGroupAnalysis = extractAdGroups(raw.campaigns || [], benchmarks);
+  const creativeHealth = extractCreativeHealth(raw.campaigns || [], raw.creative_health, benchmarks);
 
   // Normalize monthly pacing FIRST so recomputeGoogleHealthScore can use
   // mp.mtd.spend / mp.mtd.leads / mp.pacing.spend_pct (MTD-only data)
@@ -581,7 +538,7 @@ export function normalizeGoogleAnalysis(raw: any): any {
 
     // Scores — recomputed from benchmarks + MTD API data (never cadence-window data)
     account_health_score: recomputed.score,
-    account_health_classification: recomputed.classification,
+    account_health_classification: recomputed.status,
     account_health_breakdown: recomputed.breakdown,
 
     // Canonical data keys (what frontend expects)
