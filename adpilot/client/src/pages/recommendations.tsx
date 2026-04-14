@@ -114,7 +114,7 @@ export default function RecommendationsPage() {
   });
 
   // 1. Fetch Pipeline Unified Insights
-  const { data: pipelineData, isLoading: isLoadingInsights } = useQuery<{ insights: UnifiedInsight[], trace: any }>({
+  const { data: pipelineData, isLoading: isLoadingInsights } = useQuery<{ insights: UnifiedInsight[], trace: any, conflicts?: string[], layer_contributions?: Record<string, number> }>({
     queryKey: ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/intelligence/${activeClient?.id}/${activePlatform}/insights`);

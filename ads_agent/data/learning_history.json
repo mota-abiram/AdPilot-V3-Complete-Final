@@ -3,14 +3,6 @@
     {
       "date": "2026-04-11",
       "cadence": "multi_cadence",
-      "total_leads": 66,
-      "avg_cpl": 767.5839393939394,
-      "overall_ctr": 0.40844544729654075,
-      "strategic_narrative": "Mojo's Take: Your Meta Ads CPL has surged to \u20b9708, which is unacceptable given your strong pacing at 97% of the linear target. Cut the fat in your TOFU creatives and aggressive retargeting to lower that CPL and maximize your CVR before the inefficiency eats away your ROI."
-    },
-    {
-      "date": "2026-04-11",
-      "cadence": "multi_cadence",
       "total_leads": 40,
       "avg_cpl": 426.78925,
       "overall_ctr": 1.1687363038714391,
@@ -239,17 +231,19 @@
       "avg_cpl": 750.7155882352941,
       "overall_ctr": 0.49676623266105013,
       "strategic_narrative": "Mojo's Take: Your MTD CPL of \u20b9714 is unsustainable and jeopardizing your overall profitability, signaling a critical need for funnel optimization. Immediately cut the dead weight from low-performing campaigns and strategically redirect that budget to high-CVR segments to enhance your ROAS."
+    },
+    {
+      "date": "2026-04-14",
+      "cadence": "multi_cadence",
+      "total_leads": 66,
+      "avg_cpl": 773.7289393939394,
+      "overall_ctr": 0.5472249269717624,
+      "strategic_narrative": "Mojo's Take: Your MTD CPL of \u20b9729 is still above critical thresholds, indicating a continuing inefficiency in your funnel. Immediately pause or overhaul underperforming ads to reallocate toward high-CVR strategies for better ROAS."
     }
   ],
   "patterns": [
     {
       "date": "2026-04-11",
-      "top_patterns": [
-        "Top video TSR: 8.5% vs bottom: 10.7%. Top video VHR: 60.0% vs bottom: 40.8%. Hook quality not differentiating \u2014 check copy/CTA instead."
-      ]
-    },
-    {
-      "date": "2026-04-11",
       "top_patterns": []
     },
     {
@@ -354,6 +348,12 @@
       "date": "2026-04-13",
       "top_patterns": [
         "'Video' format appears more in top performers (1/1) than bottom (0/1)."
+      ]
+    },
+    {
+      "date": "2026-04-14",
+      "top_patterns": [
+        "'Static' format appears more in top performers (1/1) than bottom (0/1)."
       ]
     }
   ],
@@ -361,12 +361,6 @@
   "audience_saturation": {},
   "campaign_cpl_history": {
     "120242148702000466": [
-      {
-        "date": "2026-04-11",
-        "cpl": 1301.7846153846153,
-        "leads": 13,
-        "spend": 16923.2
-      },
       {
         "date": "2026-04-11",
         "cpl": 1301.7846153846153,
@@ -420,15 +414,15 @@
         "cpl": 1947.9577777777777,
         "leads": 9,
         "spend": 17531.62
+      },
+      {
+        "date": "2026-04-14",
+        "cpl": 2252.0625,
+        "leads": 8,
+        "spend": 18016.5
       }
     ],
     "120231984866140466": [
-      {
-        "date": "2026-04-11",
-        "cpl": 636.6028301886794,
-        "leads": 53,
-        "spend": 33739.950000000004
-      },
       {
         "date": "2026-04-11",
         "cpl": 636.6047169811321,
@@ -482,6 +476,12 @@
         "cpl": 568.0854237288136,
         "leads": 59,
         "spend": 33517.04
+      },
+      {
+        "date": "2026-04-14",
+        "cpl": 569.8208620689655,
+        "leads": 58,
+        "spend": 33049.61
       }
     ],
     "120240639389720466": [

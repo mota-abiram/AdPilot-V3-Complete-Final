@@ -116,6 +116,7 @@ interface ClientCredentials {
 }
 
 const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
+const BENCHMARKS_BASE = path.join(DATA_BASE, "clients");
 const getClientDataDir = (clientId: string) => path.join(DATA_BASE, "clients", clientId);
 const AI_CONFIG_FILE = path.join(DATA_BASE, "ai_config.json");
 
@@ -1719,8 +1720,6 @@ export async function registerRoutes(
   });
 
   // ─── Benchmarks Endpoints ──────────────────────────────────────────
-
-  const BENCHMARKS_BASE = path.join(DATA_BASE, "clients");
 
   function getBenchmarksPath(clientId: string, platform: string): string {
     return path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
