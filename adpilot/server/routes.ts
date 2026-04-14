@@ -27,6 +27,7 @@ import {
   analysisCache,
   ANALYSIS_CACHE_TTL,
   getCacheKey,
+  invalidateAnalysisCache,
 } from "./analysis-persistence";
 import { pool, db } from "./db";
 import { analysisSnapshots, biddingRecommendations } from "@shared/schema";
@@ -64,6 +65,7 @@ import { generateBiddingRecommendations } from "./bidding-intelligence";
 import { storage } from "./storage";
 import { requireAdmin, getUserById } from "./auth";
 import { insightsEngine } from "./intelligence-engine";
+import { getCache, setCache, invalidateCachePattern, cacheKey } from "./cache";
 
 // ─── Multi-Client Registry ─────────────────────────────────────────
 // The registry is now persisted to disk so clients added via the UI survive restarts.
@@ -1761,6 +1763,8 @@ export async function registerRoutes(
       updated_at: new Date().toISOString(),
     };
     fs.writeFileSync(benchPath, JSON.stringify(data, null, 2));
+    // Invalidate analysis cache so health scores recalculate with new benchmarks
+    invalidateAnalysisCache(clientId, platform);
     res.json(data);
   });
 
@@ -3112,7 +3116,7 @@ export async function registerRoutes(
   });
 
   // ─── Unified Intelligence Pipeline (Central Source of Truth) ──────
-  // Enforces 4-layer pipeline globally
+  // Enforces 4-layer pipeline globally with caching
   app.get("/api/intelligence/:clientId/:platform/insights", requireAdmin, async (req, res) => {
     try {
       const { clientId, platform } = req.params as Record<string, string>;
@@ -3129,6 +3133,22 @@ export async function registerRoutes(
 
       console.log(`[API] Unified Intelligence Request: client=${clientId} platform=${platform} type=${type}${alertContext ? ` alert="${alert_problem?.substring(0, 60)}"` : ""}`);
 
+      // Build a unique cache key that includes alert context if present
+      let cacheKey_val = cacheKey("intelligence", clientId, platform, type);
+      if (alertContext) {
+        // Create a simple stable string representation for the alert context to use as a cache key suffix
+        const contextStr = `${alert_problem || ""}:${alert_metric || ""}:${alert_metrics || ""}`;
+        const contextHash = Buffer.from(contextStr).toString("base64").substring(0, 32);
+        cacheKey_val = cacheKey("intelligence", clientId, platform, type, "alert", contextHash);
+      }
+
+      // Check cache
+      const cached = getCache(cacheKey_val);
+      if (cached) {
+        console.log(`[API] Cache hit for ${cacheKey_val}`);
+        return res.json(cached);
+      }
+
       const result = await insightsEngine({
         clientId,
         platform: platform as any,
@@ -3136,12 +3156,16 @@ export async function registerRoutes(
         alertContext,
       });
 
+      // Cache result (5 minute TTL)
+      setCache(cacheKey_val, result, 300); // 5 minutes
+      console.log(`[API] Cached result for ${cacheKey_val}`);
+
       res.json(result);
     } catch (err: any) {
       console.error(`[API] Intelligence Pipeline Failure:`, err);
-      res.status(500).json({ 
-        error: "Critical Pipeline Failure", 
-        message: err.message 
+      res.status(500).json({
+        error: "Critical Pipeline Failure",
+        message: err.message
       });
     }
   });
