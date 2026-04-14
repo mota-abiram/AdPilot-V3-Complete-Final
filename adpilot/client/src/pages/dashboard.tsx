@@ -227,88 +227,125 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     const relevant = scored.filter((s: any) => s._score > 0).slice(0, 5);
     const result = relevant.length > 0 ? relevant : scored.slice(0, 5);
 
-    return result.map((ins: any) => ({
-      text: ins.recommendation,
+    return result.map((ins: any, idx: number) => ({
+      rank: idx + 1,
+      action: ins.recommendation,        // brief one-liner action
+      reasoning: ins.impact || "",       // root-cause analysis paragraph
+      executionPlan: ins.executionPlan || ins.execution_plan || [], // step-by-step plan from AI
       source: ins.source,
       confidence: ins.confidence > 0.7 ? "High" : "Medium",
       issue: ins.issue,
+      executionType: ins.executionType || ins.execution_type || "manual",
+      actionType: ins.actionType || ins.action_type || "",
     }));
   }, [pipelineData, alert]);
 
   if (!alert) return null;
 
-  const handleFeedback = (suggestion: any, status: 'Accepted' | 'Dismissed') => {
-    toast({
-      title: `Intelligence ${status}`,
-      description: `Refining pipeline with this feedback.`,
-    });
+  // Map action types to readable impact labels
+  const getActionTypeBadge = (executionType: string, actionType: string) => {
+    if (executionType === "auto") return { label: "Auto-Execute", className: "bg-green-500/10 text-green-400 border-green-500/20" };
+    if (executionType === "confirm") return { label: "Needs Approval", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+    if (actionType?.includes("creative")) return { label: "Creative Work", className: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+    if (actionType?.includes("audience")) return { label: "Audience Change", className: "bg-blue-500/10 text-blue-400 border-blue-500/20" };
+    if (actionType?.includes("funnel") || actionType?.includes("landing")) return { label: "Funnel Audit", className: "bg-orange-500/10 text-orange-400 border-orange-500/20" };
+    return { label: "Strategic", className: "bg-muted text-muted-foreground border-border/60" };
   };
 
   return (
     <Dialog open={!!alert} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-0 shadow-2xl">
+      <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden border-0 shadow-2xl">
         <DialogHeader className="p-6 pb-4 bg-muted/20 relative border-b border-border/40">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
               <Brain className="w-5 h-5 animate-pulse-slow" />
             </div>
-            <div className="min-w-0">
-              <DialogTitle className="t-page-title text-foreground text-xl">4-Layer Pipeline Reasoning</DialogTitle>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="t-page-title text-foreground text-xl">4-Layer AI Diagnosis</DialogTitle>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
-                  {alert.metric} CONTEXT
+                  {alert.metric} ALERT
                 </Badge>
-                <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Validated Intelligence Layer</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">Root-cause analysis across all 4 layers</span>
               </div>
             </div>
           </div>
+          {/* Alert problem statement */}
+          <div className="mt-3 p-2.5 rounded-lg bg-red-500/5 border border-red-500/20">
+            <p className="text-[11px] font-semibold text-red-400 leading-snug">{alert.summary}</p>
+          </div>
         </DialogHeader>
 
-        <DialogBody className="p-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-          <div className="space-y-1.5 px-0.5">
-            <p className="t-body font-bold tracking-tight text-lg leading-snug">
-              Pipeline Analysis for <span className="text-red-400 italic">"{alert.summary}"</span>
-            </p>
-            <p className="t-label text-muted-foreground leading-relaxed">
-              The following strategic offsets have been validated by Layer 4 for this specific account state:
-            </p>
-          </div>
+        <DialogBody className="p-5 space-y-3 max-h-[72vh] overflow-y-auto">
+          {suggestions.length === 0 && (
+            <div className="space-y-3">
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+          )}
 
-          <div className="space-y-4 pt-1">
-            {suggestions.map((s: any, i: number) => (
-              <div key={i} className="p-3.5 rounded-xl border border-border/40 bg-card hover:border-primary/30 transition-all group">
-                <div className="flex gap-3.5">
-                  <div className="size-6 rounded-lg bg-muted border border-border/60 flex items-center justify-center shrink-0 group-hover:bg-primary/20 group-hover:border-primary/40 transition-colors">
-                    <Zap className="w-3.5 h-3.5 text-primary" />
+          {suggestions.map((s: any, i: number) => {
+            const typeBadge = getActionTypeBadge(s.executionType, s.actionType);
+            return (
+              <div key={i} className="rounded-xl border border-border/40 bg-card hover:border-primary/30 transition-all overflow-hidden">
+                {/* Card header row */}
+                <div className="flex items-center gap-2 px-4 pt-3.5 pb-2">
+                  <div className="size-5 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-[9px] font-black text-primary">{i + 1}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          "t-micro font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
-                          s.source === "AI" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                        )}>
-                          {s.source} {s.source === "AI" ? "Reasoning" : "SOP"}
-                        </span>
-                        <span className="text-[9px] text-red-400/80 font-bold uppercase truncate max-w-[120px]">
-                          {s.issue}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="t-body-sm leading-snug text-foreground/90 font-medium group-hover:text-foreground transition-colors pr-2">
-                      {s.text}
-                    </p>
+                  <span className="text-[11px] font-black text-foreground uppercase tracking-wide flex-1 truncate">{s.issue}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={cn(
+                      "text-[9px] font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
+                      s.source === "AI" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                    )}>
+                      {s.source}
+                    </span>
+                    <span className={cn("text-[9px] font-bold uppercase tracking-tight px-1.5 py-0.5 rounded border", typeBadge.className)}>
+                      {typeBadge.label}
+                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
-            {suggestions.length === 0 && <Skeleton className="h-24 w-full" />}
-          </div>
 
-          {alert.campaigns.length > 0 && (
-            <div className="mt-4 p-4 rounded-xl bg-muted/10 border border-border/30">
-              <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-3">Diagnostic Context ({alert.campaigns.length} campaigns)</p>
-              <div className="grid grid-cols-1 gap-1.5">
+                {/* Root-cause reasoning — this is the GPT-quality analysis */}
+                {s.reasoning && (
+                  <div className="px-4 pb-2">
+                    <p className="text-[12px] text-foreground/75 leading-relaxed">{s.reasoning}</p>
+                  </div>
+                )}
+
+                {/* Action — the actual fix */}
+                <div className="mx-4 mb-2 p-2.5 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-start gap-2">
+                    <Zap className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                    <p className="text-[12px] font-semibold text-foreground leading-snug">{s.action}</p>
+                  </div>
+                </div>
+
+                {/* Execution plan steps */}
+                {Array.isArray(s.executionPlan) && s.executionPlan.length > 0 && (
+                  <div className="px-4 pb-3.5">
+                    <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-1.5">Execution Steps</p>
+                    <ol className="space-y-1">
+                      {s.executionPlan.map((step: string, si: number) => (
+                        <li key={si} className="flex items-start gap-2">
+                          <span className="text-[9px] font-black text-primary/60 mt-0.5 shrink-0">{si + 1}.</span>
+                          <span className="text-[11px] text-foreground/70 leading-snug">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Diagnostic context */}
+          {alert.campaigns?.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-muted/10 border border-border/30">
+              <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-2">Affected Entities ({alert.campaigns.length})</p>
+              <div className="grid grid-cols-1 gap-1">
                 {alert.campaigns.map((c: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-[11px] font-semibold text-foreground/80 bg-background/40 p-1.5 px-2 rounded-lg border border-border/20">
                     <span className="truncate">{c.name}</span>
@@ -323,7 +360,7 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
         <DialogFooter className="p-4 px-6 bg-muted/20 border-t border-border/40 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-primary opacity-60" />
-            <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">Standard Baseline Verified</span>
+            <span className="t-micro text-muted-foreground font-bold uppercase tracking-tight">Claude AI + SOP Layer Validated</span>
           </div>
           <Button
             className="h-10 px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-[#f5c723] text-primary-foreground transition-all active:scale-[0.97]"

@@ -41,6 +41,8 @@ interface UnifiedInsight {
   entityType?: string;
   confidence: number;
   source: "SOP" | "AI" | "MIXED";
+  sop_alignment?: "agrees" | "disagrees" | "extends";
+  source_layers?: string[];
 }
 
 type PriorityBand = "immediate" | "this_week" | "strategic";
@@ -137,9 +139,11 @@ export default function RecommendationsPage() {
       ...ins,
       recId: `unified-${idx}`,
       priorityBand: mapPriorityToBand(ins.priority),
-      currentAction: undefined, // Will be linked when actions API is ready
+      currentAction: undefined,
     }));
   }, [pipelineData]);
+
+  const [showContributions, setShowContributions] = useState(false);
 
   const sections: Record<PriorityBand, EnrichedInsight[]> = {
     immediate: enriched.filter((r) => r.priorityBand === "immediate"),
@@ -177,12 +181,57 @@ export default function RecommendationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+           <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowContributions(!showContributions)}
+            className="border-border/50 text-[10px] font-black uppercase tracking-widest gap-2"
+           >
+             <Brain className="w-3.5 h-3.5" />
+             {showContributions ? "Hide Contributions" : "View Layer Contributions"}
+           </Button>
            <Badge variant="outline" className="bg-card py-2 px-4 flex items-center gap-2 border-border/80 shadow-xs">
              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="t-label font-bold">Standardized Output v1.0</span>
+             <span className="t-label font-bold">Standardized Output v1.2</span>
            </Badge>
         </div>
       </div>
+
+      {/* Layer Conflicts Callout (Gap 1 Fix) */}
+      {pipelineData?.conflicts && pipelineData.conflicts.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+          <div className="flex items-center gap-2 text-amber-500">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-xs font-black uppercase tracking-widest">Architectural Layer Conflicts Detected</span>
+          </div>
+          <div className="space-y-1">
+            {pipelineData.conflicts.map((conflict: string, i: number) => (
+              <p key={i} className="text-[11px] text-amber-200/80 italic leading-relaxed pl-6 border-l border-amber-500/20">
+                "{conflict}"
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Layer Contributions Panel (Gap 1 Fix) */}
+      {showContributions && pipelineData?.layer_contributions && (
+        <Card className="border-blue-500/20 bg-blue-500/5 animate-in slide-in-from-top duration-300">
+          <CardContent className="p-4 grid grid-cols-4 gap-4">
+            {Object.entries(pipelineData.layer_contributions).map(([layer, contribution]) => (
+              <div key={layer} className="space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-blue-400">
+                  {layer.replace("_", " ")}
+                </p>
+                <p className="text-[10px] text-blue-200/60 leading-tight italic">
+                  {String(contribution)}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Hero Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -264,16 +313,31 @@ export default function RecommendationsPage() {
                           {/* Insight & Recommendation */}
                           <td className="px-4 py-4 align-top">
                             <div className="space-y-1.5">
-                              <p className="text-[12px] font-semibold text-red-400 leading-tight">
+                              <p className={cn(
+                                "text-[12px] font-semibold leading-tight",
+                                rec.sop_alignment === "disagrees" ? "text-amber-400" : "text-red-400"
+                              )}>
                                 {rec.issue}
                               </p>
-                              <div className="p-2 rounded bg-muted/40 border border-border/30">
+                              <div className={cn(
+                                "p-2 rounded border",
+                                rec.sop_alignment === "disagrees" ? "bg-amber-500/5 border-amber-500/20" : "bg-muted/40 border-border/30"
+                              )}>
                                 <p className="text-[11px] text-foreground/90 font-medium leading-relaxed">
                                   <span className="text-emerald-400 font-bold mr-1">REC:</span> {rec.recommendation}
                                 </p>
+                                {rec.sop_alignment === "disagrees" && (
+                                  <div className="mt-2 pt-2 border-t border-amber-500/10 flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 shrink-0" />
+                                    <p className="text-[9px] text-amber-200/60 uppercase font-black italic">
+                                      Layer Conflict: This AI recommendation overrides established SOP rules based on current L2 data patterns.
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
+
 
                           {/* Strategic Impact */}
                           <td className="px-4 py-4 align-top">
@@ -297,13 +361,26 @@ export default function RecommendationsPage() {
 
                           {/* Source Tag */}
                           <td className="px-4 py-4 align-top text-right">
-                             <Badge variant="outline" className={cn(
-                               "text-[9px] font-black uppercase tracking-tighter px-1.5 py-0",
-                               rec.source === "AI" ? "border-blue-500/30 text-blue-400" : "border-emerald-500/30 text-emerald-400"
-                             )}>
-                               {rec.source}
-                             </Badge>
+                             <div className="flex flex-col items-end gap-1.5">
+                               <Badge variant="outline" className={cn(
+                                 "text-[9px] font-black uppercase tracking-tighter px-1.5 py-0",
+                                 rec.source === "AI" ? "border-blue-500/30 text-blue-400" : "border-emerald-500/30 text-emerald-400"
+                               )}>
+                                 {rec.source}
+                               </Badge>
+                               {rec.sop_alignment && (
+                                 <Badge variant="outline" className={cn(
+                                   "text-[8px] font-bold uppercase px-1 py-0",
+                                   rec.sop_alignment === "agrees" ? "border-emerald-500/20 text-emerald-400/60" :
+                                   rec.sop_alignment === "disagrees" ? "border-amber-500/40 text-amber-400 bg-amber-500/5" :
+                                   "border-blue-500/20 text-blue-400/60"
+                                 )}>
+                                   SOP: {rec.sop_alignment}
+                                 </Badge>
+                               )}
+                             </div>
                           </td>
+
                         </tr>
                       );
                     })}

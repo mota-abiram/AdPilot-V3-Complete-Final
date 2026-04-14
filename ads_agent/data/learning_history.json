@@ -3,14 +3,6 @@
     {
       "date": "2026-04-11",
       "cadence": "multi_cadence",
-      "total_leads": 40,
-      "avg_cpl": 426.7789999999999,
-      "overall_ctr": 1.168786524578893,
-      "strategic_narrative": "Mojo's Take: Your Meta Ads CPL has significantly improved to \u20b9397, but you're only pacing at 31% of the linear target, which screams inefficiency. Optimize your TOFU creatives and boost your targeting to increase pace and drive better ROAS before this opportunity slips away."
-    },
-    {
-      "date": "2026-04-11",
-      "cadence": "multi_cadence",
       "total_leads": 66,
       "avg_cpl": 767.5839393939394,
       "overall_ctr": 0.40844544729654075,
@@ -239,15 +231,19 @@
       "avg_cpl": 750.6632352941177,
       "overall_ctr": 0.49676887482381726,
       "strategic_narrative": "Mojo's Take: Your Meta Ads CPL of \u20b9714 is crippling profitability and indicates a glaring inefficiency in your funnel. You need to axe low-performing campaigns immediately and reallocate budget towards high-CVR segments to salvage your ROAS."
+    },
+    {
+      "date": "2026-04-13",
+      "cadence": "multi_cadence",
+      "total_leads": 68,
+      "avg_cpl": 750.7155882352941,
+      "overall_ctr": 0.49676623266105013,
+      "strategic_narrative": "Mojo's Take: Your MTD CPL of \u20b9714 is unsustainable and jeopardizing your overall profitability, signaling a critical need for funnel optimization. Immediately cut the dead weight from low-performing campaigns and strategically redirect that budget to high-CVR segments to enhance your ROAS."
     }
   ],
   "patterns": [
     {
       "date": "2026-04-11",
-      "top_patterns": []
-    },
-    {
-      "date": "2026-04-11",
       "top_patterns": [
         "Top video TSR: 8.5% vs bottom: 10.7%. Top video VHR: 60.0% vs bottom: 40.8%. Hook quality not differentiating \u2014 check copy/CTA instead."
       ]
@@ -280,6 +276,12 @@
       "date": "2026-04-11",
       "top_patterns": [
         "Top video TSR: 8.5% vs bottom: 10.7%. Top video VHR: 60.0% vs bottom: 40.8%. Hook quality not differentiating \u2014 check copy/CTA instead."
+      ]
+    },
+    {
+      "date": "2026-04-13",
+      "top_patterns": [
+        "'Video' format appears more in top performers (1/1) than bottom (0/1)."
       ]
     },
     {
@@ -372,12 +374,6 @@
         "spend": 16923.2
       },
       {
-        "date": "2026-04-11",
-        "cpl": 1301.7846153846153,
-        "leads": 13,
-        "spend": 16923.2
-      },
-      {
         "date": "2026-04-13",
         "cpl": 1947.5355555555554,
         "leads": 9,
@@ -418,15 +414,15 @@
         "cpl": 1947.5733333333333,
         "leads": 9,
         "spend": 17528.16
+      },
+      {
+        "date": "2026-04-13",
+        "cpl": 1947.9577777777777,
+        "leads": 9,
+        "spend": 17531.62
       }
     ],
     "120231984866140466": [
-      {
-        "date": "2026-04-11",
-        "cpl": 636.6028301886794,
-        "leads": 53,
-        "spend": 33739.950000000004
-      },
       {
         "date": "2026-04-11",
         "cpl": 636.6028301886794,
@@ -480,6 +476,12 @@
         "cpl": 568.0837288135593,
         "leads": 59,
         "spend": 33516.94
+      },
+      {
+        "date": "2026-04-13",
+        "cpl": 568.0854237288136,
+        "leads": 59,
+        "spend": 33517.04
       }
     ],
     "120240639389720466": [

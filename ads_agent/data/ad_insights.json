@@ -26145,12 +26145,12 @@
       "adset_id": "120231984866130466",
       "ad_name": "DM_Static_Your home has better amenities",
       "ad_id": "120232236324670466",
-      "impressions": "114466",
+      "impressions": "114468",
       "clicks": "960",
-      "ctr": "0.838677",
-      "cpc": "4.560323",
-      "cpm": "38.246379",
-      "spend": "4377.91",
+      "ctr": "0.838662",
+      "cpc": "4.560375",
+      "cpm": "38.246147",
+      "spend": "4377.96",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -26240,70 +26240,70 @@
       "cost_per_action_type": [
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "336.762308"
+          "value": "336.766154"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "video_view",
-          "value": "875.582"
+          "value": "875.592"
         },
         {
           "action_type": "link_click",
-          "value": "5.332412"
+          "value": "5.332473"
         },
         {
           "action_type": "like",
-          "value": "4377.91"
+          "value": "4377.96"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "14.031763"
+          "value": "14.031923"
         },
         {
           "action_type": "lead",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "post_engagement",
-          "value": "3.847021"
+          "value": "3.847065"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "landing_page_view",
-          "value": "2188.955"
+          "value": "2188.98"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "437.791"
+          "value": "437.796"
         },
         {
           "action_type": "page_engagement",
-          "value": "3.843644"
+          "value": "3.843687"
         },
         {
           "action_type": "omni_landing_page_view",
-          "value": "2188.955"
+          "value": "2188.98"
         }
       ],
-      "frequency": "1.603974",
+      "frequency": "1.604002",
       "reach": "71364",
       "video_avg_time_watched_actions": [
         {
@@ -26396,12 +26396,12 @@
       "adset_id": "120235869581350466",
       "ad_name": "DM_Influencer - 2",
       "ad_id": "120235869581380466",
-      "impressions": "13242",
+      "impressions": "13243",
       "clicks": "43",
-      "ctr": "0.324724",
-      "cpc": "32.032791",
-      "cpm": "104.018275",
-      "spend": "1377.41",
+      "ctr": "0.3247",
+      "cpc": "32.033953",
+      "cpm": "104.014196",
+      "spend": "1377.46",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -26479,58 +26479,58 @@
       "cost_per_action_type": [
         {
           "action_type": "offsite_submit_application_add_meta_leads",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "offsite_search_add_meta_leads",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "offsite_conversion.fb_pixel_custom",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "video_view",
-          "value": "1.060362"
+          "value": "1.0604"
         },
         {
           "action_type": "link_click",
-          "value": "59.887391"
+          "value": "59.889565"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "24.596607"
+          "value": "24.5975"
         },
         {
           "action_type": "lead",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "post_engagement",
-          "value": "0.999572"
+          "value": "0.999608"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "offsite_contact_website_add_meta_leads",
-          "value": "459.136667"
+          "value": "459.153333"
         },
         {
           "action_type": "page_engagement",
-          "value": "0.999572"
+          "value": "0.999608"
         }
       ],
-      "frequency": "1.101297",
+      "frequency": "1.101381",
       "reach": "12024",
       "video_avg_time_watched_actions": [
         {
@@ -26765,12 +26765,12 @@
       "adset_id": "120242148702070466",
       "ad_name": "DM_31/03/2026_Ai-visual_video",
       "ad_id": "120242546671240466",
-      "impressions": "1401",
+      "impressions": "1402",
       "clicks": "18",
-      "ctr": "1.284797",
-      "cpc": "63.358889",
-      "cpm": "814.032834",
-      "spend": "1140.46",
+      "ctr": "1.28388",
+      "cpc": "63.551111",
+      "cpm": "815.920114",
+      "spend": "1143.92",
       "actions": [
         {
           "action_type": "link_click",
@@ -26778,11 +26778,11 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "264"
+          "value": "265"
         },
         {
           "action_type": "post_engagement",
-          "value": "264"
+          "value": "265"
         },
         {
           "action_type": "post_interaction_gross",
@@ -26798,7 +26798,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "254"
+          "value": "255"
         },
         {
           "action_type": "post_reaction",
@@ -26808,27 +26808,27 @@
       "cost_per_action_type": [
         {
           "action_type": "video_view",
-          "value": "4.49"
+          "value": "4.485961"
         },
         {
           "action_type": "link_click",
-          "value": "126.717778"
+          "value": "127.102222"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "1140.46"
+          "value": "1143.92"
         },
         {
           "action_type": "post_engagement",
-          "value": "4.319924"
+          "value": "4.316679"
         },
         {
           "action_type": "page_engagement",
-          "value": "4.319924"
+          "value": "4.316679"
         }
       ],
-      "frequency": "1.308123",
-      "reach": "1071",
+      "frequency": "1.306617",
+      "reach": "1073",
       "video_avg_time_watched_actions": [
         {
           "action_type": "video_view",

@@ -33,19 +33,24 @@ export interface ClaudeResponse {
 // ─── Model Configuration ──────────────────────────────────────────
 
 const MODEL_MAP: Record<ClaudeModelTier, string> = {
-  opus: "claude-opus-4-20250514",
-  sonnet: "claude-sonnet-4-20250514",
+  opus: "claude-opus-4-6",
+  sonnet: "claude-sonnet-4-6",
 };
 
 const DEFAULT_MAX_TOKENS: Record<ClaudeModelTier, number> = {
-  opus: 4096,
-  sonnet: 2048,
+  opus: 16000,
+  // claude-sonnet-4-6 supports up to 64K output tokens.
+  // 8192 was causing JSON truncation mid-response for complex accounts (13+ insights).
+  // 16000 gives ~12K of head-room for 5 rich recommendations with full reasoning + execution plans.
+  sonnet: 16000,
 };
 
 // Pricing per 1M tokens (USD) — as of 2025
 const PRICING: Record<string, { input: number; output: number }> = {
-  "claude-opus-4-20250514": { input: 15.0, output: 75.0 },
-  "claude-sonnet-4-20250514": { input: 3.0, output: 15.0 },
+  "claude-opus-4-6": { input: 15.0, output: 75.0 },
+  "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
+  "claude-3-opus-latest": { input: 15.0, output: 75.0 },
+  "claude-3-5-sonnet-latest": { input: 3.0, output: 15.0 },
 };
 
 const DEFAULT_TEMPERATURE = 0.3;
