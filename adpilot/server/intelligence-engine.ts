@@ -1,14 +1,11 @@
 import { assembleContext, type QueryType } from "./context-assembler";
-import { callClaude, isClaudeAvailable, type ClaudeModelTier, type ClaudeResponse } from "./claude-provider";
-import { analyzeSop, type SopInsight } from "./sop-engine";
+import { detectProblemsFromScores, type DetectedProblem } from "./problem-detector";
 import {
-  buildStrategicPrompt,
-  buildRecommendationPrompt,
-  type AdCortexRecommendation,
-  type AdCortexResponse,
-} from "./prompt-templates";
-
-// ─── Types ────────────────────────────────────────────────────────
+  cardsToRecommendations,
+  runSolutionPipeline,
+  type RecommendationCard,
+  type SolutionOption,
+} from "./solution-pipeline";
 
 export interface IntelligenceQuery {
   type: QueryType;
@@ -17,8 +14,6 @@ export interface IntelligenceQuery {
   message?: string;
   analysisData?: any;
   conversationHistory?: string[];
-  /** Alert context: when the pipeline is triggered by a specific alert, pass the problem
-   *  statement and live metrics so the prompt is tailored to that exact issue. */
   alertContext?: {
     problem: string;
     metric?: string;
@@ -30,10 +25,10 @@ export interface StandardizedInsight {
   issue: string;
   impact: string;
   recommendation: string;
-  reasoning?: string;        // Full Claude multi-paragraph analysis (root cause + layer breakdown)
-  execution_plan?: string[]; // Step-by-step action plan from Claude
-  execution_type?: string;   // "auto" | "confirm" | "manual"
-  action_type?: string;      // "pause" | "creative_refresh" | "audience_shift" | etc.
+  reasoning?: string;
+  execution_plan?: string[];
+  execution_type?: string;
+  action_type?: string;
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
   entityId?: string;
   entityName?: string;
@@ -42,13 +37,27 @@ export interface StandardizedInsight {
   source: "SOP" | "AI" | "MIXED";
 }
 
+export interface StructuredTerminalResponse {
+  diagnosis: string[];
+  layerAnalysis: string[];
+  solutions: string[];
+  expectedOutcome: string[];
+  text: string;
+}
+
 export interface IntelligenceResult {
   insights: StandardizedInsight[];
-  recommendations: AdCortexRecommendation[];
+  recommendations: ReturnType<typeof cardsToRecommendations>;
+  recommendation_tiers: {
+    CRITICAL: RecommendationCard[];
+    MEDIUM: RecommendationCard[];
+    LOW: RecommendationCard[];
+  };
   layer_contributions: Record<string, any>;
   conflicts: string[];
   humanResponse: string;
   modelUsed: string;
+  terminalResponse: StructuredTerminalResponse;
   trace: {
     layer1: any;
     layer2: any;
@@ -57,359 +66,256 @@ export interface IntelligenceResult {
   };
 }
 
-// ─── Main Pipeline Service ──────────────────────────────────────────
-
-/**
- * 4-Layer Intelligence Pipeline
- * 1. Layer 1: Data Preparation
- * 2. Layer 2: SOP Deterministic Analysis
- * 3. Layer 3: Claude AI Strategic Reasoning
- * 4. Layer 4: Final Output Formatter & Validation
- */
-export async function insightsEngine(query: IntelligenceQuery): Promise<IntelligenceResult> {
-  const { clientId, platform } = query;
-  console.log(`\x1b[35m[AdCortex Pipeline] Initializing for ${clientId}/${platform}...\x1b[0m`);
-
-  // --- LAYER 1: DATA PREPARATION ---
-  const ctx = await assembleContext(clientId, platform, query.type || "recommendation", query.analysisData);
-  
-  // Extract entities mentioned in the alert context to prioritize them in the prompt
-  if (query.alertContext) {
-    const related: string[] = [];
-    const metrics = query.alertContext.metrics || {};
-    if (metrics["Affected campaigns"]) {
-      const names = String(metrics["Affected campaigns"]).split(",").map(n => n.trim());
-      related.push(...names);
-    }
-    // Deep scanning for anything looking like an ID or common campaign name patterns in the problem text
-    const idMatch = query.alertContext.problem.match(/\d{10,20}/g);
-    if (idMatch) related.push(...idMatch);
-    
-    (ctx.layer2 as any).alertRelatedEntities = related;
-  }
-  const layer1Data = {
-    clientTargets: ctx.layer1.clientTargets,
-    platform: ctx.layer2.platformContext,
-    recordCount: (ctx.layer2.analysisData.campaign_audit || []).length
-  };
-  console.log(`[Layer 1: Data] Cleaned. Targets: ₹${layer1Data.clientTargets.cpl || 'N/A'} CPL`);
-
-  // --- LAYER 2: SOP ANALYSIS (Deterministic) ---
-  const sopInsights = analyzeSop(ctx.layer2.analysisData, ctx.layer1.clientTargets, platform);
-  console.log(`[Layer 2: SOP] Generated ${sopInsights.length} rule-based insights.`);
-
-  // --- LAYER 3: CLAUDE AI REASONING ---
-  let aiResponse: AdCortexResponse | null = null;
-  let modelUsed = "none";
-  let humanResponse = "";
-  
-  if (isClaudeAvailable()) {
-    const modelTier: ClaudeModelTier = query.type === "strategic_analysis" ? "opus" : "sonnet";
-    const prompt = buildPromptForQuery(query, ctx, sopInsights);
-    
-    try {
-      const claude = await callClaude({
-        systemPrompt: prompt.system,
-        userMessage: prompt.user,
-        modelTier,
-      });
-      modelUsed = claude.model;
-      aiResponse = parseAdCortexResponse(claude.content);
-      humanResponse = formatHumanResponse(aiResponse);
-      console.log(`[Layer 3: AI] Reasoning complete via ${modelUsed}.`);
-    } catch (err: any) {
-      console.error(`[Layer 3: AI] Failed: ${err.message}. Falling back to SOP.`);
-      humanResponse = `Strategic AI layer encountered an error: ${err.message}. Displaying SOP-based deterministic insights instead.`;
-    }
-  } else {
-    console.log(`[Layer 3: AI] Claude unavailable. Skipping reasoning layer.`);
-    humanResponse = "AI Reasoning layer skipped (No API Key). Displaying SOP-based insights.";
-  }
-
-  // --- LAYER 4: FINAL FORMATTER & VALIDATION ---
-  const finalInsights: StandardizedInsight[] = [];
-  const hasValidAiResponse = aiResponse && aiResponse.recommendations.length > 0 && !aiResponse.conflicts.includes("Claude response parsing failed");
-
-  // If AI succeeded, populate primary insights from Claude's structured response
-  if (hasValidAiResponse) {
-    aiResponse!.recommendations.forEach(rec => {
-      // Skip generic fallback messages
-      if (rec.action === "Clarification needed" && rec.confidence < 0.5) return;
-
-      // Use the action text as the issue title (it's specific, e.g. "Kill Scroll-Ignored Creatives")
-      // Use the full reasoning as impact (the GPT-quality analysis)
-      // Use the brief action as the recommendation (one-liner the user acts on)
-      finalInsights.push({
-        issue: rec.action_payload.intent || rec.action || "AI Recommendation",
-        impact: rec.action_payload.strategic_rationale || "",
-        reasoning: rec.reasoning,                                    // FULL multi-paragraph analysis
-        recommendation: rec.action,                                  // brief action one-liner
-        execution_plan: rec.action_payload.execution_plan || [],     // step-by-step
-        execution_type: rec.execution_type,
-        action_type: rec.action_payload.action?.type,
-        priority: rec.risk_level === "high" ? "CRITICAL" : rec.risk_level === "medium" ? "HIGH" : "MEDIUM",
-        entityId: rec.action_payload.entity_ids?.[0] || undefined,
-        entityName: rec.action_payload.filters?.[0]?.value
-          ? String(rec.action_payload.filters[0].value)
-          : undefined,
-        entityType: rec.action_payload.entity_type as any || undefined,
-        confidence: rec.confidence,
-        source: rec.sop_alignment === "disagrees" ? "MIXED" : "AI"
-      });
-    });
-  }
-
-  // Always augment with SOP insights if they don't overlap significantly or if AI failed
-  // FIXED: Duplicate detection now uses entity ID matching instead of fragile substring
-  sopInsights.forEach(sop => {
-    const isDuplicate = finalInsights.some(fi => {
-      // If both have entity IDs, match on entity — much more reliable than string matching
-      if (fi.entityId && sop.entityId && fi.entityId === sop.entityId) {
-        // Same entity — check if roughly same type of recommendation
-        const fiAction = fi.recommendation.toLowerCase();
-        const sopAction = sop.recommendation.toLowerCase();
-        const bothPause = fiAction.includes("pause") && sopAction.includes("pause");
-        const bothScale = fiAction.includes("scale") && sopAction.includes("scale");
-        const bothBudget = fiAction.includes("budget") && sopAction.includes("budget");
-        return bothPause || bothScale || bothBudget;
-      }
-      // Fallback: only match if both are account-level AND have similar issue type
-      if (!fi.entityId && !sop.entityId && fi.issue && sop.issue) {
-        return fi.issue.toLowerCase() === sop.issue.toLowerCase();
-      }
-      return false;
-    });
-
-    if (!isDuplicate || !hasValidAiResponse) {
-      finalInsights.push({
-        issue: sop.issue,
-        impact: sop.impact,
-        recommendation: sop.recommendation,
-        priority: sop.priority,
-        entityId: sop.entityId,
-        entityName: sop.entityName,
-        entityType: sop.entityType,
-        confidence: 0.9,
-        source: "SOP"
-      });
-    }
-  });
-
-  // Sort by priority and then confidence
-  const priorityMap = { "CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1 };
-  finalInsights.sort((a, b) => {
-    const pDiff = (priorityMap[b.priority] || 0) - (priorityMap[a.priority] || 0);
-    if (pDiff !== 0) return pDiff;
-    return b.confidence - a.confidence;
-  });
-
-  console.log(`[Layer 4: Output] Pipeline complete. Returning ${finalInsights.length} validated insights (AI: ${hasValidAiResponse ? 'YES' : 'FALLBACK'}).`);
-
+function splitBySeverity(cards: RecommendationCard[]) {
   return {
-    insights: finalInsights,
-    recommendations: aiResponse?.recommendations || [],
-    layer_contributions: aiResponse?.layer_contributions || { sop_fallback: true },
-    conflicts: aiResponse?.conflicts || [],
-    humanResponse,
-    modelUsed,
-    trace: {
-      layer1: layer1Data,
-      layer2: sopInsights,
-      layer3: aiResponse ? "Claude reasoning executed" : "AI layer failed or skipped",
-      layer4: finalInsights
-    }
+    CRITICAL: cards.filter((card) => card.severity === "CRITICAL"),
+    MEDIUM: cards.filter((card) => card.severity === "MEDIUM"),
+    LOW: cards.filter((card) => card.severity === "LOW"),
   };
 }
 
-function buildPromptForQuery(query: IntelligenceQuery, ctx: any, sopInsights: SopInsight[]) {
-  const base = query.type === "strategic_analysis"
-    ? buildStrategicPrompt(ctx)
-    : buildRecommendationPrompt(ctx, query.alertContext);
+function toCompatibilityPriority(severity: RecommendationCard["severity"]): StandardizedInsight["priority"] {
+  if (severity === "CRITICAL") return "CRITICAL";
+  if (severity === "MEDIUM") return "HIGH";
+  return "LOW";
+}
 
-  // Inject SOP deterministic findings as the "available SOPs" for Layer 2 filtering.
-  // Each entry shows the issue, its impact, and the raw SOP recommendation so Claude
-  // can select only relevant ones and enhance them — rather than accepting them blindly.
-  const sopBlock = sopInsights.length > 0
-    ? `\n\n--------------------------------------------------\n📋 AVAILABLE SOPs (deterministic Layer 2 findings — use ONLY what is relevant to the problem above):\n--------------------------------------------------\n${sopInsights.map((s, i) => `${i + 1}. [${s.priority}] Issue: "${s.issue}"${s.entityName ? ` → Entity: "${s.entityName}"` : ""}\n   Impact: ${s.impact}\n   Raw SOP Action: ${s.recommendation}`).join("\n\n")}\n\nNow apply the 4-layer pipeline strictly. Reject SOPs unrelated to the problem. Enhance the relevant ones with account-specific data.`
-    : "";
+function primarySolution(card: RecommendationCard): SolutionOption {
+  return card.solutions[0];
+}
+
+function cardToInsight(card: RecommendationCard): StandardizedInsight {
+  const solution = primarySolution(card);
+  return {
+    issue: card.diagnosis.problem,
+    impact: solution.expectedOutcome,
+    recommendation: solution.title,
+    reasoning: solution.rationale,
+    execution_plan: solution.steps,
+    execution_type: solution.classification === "AUTO-EXECUTE" ? "auto" : solution.classification === "MANUAL" ? "manual" : "confirm",
+    action_type: solution.actionPayload?.action?.type,
+    priority: toCompatibilityPriority(card.severity),
+    entityId: card.entity.id,
+    entityName: card.entity.name,
+    entityType: card.entity.type,
+    confidence: Number((solution.confidence / 100).toFixed(2)),
+    source: card.layerAnalysis.conflicts.length > 0 ? "MIXED" : "AI",
+  };
+}
+
+function formatSolutionLine(solution: SolutionOption): string {
+  const tag = solution.classification === "REJECT" ? "REJECT-SUGGESTED" : solution.classification;
+  return `[${tag}] ${solution.title}\n  Rationale: ${solution.rationale}\n  Risk: ${solution.risk} | Confidence: ${solution.confidence}%`;
+}
+
+function buildTerminalResponse(cards: RecommendationCard[], query: IntelligenceQuery): StructuredTerminalResponse {
+  const focusCard = cards[0];
+  if (!focusCard) {
+    const emptyText = [
+      "1. DIAGNOSIS",
+      "   - No score-driven problems are currently active.",
+      "",
+      "2. LAYER ANALYSIS",
+      "   - L1 (SOP): No rule-triggered issue.",
+      "   - L2 (AI): No root-cause escalation needed.",
+      "   - L3 (History): No active action pattern to validate.",
+      "   - L4 (Strategy): No strategic conflict detected.",
+      "",
+      "3. SOLUTIONS",
+      "   [MANUAL] Continue monitoring current winners and watch-zone entities",
+      "     Rationale: No document-qualified issue requires intervention right now.",
+      "     Risk: Low | Confidence: 90%",
+      "",
+      "4. EXPECTED OUTCOME",
+      "   - If actions are taken: Stable performance should continue.",
+      "   - If no action: No immediate deterioration is expected from score data.",
+    ].join("\n");
+
+    return {
+      diagnosis: ["No score-driven problems are currently active."],
+      layerAnalysis: ["L1-L4 remain clear because no document-qualified issue was detected."],
+      solutions: ["[MANUAL] Continue monitoring current winners and watch-zone entities"],
+      expectedOutcome: ["Stable performance should continue."],
+      text: emptyText,
+    };
+  }
+
+  const diagnosis = [
+    `Entity: ${focusCard.entity.name} | Score: ${focusCard.entity.score.toFixed(1)}/100 | Classification: ${focusCard.entity.classification}`,
+    `Problem: ${focusCard.diagnosis.problem}`,
+    `Data: ${focusCard.diagnosis.data.join(" | ")}`,
+  ];
+
+  const layerAnalysis = [
+    `L1 (SOP): ${focusCard.layerAnalysis.l1.action} because ${focusCard.layerAnalysis.l1.reasoning}`,
+    `L2 (AI): ${focusCard.layerAnalysis.l2.action} because ${focusCard.layerAnalysis.l2.reasoning}`,
+    `L3 (History): ${focusCard.layerAnalysis.l3.reasoning}`,
+    `L4 (Strategy): ${focusCard.layerAnalysis.l4.reasoning}`,
+  ];
+  if (focusCard.layerAnalysis.conflicts.length > 0) {
+    layerAnalysis.push(`CONFLICTS: ${focusCard.layerAnalysis.conflicts.join(" | ")}`);
+  }
+
+  const solutions = focusCard.solutions.map(formatSolutionLine);
+  const expectedOutcome = [
+    `If actions are taken: ${primarySolution(focusCard).expectedOutcome}`,
+    `If no action: ${focusCard.expectedOutcome}`,
+  ];
+
+  const text = [
+    "1. DIAGNOSIS",
+    ...diagnosis.map((line) => `   - ${line}`),
+    "",
+    "2. LAYER ANALYSIS",
+    ...layerAnalysis.map((line) => `   - ${line}`),
+    "",
+    "3. SOLUTIONS",
+    ...solutions.map((line) => `   ${line}`),
+    "",
+    "4. EXPECTED OUTCOME",
+    ...expectedOutcome.map((line) => `   - ${line}`),
+  ].join("\n");
+
+  return { diagnosis, layerAnalysis, solutions, expectedOutcome, text };
+}
+
+function filterCardsForAlert(cards: RecommendationCard[], alertContext?: IntelligenceQuery["alertContext"]) {
+  if (!alertContext?.problem) return cards;
+  const problemText = alertContext.problem.toLowerCase();
+  const metricText = alertContext.metric?.toLowerCase() || "";
+  const campaignText = Object.values(alertContext.metrics || {})
+    .map((value) => String(value).toLowerCase())
+    .join(" ");
+  const tokens = problemText
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4);
+
+  const filtered = cards.filter((card) => {
+    const haystack = `${card.entity.name} ${card.entity.type} ${card.diagnosis.problem} ${card.diagnosis.data.join(" ")} ${card.diagnosis.rootCauseChain.join(" ")}`
+      .toLowerCase();
+
+    if (haystack.includes(problemText)) return true;
+    if (metricText && haystack.includes(metricText)) return true;
+    if (campaignText && (haystack.includes(campaignText) || campaignText.includes(card.entity.name.toLowerCase()))) return true;
+
+    const tokenMatches = tokens.filter((token) => haystack.includes(token));
+    if (tokenMatches.length >= 2) return true;
+    if (tokenMatches.length >= 1 && metricText && haystack.includes(metricText)) return true;
+
+    return problemText.includes(card.entity.name.toLowerCase());
+  });
+
+  return filtered.length > 0 ? filtered : cards;
+}
+
+function severityWeight(severity: RecommendationCard["severity"]): number {
+  return severity === "CRITICAL" ? 3 : severity === "MEDIUM" ? 2 : 1;
+}
+
+function sortCards(cards: RecommendationCard[], query: IntelligenceQuery): RecommendationCard[] {
+  const message = query.message?.toLowerCase() || "";
+  return [...cards].sort((left, right) => {
+    const leftBase = severityWeight(left.severity) * 100 + primarySolution(left).confidence;
+    const rightBase = severityWeight(right.severity) * 100 + primarySolution(right).confidence;
+
+    const leftCommandBoost = message && `${left.entity.name} ${primarySolution(left).title}`.toLowerCase().includes(message) ? 120 : 0;
+    const rightCommandBoost = message && `${right.entity.name} ${primarySolution(right).title}`.toLowerCase().includes(message) ? 120 : 0;
+
+    return rightBase + rightCommandBoost - (leftBase + leftCommandBoost);
+  });
+}
+
+function analyzeSinglePlatform(ctx: any, query: IntelligenceQuery, platform: "meta" | "google", analysisData: any) {
+  const problems = detectProblemsFromScores(analysisData, platform, ctx);
+  const cards = problems.map((problem) => runSolutionPipeline(problem, ctx));
+  return { problems, cards };
+}
+
+function analysisDataForPlatform(query: IntelligenceQuery, platform: "meta" | "google") {
+  const analysisData = query.analysisData || {};
+  if (query.platform !== "all") return analysisData;
+
+  const campaigns = (analysisData.campaign_audit || []).filter((item: any) => item._sourcePlatform === platform);
+  return {
+    campaign_audit: campaigns,
+    account_pulse: analysisData.account_pulse || {},
+  };
+}
+
+export async function insightsEngine(query: IntelligenceQuery): Promise<IntelligenceResult> {
+  if (query.platform === "all") {
+    const platformResults = await Promise.all(
+      (["meta", "google"] as const).map(async (platform) => {
+        const ctx = await assembleContext(query.clientId, platform, query.type, analysisDataForPlatform(query, platform));
+        return analyzeSinglePlatform(ctx, query, platform, ctx.layer2.analysisData);
+      }),
+    );
+
+    const mergedCards = sortCards(
+      filterCardsForAlert(platformResults.flatMap((result) => result.cards), query.alertContext),
+      query,
+    );
+    const tiers = splitBySeverity(mergedCards);
+    const terminalResponse = buildTerminalResponse(mergedCards, query);
+    const recommendations = cardsToRecommendations(mergedCards, query.message);
+
+    return {
+      insights: mergedCards.map(cardToInsight),
+      recommendations,
+      recommendation_tiers: tiers,
+      layer_contributions: {
+        problems_detected: platformResults.reduce((sum, result) => sum + result.problems.length, 0),
+        l1_rules: mergedCards.filter((card) => card.layerAnalysis.l1.confidence > 0).length,
+        l2_overrides: mergedCards.filter((card) => card.layerAnalysis.l1.action !== card.layerAnalysis.l2.action).length,
+        l3_history_checks: mergedCards.length,
+        l4_strategy_checks: mergedCards.length,
+      },
+      conflicts: mergedCards.flatMap((card) => card.layerAnalysis.conflicts),
+      humanResponse: terminalResponse.text,
+      modelUsed: "document-driven",
+      terminalResponse,
+      trace: {
+        layer1: mergedCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l1.action })),
+        layer2: mergedCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l2.action })),
+        layer3: mergedCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l3.action })),
+        layer4: mergedCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l4.action })),
+      },
+    };
+  }
+
+  const ctx = await assembleContext(query.clientId, query.platform, query.type || "recommendation", query.analysisData);
+  const analysisData = ctx.layer2.analysisData;
+  const { problems, cards } = analyzeSinglePlatform(ctx, query, query.platform, analysisData);
+  const filteredCards = sortCards(filterCardsForAlert(cards, query.alertContext), query);
+  const tiers = splitBySeverity(filteredCards);
+  const terminalResponse = buildTerminalResponse(filteredCards, query);
+  const recommendations = cardsToRecommendations(filteredCards, query.message);
 
   return {
-    system: base.system,
-    user: base.user + sopBlock,
+    insights: filteredCards.map(cardToInsight),
+    recommendations,
+    recommendation_tiers: tiers,
+    layer_contributions: {
+      problems_detected: problems.length,
+      l1_rules: filteredCards.filter((card) => card.layerAnalysis.l1.confidence > 0).length,
+      l2_overrides: filteredCards.filter((card) => card.layerAnalysis.l1.action !== card.layerAnalysis.l2.action).length,
+      l3_history_checks: filteredCards.length,
+      l4_strategy_checks: filteredCards.length,
+    },
+    conflicts: filteredCards.flatMap((card) => card.layerAnalysis.conflicts),
+    humanResponse: terminalResponse.text,
+    modelUsed: "document-driven",
+    terminalResponse,
+    trace: {
+      layer1: filteredCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l1.action })),
+      layer2: filteredCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l2.action })),
+      layer3: filteredCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l3.action })),
+      layer4: filteredCards.map((card) => ({ id: card.id, action: card.layerAnalysis.l4.action })),
+    },
   };
 }
 
 export async function processQuery(query: IntelligenceQuery): Promise<IntelligenceResult> {
   return insightsEngine(query);
-}
-
-function parseAdCortexResponse(rawContent: string): AdCortexResponse {
-  // ── Step 1: Strip markdown code fences ──────────────────────────────────────
-  // Claude-Sonnet wraps JSON in ```json ... ``` despite instructions not to.
-  let clean = rawContent.trim();
-  const fenceMatch = clean.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) {
-    clean = fenceMatch[1].trim();
-  } else if (clean.startsWith("```")) {
-    // Opening fence present but response was truncated before closing fence
-    clean = clean.replace(/^```(?:json)?\s*/i, "").trim();
-  }
-
-  // ── Step 2: Clean JSON.parse of the full response ────────────────────────────
-  let parsed: any = null;
-  try {
-    parsed = JSON.parse(clean);
-  } catch { /* truncated or malformed — fall through to recovery */ }
-
-  if (parsed && Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
-    console.log(`[Layer 3: Parser] Clean parse OK. ${parsed.recommendations.length} recommendations.`);
-    return {
-      recommendations: parsed.recommendations.map(sanitizeRecommendation),
-      layer_contributions: parsed.layer_contributions || {},
-      conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
-    };
-  }
-
-  // ── Step 3: Bracket-counting recovery for truncated responses ────────────────
-  // When the response is cut off mid-JSON, each recommendation object that was
-  // FULLY written before the cut is still valid. Extract them individually.
-  const recoveredRecs: any[] = [];
-  try {
-    const arrayStart = clean.indexOf('"recommendations"');
-    if (arrayStart !== -1) {
-      const bracketOpen = clean.indexOf('[', arrayStart);
-      if (bracketOpen !== -1) {
-        let i = bracketOpen + 1;
-        const len = clean.length;
-        while (i < len) {
-          // Skip whitespace and commas between objects
-          while (i < len && (',\n\r \t'.includes(clean[i]))) i++;
-          if (i >= len || clean[i] === ']') break;
-          if (clean[i] !== '{') break;
-
-          // Walk to the matching closing brace
-          let depth = 0;
-          let inString = false;
-          let escape = false;
-          const objStart = i;
-
-          for (; i < len; i++) {
-            const ch = clean[i];
-            if (escape) { escape = false; continue; }
-            if (ch === '\\' && inString) { escape = true; continue; }
-            if (ch === '"') { inString = !inString; continue; }
-            if (inString) continue;
-            if (ch === '{') depth++;
-            else if (ch === '}') {
-              depth--;
-              if (depth === 0) {
-                const objStr = clean.slice(objStart, i + 1);
-                try { recoveredRecs.push(JSON.parse(objStr)); } catch { /* malformed, skip */ }
-                i++;
-                break;
-              }
-            }
-          }
-          if (depth !== 0) break; // remaining object was truncated — stop
-        }
-      }
-    }
-  } catch (e: any) {
-    console.warn(`[Layer 3: Parser] Bracket recovery error: ${e.message}`);
-  }
-
-  if (recoveredRecs.length > 0) {
-    console.warn(`[Layer 3: Parser] Truncation recovery: salvaged ${recoveredRecs.length} complete recommendation(s).`);
-    return {
-      recommendations: recoveredRecs.map(sanitizeRecommendation),
-      layer_contributions: {},
-      conflicts: [`Response truncated by token limit. ${recoveredRecs.length} of 5 recommendations recovered.`],
-    };
-  }
-
-  // ── Step 4: Force-close heuristic ───────────────────────────────────────────
-  let forceAttempt = clean;
-  for (let i = 0; i < 5; i++) {
-    try {
-      parsed = JSON.parse(forceAttempt);
-      if (parsed && Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
-        console.warn(`[Layer 3: Parser] Force-close succeeded on attempt ${i + 1}.`);
-        return {
-          recommendations: parsed.recommendations.map(sanitizeRecommendation),
-          layer_contributions: parsed.layer_contributions || {},
-          conflicts: Array.isArray(parsed.conflicts) ? parsed.conflicts : [],
-        };
-      }
-    } catch { /* keep trying */ }
-    forceAttempt += "]}";
-  }
-
-  // ── Step 5: True fallback — nothing parseable ────────────────────────────────
-  console.error(`[Layer 3: Parser] All recovery strategies failed. Raw preview: "${rawContent.substring(0, 300)}..."`);
-  return buildFallbackResponse(rawContent);
-}
-
-function sanitizeRecommendation(rec: any, index: number): AdCortexRecommendation {
-  return {
-    rank: rec.rank ?? index + 1,
-    action: rec.action || "Unknown action",
-    confidence: typeof rec.confidence === "number" ? Math.max(0, Math.min(1, rec.confidence)) : 0.5,
-    source_layers: Array.isArray(rec.source_layers) ? rec.source_layers : ["layer2"],
-    sop_alignment: ["agrees", "disagrees", "extends"].includes(rec.sop_alignment) ? rec.sop_alignment : "agrees",
-    reasoning: rec.reasoning || "No reasoning provided",
-    execution_type: ["auto", "manual", "confirm"].includes(rec.execution_type) ? rec.execution_type : "manual",
-    risk_level: ["low", "medium", "high"].includes(rec.risk_level) ? rec.risk_level : "medium",
-    action_payload: sanitizeActionPayload(rec.action_payload),
-  };
-}
-
-function sanitizeActionPayload(payload: any): AdCortexRecommendation["action_payload"] {
-  if (!payload || typeof payload !== "object") {
-    return {
-      intent: "Unknown intent",
-      action: { type: "clarify", parameters: { reason: "Could not parse action payload" } },
-    };
-  }
-  return {
-    intent: payload.intent || "Interpreted action",
-    platform: payload.platform,
-    filters: Array.isArray(payload.filters) ? payload.filters : [],
-    action: payload.action || { type: "clarify", parameters: {} },
-    execution_plan: Array.isArray(payload.execution_plan) ? payload.execution_plan : [],
-    strategic_rationale: payload.strategic_rationale || "",
-    risk_checks: Array.isArray(payload.risk_checks) ? payload.risk_checks : [],
-  };
-}
-
-function buildFallbackResponse(rawContent: string): AdCortexResponse {
-  const isClarity = rawContent.toLowerCase().includes("clarif");
-  return {
-    recommendations: [{
-      rank: 1,
-      action: isClarity ? "Clarification needed" : "Review analysis",
-      confidence: 0.3,
-      source_layers: ["layer2"],
-      sop_alignment: "agrees",
-      reasoning: rawContent.substring(0, 500),
-      execution_type: "manual",
-      risk_level: "low",
-      action_payload: {
-        intent: "Fallback — Claude response was not structured JSON",
-        action: { type: "clarify", parameters: { reason: "Response could not be parsed into action format" } },
-      },
-    }],
-    layer_contributions: { note: "Parse failure. Check reasoning." },
-    conflicts: ["Claude response parsing failed"],
-  };
-}
-
-function formatHumanResponse(result: AdCortexResponse): string {
-  if (result.recommendations.length === 0) return "No specific recommendations generated.";
-  const primary = result.recommendations[0];
-  let response = primary.reasoning;
-  if (primary.action_payload.action?.type && primary.action_payload.action.type !== "clarify") {
-    const planSteps = primary.action_payload.execution_plan || [];
-    if (planSteps.length > 0) response += "\n\n📋 Execution Plan:\n" + planSteps.map((s) => `• ${s}`).join("\n");
-  }
-  return response;
 }

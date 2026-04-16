@@ -173,6 +173,47 @@ export function scoreStagedCostDynamic(actual: number, target: number): number {
 }
 
 /**
+ * Score a rate metric (CTR, CVR, TSR, VHR, FFR) using quadratic decay formula
+ * Higher is better. shortfall from target is penalized.
+ */
+export function scoreHigher(actual: number, target: number, weight: number): number {
+  if (target <= 0) return weight;
+  if (actual >= target) return weight;
+  const d = (target - actual) / target;
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+}
+
+/**
+ * Score lead volume vs expected leads (pro-rata)
+ */
+export function scoreLeads(actual: number, expected: number, weight: number): number {
+  if (expected <= 0) return weight;
+  if (actual >= expected) return weight;
+  const d = (expected - actual) / expected;
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+}
+
+/**
+ * Score frequency based on funnel-layer thresholds
+ */
+export function scoreFrequency(freq: number, warn: number, severe: number, weight: number): number {
+  if (freq <= warn) return weight;
+  if (freq >= severe) return 0;
+  const excess = (freq - warn) / (severe - warn);
+  return weight * Math.max(0, 1 - excess * excess);
+}
+
+/**
+ * Score creative age with grace period and quadratic decay
+ */
+export function scoreCreativeAge(age: number, refreshDays: number, maxDays: number, weight: number): number {
+  if (age <= refreshDays) return weight;
+  if (age >= maxDays) return 0;
+  const decay = (age - refreshDays) / (maxDays - refreshDays);
+  return weight * Math.max(0, 1 - decay * decay);
+}
+
+/**
  * Score budget pacing using quadratic formula
  *
  * Formula (Mojo AdCortex v1.0):

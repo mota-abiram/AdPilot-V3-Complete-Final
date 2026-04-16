@@ -146,7 +146,7 @@ export function scoreQsComponent(rating: string): number {
 
 /**
  * Meta Campaign Health Weights:
- * CPL vs target: 35 | Frequency: 15 | CPM: 15 | CTR: 10 | Lead Volume: 10 | Budget Utilization: 10 | CVR: 5
+ * CPL vs target: 39 | Frequency: 19 | CPM: 19 | CTR: 14 | CVR: 9
  */
 export function calculateMetaCampaignHealth(data: {
   cpl: number;
@@ -170,13 +170,11 @@ export function calculateMetaCampaignHealth(data: {
   const budgetUtilScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - budgetUtilDev * 2))));
 
   const breakdown: Record<string, number> = {
-    cpl: scoreLinear(data.cpl, targets.cpl, 35, true),
-    frequency: scoreLinear(data.frequency, targets.frequency_max, 15, true),
-    cpm: scoreLinear(data.cpm, targets.cpm_max, 15, true),
-    ctr: scoreLinear(data.ctr, targets.ctr_min, 10, false),
-    lead_volume: (leadVolumeScore / 100) * 10,
-    budget_utilization: (budgetUtilScore / 100) * 10,
-    cvr: scoreLinear(data.cvr, 3.0, 5, false),
+    cpl: scoreLinear(data.cpl, targets.cpl, 39, true),
+    frequency: scoreLinear(data.frequency, targets.frequency_max, 19, true),
+    cpm: scoreLinear(data.cpm, targets.cpm_max, 19, true),
+    ctr: scoreLinear(data.ctr, targets.ctr_min, 14, false),
+    cvr: scoreLinear(data.cvr, 3.0, 9, false),
   };
   const total = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   return { score: Math.round(total * 10) / 10, breakdown };

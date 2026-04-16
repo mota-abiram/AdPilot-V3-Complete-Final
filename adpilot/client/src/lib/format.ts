@@ -79,8 +79,8 @@ export function formatCompact(num: number): string {
 export function getHealthColor(score: number): string {
   if (score >= 85) return "text-emerald-400";
   if (score >= 70) return "text-emerald-500";
-  if (score >= 40) return "text-amber-500";
-  return "text-red-500";
+  if (score >= 40) return "text-amber-400";
+  return "text-red-400";
 }
 
 export function getHealthBgColor(score: number): string {
@@ -102,26 +102,27 @@ export function getHealthBarBg(score: number): string {
  */
 export type MetricStatus = "GREEN" | "YELLOW" | "ORANGE" | "RED" | "BLUE";
 
-export function getMetricStatus(score: number, weight?: number): MetricStatus {
+export function getMetricStatus(score: number, weight?: number): MetricStatus | "CRITICAL" {
   if (weight && weight > 0) {
     const ratio = score / weight;
     if (ratio >= 0.7) return "GREEN";
     if (ratio >= 0.4) return "ORANGE";
-    return "RED";
+    return "CRITICAL";
   }
 
   if (score >= 75) return "GREEN";
   if (score >= 55) return "YELLOW";
   if (score >= 35) return "ORANGE";
-  return "RED";
+  return "CRITICAL";
 }
 
-export function getMetricStatusColor(status: MetricStatus): { bg: string; text: string; border: string } {
+export function getMetricStatusColor(status: MetricStatus | "CRITICAL"): { bg: string; text: string; border: string } {
   switch (status) {
     case "GREEN": return { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30" };
     case "YELLOW": return { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" };
     case "ORANGE": return { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20" };
-    case "RED": return { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" };
+    case "RED": 
+    case "CRITICAL": return { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" };
     case "BLUE": return { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20" };
   }
 }
@@ -163,13 +164,27 @@ export function getTrendInfo(trend: string, isInverse = false): { arrow: string;
 }
 
 /**
- * Get CPL color based on dynamic thresholds
+ * Get CPL color using live benchmarks
  */
-export function getCplColor(cpl: number, thresholds?: { cpl_target: number; cpl_alert: number; cpl_critical: number }): string {
-  if (!thresholds) return "text-foreground";
-  if (cpl <= thresholds.cpl_target) return "text-emerald-400";
-  if (cpl <= thresholds.cpl_alert) return "text-amber-400";
+export function getCplColorWithBenchmarks(
+  cpl: number,
+  benchmarks?: { cpl_target?: number; cpl_alert?: number; cpl_critical?: number; cpl?: number }
+): string {
+  if (!benchmarks) return "text-foreground";
+  const target = benchmarks.cpl_target ?? benchmarks.cpl ?? 800;
+  const alert = benchmarks.cpl_alert ?? target * 1.25;
+  const critical = benchmarks.cpl_critical ?? target * 1.5;
+
+  if (cpl <= target) return "text-emerald-400";
+  if (cpl <= alert) return "text-amber-400";
   return "text-red-400";
+}
+
+/**
+ * Legacy wrapper for getCplColorWithBenchmarks
+ */
+export function getCplColor(cpl: number, thresholds?: any): string {
+  return getCplColorWithBenchmarks(cpl, thresholds);
 }
 
 /**
@@ -180,10 +195,13 @@ export function getClassificationColor(classification: string): { bg: string; te
     case "GREEN": return { bg: "bg-emerald-500/15", text: "text-emerald-400" };
     case "YELLOW": return { bg: "bg-amber-500/15", text: "text-amber-400" };
     case "ORANGE": return { bg: "bg-orange-500/15", text: "text-orange-400" };
-    case "RED": return { bg: "bg-red-500/15", text: "text-red-400" };
+    case "RED": 
+    case "CRITICAL":
+    case "ALERT":
+    case "POOR":
+    case "UNDERPERFORMER": return { bg: "bg-red-500/15", text: "text-red-400" };
     case "WINNER": return { bg: "bg-emerald-500/15", text: "text-emerald-400" };
     case "WATCH": return { bg: "bg-amber-500/15", text: "text-amber-400" };
-    case "UNDERPERFORMER": return { bg: "bg-red-500/15", text: "text-red-400" };
     case "NEW": return { bg: "bg-blue-500/15", text: "text-blue-400" };
     default: return { bg: "bg-gray-500/15", text: "text-gray-400" };
   }
@@ -220,7 +238,7 @@ export function getVideoMetricColor(metric: "tsr" | "vhr" | "ffr", value: number
 }
 
 /**
- * Get CTR color
+ * Get CTR color (hardcoded fallback - prefer getCtrColorWithBenchmarks)
  */
 export function getCtrColor(ctr: number): string {
   if (ctr < 0.4) return "text-red-400";
@@ -230,11 +248,47 @@ export function getCtrColor(ctr: number): string {
 }
 
 /**
- * Get frequency color
+ * Get CTR color using live benchmarks
+ */
+export function getCtrColorWithBenchmarks(
+  ctr: number,
+  benchmarks?: { ctr_target?: number; ctr_alert?: number; ctr_critical?: number }
+): string {
+  if (!benchmarks) return getCtrColor(ctr);
+  
+  const target = benchmarks.ctr_target ?? 1.0;
+  const alert = benchmarks.ctr_alert ?? target * 0.7;
+  const critical = benchmarks.ctr_critical ?? target * 0.4;
+  
+  if (ctr < critical) return "text-red-400";
+  if (ctr < alert) return "text-amber-400";
+  if (ctr >= target) return "text-emerald-400";
+  return "text-foreground";
+}
+
+/**
+ * Get frequency color (hardcoded fallback - prefer getFrequencyColorWithBenchmarks)
  */
 export function getFrequencyColor(freq: number): string {
   if (freq > 2.5) return "text-red-400";
   if (freq > 1.8) return "text-amber-400";
+  return "text-emerald-400";
+}
+
+/**
+ * Get frequency color using live benchmarks
+ */
+export function getFrequencyColorWithBenchmarks(
+  freq: number,
+  benchmarks?: { frequency_warn?: number; frequency_severe?: number; freq_warn?: number; freq_severe?: number }
+): string {
+  if (!benchmarks) return getFrequencyColor(freq);
+  
+  const warn = benchmarks.frequency_warn ?? benchmarks.freq_warn ?? 1.8;
+  const severe = benchmarks.frequency_severe ?? benchmarks.freq_severe ?? 2.5;
+  
+  if (freq > severe) return "text-red-400";
+  if (freq > warn) return "text-amber-400";
   return "text-emerald-400";
 }
 

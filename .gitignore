@@ -21,5 +21,14 @@ server/public/
 # Logs
 *.log
 
+# Local Postgres data directory (dev only)
+adpilot/data/
+adpilot/data/**
+
+# Agent runtime status (dev only)
+ads_agent/data/scheduler_status.json
+ads_agent/data/platform_sync_state.json
+ads_agent/.google_ads_token_cache.json
+
 # Archives
 *.tar.gz

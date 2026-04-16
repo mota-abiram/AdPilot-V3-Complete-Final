@@ -71,11 +71,11 @@ export default function AuditPage() {
           <h1 className="t-page-title text-foreground flex items-center gap-2">
             System Performance Audit
             <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/5 gap-1.5 py-1">
-              <ShieldCheck className="w-3 h-3" /> Standardized Intelligence v1.0
+              <ShieldCheck className="w-3 h-3" /> Audit Review
             </Badge>
           </h1>
           <p className="t-label text-muted-foreground mt-0.5">
-            {activeClient?.name} · {activePlatformInfo?.label} · Verified via 4-Layer Pipeline
+            {activeClient?.name} · {activePlatformInfo?.label}
           </p>
         </div>
       </div>
@@ -127,7 +127,7 @@ export default function AuditPage() {
         <Card className="border-border/50">
           <CardHeader className="border-b border-border/40">
             <CardTitle className="t-section-title flex items-center gap-2">
-               <Zap className="w-4 h-4 text-emerald-400" /> Layer 2: SOP Audit Findings
+               <Zap className="w-4 h-4 text-emerald-400" /> Audit Findings
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -166,7 +166,7 @@ export default function AuditPage() {
         <Card className="border-border/50">
           <CardHeader className="border-b border-border/40 bg-blue-500/3">
              <CardTitle className="t-section-title flex items-center gap-2">
-                <Brain className="w-4 h-4 text-blue-400" /> Layer 3: Strategic AI Reasoning
+                <Brain className="w-4 h-4 text-blue-400" /> Strategic Recommendations
              </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -199,16 +199,15 @@ export default function AuditPage() {
         </Card>
       </div>
 
-      {/* Intelligence Trace Info */}
+      {/* Audit Info */}
       <div className="p-4 bg-muted/20 border border-border/40 rounded-xl flex items-start gap-4">
          <div className="size-8 rounded-lg bg-background flex items-center justify-center border border-border/40">
             <ShieldCheck className="w-4 h-4 text-primary" />
          </div>
          <div className="space-y-1">
-            <p className="text-xs font-bold text-foreground">Trace Integrity Verified</p>
+            <p className="text-xs font-bold text-foreground">Audit Complete</p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-               This audit has been cross-referenced against the current platform state using the 4-layer pipeline. 
-               All hardcoded frontend logic has been disabled to ensure full traceability and data consistency.
+               This audit reviews campaign performance against standard operating procedures and identifies optimization opportunities.
             </p>
          </div>
       </div>

@@ -46,6 +46,7 @@ export interface AssembledContext {
     analysisData: any;
     intellect_insights: IntellectInsights;
     platformContext: PlatformContext;
+    alertRelatedEntities?: string[];
   };
   layer3: {
     recentActions: LearningEntry[];

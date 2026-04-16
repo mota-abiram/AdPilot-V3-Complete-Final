@@ -26,10 +26,23 @@ export interface SopInsight {
 
 export function analyzeSop(analysisData: any, targets: any, platform: string): SopInsight[] {
   const insights: SopInsight[] = [];
-  const targetCpl = targets?.cpl || 800;
+  // 1. Dynamic Benchmark Derivation (Mojo AdCortex v1.2)
+  // If no explicit target is set, we infer one from the account's current health and performance.
+  const ap = analysisData.account_pulse || {};
+  let targetCpl = targets?.cpl;
+  
+  if (!targetCpl || targetCpl <= 0) {
+    const accountAvgCpl = ap.overall_cpl || ap.avg_cpl || 0;
+    if (accountAvgCpl > 0) {
+      // If no target set, use the account's current average as the baseline benchmark.
+      targetCpl = accountAvgCpl;
+    } else {
+      // Last resort: platform-specific defaults
+      targetCpl = platform === "google" ? 850 : 720;
+    }
+  }
 
   // ═══ 1. Account Level Pulse ═══════════════════════════════════════
-  const ap = analysisData.account_pulse || {};
 
   // 1.1 Critical CPL Deviation
   if (ap.overall_cpl > targetCpl * 1.5) {

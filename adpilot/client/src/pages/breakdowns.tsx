@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnifiedActions, type UnifiedActionItem, type ActionState } from "@/components/unified-actions";
+import { HealthScoreBreakdown } from "@/components/health-score-breakdown";
 
 // ─── Constants & Types ──────────────────────────────────────────────
 
@@ -114,48 +115,6 @@ function formatNumber(n: number) {
 
 // ─── Shared Components ─────────────────────────────────────────────
 
-function ScoreExpansion({ score, row, cplTarget, ctrTarget }: any) {
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
-        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">CPL Efficiency (50)</p>
-        <div className="flex items-end gap-2">
-          <p className="text-sm font-bold">{score.cplScore}</p>
-          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
-            <div className={`h-full ${score.cplScore >= 35 ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${(score.cplScore/50)*100}%` }} />
-          </div>
-        </div>
-      </div>
-      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
-        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">CTR Impact (20)</p>
-        <div className="flex items-end gap-2">
-          <p className="text-sm font-bold">{score.ctrScore}</p>
-          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
-            <div className={`h-full ${score.ctrScore >= 14 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${(score.ctrScore/20)*100}%` }} />
-          </div>
-        </div>
-      </div>
-      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
-        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Lead Volume (20)</p>
-        <div className="flex items-end gap-2">
-          <p className="text-sm font-bold">{score.volumeScore}</p>
-          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
-            <div className={`h-full bg-primary`} style={{ width: `${(score.volumeScore/20)*100}%` }} />
-          </div>
-        </div>
-      </div>
-      <div className="p-3 rounded-xl bg-background/40 border border-border/50 shadow-sm">
-        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Spend Util (10)</p>
-        <div className="flex items-end gap-2">
-          <p className="text-sm font-bold">{score.efficiencyScore}</p>
-          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden mb-1">
-            <div className={`h-full bg-blue-500`} style={{ width: `${(score.efficiencyScore/10)*100}%` }} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function getHealthStatus(s: number) {
   if (s >= 75) return { label: "Excellent", color: "text-emerald-500", bg: "bg-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20" };
@@ -441,9 +400,23 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                     {isExpanded && (
                       <tr className="bg-muted/10">
                         <td colSpan={7} className="p-8 border-b border-primary/20 space-y-6">
-                          <div className="space-y-4">
-                            <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary underline underline-offset-8">AI Strategic Audit Breakdown</h4>
-                            <ScoreExpansion score={score} row={row} cplTarget={cplTarget} ctrTarget={ctrTarget} />
+                          <div className="space-y-6">
+                            <HealthScoreBreakdown
+                              entityName={row.dimension}
+                              scoreBreakdown={{
+                                "CPL_Efficiency": score.cplScore,
+                                "CTR_Impact": score.ctrScore,
+                                "Lead_Volume": score.volumeScore,
+                                "Spend_Utilization": score.efficiencyScore
+                              }}
+                              detailedBreakdown={{
+                                "CPL_Efficiency": { actual: row.cpl, target: cplTarget, unit: "currency", contribution: score.cplScore, weight: 50 },
+                                "CTR_Impact": { actual: row.ctr / 100, target: ctrTarget / 100, unit: "percent", contribution: score.ctrScore, weight: 20 },
+                                "Lead_Volume": { actual: row.leads, target: Math.round(totalLeads / scoredRows.length), unit: "number", contribution: score.volumeScore, weight: 20 },
+                                "Spend_Utilization": { actual: row.spend, target: Math.round(totalSpend / scoredRows.length), unit: "currency", contribution: score.efficiencyScore, weight: 10 }
+                              }}
+                            />
+                            
                             <div className={cn("p-5 rounded-xl border bg-background/80 shadow-sm space-y-2", health.border)}>
                               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Expert Recommendation:</p>
                               <p className="text-sm font-medium text-foreground leading-relaxed">
@@ -644,9 +617,28 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr className="bg-[#F0BC00]/5">
-                        <td colSpan={8} className="p-4 border-b border-[#F0BC00]/20 text-xs text-muted-foreground">
-                          Strategic analysis for Google segment <strong>{row.dimension}</strong>. Cost efficiency is tracking and conversions are being qualified. Adjust bids if CPA drift exceeds 20%.
+                      <tr className="bg-muted/5">
+                        <td colSpan={8} className="p-8 border-b border-border/40 space-y-6">
+                          <HealthScoreBreakdown
+                            entityName={row.dimension}
+                            scoreBreakdown={{
+                              "CPL_Efficiency": row.cpl > 0 && row.cpl < 850 ? 80 : 40,
+                              "Conversion_Volume": row.conversions > 0 ? 90 : 20,
+                              "CTR_Impact": row.ctr > 1 ? 85 : 45
+                            }}
+                            detailedBreakdown={{
+                              "CPL_Efficiency": { actual: row.cpl, target: 850, unit: "currency", contribution: row.cpl > 0 && row.cpl < 850 ? 40 : 20, weight: 50 },
+                              "Conversion_Volume": { actual: row.conversions, target: 5, unit: "number", contribution: row.conversions > 0 ? 18 : 4, weight: 20 },
+                              "CTR_Impact": { actual: row.ctr / 100, target: 0.012, unit: "percent", contribution: row.ctr > 1 ? 17 : 9, weight: 20 }
+                            }}
+                          />
+                          <div className="p-5 rounded-xl border border-border/40 bg-background/80 shadow-sm mt-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Strategic analysis:</p>
+                            <p className="text-sm font-medium text-foreground leading-relaxed">
+                              Strategic analysis for Google segment <strong>{row.dimension}</strong>. Cost per lead is {row.cpl > 0 ? formatINR(row.cpl, 0) : "not yet established"}. 
+                              {row.cpl > 0 && row.cpl < 850 ? " Performance is within acceptable Google benchmarks." : " Intervention may be required to qualify traffic and reduce CPA drift."}
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     )}

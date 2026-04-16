@@ -6,6 +6,8 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+import fs from "fs";
+import path from "path";
 
 export interface IStorage {
   // Clients
@@ -37,7 +39,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllClients(): Promise<Client[]> {
-    return await db.select().from(clients);
+    try {
+      const rows = await db.select().from(clients);
+      if (rows.length > 0) return rows;
+    } catch (err) {
+      console.warn("[Storage] getAllClients DB failed, falling back to registry JSON:", err);
+    }
+
+    // Fallback: legacy registry JSON (keeps scheduler functional in dev without DB)
+    try {
+      const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
+      const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
+      if (!fs.existsSync(REGISTRY_FILE)) return [];
+      const raw = JSON.parse(fs.readFileSync(REGISTRY_FILE, "utf-8"));
+      if (!Array.isArray(raw)) return [];
+      return raw as Client[];
+    } catch (err) {
+      console.warn("[Storage] getAllClients registry fallback failed:", err);
+      return [];
+    }
   }
 
   async createClient(insertClient: any): Promise<Client> {
@@ -60,8 +80,35 @@ export class DatabaseStorage implements IStorage {
 
   // Credentials
   async getCredentials(clientId: string): Promise<ClientCredential | undefined> {
-    const [creds] = await db.select().from(clientCredentials).where(eq(clientCredentials.clientId, clientId));
-    return creds;
+    try {
+      const [creds] = await db
+        .select()
+        .from(clientCredentials)
+        .where(eq(clientCredentials.clientId, clientId));
+      if (creds) return creds;
+    } catch (err) {
+      // Local dev frequently starts with a DB that hasn't been bootstrapped yet.
+      // Fall back to the legacy JSON credential store so "Run Agent" still works.
+      console.warn(`[Storage] getCredentials DB failed for '${clientId}', falling back to JSON:`, err);
+    }
+
+    try {
+      const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
+      const CREDENTIALS_FILE = path.join(DATA_BASE, "clients_credentials.json");
+      if (!fs.existsSync(CREDENTIALS_FILE)) return undefined;
+      const raw = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8"));
+      const found = Array.isArray(raw) ? raw.find((x: any) => x?.clientId === clientId) : null;
+      if (!found) return undefined;
+      return {
+        clientId,
+        meta: found.meta ?? null,
+        google: found.google ?? null,
+        updatedAt: new Date(),
+      } as unknown as ClientCredential;
+    } catch (err) {
+      console.warn(`[Storage] getCredentials JSON fallback failed for '${clientId}':`, err);
+      return undefined;
+    }
   }
 
   async saveCredentials(clientId: string, data: any): Promise<ClientCredential> {

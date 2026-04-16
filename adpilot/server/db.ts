@@ -44,10 +44,79 @@ export async function runMigrations() {
   if (!process.env.DATABASE_URL) return;
   const client = await pool.connect();
   try {
+    // This project is intentionally "migration-light" in dev and uses a small
+    // idempotent bootstrap to keep local DBs compatible across schema changes.
+    // Keep statements ordered so older DBs can be upgraded safely.
+
+    // --- clients table ---
     await client.query(`
-      ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_by text;
+      CREATE TABLE IF NOT EXISTS "clients" (
+        "id" text PRIMARY KEY NOT NULL,
+        "name" text NOT NULL,
+        "short_name" text NOT NULL,
+        "project" text NOT NULL,
+        "location" text NOT NULL,
+        "target_locations" jsonb DEFAULT '[]'::jsonb,
+        "platforms" jsonb DEFAULT '{}'::jsonb NOT NULL,
+        "targets" jsonb DEFAULT '{}'::jsonb,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now(),
+        "created_by" text
+      );
     `);
-    console.log("[DB] Migrations applied");
+
+    // --- client_credentials table (required for scheduler "Run Agent") ---
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "client_credentials" (
+        "client_id" text PRIMARY KEY NOT NULL REFERENCES "clients"("id") ON DELETE CASCADE,
+        "meta" jsonb,
+        "google" jsonb,
+        "updated_at" timestamp DEFAULT now()
+      );
+    `);
+
+    // --- analysis_snapshots table (cadence-aware) ---
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "analysis_snapshots" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "client_id" text NOT NULL,
+        "platform" text NOT NULL,
+        "cadence" text NOT NULL DEFAULT 'twice_weekly',
+        "data" jsonb NOT NULL,
+        "created_at" timestamp DEFAULT now()
+      );
+    `);
+    // Upgrade older DBs that were created before cadence existed.
+    await client.query(`
+      ALTER TABLE "analysis_snapshots"
+        ADD COLUMN IF NOT EXISTS "cadence" text NOT NULL DEFAULT 'twice_weekly';
+    `);
+    // Replace the old uniqueness constraint (client, platform) with (client, platform, cadence).
+    await client.query(`DROP INDEX IF EXISTS "uq_analysis_client_platform";`);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "uq_analysis_client_platform_cadence"
+      ON "analysis_snapshots" USING btree ("client_id","platform","cadence");
+    `);
+
+    // --- performance_alerts table (fixes /api/performance-alerts 500s) ---
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "performance_alerts" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "client_id" text NOT NULL,
+        "platform" text NOT NULL,
+        "type" text NOT NULL,
+        "entity_id" text,
+        "entity_name" text,
+        "metric" text,
+        "severity" text NOT NULL,
+        "message" text NOT NULL,
+        "status" text DEFAULT 'active' NOT NULL,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now()
+      );
+    `);
+
+    console.log("[DB] Migrations applied (bootstrap)");
   } catch (err) {
     console.error("[DB] Migration failed:", err);
     throw err;

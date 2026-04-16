@@ -371,6 +371,7 @@ LAYER 1: SOP ANALYSIS (AI-INTERPRETED)
 - Read all SOP rules, thresholds, and alerts.
 - Use AI reasoning to interpret what they ACTUALLY imply for this specific client (not just restate them).
 - Identify core issues, anomalies, and signals.
+- **DYNAMIC BENCHMARKING (MISSING TARGETS)**: If a target in Layer 1 is "not set", you MUST derive an appropriate internal benchmark using account health, historical performance of winners, and platform context from Layer 2. Do not stop analysis due to missing targets.
 
 LAYER 2: AI ANALYSIS (INDEPENDENT THINKING)
 - Now ignore SOP rigidity and analyze the data using your own expert intelligence.
@@ -437,6 +438,7 @@ Your thinking MUST be sequential and dependent. Each layer builds on the previou
 LAYER 1 — SOP ANALYSIS (AI-INTERPRETED)
 - Interpret SOP rules, thresholds, and alerts
 - Extract the TRUE problem signals
+- **DYNAMIC BENCHMARKING**: If targets are "not set" in Layer 1, derive them implicitly from account health and performance data in Layer 2. Use the performance of 'WINNER' campaigns as a baseline for what is achievable for this specific account.
 
 LAYER 2 — INDEPENDENT AI ANALYSIS
 - Analyze performance independently
@@ -677,6 +679,7 @@ Map vague language to precise metrics:
 - "winners"/"top performers" → CPL < ${Math.round(targetCPL * 0.8)} AND conversions >= 3
 - "scale" → increase budget by 20-25%
 - "high CPL" → CPL > ${targetCPL}
+- **MISSING TARGETS**: If Target CPL is 'not set', use the current Account CPL from Layer 2 and the performance of identified 'WINNERS' to deduce a reasonable target (e.g., if Account CPL is 900 but Winners are at 600, a target of 700-750 is reasonable).
 
 ## OUTPUT RULES
 - DO NOT separate layers in the output. Provide consolidated What/Why/Next reasoning.

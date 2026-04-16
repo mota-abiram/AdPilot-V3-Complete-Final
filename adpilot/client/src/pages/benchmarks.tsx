@@ -50,6 +50,7 @@ interface Benchmarks {
   // Section 2: Engagement Metrics
   tsr_min: number;
   ctr_min: number;
+  cvr_min: number;
   cpm_min: number;
   cpm_max: number;
   cpc_max: number;
@@ -117,6 +118,7 @@ const SECTION_2_ENGAGEMENT: SectionDef = {
   fields: [
     { key: "tsr_min", label: "TSR Target (Thumb Stop Rate)", type: "number", step: "0.1", help: "3s views ÷ impressions — target ≥ 30%", suffix: "%" },
     { key: "ctr_min", label: "CTR Target", type: "number", step: "0.01", help: "Click-through rate target", suffix: "%" },
+    { key: "cvr_min", label: "CVR Target", type: "number", step: "0.01", help: "Conversion rate target", suffix: "%" },
     { key: "cpm_min", label: "CPM Ideal Low (₹)", type: "number", help: "Lower bound of ideal CPM range" },
     { key: "cpm_max", label: "CPM Ideal High (₹)", type: "number", help: "Upper bound / alert threshold for CPM" },
     { key: "cpc_max", label: "CPC Target (₹)", type: "number", help: "Ideal cost per click" },

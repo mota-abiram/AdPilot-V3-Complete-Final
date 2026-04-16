@@ -197,6 +197,7 @@ async function loadClientsWithCredentials(): Promise<Array<{
 
     for (const c of allClients) {
       const creds = await storage.getCredentials(c.id);
+      const envKey = (suffix: string) => `${String(c.id).toUpperCase().replace(/[^A-Z0-9]/g, "_")}_${suffix}`;
 
       // Google Credentials — DB only, no ENV fallback
       const g = creds?.google as any;
@@ -208,7 +209,28 @@ async function loadClientsWithCredentials(): Promise<Array<{
           GOOGLE_DEVELOPER_TOKEN: g.developerToken || "",
           GOOGLE_MCC_ID: g.mccId || "",
           GOOGLE_CUSTOMER_ID: g.customerId || "",
-        } : undefined;
+        } : (
+          // ENV fallback for local dev / single-client setups
+          (process.env[`GOOGLE_${envKey("CLIENT_ID")}`] && process.env[`GOOGLE_${envKey("CLIENT_SECRET")}`] && process.env[`GOOGLE_${envKey("REFRESH_TOKEN")}`])
+            ? {
+              GOOGLE_CLIENT_ID: process.env[`GOOGLE_${envKey("CLIENT_ID")}`] as string,
+              GOOGLE_CLIENT_SECRET: process.env[`GOOGLE_${envKey("CLIENT_SECRET")}`] as string,
+              GOOGLE_REFRESH_TOKEN: process.env[`GOOGLE_${envKey("REFRESH_TOKEN")}`] as string,
+              GOOGLE_DEVELOPER_TOKEN: (process.env[`GOOGLE_${envKey("DEVELOPER_TOKEN")}`] as string) || (process.env.GOOGLE_DEVELOPER_TOKEN || ""),
+              GOOGLE_MCC_ID: (process.env[`GOOGLE_${envKey("MCC_ID")}`] as string) || (process.env.GOOGLE_MCC_ID || ""),
+              GOOGLE_CUSTOMER_ID: (process.env[`GOOGLE_${envKey("CUSTOMER_ID")}`] as string) || (process.env.GOOGLE_CUSTOMER_ID || ""),
+            }
+            : (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN)
+              ? {
+                GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+                GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+                GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN,
+                GOOGLE_DEVELOPER_TOKEN: process.env.GOOGLE_DEVELOPER_TOKEN || "",
+                GOOGLE_MCC_ID: process.env.GOOGLE_MCC_ID || "",
+                GOOGLE_CUSTOMER_ID: process.env.GOOGLE_CUSTOMER_ID || "",
+              }
+              : undefined
+        );
 
       // Meta Credentials — DB only, no ENV fallback
       const m = creds?.meta as any;
@@ -216,7 +238,20 @@ async function loadClientsWithCredentials(): Promise<Array<{
         !String(m.accessToken).startsWith("YOUR_")) ? {
           META_ACCESS_TOKEN: m.accessToken,
           META_AD_ACCOUNT_ID: m.adAccountId,
-        } : undefined;
+        } : (
+          // ENV fallback for local dev / single-client setups
+          (process.env[`META_${envKey("ACCESS_TOKEN")}`] && process.env[`META_${envKey("AD_ACCOUNT_ID")}`])
+            ? {
+              META_ACCESS_TOKEN: process.env[`META_${envKey("ACCESS_TOKEN")}`] as string,
+              META_AD_ACCOUNT_ID: process.env[`META_${envKey("AD_ACCOUNT_ID")}`] as string,
+            }
+            : (process.env.META_ACCESS_TOKEN && process.env.META_AD_ACCOUNT_ID)
+              ? {
+                META_ACCESS_TOKEN: process.env.META_ACCESS_TOKEN,
+                META_AD_ACCOUNT_ID: process.env.META_AD_ACCOUNT_ID,
+              }
+              : undefined
+        );
 
       results.push({ id: c.id, googleCreds, metaCreds });
     }

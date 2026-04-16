@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
 import { DataTablePagination } from "@/components/data-table-pagination";
 import type { AdsetAnalysis } from "@shared/schema";
@@ -25,6 +26,7 @@ import {
 import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal, Info } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreIndicator } from "@/components/score-indicator";
+import { HealthScoreBreakdown } from "@/components/health-score-breakdown";
 import {
   formatINR,
   formatPct,
@@ -32,8 +34,13 @@ import {
   getLayerColor,
   getLearningStatusColor,
   getCplColor,
+  getCtrColor,
+  getCtrColorWithBenchmarks,
+  getFrequencyColor,
+  getFrequencyColorWithBenchmarks,
   truncate,
 } from "@/lib/format";
+import { useMetaBenchmarks, useDynamicThresholds } from "@/hooks/use-meta-benchmarks";
 import { useExecution } from "@/hooks/use-execution";
 import { ExecutionButton } from "@/components/execution-button";
 import { usePausedEntities } from "@/hooks/use-paused-entities";
@@ -62,16 +69,30 @@ function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark:
 }
 
 export default function AdsetsPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, benchmarks } = useClient();
+  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, activeClient } = useClient();
   const { executeBatch, isExecuting } = useExecution();
   const { isPaused: isEntityPaused } = usePausedEntities();
   const isGoogle = activePlatform === "google";
+  const apiBase = `/api/clients/${activeClient?.id}/${activePlatform}`;
+  const queryClient = useQueryClient();
+
+  // Use centralized benchmarks hook for reactive updates
+  const metaBenchmarks = useMetaBenchmarks();
+  const dynamicThresholds = useDynamicThresholds();
+
+  // Refetch adset data when benchmarks change (for Meta only)
+  useEffect(() => {
+    if (!isGoogle && activeClient?.id && metaBenchmarks.raw && Object.keys(metaBenchmarks.raw).length > 0) {
+      // Invalidate analysis queries to trigger refetch with new benchmarks
+      queryClient.invalidateQueries({ queryKey: [apiBase, "analysis"] });
+    }
+  }, [metaBenchmarks.raw, isGoogle, activeClient?.id, apiBase, queryClient]);
   const entityLabel = isGoogle ? "Ad Group" : "Adset";
   const entityLabelPlural = isGoogle ? "Ad Groups" : "Adsets";
 
   const [sortKey, setSortKey] = useState<SortKey>("health_score");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  
+
   const queryParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
   const initialFilter = queryParams.get("filter")?.toUpperCase() || "ALL";
   const initialCampaignId = queryParams.get("campaignId") || "ALL";
@@ -91,7 +112,17 @@ export default function AdsetsPage() {
   const [searchPageSize, setSearchPageSize] = useState(25);
   const [dgPage, setDgPage] = useState(1);
   const [dgPageSize, setDgPageSize] = useState(25);
-  
+
+  const formatMetricValue = (metricKey: string, value: any, unit?: string) => {
+    if (value == null || Number.isNaN(Number(value))) return "—";
+    const n = Number(value);
+    if (unit === "currency" || metricKey === "cpl" || metricKey === "cpm") return formatINR(n, 0);
+    if (unit === "percent" || metricKey === "ctr" || metricKey === "cvr" || metricKey === "budget") return `${n.toFixed(1)}%`;
+    if (metricKey === "leads") return formatNumber(n);
+    if (metricKey === "freq") return n.toFixed(2);
+    return formatNumber(n);
+  };
+
   useEffect(() => {
     const q = new URLSearchParams(window.location.hash.split("?")[1] || "");
     const f = q.get("filter")?.toUpperCase();
@@ -135,7 +166,7 @@ export default function AdsetsPage() {
     if (filterLayer !== "ALL") list = list.filter((a: any) => a.layer === filterLayer);
     if (filterClassification !== "ALL") list = list.filter((a: any) => a.classification === filterClassification);
     if (filterLearning !== "ALL") list = list.filter((a: any) => a.learning_status === filterLearning);
-    
+
     list.sort((a: any, b: any) => {
       const aVal = a[sortKey];
       const bVal = b[sortKey];
@@ -316,7 +347,7 @@ export default function AdsetsPage() {
 
   function renderAgCell(a: any, col: { key: SortKey, align: string, label: string }, isSearch: boolean) {
     const val = a[col.key];
-    
+
     if ((col.key as string) === "classification") return <td className="p-3"><StatusBadge classification={val} /></td>;
     if ((col.key as string) === "recommendation") return <td className="p-3"><Badge variant="outline" className="text-[9px] font-bold uppercase py-0">{val || "Hold"}</Badge></td>;
     if ((col.key as string) === "health_score") return (
@@ -325,10 +356,10 @@ export default function AdsetsPage() {
       </td>
     );
     if ((col.key as string) === "status") return <td className="p-3"><Badge variant={val === "ENABLED" ? "outline" : "secondary"} className={`text-[9px] px-1 py-0 ${val === "ENABLED" ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>{val}</Badge></td>;
-    
+
     const isPct = ["ctr", "cvr", "impression_share", "top_is_pct"].includes(col.key as string);
     const isINR = ["cost", "spend", "cpl", "avg_cpc", "cpm", "cpsv"].includes(col.key as string);
-    
+
     let displayVal: React.ReactNode = val ?? "—";
     let colorClass = "";
 
@@ -340,7 +371,7 @@ export default function AdsetsPage() {
         calcVal = val || (a.all_conversions > 0 ? a.cost / a.all_conversions : 0);
       }
       displayVal = formatINR(calcVal ?? 0, (col.key as string) === "avg_cpc" ? 2 : 0);
-      if (col.key === "cpl") colorClass = getCplColor(calcVal, data?.dynamic_thresholds);
+      if (col.key === "cpl") colorClass = getCplColor(calcVal, dynamicThresholds);
     } else if (typeof val === "number") {
       displayVal = formatNumber(val);
     }
@@ -361,59 +392,34 @@ export default function AdsetsPage() {
     return (
       <Fragment key={entityId}>
         <tr className={`border-b border-border/30 hover:bg-muted/3 transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : ""} ${isPaused ? "opacity-50" : ""} ${a.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}
-            onClick={() => {
-              setExpandedIds(prev => {
-                const next = new Set(prev);
-                if (next.has(entityId)) next.delete(entityId);
-                else next.add(entityId);
-                return next;
-              });
-            }}
+          onClick={() => {
+            setExpandedIds(prev => {
+              const next = new Set(prev);
+              if (next.has(entityId)) next.delete(entityId);
+              else next.add(entityId);
+              return next;
+            });
+          }}
         >
           <td className="p-3" onClick={(e) => e.stopPropagation()}><Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entityId)} /></td>
-          
+
           <td className="p-3 font-medium text-foreground truncate max-w-[200px]">{entityName}</td>
-          
+
           {columns.slice(1).map(col => renderAgCell(a, col, isSearch))}
-          
+
           <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-              <ExecutionButton action={isPaused ? "ENABLE_AD_GROUP" : "PAUSE_AD_GROUP"} entityId={entityId} entityName={entityName} entityType="ad_group" variant="ghost" size="icon" icon={isPaused ? <Play className="w-3.5 h-3.5 text-emerald-500" /> : <Pause className="w-3.5 h-3.5 text-muted-foreground" />} />
+            <ExecutionButton action={isPaused ? "ENABLE_AD_GROUP" : "PAUSE_AD_GROUP"} entityId={entityId} entityName={entityName} entityType="ad_group" variant={(!isPaused && a.classification === "UNDERPERFORMER") ? "destructive" : "ghost"} size="icon" icon={isPaused ? <Play className="w-3.5 h-3.5 text-emerald-500" /> : <Pause className="w-3.5 h-3.5" />} />
           </td>
         </tr>
         {isExpanded && a.score_breakdown && (
           <tr className="border-b border-border/30 bg-muted/20">
             <td colSpan={columns.length + 2} className="p-4">
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                  Health Score Breakdown — {entityName}
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {Object.entries(a.score_breakdown).map(([metric, score]: [string, any]) => {
-                    let band = (a.score_bands?.[metric] || "UNKNOWN").toUpperCase();
-                    if (band === "UNKNOWN" && typeof score === "number") {
-                      if (score >= 85) band = "EXCELLENT";
-                      else if (score >= 70) band = "GOOD";
-                      else if (score >= 40) band = "WATCH";
-                      else band = "POOR";
-                    }
-                    const bandColor = band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
-                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
-                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
-                                      band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-muted-foreground";
-                    return (
-                      <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
-                        <div className="flex-1">
-                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{metric.replace(/_/g, " ")}</p>
-                          <p className="text-xs font-black tabular-nums text-foreground">{typeof score === "number" ? score.toFixed(1) : String(score)}</p>
-                        </div>
-                        <Badge variant="outline" className={`text-[8px] font-black uppercase px-1 py-0 ${bandColor}`}>
-                          {band}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <HealthScoreBreakdown
+                entityName={entityName}
+                scoreBreakdown={a.score_breakdown}
+                scoreBands={a.score_bands}
+                detailedBreakdown={a.detailed_breakdown}
+              />
             </td>
           </tr>
         )}
@@ -494,24 +500,24 @@ export default function AdsetsPage() {
           <p className="text-xs text-muted-foreground">{adsets.length} active entities in current view</p>
         </div>
         <div className="flex items-center gap-2">
-            {isGoogle && campaignList.length > 0 && (
-              <select className="px-2 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50" value={filterCampaign} onChange={e => setFilterCampaign(e.target.value)}>
-                <option value="ALL">All Campaigns</option>
-                {campaignList.map((c: any) => <option key={c.id} value={c.id}>{truncate(c.name, 30)}</option>)}
+          {isGoogle && campaignList.length > 0 && (
+            <select className="px-2 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50" value={filterCampaign} onChange={e => setFilterCampaign(e.target.value)}>
+              <option value="ALL">All Campaigns</option>
+              {campaignList.map((c: any) => <option key={c.id} value={c.id}>{truncate(c.name, 30)}</option>)}
+            </select>
+          )}
+          {!isGoogle && (
+            <>
+              <select className="px-2 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50" value={filterLayer} onChange={e => setFilterLayer(e.target.value)}>
+                <option value="ALL">All Layers</option>
+                <option value="TOFU">TOFU</option><option value="MOFU">MOFU</option><option value="BOFU">BOFU</option>
               </select>
-            )}
-            {!isGoogle && (
-              <>
-                <select className="px-2 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50" value={filterLayer} onChange={e => setFilterLayer(e.target.value)}>
-                  <option value="ALL">All Layers</option>
-                  <option value="TOFU">TOFU</option><option value="MOFU">MOFU</option><option value="BOFU">BOFU</option>
-                </select>
-                <select className="px-2 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50" value={filterClassification} onChange={e => setFilterClassification(e.target.value)}>
-                  <option value="ALL">All Scores</option>
-                  <option value="WINNER">Winners</option><option value="WATCH">Watch</option><option value="UNDERPERFORMER">Underperformers</option>
-                </select>
-              </>
-            )}
+              <select className="px-2 py-1.5 text-xs rounded-md bg-muted/50 border border-border/50" value={filterClassification} onChange={e => setFilterClassification(e.target.value)}>
+                <option value="ALL">All Scores</option>
+                <option value="WINNER">Winners</option><option value="WATCH">Watch</option><option value="UNDERPERFORMER">Underperformers</option>
+              </select>
+            </>
+          )}
         </div>
       </div>
 
@@ -606,7 +612,9 @@ export default function AdsetsPage() {
                           <td className="p-3 max-w-[180px]">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <p className="font-bold text-foreground text-xs truncate cursor-default">{a.adset_name}</p>
+                                <p className="font-medium text-foreground text-xs truncate cursor-default">
+                                  {a.adset_name}
+                                </p>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-[10px]">{a.adset_name}</TooltipContent>
                             </Tooltip>
@@ -619,7 +627,14 @@ export default function AdsetsPage() {
 
                           {/* campaign_name */}
                           <td className="p-3 max-w-[140px]">
-                            <p className="text-xs text-muted-foreground truncate">{a.campaign_name || "—"}</p>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="text-xs text-muted-foreground truncate">{a.campaign_name || "—"}</p>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p className="text-xs">{a.campaign_name || "—"}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </td>
 
                           {/* layer */}
@@ -660,8 +675,8 @@ export default function AdsetsPage() {
                             {a.budget_utilization_pct > 0 ? (
                               <span className={
                                 a.budget_utilization_pct > 90 ? "text-red-400 font-bold" :
-                                a.budget_utilization_pct > 70 ? "text-amber-400" :
-                                "text-muted-foreground"
+                                  a.budget_utilization_pct > 70 ? "text-amber-400" :
+                                    "text-muted-foreground"
                               }>
                                 {a.budget_utilization_pct.toFixed(0)}%
                               </span>
@@ -672,24 +687,26 @@ export default function AdsetsPage() {
                           <td className="p-3 text-right tabular-nums text-xs font-bold">
                             <span className={
                               (a.leads ?? 0) >= 5 ? "text-emerald-400" :
-                              (a.leads ?? 0) >= 1 ? "text-amber-400" :
-                              "text-muted-foreground"
+                                (a.leads ?? 0) >= 1 ? "text-amber-400" :
+                                  "text-muted-foreground"
                             }>
                               {a.leads ?? 0}
                             </span>
                           </td>
 
                           {/* cpl */}
-                          <td className={`p-3 text-right tabular-nums text-xs font-black ${(a.leads ?? 0) > 0 ? getCplColor(a.cpl, data.dynamic_thresholds) : "text-muted-foreground"}`}>
+                          <td className={`p-3 text-right tabular-nums text-xs font-black ${(a.leads ?? 0) > 0 ? getCplColor(a.cpl, dynamicThresholds) : "text-muted-foreground"}`}>
                             {(a.leads ?? 0) > 0 ? formatINR(a.cpl ?? 0, 0) : "—"}
                           </td>
 
                           {/* ctr */}
                           <td className="p-3 text-right tabular-nums text-xs">
                             <span className={
-                              (a.ctr ?? 0) >= 1 ? "text-emerald-400 font-bold" :
-                              (a.ctr ?? 0) >= 0.5 ? "text-amber-400" :
-                              "text-muted-foreground"
+                              !isGoogle
+                                ? getCtrColorWithBenchmarks(a.ctr ?? 0, metaBenchmarks.raw)
+                                : (a.ctr ?? 0) >= 1 ? "text-emerald-400 font-bold" :
+                                  (a.ctr ?? 0) >= 0.5 ? "text-amber-400" :
+                                    "text-muted-foreground"
                             }>
                               {(a.ctr ?? 0) > 0 ? formatPct(a.ctr) : "—"}
                             </span>
@@ -720,14 +737,16 @@ export default function AdsetsPage() {
                             {(a.frequency ?? 0) > 0 ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className={`cursor-default ${(a.frequency ?? 0) > 3 ? "text-red-400 font-bold" : (a.frequency ?? 0) > 2 ? "text-amber-400" : ""}`}>
+                                  <span className={`cursor-default ${!isGoogle
+                                    ? getFrequencyColorWithBenchmarks(a.frequency ?? 0, metaBenchmarks.raw)
+                                    : (a.frequency ?? 0) > 3 ? "text-red-400 font-bold" : (a.frequency ?? 0) > 2 ? "text-amber-400" : ""}`}>
                                     {(a.frequency ?? 0).toFixed(2)}
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="text-[10px]">
-                                  {(a.frequency ?? 0) > 3 ? "High frequency — creative fatigue risk" :
-                                   (a.frequency ?? 0) > 2 ? "Monitor — approaching fatigue threshold" :
-                                   "Frequency within healthy range"}
+                                  {(a.frequency ?? 0) > (metaBenchmarks.frequencySevere || 2.5) ? "High frequency — creative fatigue risk" :
+                                    (a.frequency ?? 0) > (metaBenchmarks.frequencyWarn || 1.8) ? "Monitor — approaching fatigue threshold" :
+                                      "Frequency within healthy range"}
                                 </TooltipContent>
                               </Tooltip>
                             ) : "—"}
@@ -745,11 +764,11 @@ export default function AdsetsPage() {
                               entityId={a.adset_id}
                               entityName={a.adset_name}
                               entityType="adset"
-                              variant="ghost"
+                              variant={(!isPaused && a.classification === "UNDERPERFORMER") ? "destructive" : "ghost"}
                               size="icon"
                               icon={isPaused
                                 ? <Play className="w-3.5 h-3.5 text-emerald-500" />
-                                : <Pause className="w-3.5 h-3.5 text-muted-foreground" />
+                                : <Pause className="w-3.5 h-3.5" />
                               }
                             />
                           </td>
@@ -757,39 +776,12 @@ export default function AdsetsPage() {
                         {isExpanded && a.score_breakdown && (
                           <tr className="border-b border-border/30 bg-muted/20">
                             <td colSpan={20} className="p-4">
-                              <div className="space-y-3">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                                  Health Score Breakdown — {a.adset_name}
-                                </p>
-                                <div className="flex flex-wrap gap-3">
-                                  {Object.entries(a.score_breakdown || {}).map(([metric, score]: [string, any]) => {
-                                    const detailed = a.detailed_breakdown?.[metric];
-                                    const displayScore = detailed ? `${detailed.contribution.toFixed(1)} / ${detailed.weight}` : (typeof score === "number" ? score.toFixed(1) : String(score));
-                                    let band = (a.score_bands?.[metric] || "UNKNOWN").toUpperCase();
-                                    if (band === "UNKNOWN" && typeof score === "number") {
-                                      if (score >= 85) band = "EXCELLENT";
-                                      else if (score >= 70) band = "GOOD";
-                                      else if (score >= 40) band = "WATCH";
-                                      else band = "POOR";
-                                    }
-                                    const bandColor = band === "EXCELLENT" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" :
-                                                      band === "GOOD" ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
-                                                      band === "WATCH" ? "text-amber-400 bg-amber-500/10 border-amber-500/20" :
-                                                      band === "POOR" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-muted-foreground";
-                                    return (
-                                      <div key={metric} className="flex items-center gap-2 p-2 rounded-md bg-card border border-border/30 min-w-[140px]">
-                                        <div className="flex-1">
-                                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{metric.replace(/_/g, " ")}</p>
-                                          <p className="text-sm font-black tabular-nums text-foreground">{displayScore}</p>
-                                        </div>
-                                        <Badge variant="outline" className={`text-[8px] font-black uppercase px-1 py-0 ${bandColor}`}>
-                                          {band}
-                                        </Badge>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                              <HealthScoreBreakdown
+                                entityName={a.adset_name}
+                                scoreBreakdown={a.score_breakdown}
+                                detailedBreakdown={a.detailed_breakdown}
+                                scoreBands={a.score_bands}
+                              />
                             </td>
                           </tr>
                         )}

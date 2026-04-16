@@ -220,20 +220,56 @@ export function ClientProvider({ children }: { children: ReactNode }) {
 
   const apiBase = `/api/clients/${activeClientId}/${activePlatform}`;
 
-  // Fetch analysis data for active client/platform/cadence
+  // ─────────────────────────────────────────────────────────────────
+  // BENCHMARKS — fetch FIRST so analysis can depend on them
+  // ─────────────────────────────────────────────────────────────────
+  const {
+    data: benchmarks,
+    isLoading: isLoadingBenchmarks,
+  } = useQuery<Record<string, any>>({
+    queryKey: benchmarksQueryKey(activeClientId, activePlatform),
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks?platform=${activePlatform}`);
+      return res.json();
+    },
+    enabled: !!activeClientId,
+    staleTime: 0, // Always re-fetch after invalidation — no stale caching
+    retry: false,
+  });
+
+  // Create a signature from benchmarks to trigger analysis refetch when they change
+  const benchmarksSig = useMemo(() => {
+    if (!benchmarks) return "no-benchmarks";
+    // Include all keys that affect scoring/health calculation
+    const b = benchmarks || {};
+    return `cpl${b.cpl || 0}
+      -ctr${b.ctr_min || 0}
+      -freq${b.frequency_max || 0}
+      -cpsv${b.cpsv_low || 0}
+      -cpql${b.cpql_target || 0}
+      -budget${b.budget || 0}
+      -leads${b.leads || 0}
+      -gcpl${b.google_cpl || 0}
+      -gbudget${b.google_budget || 0}`;
+  }, [benchmarks]);
+
+  // ─────────────────────────────────────────────────────────────────
+  // ANALYSIS — depends on benchmarksSig for auto-refetch on benchmark changes
+  // ─────────────────────────────────────────────────────────────────
   const {
     data: rawAnalysisData,
     isLoading: isLoadingAnalysis,
     error: analysisError,
   } = useQuery<AnalysisData>({
-    queryKey: [apiBase, "analysis", activeCadence],
+    queryKey: [apiBase, "analysis", activeCadence, benchmarksSig],
     queryFn: async () => {
       const res = await apiRequest("GET", `${apiBase}/analysis?cadence=${activeCadence}`);
       return res.json();
     },
     enabled: !!activePlatformInfo?.enabled && !!activePlatformInfo?.hasData,
-    // Analysis data changes only on agent runs — 5 min stale window is safe
-    staleTime: 5 * 60 * 1000,
+    // CRITICAL: staleTime must be 0 so data updates immediately when benchmarks change
+    staleTime: 0,
+    placeholderData: (previousData: any) => previousData,
     retry: false,
   });
 
@@ -250,21 +286,6 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  // Benchmarks — single global fetch; all modules share this query key
-  const {
-    data: benchmarks,
-    isLoading: isLoadingBenchmarks,
-  } = useQuery<Record<string, any>>({
-    queryKey: benchmarksQueryKey(activeClientId, activePlatform),
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/benchmarks?platform=${activePlatform}`);
-      return res.json();
-    },
-    enabled: !!activeClientId,
-    staleTime: 0, // Always re-fetch after invalidation — no stale caching
-    retry: false,
-  });
-
   const analysisData = useMemo(() => {
     if (!rawAnalysisData) return undefined;
     return recalcMetricsFromDailyArrays(rawAnalysisData, activeCadence) as AnalysisData;
@@ -273,16 +294,19 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   // ── MTD-fixed analysis — always fetches cadence=monthly, ignores activeCadence ──
   // Used exclusively for Account Health and Health Score Breakdown sections so those
   // KPIs remain stable regardless of the cadence window the user has selected.
+  // Includes benchmarksSig so health scores update when benchmarks change.
   const {
     data: rawMtdAnalysisData,
   } = useQuery<AnalysisData>({
-    queryKey: [apiBase, "analysis", "monthly", "mtd-fixed"],
+    queryKey: [apiBase, "analysis", "monthly", "mtd-fixed", benchmarksSig],
     queryFn: async () => {
       const res = await apiRequest("GET", `${apiBase}/analysis?cadence=monthly`);
       return res.json();
     },
     enabled: !!activePlatformInfo?.enabled && !!activePlatformInfo?.hasData,
-    staleTime: 5 * 60 * 1000,
+    // CRITICAL: staleTime must be 0 so data updates immediately when benchmarks change
+    staleTime: 0,
+    placeholderData: (previousData: any) => previousData,
     retry: false,
   });
 

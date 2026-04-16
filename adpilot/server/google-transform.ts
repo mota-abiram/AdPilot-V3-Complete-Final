@@ -58,7 +58,7 @@ function recomputeGoogleHealthScore(data: any): {
 
   // ─── CPL Score (Lower is better) ───
   // benchmarks.google_cpl = "Google CPL Target" from Benchmarks tab
-  const cplTarget = benchmarks.google_cpl || benchmarks.cpl || 850;
+  const cplTarget = benchmarks.google_cpl || benchmarks.cpl || mp.targets?.cpl || 850;
   const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
   const cplScore = scoreWeightedCostMetric(
     actualLeadsMtd > 0 ? actualCplMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
@@ -71,7 +71,8 @@ function recomputeGoogleHealthScore(data: any): {
   const derivedDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const daysInMonth = (mp.days_elapsed ?? 0) + (mp.days_remaining ?? 0) || derivedDaysInMonth;
   const daysElapsed = mp.days_elapsed ?? rawMtd.days_elapsed ?? Math.min(now.getDate(), daysInMonth);
-  const monthlyBudget = mp.targets?.budget ?? rawMtd.target_budget ?? data.targets?.budget ?? 0;
+  // PRIORITY: Benchmarks tab budget, then pacing targets
+  const monthlyBudget = benchmarks.google_budget || benchmarks.budget || mp.targets?.budget || rawMtd.target_budget || data.targets?.budget || 0;
   const budgetScore = scoreWeightedBudgetMetric(
     actualSpendMtd,
     monthlyBudget,
@@ -82,7 +83,7 @@ function recomputeGoogleHealthScore(data: any): {
 
   // ─── CPQL Score (Lower is better: Staged) ───
   // benchmarks.google_cpql_target or benchmarks.cpql_target from Benchmarks tab
-  const cpqlTarget = benchmarks.google_cpql_target || benchmarks.cpql_target || 1500;
+  const cpqlTarget = benchmarks.google_cpql_target || benchmarks.cpql_target || mp.targets?.cpql || 1500;
   const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
   const cpqlScore = actualQLeadsMtd > 0
     ? scoreWeightedCostMetric(actualCpqlMtd, cpqlTarget, weights.cpql)
@@ -91,7 +92,7 @@ function recomputeGoogleHealthScore(data: any): {
   // ─── CPSV Score (Lower is better: Staged) ───
   // benchmarks.google_cpsv_low = "Google CPSV Target Low" from Benchmarks tab
   // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
-  const cpsvTarget = benchmarks.google_cpsv_low || benchmarks.cpsv_low || 0;
+  const cpsvTarget = benchmarks.google_cpsv_low || benchmarks.cpsv_low || mp.targets?.cpsv?.low || 0;
   const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
   const cpsvScore = scoreWeightedCostMetric(
     actualSvsMtd > 0 ? actualCpsvMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
@@ -590,7 +591,7 @@ function reconstructDetailed(breakdown: any, type: string, item: any = {}, targe
   const weights: Record<string, Record<string, number>> = {
     google_campaign: { cpl: 30, cvr: 22, cpc: 15, qs: 13, ctr: 10, is: 5, rsa: 5 },
     google_adgroup: { cpl: 30, cvr: 25, ctr: 15, qs: 15, is: 10, cpc: 5 },
-    google_dg: { cpl: 32, leads: 20, cvr: 15, ctr: 15, freq: 10, cpm: 8 },
+    google_dg: { cpl: 36, cvr: 19, ctr: 19, freq: 14, cpm: 12 },
     google_creative: { cpl: 35, cpm: 25, cr: 20, cpc: 20 },
     google_rsa: { ad_strength: 30, quality_score: 30, ctr: 20, expected_ctr: 20 }
   };

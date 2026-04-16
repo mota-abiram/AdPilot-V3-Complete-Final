@@ -370,8 +370,10 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   const cacheKey = getCacheKey(clientId, platform, cadence);
   const cached = analysisCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < ANALYSIS_CACHE_TTL) {
+    console.log(`[readAnalysisData] [CACHE HIT] Returning cached analysis for ${clientId}/${platform} (${cadence ?? 'default'})`);
     return cached.data;
   }
+  console.log(`[readAnalysisData] [CACHE MISS/INVALIDATED] Recalculating analysis scores for ${clientId}/${platform} (${cadence ?? 'default'})...`);
 
   let raw: any = null;
 
@@ -408,28 +410,25 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   }
 
   // 3. Load Benchmarks for health score calculation
+  // PRIORITY: platform-specific file first (written by PUT /benchmarks),
+  // then fall back to the generic benchmarks.json.
+  // This ensures scores always reflect the latest benchmarks saved from the UI.
   let benchmarksData: any = null;
   try {
-    // Try multiple paths for benchmarks
-    let bmPath = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
-    if (!fs.existsSync(bmPath)) {
-      // Try platform-specific benchmarks
-      bmPath = path.join(DATA_BASE, "clients", clientId, `benchmarks_${platform}.json`);
-    }
-    if (!fs.existsSync(bmPath)) {
-      // Try BENCHMARKS_BASE directory
-      bmPath = path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
-    }
-    if (!fs.existsSync(bmPath)) {
-      // Final fallback to generic benchmarks.json in BENCHMARKS_BASE
-      bmPath = path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
-    }
+    const canonicalPath = path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
+    const altPath1 = path.join(DATA_BASE, "clients", clientId, `benchmarks_${platform}.json`);
+    const altPath2 = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
+    const legacyPath = path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
 
-    if (fs.existsSync(bmPath)) {
+    // Try paths in priority order: platform-specific → fallback
+    const tryPaths = [canonicalPath, altPath1, altPath2, legacyPath];
+    const bmPath = tryPaths.find(p => fs.existsSync(p));
+
+    if (bmPath) {
       benchmarksData = JSON.parse(fs.readFileSync(bmPath, "utf-8"));
+      console.log(`[readAnalysisData] Loaded benchmarks from: ${bmPath}`);
     }
   } catch (e) {
-    // Silently fail if benchmarks don't exist
     console.warn(`[readAnalysisData] Failed to load benchmarks for ${clientId}/${platform}:`, e);
   }
 
@@ -504,6 +503,7 @@ async function getDefaultBenchmarks(clientId: string, platform?: string): Promis
     leads: platformTargets?.leads || 278,
     cpl: platformTargets?.cpl || 720,
     ctr_min: 0.7,
+    cvr_min: 4.0,
     cpm_max: 300,
     cpsv_low: platformTargets?.cpsv?.low || 18000,
     cpsv_high: platformTargets?.cpsv?.high || 20000,

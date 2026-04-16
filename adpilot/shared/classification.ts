@@ -7,15 +7,13 @@ export type Classification = "WINNER" | "WATCH" | "UNDERPERFORMER";
  * UNDERPERFORMER: Health < 50 OR CPL > 1.3× target
  */
 export function getClassification(
-  healthScore: number, 
-  cpl?: number | null, 
-  targetCpl?: number
+  healthScore: number
 ): Classification {
-  if (healthScore >= 75 && (targetCpl === undefined || cpl === undefined || cpl === null || cpl <= targetCpl)) {
+  if (healthScore >= 70) {
     return "WINNER";
   }
   
-  if (healthScore < 50 || (targetCpl !== undefined && targetCpl > 0 && cpl !== undefined && cpl !== null && cpl > targetCpl * 1.3)) {
+  if (healthScore < 35) {
     return "UNDERPERFORMER";
   }
   

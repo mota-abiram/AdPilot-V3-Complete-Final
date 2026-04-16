@@ -64,6 +64,7 @@ import {
   Plus,
   Brain,
   Database,
+  Ban,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -103,12 +104,15 @@ import {
   getStatusColor,
   getMetricStatus,
   getMetricStatusColor,
-  getCplColor,
-  getClassificationColor,
-  getCtrColor,
   getFrequencyColor,
   truncate,
+  getCplColorWithBenchmarks,
+  getCtrColorWithBenchmarks,
+  getFrequencyColorWithBenchmarks,
+  getHealthColor,
+  getClassificationColor as getClassificationStyle,
 } from "@/lib/format";
+import { useMetaBenchmarks } from "@/hooks/use-meta-benchmarks";
 
 /**
  * DASHBOARD INTELLIGENCE
@@ -146,10 +150,14 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     return ["/api/intelligence", activeClient?.id, activePlatform, "insights", alert.summary, alert.metric];
   }, [alert, activeClient?.id, activePlatform]);
 
-  const { data: pipelineData } = useQuery<{ insights: any[]; recommendations: any[] }>({
+  const { data: pipelineData, isLoading: isLoadingPipeline, isFetched: hasFetchedPipeline } = useQuery<{
+    insights: any[];
+    recommendations: any[];
+    recommendation_tiers?: { CRITICAL?: any[]; MEDIUM?: any[]; LOW?: any[] };
+  }>({
     queryKey: pipelineQueryKey ?? ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
     queryFn: async () => {
-      if (!activeClient?.id || !activePlatform || !alert) return { insights: [], recommendations: [] };
+      if (!activeClient?.id || !activePlatform || !alert) return { insights: [], recommendations: [], recommendation_tiers: { CRITICAL: [], MEDIUM: [], LOW: [] } };
       const params = new URLSearchParams({ type: "recommendation" });
       if (alert.summary) params.set("alert_problem", alert.summary);
       if (alert.metric) params.set("alert_metric", alert.metric);
@@ -161,10 +169,30 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     staleTime: 0, // Always re-fetch for each distinct alert
   });
 
-  const isLoadingAI = !pipelineData && !!pipelineQueryKey;
+  const isLoadingAI = isLoadingPipeline && !!pipelineQueryKey;
 
   const suggestions = useMemo(() => {
-    const recs = pipelineData?.recommendations || [];
+    const directRecommendations = Array.isArray(pipelineData?.recommendations) ? pipelineData.recommendations : [];
+    const tierCards = [
+      ...(pipelineData?.recommendation_tiers?.CRITICAL || []),
+      ...(pipelineData?.recommendation_tiers?.MEDIUM || []),
+      ...(pipelineData?.recommendation_tiers?.LOW || []),
+    ];
+
+    const recs = directRecommendations.length > 0
+      ? directRecommendations
+      : tierCards.map((card: any) => {
+          const primary = Array.isArray(card?.solutions) ? card.solutions[0] : null;
+          return {
+            action: primary?.title || card?.diagnosis?.symptom || "Review issue",
+            reasoning: primary?.rationale || card?.diagnosis?.problem || "",
+            execution_type: primary?.classification === "AUTO-EXECUTE" ? "auto" : primary?.classification === "REJECT" ? "confirm" : "manual",
+            action_payload: {
+              action: { type: primary?.actionPayload?.action?.type || "" },
+              execution_plan: primary?.steps || [],
+            },
+          };
+        });
 
     return recs.map((rec: any, idx: number) => ({
       rank: idx + 1,
@@ -177,6 +205,8 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
       actionType: rec.action_payload?.action?.type || "",
     }));
   }, [pipelineData]);
+
+  const hasSuggestions = suggestions.length > 0;
 
   if (!alert) return null;
 
@@ -224,11 +254,20 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
         </DialogHeader>
 
         <DialogBody className="p-5 space-y-3 max-h-[72vh] overflow-y-auto">
-          {suggestions.length === 0 && (
+          {isLoadingAI && (
             <div className="space-y-3">
               <Skeleton className="h-28 w-full rounded-xl" />
               <Skeleton className="h-28 w-full rounded-xl" />
               <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+          )}
+
+          {!isLoadingAI && hasFetchedPipeline && !hasSuggestions && (
+            <div className="rounded-xl border border-border/40 bg-card p-5 text-center space-y-2">
+              <p className="text-sm font-semibold text-foreground">No fix suggestions matched this alert</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                The dashboard request loaded, but the alert-specific filter did not find any recommendation cards for this issue.
+              </p>
             </div>
           )}
 
@@ -476,6 +515,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [showAllCriticalAlerts, setShowAllCriticalAlerts] = useState(false);
   const [showAllFatigueAlerts, setShowAllFatigueAlerts] = useState(false);
+  const [isTriggeringAgent, setIsTriggeringAgent] = useState(false);
 
 
 
@@ -519,7 +559,6 @@ export default function DashboardPage() {
     activePlatform,
     activeCadence,
     syncState,
-    benchmarks,
     mtdAnalysisData,
   } = useClient();
   const now = useNow();
@@ -655,9 +694,19 @@ export default function DashboardPage() {
   const rawAp = (data as any)?.account_pulse || {};
   const rawCampaignAudit = Array.isArray((data as any)?.campaign_audit) ? (data as any)?.campaign_audit : Array.isArray((data as any)?.campaigns) ? (data as any)?.campaigns : [];
   const thresholds = (data as any)?.dynamic_thresholds || (data as any)?.thresholds || {};
-  const t_cpl_target = thresholds?.cpl_target || benchmarks?.cpl_target || (isGoogle ? 850 : 800);
-  const t_cpl_critical = thresholds?.cpl_critical || benchmarks?.cpl_critical || (isGoogle ? 1360 : 1200);
-  const t_ctr_min = thresholds?.ctr_min || benchmarks?.ctr_min || (isGoogle ? 0.3 : 0.4);
+
+  // ── Centralized Reactive Benchmarks ──
+  const metaBenchmarksData = useMetaBenchmarks();
+  const metaBenchmarks = metaBenchmarksData.raw; // For backward compat with existing uses of 'benchmarks'
+  const {
+    cplTarget: t_cpl_target,
+    cplCritical: t_cpl_critical,
+    ctrTarget: t_ctr_min,
+    cpsvTarget: t_cpsv_target,
+    cpqlTarget: t_cpql_target,
+    budgetTarget: t_budget_target,
+    leadsTarget: t_leads_target,
+  } = metaBenchmarksData;
 
   const rawFatigueAlerts = Array.isArray((data as any)?.fatigue_alerts) ? (data as any)?.fatigue_alerts : [];
   const rawAdRecommendations = Array.isArray((data as any)?.recommendations) ? (data as any)?.recommendations : [];
@@ -678,13 +727,13 @@ export default function DashboardPage() {
     return {
       spend: apiMtd?.spend ?? agentMtd?.spend ?? agentMtd?.spend_mtd ?? 0,
       leads: apiMtd?.leads ?? agentMtd?.leads ?? agentMtd?.leads_mtd ?? 0,
-      svs: apiMtd?.svs ?? agentMtd?.svs ?? agentMtd?.svs_mtd ?? benchmarks?.svs_mtd ?? 0,
-      qualified_leads: apiMtd?.qualified_leads ?? agentMtd?.qualified_leads ?? agentMtd?.qualified_leads_mtd ?? agentMtd?.positive_leads_mtd ?? benchmarks?.positive_leads_mtd ?? 0,
+      svs: apiMtd?.svs ?? agentMtd?.svs ?? agentMtd?.svs_mtd ?? metaBenchmarks?.svs_mtd ?? 0,
+      qualified_leads: apiMtd?.qualified_leads ?? agentMtd?.qualified_leads ?? agentMtd?.qualified_leads_mtd ?? agentMtd?.positive_leads_mtd ?? metaBenchmarks?.positive_leads_mtd ?? 0,
       closures: apiMtd?.closures ?? agentMtd?.closures ?? agentMtd?.closures_mtd ?? 0,
       impressions: apiMtd?.impressions ?? agentMtd?.impressions ?? agentMtd?.impressions_mtd ?? rawAp?.total_impressions ?? 0,
       clicks: agentMtd?.clicks ?? agentMtd?.clicks_mtd ?? rawAp?.total_clicks ?? 0,
     };
-  }, [mtdData, rawMp, rawMtdPacing, benchmarks, rawAp]);
+  }, [mtdData, rawMp, rawMtdPacing, metaBenchmarks, rawAp]);
 
   // ─── 5. Core useMemo Hooks ─────────────────────────────────────────
 
@@ -844,14 +893,14 @@ export default function DashboardPage() {
 
   const criticalAlerts = useMemo(() => {
     // 1. Snapshot-based alerts
-    type AlertItem = { 
+    type AlertItem = {
       id?: number;
-      message: string; 
-      level: "critical" | "warning"; 
-      metric: string; 
-      value?: string | number; 
-      benchmark?: string | number; 
-      campaignId?: string; 
+      message: string;
+      level: "critical" | "warning";
+      metric: string;
+      value?: string | number;
+      benchmark?: string | number;
+      campaignId?: string;
       campaignName?: string;
       type: string;
       isStateful?: boolean;
@@ -879,7 +928,7 @@ export default function DashboardPage() {
           const ratio = s / w;
           if (ratio < 0.5) {
             let msg = "";
-            switch(m) {
+            switch (m) {
               case 'cpl': msg = "Cost Per Lead (CPL) is dragging down account health."; break;
               case 'cpql': msg = "Quality Lead cost (CPQL) is critical (currently 0.00 or excessive)."; break;
               case 'cpsv': msg = "Cost Per Site Visit (MTD) is inefficient."; break;
@@ -974,14 +1023,14 @@ export default function DashboardPage() {
 
   // --- Global Alerts (Used for Dropdown Indicators to avoid context-switching glitch) ---
   const allCampaignAlerts = useMemo(() => {
-    type AlertItem = { 
+    type AlertItem = {
       id?: number;
-      message: string; 
-      level: "critical" | "warning"; 
-      metric: string; 
-      value?: string | number; 
-      benchmark?: string | number; 
-      campaignId?: string; 
+      message: string;
+      level: "critical" | "warning";
+      metric: string;
+      value?: string | number;
+      benchmark?: string | number;
+      campaignId?: string;
       campaignName?: string;
       type: string;
       isStateful?: boolean;
@@ -1027,7 +1076,7 @@ export default function DashboardPage() {
       const key = `${a.type}-${a.campaignId || a.campaignName || "all"}-${a.metric}`;
       if (!uniqueMap.has(key)) uniqueMap.set(key, a);
     });
-    
+
     const uniqueRaw = Array.from(uniqueMap.values());
     const grouped: any[] = [];
 
@@ -1123,7 +1172,159 @@ export default function DashboardPage() {
     });
   }, [ap.daily_ctrs, ap.daily_clicks, ap.daily_impressions, ap.daily_tsrs, ap.daily_vhrs, ap.daily_cpms, ap.overall_cpm, dayLabels, blendedTSR, blendedVHR]);
 
-  // ─── 6. Data Loading & Errors (Below hooks) ─────────────────────────
+  // ─── 6. Derived Performance Metrics (Must be before early returns) ────────
+  const lastSuccessfulFetch =
+    syncState?.last_successful_fetch ||
+    (data as any)?.last_successful_fetch ||
+    (data as any)?.generated_at ||
+    (data as any)?.timestamp ||
+    null;
+  const lastSuccessfulFetchDate = parseSyncTimestamp(lastSuccessfulFetch);
+
+  const analysisSummary = (data as any)?.summary || {
+    total_fatigue_alerts: ((data as any)?.frequency_audit?.alerts || []).length,
+    immediate_actions: ((data as any)?.auto_pause_candidates || []).length,
+  };
+
+  const costStack = (data as any)?.cost_stack || {};
+  const rawScoringSummary = (data as any)?.scoring_summary || {};
+
+  const scoringSummary = useMemo(() => {
+    if (campaignAnalysis.length === 0) return null;
+
+    return {
+      total: campaignAnalysis.length,
+      winners: campaignAnalysis.filter((a: any) => (a.health_score ?? a.score ?? 0) >= 70).length,
+      watch: campaignAnalysis.filter((a: any) => (a.health_score ?? a.score ?? 0) >= 35 && (a.health_score ?? a.score ?? 0) < 70).length,
+      underperformers: campaignAnalysis.filter((a: any) => (a.health_score ?? a.score ?? 0) < 35).length,
+      auto_pause: Array.isArray(rawScoringSummary?.campaign_scores?.auto_pause)
+        ? rawScoringSummary.campaign_scores.auto_pause
+        : [],
+    };
+  }, [campaignAnalysis, rawScoringSummary]);
+
+  const funnelData = costStack?.funnel_split_actual
+    ? Object.entries(costStack.funnel_split_actual)
+      .filter(([, v]) => (v as number) > 0)
+      .map(([key, val]) => ({ name: key, value: val as number }))
+    : isGoogle && (data as any)?.search_summary && (data as any)?.dg_summary && ap.total_spend_30d > 0
+      ? [
+        { name: "Search", value: Math.round(((((data as any)?.search_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
+        { name: "Demand Gen", value: Math.round(((((data as any)?.dg_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
+      ].filter(d => d.value > 0)
+      : [];
+
+  const mtdFixedData = (mtdAnalysisData as any) || (data as any);
+  const backendHealthScore = mtdFixedData?.account_health_score;
+  const backendBreakdown = mtdFixedData?.account_health_breakdown || {};
+  const accountHealthScore = typeof backendHealthScore === "number" ? backendHealthScore : 0;
+
+  const accountHealthClassification = useMemo(() => {
+    if (accountHealthScore >= 70) return "WINNER";
+    if (accountHealthScore < 35) return "UNDERPERFORMER";
+    return "WATCH";
+  }, [accountHealthScore]);
+
+  const mtdStats = (mtdData as any)?.mtd;
+  const healthScoreComponents = {
+    cpsv: backendBreakdown?.cpsv ?? 0,
+    pacing_budget: backendBreakdown?.budget ?? 0,
+    cpql: backendBreakdown?.cpql ?? 0,
+    cpl: backendBreakdown?.cpl ?? 0,
+    creative: backendBreakdown?.creative ?? 0,
+  };
+
+  const svsMtd = authMtd.svs;
+  const qLeadsMtd = authMtd.qualified_leads;
+  const cpsvMtd = authMtd.svs > 0 ? authMtd.spend / authMtd.svs : 0;
+  const targetCpsvValue = t_cpsv_target || (isGoogle ? 20000 : 0);
+
+  const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
+  const healthBreakdownItems = useMemo(() => {
+    const items = [
+      { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, target: t_cpsv_target },
+      { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, target: t_budget_target },
+      { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, target: t_cpql_target },
+      { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, target: t_cpl_target },
+      { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
+    ];
+    return items.map(item => ({
+      ...item,
+      status: getMetricStatus(item.score, item.weight)
+    }));
+  }, [healthScoreComponents, mtdStats, t_cpsv_target, t_budget_target, t_cpql_target, t_cpl_target]);
+
+  const agentVersion: string = (data as any)?.agent_version || "";
+  const searchSummary: any = isGoogle ? (data as any)?.search_summary || null : null;
+  const dgSummary: any = isGoogle ? (data as any)?.dg_summary || null : null;
+  const patternAnalysis: any = (data as any)?.pattern_analysis || null;
+  const playbooksTriggered: any[] = (data as any)?.playbooks_triggered || (data as any)?.sop_triggers || [];
+  const totalAdsAnalyzed: number = creativeHealth?.length || 0;
+  const totalCampaignsAnalyzed: number = campaignAudit?.length || 0;
+
+  const adsWithLeads = creativeHealth.filter((a: any) => (a.leads ?? 0) > 0 && (a.spend ?? 0) > 0);
+  const bestAd: any = adsWithLeads.length > 0
+    ? adsWithLeads.reduce((best: any, cur: any) => ((cur.cpl || Infinity) < (best.cpl || Infinity) ? cur : best), adsWithLeads[0])
+    : null;
+  const worstAd: any = adsWithLeads.length > 0
+    ? adsWithLeads.reduce((worst: any, cur: any) => ((cur.cpl || 0) > (worst.cpl || 0) ? cur : worst), adsWithLeads[0])
+    : null;
+
+  const targetCpl: number = t_cpl_target;
+  const totalAdSpend = creativeHealth.reduce((s: number, a: any) => s + (a.spend || 0), 0);
+  const wastedSpend = creativeHealth
+    .filter((a: any) => (a.cpl || 0) > targetCpl && (a.spend || 0) > 0)
+    .reduce((s: number, a: any) => s + (a.spend || 0), 0);
+  const budgetEfficiencyPct: number = totalAdSpend > 0 ? Math.round((wastedSpend / totalAdSpend) * 100) : 0;
+
+  const proRatedBudgetThreshold = useMemo(() => {
+    const budget = t_budget_target || 0;
+    if (mp?.pct_through_month && budget > 0) {
+      return budget * (mp.pct_through_month / 100);
+    }
+    return budget;
+  }, [t_budget_target, mp?.pct_through_month]);
+
+  const budgetTargetMonthly = t_budget_target || clientTargets?.budget || 0;
+  const leadsTargetMonthly = t_leads_target || clientTargets?.leads || 0;
+  const daysInMonth = (mp?.days_elapsed || 0) + (mp?.days_remaining || 1);
+
+  // --- Lifted KPI Card UI Logic Hooks ---
+  const kpiCplStatus = useMemo(() => (
+    metaBenchmarksData
+      ? displayAp.overall_cpl <= t_cpl_target
+        ? { label: "On Target", variant: "success" }
+        : displayAp.overall_cpl <= t_cpl_critical
+          ? { label: "Watch", variant: "warning" }
+          : { label: "Alert", variant: "destructive" }
+      : undefined
+  ), [displayAp.overall_cpl, t_cpl_target, t_cpl_critical, metaBenchmarksData]);
+
+  const kpiCpsvStatus = useMemo(() => (
+    (cpsvMtd || 0) > 0
+      ? (cpsvMtd || 0) <= targetCpsvValue
+        ? { label: "On Target", variant: "success" }
+        : (cpsvMtd || 0) <= targetCpsvValue * 1.3
+          ? { label: "Watch", variant: "warning" }
+          : { label: "Alert", variant: "destructive" }
+      : { label: "Awaiting Data", variant: "secondary" }
+  ), [cpsvMtd, targetCpsvValue]);
+
+  const kpiPacingValue = useMemo(() => (
+    authMtd.spend && proRatedBudgetThreshold > 0
+      ? `${Math.round((authMtd.spend / proRatedBudgetThreshold) * 100)}%`
+      : "—"
+  ), [authMtd.spend, proRatedBudgetThreshold]);
+
+  const kpiPacingStatus = useMemo(() => {
+    if (!authMtd.spend || !proRatedBudgetThreshold || proRatedBudgetThreshold <= 0) return { label: "N/A", variant: "secondary" };
+    const ratio = authMtd.spend / proRatedBudgetThreshold;
+    if (ratio >= 0.9 && ratio <= 1.1) return { label: "On Track", variant: "success" };
+    if (ratio > 1.1) return { label: "Ahead", variant: "warning" };
+    return { label: "Behind", variant: "destructive" };
+  }, [authMtd.spend, proRatedBudgetThreshold]);
+
+  // ─── 7. Data Loading & Errors (Below hooks) ─────────────────────────
 
   if (analysisError) {
     return (
@@ -1152,128 +1353,7 @@ export default function DashboardPage() {
     );
   }
 
-  // ─── 7. Final Derived Normalization ────────────────────────────────
-  // (Safe to use 'data' directly here as we are past loading check)
-
-  const lastSuccessfulFetch =
-    syncState?.last_successful_fetch ||
-    (data as any)?.last_successful_fetch ||
-    (data as any)?.generated_at ||
-    (data as any)?.timestamp ||
-    null;
-  const lastSuccessfulFetchDate = parseSyncTimestamp(lastSuccessfulFetch);
-
-  const analysisSummary = (data as any).summary || {
-    total_fatigue_alerts: ((data as any).frequency_audit?.alerts || []).length,
-    immediate_actions: ((data as any).auto_pause_candidates || []).length,
-  };
-
-  const costStack = (data as any).cost_stack || {};
-  const rawScoringSummary = (data as any).scoring_summary;
-  const scoringSummary = campaignAnalysis.length > 0 ? {
-    total: campaignAnalysis.length,
-    winners: campaignAnalysis.filter((a: any) => a?.classification === "WINNER").length,
-    watch: campaignAnalysis.filter((a: any) => a?.classification === "WATCH").length,
-    underperformers: campaignAnalysis.filter((a: any) => a?.classification === "UNDERPERFORMER").length,
-    auto_pause: Array.isArray(rawScoringSummary?.campaign_scores?.auto_pause) ? rawScoringSummary.campaign_scores.auto_pause : [],
-  } : null;
-
-  const funnelData = costStack?.funnel_split_actual
-    ? Object.entries(costStack.funnel_split_actual)
-      .filter(([, v]) => (v as number) > 0)
-      .map(([key, val]) => ({ name: key, value: val as number }))
-    : isGoogle && (data as any).search_summary && (data as any).dg_summary && ap.total_spend_30d > 0
-      ? [
-        { name: "Search", value: Math.round(((((data as any).search_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
-        { name: "Demand Gen", value: Math.round(((((data as any).dg_summary?.spend ?? 0) / ap.total_spend_30d) * 100)) || 0 },
-      ].filter(d => d.value > 0)
-      : [];
-
-  // ─── 8. Performance Scoring & Insights ──────────────────────────────
-  // Account Health and Health Score Breakdown are MTD-fixed — they use
-  // mtdAnalysisData (always cadence=monthly) so cadence switching has no effect.
-  const mtdFixedData = (mtdAnalysisData as any) || (data as any);
-
-  const backendHealthScore = mtdFixedData?.account_health_score;
-  const backendBreakdown = mtdFixedData?.account_health_breakdown || {};
-  const accountHealthScore = typeof backendHealthScore === "number" ? backendHealthScore : 0;
-
-  // Use backend account-health breakdown as the single source of truth.
-  const mtdStats = (mtdData as any)?.mtd;
-  const healthScoreComponents = {
-    cpsv: backendBreakdown?.cpsv ?? 0,
-    pacing_budget: backendBreakdown?.budget ?? 0,
-    cpql: backendBreakdown?.cpql ?? 0,
-    cpl: backendBreakdown?.cpl ?? 0,
-    creative: backendBreakdown?.creative ?? 0,
-  };
-
-  const svsMtd = authMtd.svs;
-  const qLeadsMtd = authMtd.qualified_leads;
-  const cpsvMtd = authMtd.svs > 0 ? authMtd.spend / authMtd.svs : 0;
-  const targetCpsvValue = isGoogle
-    ? (benchmarks?.google_cpsv_low || thresholds?.cpsv_high || mp?.targets?.cpsv?.high || 20000)
-    : (benchmarks?.cpsv_low || thresholds?.cpsv_low || mp?.targets?.cpsv?.low || 0);
-  const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
-  const healthBreakdownItems = isGoogle ? [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv, 25) },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget, 25) },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql, 20) },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl, 20) },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative, 10) },
-  ] : [
-    { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, status: getMetricStatus(healthScoreComponents.cpsv, 25) },
-    { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, status: getMetricStatus(healthScoreComponents.pacing_budget, 25) },
-    { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, status: getMetricStatus(healthScoreComponents.cpql, 20) },
-    { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, status: getMetricStatus(healthScoreComponents.cpl, 20) },
-    { label: "Creative", score: healthScoreComponents.creative, weight: 10, status: getMetricStatus(healthScoreComponents.creative, 10) },
-  ];
-
-  // ─── 10. Missing Derived Variables ──────────────────────────────────
-
-  // Agent version from API response
-  const agentVersion: string = (data as any)?.agent_version || "";
-
-  // Google-specific summary data
-  const searchSummary: any = isGoogle ? (data as any)?.search_summary || null : null;
-  const dgSummary: any = isGoogle ? (data as any)?.dg_summary || null : null;
-
-  // Pattern analysis from intellect layer
-  const patternAnalysis: any = (data as any)?.pattern_analysis || null;
-
-  // Playbooks / SOPs triggered
-  const playbooksTriggered: any[] = (data as any)?.playbooks_triggered || (data as any)?.sop_triggers || [];
-
-  // Performance insights — ads/campaigns analyzed
-  const totalAdsAnalyzed: number = creativeHealth?.length || 0;
-  const totalCampaignsAnalyzed: number = campaignAudit?.length || 0;
-
-  // Best & worst performing ads (by CPL, min 1 lead)
-  const adsWithLeads = creativeHealth.filter((a: any) => (a.leads ?? 0) > 0 && (a.spend ?? 0) > 0);
-  const bestAd: any = adsWithLeads.length > 0
-    ? adsWithLeads.reduce((best: any, cur: any) => ((cur.cpl || Infinity) < (best.cpl || Infinity) ? cur : best), adsWithLeads[0])
-    : null;
-  const worstAd: any = adsWithLeads.length > 0
-    ? adsWithLeads.reduce((worst: any, cur: any) => ((cur.cpl || 0) > (worst.cpl || 0) ? cur : worst), adsWithLeads[0])
-    : null;
-
-  // Budget efficiency — % of spend going to ads with CPL > target
-  const targetCpl: number = t_cpl_target;
-
-  const totalAdSpend = creativeHealth.reduce((s: number, a: any) => s + (a.spend || 0), 0);
-  const campaignAnalysisLeads: number = campaignAnalysis.reduce((s: number, a: any) => s + (a.leads || 0), 0);
-  const wastedSpend = creativeHealth
-    .filter((a: any) => (a.cpl || 0) > targetCpl && (a.spend || 0) > 0)
-    .reduce((s: number, a: any) => s + (a.spend || 0), 0);
-  const budgetEfficiencyPct: number = totalAdSpend > 0 ? Math.round((wastedSpend / totalAdSpend) * 100) : 0;
-
-  const proRatedBudgetThreshold = mp?.pct_through_month && mp?.targets?.budget
-    ? (mp.targets.budget * (mp.pct_through_month / 100))
-    : (mp?.targets?.budget ?? 0);
-
-  const budgetTargetMonthly = mp?.targets?.budget || clientTargets?.budget || 0;
-  const leadsTargetMonthly = mp?.targets?.leads || clientTargets?.leads || 0;
-  const daysInMonth = (mp?.days_elapsed || 0) + (mp?.days_remaining || 1);
+  // ─── 8. Component View (Rendering Starts Here) ──────────────────────
 
   return (
     <div className="page-shell max-w-[1600px] mx-auto">
@@ -1311,7 +1391,7 @@ export default function DashboardPage() {
                   disabled={rawCampaignAudit.length === 0}
                 >
                   <span className="truncate mr-2">
-                    {selectedCampaignId === "ALL" 
+                    {selectedCampaignId === "ALL"
                       ? (rawCampaignAudit.length === 0 ? "No data yet" : "All Campaigns")
                       : (rawCampaignAudit.find((c: any) => c.campaign_id === selectedCampaignId)?.campaign_name || "Select Campaign")
                     }
@@ -1332,7 +1412,7 @@ export default function DashboardPage() {
                     All Campaigns
                   </div>
                 </DropdownMenuItem>
-                
+
                 <div className="h-px bg-border/40 my-1 mx-1" />
 
                 {rawCampaignAudit.map((c: any) => {
@@ -1374,14 +1454,39 @@ export default function DashboardPage() {
               <TooltipTrigger asChild>
                 <button
                   className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] rounded-lg border border-primary/30 bg-primary/12 text-foreground hover:bg-primary/18 hover:border-primary/45 transition-colors"
-                  onClick={() => {
-                    fetch("/api/scheduler/run-now", { method: "POST" }).then(() => {
-                      // Will auto-refresh via SSE when done
-                    });
+                  disabled={isTriggeringAgent}
+                  aria-disabled={isTriggeringAgent}
+                  onClick={async () => {
+                    if (isTriggeringAgent) return;
+                    setIsTriggeringAgent(true);
+                    try {
+                      const res = await fetch("/api/scheduler/run-now", { method: "POST" });
+                      if (!res.ok) {
+                        let msg = `Failed to trigger agent run (HTTP ${res.status})`;
+                        try {
+                          const json = await res.json();
+                          msg = json?.message || json?.error || msg;
+                        } catch { }
+                        throw new Error(msg);
+                      }
+                      toast({
+                        title: "Agent run triggered",
+                        description: "Watch the sync status — data will refresh automatically when the run completes.",
+                      });
+                    } catch (e: any) {
+                      console.error("[Run Agent] trigger failed:", e);
+                      toast({
+                        title: "Run Agent failed",
+                        description: e?.message || "Could not trigger agent run.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsTriggeringAgent(false);
+                    }
                   }}
                   data-testid="button-run-audit"
                 >
-                  Run Agent now
+                  {isTriggeringAgent ? "Triggering…" : "Run Agent now"}
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1419,7 +1524,7 @@ export default function DashboardPage() {
                         variant="outline"
                         className={cn(
                           "text-[9px] font-bold tracking-tight px-1.5 py-0 rounded h-4 border-0",
-                          isCritical ? "bg-red-500/15 text-red-500" :
+                          isCritical ? "bg-red-500/15 text-red-400" :
                             isWarning ? "bg-amber-500/15 text-amber-600" :
                               "bg-blue-500/15 text-blue-600"
                         )}
@@ -1460,8 +1565,8 @@ export default function DashboardPage() {
                               <div className="w-1 h-1 rounded-full bg-current opacity-20 shrink-0" />
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="text-[11px] text-muted-foreground truncate hover:text-foreground transition-colors cursor-help">
-                                    {truncate(camp.name, 35)}
+                                  <span className="text-[11px] text-muted-foreground truncate transition-colors cursor-help">
+                                    {camp.name}
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
@@ -1632,15 +1737,7 @@ export default function DashboardPage() {
             isInverse
             subtitle={`MTD CPL: ${formatINR(mp?.mtd?.cpl || 0, 0)}`}
             todayValue={formatINR(todayStats.cplToday, 0)}
-            status={
-              thresholds || benchmarks
-                ? displayAp.overall_cpl <= t_cpl_target
-                  ? { label: "On Target", variant: "success" }
-                  : displayAp.overall_cpl <= t_cpl_critical
-                    ? { label: "Watch", variant: "warning" }
-                    : { label: "Alert", variant: "destructive" }
-                : undefined
-            }
+            status={kpiCplStatus}
           />
 
           <KpiCard
@@ -1648,31 +1745,15 @@ export default function DashboardPage() {
             value={formatINR(cpsvMtd || 0, 0)}
             icon={Zap}
             isInverse
-            status={
-              (cpsvMtd || 0) > 0
-                ? (cpsvMtd || 0) <= targetCpsvValue
-                  ? { label: "On Target", variant: "success" }
-                  : (cpsvMtd || 0) <= targetCpsvValue * 1.3
-                    ? { label: "Watch", variant: "warning" }
-                    : { label: "Alert", variant: "destructive" }
-                : { label: "Awaiting Data", variant: "secondary" }
-            }
+            status={kpiCpsvStatus}
             subtitle={`vs target (${formatINR(targetCpsvValue, 0)})`}
           />
 
           <KpiCard
             title="Monthly Pacing"
-            value={authMtd.spend && proRatedBudgetThreshold > 0 ? `${Math.round((authMtd.spend / proRatedBudgetThreshold) * 100)}%` : "—"}
+            value={kpiPacingValue}
             icon={Gauge}
-            status={
-              authMtd.spend && proRatedBudgetThreshold > 0
-                ? (authMtd.spend / proRatedBudgetThreshold) >= 0.9 && (authMtd.spend / proRatedBudgetThreshold) <= 1.1
-                  ? { label: "On Track", variant: "success" }
-                  : (authMtd.spend / proRatedBudgetThreshold) > 1.1
-                    ? { label: "Ahead", variant: "warning" }
-                    : { label: "Behind", variant: "destructive" }
-                : { label: "Awaiting Data", variant: "secondary" }
-            }
+            status={kpiPacingStatus}
             subtitle={proRatedBudgetThreshold > 0 ? `Target: ${formatINR(proRatedBudgetThreshold, 0)}` : "No pacing data"}
           />
           <KpiCard
@@ -1848,7 +1929,7 @@ export default function DashboardPage() {
                   </p>
                   <p className="t-kpi text-foreground">{accountHealthScore}</p>
                 </div>
-                <StatusBadge classification={mtdFixedData?.account_health_classification || undefined} />
+                <StatusBadge classification={accountHealthClassification} />
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <div className={`w-full h-2 rounded-full ${getHealthBarBg(accountHealthScore)}`}>
@@ -1895,11 +1976,9 @@ export default function DashboardPage() {
                         ? "bg-orange-500/20"
                         : "bg-red-500/20";
 
-                let targetDisplay = null;
-                if (item.label === "CPSV") targetDisplay = formatINR(targetCpsvValue || 0, 0);
-                else if (item.label === "Budget") targetDisplay = formatINR(proRatedBudgetThreshold || 0, 0);
-                else if (item.label === "CPQL") targetDisplay = formatINR((isGoogle ? benchmarks?.google_cpql_target : benchmarks?.cpql_target) || thresholds?.cpql_target || mp?.targets?.cpql || 0, 0);
-                else if (item.label === "CPL") targetDisplay = formatINR(targetCpl || 0, 0);
+                const targetDisplay = (item.target && ["CPSV", "Budget", "CPQL", "CPL"].includes(item.label))
+                  ? formatINR(item.target, 0)
+                  : null;
 
                 const cardContent = (
                   <div key={item.label} className="rounded-md border border-border/30 bg-card p-4 shadow-xs hover:border-primary/20 transition-colors">
@@ -2148,15 +2227,15 @@ export default function DashboardPage() {
           const projectedSvs = projected(mtdSvs);
 
           // ─── Targets ─────────────────────────────────────────────────
-          const cplTargetVal = benchmarks?.cpl ?? mp?.targets?.cpl ?? 0;
-          const cpmTargetVal = benchmarks?.cpm_max || (isGoogle ? 1200 : 450);
-          const cpcTargetVal = benchmarks?.cpc_target || (isGoogle ? 120 : 0);
-          const cpqlTargetVal = benchmarks?.cpql_target ?? 0;
-          const svsTargetLow = benchmarks?.svs_low ?? mp?.targets?.svs?.low ?? 0;
-          const svsTargetHigh = benchmarks?.svs_high ?? mp?.targets?.svs?.high ?? 0;
-          const cpsvTargetLow = benchmarks?.cpsv_low ?? mp?.targets?.cpsv?.low ?? 0;
-          const cpsvTargetHigh = benchmarks?.cpsv_high ?? mp?.targets?.cpsv?.high ?? 0;
-          const qLeadTargetMonthly = benchmarks?.positive_lead_target ?? 0;
+          const cplTargetVal = metaBenchmarks?.cpl ?? metaBenchmarks?.cpl_target ?? mp?.targets?.cpl ?? 0;
+          const cpmTargetVal = metaBenchmarks?.cpm_max || (isGoogle ? 1200 : 450);
+          const cpcTargetVal = metaBenchmarks?.cpc_max || (isGoogle ? 120 : 0);
+          const cpqlTargetVal = metaBenchmarks?.cpql_target ?? 0;
+          const svsTargetLow = metaBenchmarks?.svs_low ?? mp?.targets?.svs?.low ?? 0;
+          const svsTargetHigh = metaBenchmarks?.svs_high ?? mp?.targets?.svs?.high ?? 0;
+          const cpsvTargetLow = metaBenchmarks?.cpsv_low ?? mp?.targets?.cpsv?.low ?? 0;
+          const cpsvTargetHigh = metaBenchmarks?.cpsv_high ?? mp?.targets?.cpsv?.high ?? 0;
+          const qLeadTargetMonthly = metaBenchmarks?.positive_lead_target ?? 0;
 
           // ─── Row computations ─────────────────────────────────────────
           const budgetRow = {
@@ -2817,8 +2896,8 @@ export default function DashboardPage() {
                             <span className={`inline-flex px-1 py-0 rounded t-micro font-medium w-fit ${statusColor.bg} ${statusColor.text}`}>
                               {c.status || "ACTIVE"}
                             </span>
-                            <span className={`inline-flex px-1 py-0 rounded t-micro font-medium uppercase w-fit bg-muted text-muted-foreground`}>
-                              {c.classification || "NO_DATA"}
+                            <span className={`inline-flex px-1 py-0 rounded t-micro font-medium uppercase w-fit ${getClassificationStyle(c.health_score >= 70 ? "WINNER" : c.health_score < 35 ? "UNDERPERFORMER" : "WATCH").bg} ${getClassificationStyle(c.health_score >= 70 ? "WINNER" : c.health_score < 35 ? "UNDERPERFORMER" : "WATCH").text}`}>
+                              {c.health_score >= 70 ? "WINNER" : c.health_score < 35 ? "UNDERPERFORMER" : "WATCH"}
                             </span>
                           </div>
                         </td>
@@ -2830,7 +2909,7 @@ export default function DashboardPage() {
                         <td className="p-2 text-right tabular-nums t-micro text-muted-foreground">{c.clicks || 0}</td>
                         <td className="p-2 text-right tabular-nums t-micro">{formatPct(c.ctr || 0)}</td>
                         <td className="p-2 text-right tabular-nums t-micro">{formatINR(c.cpm || 0, 0)}</td>
-                        <td className={`p-2 text-right tabular-nums t-micro font-medium ${c.cpl > 0 ? getCplColor(c.cpl, thresholds) : "text-foreground"}`}>
+                        <td className={`p-2 text-right tabular-nums t-micro font-medium ${c.cpl > 0 ? getCplColorWithBenchmarks(c.cpl, metaBenchmarksData) : "text-foreground"}`}>
                           {c.cpl > 0 ? formatINR(c.cpl, 0) : "—"}
                         </td>
                         <td className="p-2 text-center">

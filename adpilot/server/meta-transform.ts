@@ -9,7 +9,6 @@
 
 import fs from "fs";
 import path from "path";
-import { getClassification } from "../shared/classification";
 import {
   scoreStagedCostDynamic,
   scoreStagedBudgetDynamic,
@@ -19,13 +18,76 @@ import {
   sumMetricScores,
   computeMinRatio,
   computeDualGateStatus,
+  scoreHigher,
+  scoreLeads,
+  scoreFrequency,
+  scoreCreativeAge,
 } from "./scoring-config";
 
+function getMetaClassification(score: number): "WINNER" | "WATCH" | "UNDERPERFORMER" {
+  if (score >= 70) return "WINNER";
+  if (score < 35) return "UNDERPERFORMER";
+  return "WATCH";
+}
+
+/**
+ * Normalizes rates that might be coming in as decimals (0.35) instead of percentages (35).
+ * Standard benchmarks (e.g. FFR 55%) expect values in 0-100 range.
+ */
+function normalizeRate(val: number | undefined | null): number {
+  if (val == null || !Number.isFinite(val)) return 0;
+  // If value is between 0 and 1 (exclusive), it's likely a decimal rate.
+  // Note: CTR can legitimately be < 1.0%, but TSR/VHR/FFR are usually higher.
+  // However, most modern Meta reports for these metrics are 0.XX.
+  if (val > 0 && val <= 1.0) return +(val * 100).toFixed(2);
+  return val;
+}
+
+function scoreLowerMeta(actual: number, target: number, weight: number): number {
+  if (target <= 0) return weight;
+  const safeActual = Number.isFinite(actual) ? actual : Number.POSITIVE_INFINITY;
+  const d = Math.max(0, (safeActual - target) / target);
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+}
+
+function scoreHigherMeta(actual: number, target: number, weight: number): number {
+  if (target <= 0) return weight;
+  const safeActual = Number.isFinite(actual) ? actual : 0;
+  const d = Math.max(0, (target - safeActual) / target);
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+}
+
+function scoreLeadsMeta(actual: number, expected: number, weight: number): number {
+  if (expected <= 0) return weight;
+  const safeActual = Number.isFinite(actual) ? actual : 0;
+  const d = Math.max(0, (expected - safeActual) / expected);
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
+}
+
+function scoreFrequencyMeta(freq: number, warn: number, severe: number, weight: number): number {
+  if (freq <= warn) return weight;
+  if (freq >= severe) return 0;
+  const excess = (freq - warn) / (severe - warn);
+  return weight * (1 - excess * excess);
+}
+
+function scoreBudgetMeta(actual: number, planned: number, weight: number): number {
+  if (planned <= 0) return weight;
+  const b = Math.abs(actual - planned) / planned;
+  return weight * Math.max(0, 1 - b - 10 * b * b);
+}
+
+function scoreCreativeAgeMeta(ageDays: number, weight: number): number {
+  if (ageDays <= 35) return weight;
+  if (ageDays >= 60) return 0;
+  const decay = (ageDays - 35) / (60 - 35);
+  return weight * (1 - decay * decay);
+}
+
 function resolveMetaBenchmarks(data: any): Record<string, any> {
-  const base = {
+  let base = {
     ...(data.sop_benchmarks_fallback || {}),
     ...(data.dynamic_thresholds || {}),
-    ...(data.sop_benchmarks || {}),
   };
 
   const sourcePath = data.benchmarks_source;
@@ -40,17 +102,23 @@ function resolveMetaBenchmarks(data: any): Record<string, any> {
       if (!fs.existsSync(resolved)) continue;
 
       try {
-        return {
+        base = {
           ...base,
           ...JSON.parse(fs.readFileSync(resolved, "utf-8")),
         };
+        break; // Use first found source
       } catch {
-        // Ignore malformed external benchmark files and fall back to attached data.
+        // Ignore malformed external benchmark files
       }
     }
   }
 
-  return base;
+  // CRITICAL: Always overlay the sop_benchmarks attached by the server (if any).
+  // This object contains the latest user-saved benchmarks from the disk.
+  return {
+    ...base,
+    ...(data.sop_benchmarks || {}),
+  };
 }
 
 function getCreativeAgeFactor(ageDays: number): number {
@@ -109,6 +177,8 @@ function recomputeHealthScore(data: any): {
   const ap = data.account_pulse || {};
   const mp = data.monthly_pacing || {};
   const benchmarks = resolveMetaBenchmarks(data);
+  
+  console.log(`[recomputeHealthScore] Resolved benchmarks keys: ${Object.keys(benchmarks).join(", ")}`);
 
   const weights = getMetricWeights("meta");
 
@@ -116,33 +186,33 @@ function recomputeHealthScore(data: any): {
   const mtdDeliverables = data.mtd_deliverables || {};
 
   // ── MTD-only actuals (never fall back to 30-day rolling data) ──────
-  // Source priority: monthly_pacing.mtd (agent MTD) → mtd_pacing (alt field)
   const actualSpendMtd = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? 0;
   const actualLeadsMtd = mp.mtd?.leads ?? ap.mtd_pacing?.leads_mtd ?? 0;
-  // Qualified leads from MTD deliverables (manually entered) — not in API
   const actualQLeadsMtd =
     mtdDeliverables.positive_leads_achieved ??
     mtdDeliverables.quality_lead_count ??
     mp.mtd?.qualified_leads ??
     0;
-  // SVS from MTD deliverables (manually entered) — not in API
   const actualSvsMtd = mtdDeliverables.svs_achieved ?? mp.mtd?.svs ?? 0;
-  // ─── CPL Score (Lower is better) ───
-  // benchmarks.cpl = "CPL Target" field in Benchmarks tab
-  const cplTarget = benchmarks.cpl || benchmarks.cpl_target || 800;
+
+  console.log(`[recomputeHealthScore] MTD Actuals: spend=${actualSpendMtd}, leads=${actualLeadsMtd}, qLeads=${actualQLeadsMtd}, svs=${actualSvsMtd}`);
+
+  // ─── CPL Score (Lower is better: Quadratic) ───
+  const cplTarget = benchmarks.cpl || benchmarks.cpl_target || mp.targets?.cpl || 800;
   const actualCplMtd = actualLeadsMtd > 0 ? actualSpendMtd / actualLeadsMtd : 0;
   const cplScore = scoreWeightedCostMetric(
     actualLeadsMtd > 0 ? actualCplMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
     cplTarget,
     weights.cpl
   );
+  console.log(`[recomputeHealthScore] CPL Debug: target=${cplTarget}, actual=${actualCplMtd.toFixed(2)}, score=${cplScore.toFixed(2)}`);
 
   // ─── Budget/Pacing Score (MTD spend vs prorated monthly budget) ───
   const now = new Date();
   const derivedDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const daysInMonth = (mp.days_elapsed ?? 0) + (mp.days_remaining ?? 0) || derivedDaysInMonth;
   const daysElapsed = mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? Math.min(now.getDate(), daysInMonth);
-  const monthlyBudget = mp.targets?.budget ?? ap.mtd_pacing?.target_budget ?? data.targets?.budget ?? 0;
+  const monthlyBudget = benchmarks.budget || mp.targets?.budget || ap.mtd_pacing?.target_budget || data.targets?.budget || 0;
   const budgetScore = scoreWeightedBudgetMetric(
     actualSpendMtd,
     monthlyBudget,
@@ -150,25 +220,25 @@ function recomputeHealthScore(data: any): {
     daysInMonth,
     weights.budget
   );
+  console.log(`[recomputeHealthScore] Budget Debug: target=${monthlyBudget}, actual=${actualSpendMtd}, days=${daysElapsed}/${daysInMonth}, score=${budgetScore.toFixed(2)}`);
 
   // ─── CPQL Score (Lower is better: Staged) ───
-  // benchmarks.cpql_target = "CPQL Target" field in Benchmarks tab
-  const cpqlTarget = benchmarks.cpql_target || benchmarks.cpql || 1500;
+  const cpqlTarget = benchmarks.cpql_target || benchmarks.cpql || mp.targets?.cpql || 1500;
   const actualCpqlMtd = actualQLeadsMtd > 0 ? actualSpendMtd / actualQLeadsMtd : 0;
   const cpqlScore = actualQLeadsMtd > 0
     ? scoreWeightedCostMetric(actualCpqlMtd, cpqlTarget, weights.cpql)
     : 10;
+  console.log(`[recomputeHealthScore] CPQL Debug: target=${cpqlTarget}, actual=${actualCpqlMtd.toFixed(2)}, score=${cpqlScore.toFixed(2)}`);
 
   // ─── CPSV Score (Lower is better: Staged) ───
-  // benchmarks.cpsv_low = "CPSV Target Low" field in Benchmarks tab
-  // actualSvsMtd from MTD deliverables (svs_achieved — manually entered)
-  const cpsvTarget = benchmarks.cpsv_low || benchmarks.cpsv_target_low || 0;
+  const cpsvTarget = benchmarks.cpsv_low || benchmarks.cpsv_target_low || mp.targets?.cpsv?.low || 0;
   const actualCpsvMtd = actualSvsMtd > 0 ? actualSpendMtd / actualSvsMtd : 0;
   const cpsvScore = scoreWeightedCostMetric(
     actualSvsMtd > 0 ? actualCpsvMtd : (actualSpendMtd > 0 ? Number.POSITIVE_INFINITY : 0),
     cpsvTarget,
     weights.cpsv
   );
+  console.log(`[recomputeHealthScore] CPSV Debug: target=${cpsvTarget}, actual=${actualCpsvMtd.toFixed(2)}, score=${cpsvScore.toFixed(2)}`);
 
   // ─── Creative Score (Spend-weighted average + diversity factor) ───
   const creativeHealth: any[] = data.creative_health || [];
@@ -187,30 +257,149 @@ function recomputeHealthScore(data: any): {
   const compositeScore = Math.round(sumMetricScores(breakdown) * 100) / 100;
 
   // ─── Apply Dual-Gate Status Determination ───
-  // Compute weakest-link ratio: min(score_i / weight_i) across all 5 metrics
   const minRatio = computeMinRatio(breakdown, weights);
-
-  // Determine status using dual-gate (composite + veto)
   const dualGateStatus = computeDualGateStatus(compositeScore, minRatio);
+
+  console.log(`[recomputeHealthScore] FINAL RESULT: score=${compositeScore}, status=${dualGateStatus}`);
+  
   return { score: compositeScore, breakdown, status: dualGateStatus };
+}
+
+/**
+ * Mapping of metric percentage of max weight to status label (Doc section 7)
+ */
+function getMetricStatus(pct: number): string {
+  if (pct >= 0.80) return "EXCELLENT";
+  if (pct >= 0.60) return "GOOD";
+  if (pct >= 0.40) return "WATCH";
+  if (pct >= 0.15) return "ALERT";
+  return "CRITICAL";
+}
+
+/**
+ * Breakdown Classification (Doc section 6)
+ */
+function getBreakdownClassification(segmentCpl: number, entityAvgCpl: number): string {
+  if (entityAvgCpl <= 0) return "NEUTRAL";
+  const deviation = (segmentCpl - entityAvgCpl) / entityAvgCpl;
+  if (deviation <= -0.20) return "WINNER";
+  if (deviation <= -0.05) return "ABOVE AVG";
+  if (deviation <= 0.10) return "NEUTRAL";
+  if (deviation <= 0.25) return "BELOW AVG";
+  return "UNDERPERFORMER";
+}
+
+/**
+ * Mojo AdCortex v1.0 Entity Scoring Engine (Meta)
+ */
+function scoreMetaEntity(
+  entity: any,
+  type: 'campaign' | 'adset',
+  targets: any,
+  pacing: any,
+  benchmarks: any
+): { health_score: number, detailed_breakdown: any } {
+  const isBofu = (entity.layer || entity.theme || "").toLowerCase().includes("bofu");
+
+  const defaultFreqWarn = isBofu ? 4.0 : 2.5;
+  const defaultFreqSev = isBofu ? 7.0 : 5.0;
+  const configuredFreqWarn = isBofu
+    ? (benchmarks.frequency_bofu_warn ?? benchmarks.frequency_max_bofu ?? undefined)
+    : (benchmarks.frequency_tofu_mofu_warn ?? benchmarks.frequency_max ?? undefined);
+  const configuredFreqSev = isBofu
+    ? (benchmarks.frequency_bofu_severe ?? benchmarks.frequency_max_bofu_severe ?? undefined)
+    : (benchmarks.frequency_tofu_mofu_severe ?? benchmarks.frequency_max_severe ?? undefined);
+
+  const freqWarn = Number(configuredFreqWarn ?? defaultFreqWarn);
+  const freqSev = Number(configuredFreqSev ?? defaultFreqSev);
+
+  const weights: Record<string, number> = {
+    cpl: 35,
+    cpm: 22.5,
+    ctr: 15,
+    cvr: 15,
+    freq: 12.5,
+  };
+  const detailed: any = {};
+
+  const ctrTarget = Number(benchmarks.ctr_min ?? benchmarks.ctr_target ?? targets.ctr ?? 1.2);
+  const cvrTarget = Number(benchmarks.cvr_min ?? benchmarks.cvr_target ?? targets.cvr ?? 4.0);
+  const cplTarget = Number(benchmarks.cpl ?? benchmarks.cpl_target ?? targets.cpl ?? 720);
+  const cpmTarget = isBofu
+    ? Number(benchmarks.cpm_bofu_target ?? benchmarks.cpm_max_bofu ?? benchmarks.cpm_max ?? 120)
+    : Number(benchmarks.cpm_target ?? benchmarks.cpm_max ?? 80);
+
+  let actualCpl = entity.cpl;
+  if ((entity.leads || 0) <= 0 && (entity.spend || 0) > 0) {
+    actualCpl = entity.spend;
+  }
+  const sCpl = scoreLowerMeta(actualCpl, cplTarget, weights.cpl);
+  detailed.cpl = {
+    score: Math.round((sCpl / weights.cpl) * 100),
+    weight: weights.cpl,
+    contribution: +sCpl.toFixed(1),
+    actual: actualCpl,
+    target: cplTarget,
+    unit: "currency",
+  };
+
+  const sCpm = scoreLowerMeta(entity.cpm || entity.average_cpm || 0, cpmTarget, weights.cpm);
+  detailed.cpm = {
+    score: Math.round((sCpm / weights.cpm) * 100),
+    weight: weights.cpm,
+    contribution: +sCpm.toFixed(1),
+    actual: entity.cpm || entity.average_cpm || 0,
+    target: cpmTarget,
+    unit: "currency",
+  };
+
+
+
+  const sCtr = scoreHigherMeta(entity.ctr || 0, ctrTarget, weights.ctr);
+  detailed.ctr = {
+    score: Math.round((sCtr / weights.ctr) * 100),
+    weight: weights.ctr,
+    contribution: +sCtr.toFixed(1),
+    actual: entity.ctr || 0,
+    target: ctrTarget,
+    unit: "percent",
+  };
+
+  const actualCvr = entity.cvr || (entity.clicks > 0 ? (entity.leads / entity.clicks) * 100 : 0);
+  const sCvr = scoreHigherMeta(actualCvr, cvrTarget, weights.cvr);
+  detailed.cvr = {
+    score: Math.round((sCvr / weights.cvr) * 100),
+    weight: weights.cvr,
+    contribution: +sCvr.toFixed(1),
+    actual: actualCvr,
+    target: cvrTarget,
+    unit: "percent",
+  };
+
+
+
+  const sFreq = scoreFrequencyMeta(entity.frequency || 1.0, freqWarn, freqSev, weights.freq);
+  detailed.freq = {
+    score: Math.round((sFreq / weights.freq) * 100),
+    weight: weights.freq,
+    contribution: +sFreq.toFixed(1),
+    actual: entity.frequency || 1.0,
+    target: freqWarn,
+    unit: "number",
+  };
+
+  const totalScore = Object.values(detailed).reduce((sum: number, d: any) => sum + d.contribution, 0);
+  for (const k in detailed) {
+    detailed[k].status = getMetricStatus(detailed[k].score / 100);
+  }
+
+  return { health_score: +totalScore.toFixed(1), detailed_breakdown: detailed };
 }
 
 function scoreLinearMeta(actual: number, target: number, weight: number, lowerIsBetter: boolean): number {
   if (target <= 0) return weight * 0.5;
-  const ratio = actual / target;
-  if (lowerIsBetter) {
-    // We proxy through the new continuous dynamic logic for cost metrics 
-    // which scales 0-100, then we multiply by legacy weight (or we scale down weight).
-    // Using the exact quadratic formula imported from scoring-config:
-    const score100 = scoreStagedCostDynamic(actual, target);
-    return weight * (score100 / 100);
-  } else {
-    // Relaxed real-estate floor (0.3 instead of 0.5) for CTR/CVR
-    if (actual >= target * 1.2) return weight;
-    if (actual <= target * 0.3) return 0;
-    const score_ratio = (ratio - 0.3) / (1.2 - 0.3);
-    return weight * Math.max(0, Math.min(1, score_ratio));
-  }
+  const d = lowerIsBetter ? Math.max(0, (actual - target) / target) : Math.max(0, (target - actual) / target);
+  return weight * Math.max(0, 1 - 1.5 * d - 5 * d * d);
 }
 
 // ── Main normalizer ───────────────────────────────────────────────────────────
@@ -219,128 +408,189 @@ export function normalizeMetaAnalysis(raw: any): any {
   if (!raw || typeof raw !== "object") return raw;
 
   const data = { ...raw };
+  const mp = data.monthly_pacing || {};
+  const ap = data.account_pulse || {};
+  const pacing = {
+    days_elapsed: mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? 14,
+    days_remaining: mp.days_remaining ?? (30 - (mp.days_elapsed ?? 14))
+  };
 
+  const benchmarks = resolveMetaBenchmarks(data);
+  const targets = {
+    cpl: benchmarks.cpl || benchmarks.cpl_target || 720,
+    ctr: 1.2,
+    cvr: 4.0
+  };
+
+  // 1. Scoring Campaigns
   if (Array.isArray(data.campaign_audit)) {
-    const weights: Record<string, number> = { cpl: 25, cvr: 15, ctr: 15, leads: 15, freq: 10, cpm: 10, budget: 10 };
     data.campaign_audit = data.campaign_audit.map((campaign: any) => {
-      const breakdown = campaign.score_breakdown || {};
-      const detailed: any = {};
-      
-      const ctrTarget = 0.45;
-      const cvrTarget = 1.5;
-      const cplTarget = data.targets?.cpl || 850;
-
-      for (const k in weights) {
-        let score = breakdown[k];
-        if (k === 'ctr' && campaign.ctr > 0) {
-          score = scoreLinearMeta(campaign.ctr, ctrTarget, 100, false);
-        } else if (k === 'cvr' && (campaign.cvr > 0 || (campaign.clicks > 0 && campaign.leads > 0))) {
-          const actualCvr = campaign.cvr || (campaign.leads / campaign.clicks) * 100;
-          score = scoreLinearMeta(actualCvr, cvrTarget, 100, false);
-        } else if (k === 'cpl' && campaign.cpl > 0) {
-          score = scoreLinearMeta(campaign.cpl, cplTarget, 100, true);
-        } else if (k === 'budget' && campaign.budget_utilization !== undefined) {
-          score = scoreStagedBudgetDynamic(campaign.budget_utilization);
-        }
-
-        if (score !== undefined) {
-          detailed[k] = {
-            score: Math.round(score * 10) / 10,
-            weight: weights[k],
-            contribution: Math.round((score * weights[k] / 100) * 10) / 10
-          };
-        }
-      }
+      const result = scoreMetaEntity(campaign, 'campaign', targets, pacing, benchmarks);
+      const scoreBreakdown = Object.fromEntries(
+        Object.entries(result.detailed_breakdown).map(([metric, detail]: [string, any]) => [metric, Math.round(detail.contribution)])
+      );
+      const scoreBands = Object.fromEntries(
+        Object.entries(result.detailed_breakdown).map(([metric, detail]: [string, any]) => [
+          metric,
+          getMetricStatus((detail.weight ?? 0) > 0 ? detail.contribution / detail.weight : 0),
+        ])
+      );
       return {
         ...campaign,
-        classification: getClassification(campaign.health_score),
-        detailed_breakdown: detailed
+        health_score: result.health_score,
+        classification: getMetaClassification(result.health_score),
+        score_breakdown: scoreBreakdown,
+        score_bands: scoreBands,
+        detailed_breakdown: result.detailed_breakdown,
       };
     });
   }
 
+  // 2. Scoring Ad Sets
   if (Array.isArray(data.adset_analysis)) {
-    const weights: Record<string, number> = { cpl: 25, cvr: 15, ctr: 15, leads: 15, freq: 10, cpm: 10, budget: 10 };
     data.adset_analysis = data.adset_analysis.map((adset: any) => {
-      const breakdown = adset.score_breakdown || {};
-      const detailed: any = {};
-      
-      // Determine targets (relaxed for Luxury Real Estate / Amara)
-      const ctrTarget = 0.45;
-      const cvrTarget = 1.5;
-      const cplTarget = data.targets?.cpl || 850;
-
-      for (const k in weights) {
-        let score = breakdown[k];
-        
-        // RE-CALCULATE CTR and CVR locally if we suspect they are zeroed out by strict benchmarks
-        if (k === 'ctr' && adset.ctr > 0) {
-          score = scoreLinearMeta(adset.ctr, ctrTarget, 100, false);
-        } else if (k === 'cvr' && (adset.cvr > 0 || (adset.clicks > 0 && adset.leads > 0))) {
-          const actualCvr = adset.cvr || (adset.leads / adset.clicks) * 100;
-          score = scoreLinearMeta(actualCvr, cvrTarget, 100, false);
-        } else if (k === 'cpl' && adset.cpl > 0) {
-          score = scoreLinearMeta(adset.cpl, cplTarget, 100, true);
-        } else if (k === 'budget' && adset.budget_utilization !== undefined) {
-          score = scoreStagedBudgetDynamic(adset.budget_utilization);
-        }
-
-        if (score !== undefined) {
-          detailed[k] = {
-            score: Math.round(score * 10) / 10,
-            weight: weights[k],
-            contribution: Math.round((score * weights[k] / 100) * 10) / 10
-          };
-        }
-      }
-
+      const result = scoreMetaEntity(adset, 'adset', targets, pacing, benchmarks);
+      const scoreBreakdown = Object.fromEntries(
+        Object.entries(result.detailed_breakdown).map(([metric, detail]: [string, any]) => [metric, Math.round(detail.contribution)])
+      );
+      const scoreBands = Object.fromEntries(
+        Object.entries(result.detailed_breakdown).map(([metric, detail]: [string, any]) => [
+          metric,
+          getMetricStatus((detail.weight ?? 0) > 0 ? detail.contribution / detail.weight : 0),
+        ])
+      );
       return {
         ...adset,
-        classification: getClassification(adset.health_score),
-        detailed_breakdown: detailed // Always use fresh re-computed detailed breakdown
+        health_score: result.health_score,
+        classification: getMetaClassification(result.health_score),
+        score_breakdown: scoreBreakdown,
+        score_bands: scoreBands,
+        detailed_breakdown: result.detailed_breakdown,
       };
     });
   }
 
+  // 3. Scoring Ads (Creatives)
   if (Array.isArray(data.creative_health)) {
-    // Creative weights (from scoring_engine.py): hook (25), hold (25), cpl (30), age (10), delivery (10)
-    // Actually scoring_engine has: thumb_stop, hold_rate, cpl, age, cpc/delivery
-    const weights: Record<string, number> = { thumb_stop_pct: 25, hold_rate_pct: 25, cpl: 30, ctr: 10, delivery: 10 };
     data.creative_health = data.creative_health.map((creative: any) => {
-      const breakdown = creative.score_breakdown || {};
+      const isVideo = creative.video_views > 0 || creative.thru_plays > 0 || creative.thumb_stop_pct > 0;
+
+      const weights: Record<string, number> = isVideo 
+        ? { cpl: 30, cpm: 20, ctr: 10, tsr: 15, vhr: 15, ffr: 10 }
+        : { cpl: 40, cpm: 25, ctr: 20, creative_age: 15 };
+
       const detailed: any = {};
-      
-      const ctrTarget = 0.45;
-      const cplTarget = data.targets?.cpl || 850;
+      let total = 0;
+      const isBofu = (creative.layer || creative.theme || "").toLowerCase().includes("bofu");
+      const cpmTarget = isBofu ? 120 : 80;
+      const tsrTarget = benchmarks.tsr_min || 20;
+      const vhrTarget = benchmarks.vhr_min || 25;
+      const ffrTarget = benchmarks.ffr_min || 55;
 
       for (const k in weights) {
-        let score = breakdown[k];
-        if (k === 'ctr' && creative.ctr > 0) {
-          score = scoreLinearMeta(creative.ctr, ctrTarget, 100, false);
-        } else if (k === 'thumb_stop_pct' && creative.thumb_stop_pct > 0) {
-          score = scoreLinearMeta(creative.thumb_stop_pct, 25, 100, false);
-        } else if (k === 'hold_rate_pct' && creative.hold_rate_pct > 0) {
-          score = scoreLinearMeta(creative.hold_rate_pct, 25, 100, false);
-        } else if (k === 'cpl' && creative.cpl > 0) {
-          score = scoreLinearMeta(creative.cpl, cplTarget, 100, true);
+        const W = weights[k];
+        let score = 0;
+        if (k === 'cpl') {
+          let actualCpl = creative.cpl;
+          if ((creative.leads || 0) <= 0 && (creative.spend || 0) > 0) actualCpl = creative.spend;
+          score = scoreLowerMeta(actualCpl, targets.cpl, W);
+        } else if (k === 'cpm') {
+          score = scoreLowerMeta(creative.cpm || 0, cpmTarget, W);
+        } else if (k === 'ctr') {
+          score = scoreHigherMeta(creative.ctr || 0, targets.ctr, W);
+        } else if (k === 'tsr') {
+          const tsrVal = normalizeRate(creative.tsr ?? creative.thumb_stop_pct ?? creative.thumb_stop_rate);
+          score = scoreHigherMeta(tsrVal, tsrTarget, W);
+        } else if (k === 'vhr') {
+          const vhrVal = normalizeRate(creative.vhr ?? creative.hold_rate_pct ?? creative.hold_rate);
+          score = scoreHigherMeta(vhrVal, vhrTarget, W);
+        } else if (k === 'ffr') {
+          const ffrVal = normalizeRate(
+            (creative.video_views > 0 && creative.impressions > 0)
+              ? (creative.video_views / creative.impressions) * 100
+              : (creative.ffr ?? creative.first_frame_rate_pct ?? creative.first_frame_rate ?? creative.hook_rate ?? 0)
+          );
+          score = scoreHigherMeta(ffrVal, ffrTarget, W);
+        } else if (k === 'creative_age') {
+          score = scoreCreativeAgeMeta(creative.creative_age_days || creative.age_days || 0, W);
         }
 
-        if (score !== undefined) {
-          detailed[k] = {
-            score: Math.round(score * 10) / 10,
-            weight: weights[k],
-            contribution: Math.round((score * weights[k] / 100) * 10) / 10
-          };
-        }
+        const actualValue =
+          k === "cpl" ? (creative.leads || 0) <= 0 && (creative.spend || 0) > 0 ? creative.spend : (creative.cpl || 0) :
+          k === "cpm" ? (creative.cpm || 0) :
+          k === "ctr" ? (creative.ctr || 0) :
+          k === "tsr" ? normalizeRate(creative.tsr ?? creative.thumb_stop_pct ?? creative.thumb_stop_rate ?? 0) :
+          k === "vhr" ? normalizeRate(creative.vhr ?? creative.hold_rate_pct ?? creative.hold_rate ?? 0) :
+          k === "ffr" ? normalizeRate(
+            (creative.video_views > 0 && creative.impressions > 0)
+              ? (creative.video_views / creative.impressions) * 100
+              : (creative.ffr ?? creative.first_frame_rate_pct ?? creative.first_frame_rate ?? creative.hook_rate ?? 0)
+          ) :
+          (creative.creative_age_days || creative.age_days || 0);
+        const targetValue =
+          k === "cpl" ? targets.cpl :
+          k === "cpm" ? cpmTarget :
+          k === "ctr" ? targets.ctr :
+          k === "tsr" ? tsrTarget :
+          k === "vhr" ? vhrTarget :
+          k === "ffr" ? ffrTarget :
+          35;
+        const unit =
+          k === "cpl" || k === "cpm" ? "currency" :
+          k === "creative_age" ? "days" :
+          k === "ctr" || k === "tsr" || k === "vhr" || k === "ffr" ? "percent" :
+          "number";
+
+        detailed[k] = {
+          score: Math.round((score / W) * 100),
+          weight: W,
+          contribution: +score.toFixed(1),
+          status: getMetricStatus(score / W),
+          actual: actualValue,
+          target: targetValue,
+          unit,
+        };
+        total += score;
       }
+
+      const scoreBreakdown = Object.fromEntries(
+        Object.entries(detailed).map(([metric, detail]: [string, any]) => [metric, Math.round(detail.contribution)])
+      );
+      const scoreBands = Object.fromEntries(
+        Object.entries(detailed).map(([metric, detail]: [string, any]) => [
+          metric,
+          getMetricStatus((detail.weight ?? 0) > 0 ? detail.contribution / detail.weight : 0),
+        ])
+      );
+
       return {
         ...creative,
-        classification: getClassification(
-          creative.health_score ?? creative.creative_score ?? creative.performance_score ?? 0
-        ),
-        detailed_breakdown: detailed
+        health_score: +total.toFixed(1),
+        classification: getMetaClassification(total),
+        score_breakdown: scoreBreakdown,
+        score_bands: scoreBands,
+        detailed_breakdown: detailed,
       };
     });
+  }
+
+  // 4. Normalizing Breakdowns (Doc section 6)
+  if (data.breakdowns) {
+    for (const dimension in data.breakdowns) {
+      const items = data.breakdowns[dimension];
+      if (Array.isArray(items)) {
+        const avgCpl = targets.cpl; 
+        data.breakdowns[dimension] = items.map((item: any) => {
+          if ((item.leads || 0) < 3 || (item.spend || 0) < (targets.cpl * 0.5)) {
+            return { ...item, classification: "INSUFFICIENT DATA" };
+          }
+          return {
+            ...item,
+            classification: getBreakdownClassification(item.cpl || (item.leads > 0 ? item.spend / item.leads : 0), avgCpl)
+          };
+        });
+      }
+    }
   }
 
   // ── 1. Account health score — recompute from cadence-window data ─────

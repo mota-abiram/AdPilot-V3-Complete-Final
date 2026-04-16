@@ -55,6 +55,13 @@ interface AICommandResponse {
   executionResults: ExecutionOutcome[];
   safetyWarnings: string[];
   requiresConfirmation: boolean;
+  terminalResponse?: {
+    diagnosis: string[];
+    layerAnalysis: string[];
+    solutions: string[];
+    expectedOutcome: string[];
+    text: string;
+  };
 }
 
 interface Message {
@@ -152,8 +159,26 @@ function ActionPlanChip({ actionJson }: { actionJson: ActionPlan }) {
   );
 }
 
+function TerminalSection({ title, lines }: { title: string; lines: string[] }) {
+  if (!lines.length) return null;
+
+  return (
+    <div className="rounded-xl border border-border/30 bg-background/40 px-3 py-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-400">{title}</p>
+      <div className="mt-2 space-y-1.5">
+        {lines.map((line, index) => (
+          <p key={`${title}-${index}`} className="text-[12px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
+            {line}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
+  const terminalResponse = message.response?.terminalResponse;
 
   return (
     <div className={cn("flex gap-2.5", isUser ? "flex-row-reverse" : "flex-row")}>
@@ -179,8 +204,16 @@ function MessageBubble({ message }: { message: Message }) {
               ? "bg-primary text-primary-foreground rounded-tr-sm"
               : "bg-muted/60 text-foreground rounded-tl-sm border border-border/30"
           )}>
-            {/* Message text */}
-            <p className="whitespace-pre-wrap text-[13px]">{message.content}</p>
+            {!isUser && terminalResponse ? (
+              <div className="space-y-3">
+                <TerminalSection title="1. Diagnosis" lines={terminalResponse.diagnosis} />
+                <TerminalSection title="2. Layer Analysis" lines={terminalResponse.layerAnalysis} />
+                <TerminalSection title="3. Solutions" lines={terminalResponse.solutions} />
+                <TerminalSection title="4. Expected Outcome" lines={terminalResponse.expectedOutcome} />
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap text-[13px]">{message.content}</p>
+            )}
 
             {/* Action plan chip (for assistant messages) */}
             {!isUser && message.response?.actionJson && message.response.actionJson.action.type !== "clarify" && (
@@ -229,7 +262,7 @@ interface CommandTerminalProps {
 }
 
 export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
-  const { activeClientId } = useClient();
+  const { activeClientId, activePlatform } = useClient();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -285,7 +318,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
       const res = await apiRequest("POST", "/api/ai/command", {
         command: trimmed,
         clientId: activeClientId || "amara",
-        platform: "all",
+        platform: (activePlatform || "meta") as "meta" | "google",
         provider: "auto",
       });
 
@@ -319,7 +352,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [activeClientId, isLoading]);
+  }, [activeClientId, activePlatform, isLoading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

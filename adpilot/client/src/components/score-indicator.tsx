@@ -5,9 +5,12 @@ import {
 } from "@/components/ui/tooltip";
 import { getHealthBgColor, getHealthBarBg } from "@/lib/format";
 
-interface ScoreIndicatorProps {
+export interface ScoreIndicatorProps {
   score: number;
-   detailedBreakdown?: Record<string, { contribution: number; weight: number }>;
+  breakdown?: Record<string, number>;
+  detailedBreakdown?: Record<string, { contribution: number; weight: number }>;
+  label?: string;
+  description?: string;
 }
 
 export function ScoreIndicator({ score, breakdown, detailedBreakdown, label, description }: ScoreIndicatorProps) {

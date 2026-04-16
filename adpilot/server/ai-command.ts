@@ -76,6 +76,7 @@ export interface AICommandResponse {
   executionResults: ExecutionOutcome[];
   safetyWarnings: string[];
   requiresConfirmation: boolean;
+  terminalResponse?: IntelligenceResult["terminalResponse"];
 
   // New AdCortex fields (non-breaking additions)
   rankedRecommendations?: AdCortexRecommendation[];
@@ -636,6 +637,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
       executionResults: [],
       safetyWarnings,
       requiresConfirmation: false,
+      terminalResponse: result.terminalResponse,
       // AdCortex additions
       rankedRecommendations: result.recommendations,
       layerContributions: result.layer_contributions,
@@ -682,6 +684,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
       executionResults: [],
       safetyWarnings: [...safetyWarnings, "No campaigns matched the filters — nothing to execute."],
       requiresConfirmation: false,
+      terminalResponse: result.terminalResponse,
       rankedRecommendations: result.recommendations,
       layerContributions: result.layer_contributions,
       conflicts: result.conflicts,
@@ -706,6 +709,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
       executionResults: [],
       safetyWarnings: allWarnings,
       requiresConfirmation: true,
+      terminalResponse: result.terminalResponse,
       rankedRecommendations: result.recommendations,
       layerContributions: result.layer_contributions,
       conflicts: result.conflicts,
@@ -719,6 +723,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
       executionResults: [],
       safetyWarnings: allWarnings,
       requiresConfirmation: false,
+      terminalResponse: result.terminalResponse,
       rankedRecommendations: result.recommendations,
       layerContributions: result.layer_contributions,
       conflicts: result.conflicts,
@@ -773,6 +778,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
     executionResults,
     safetyWarnings: allWarnings,
     requiresConfirmation: false,
+    terminalResponse: result.terminalResponse,
     // AdCortex additions
     rankedRecommendations: result.recommendations,
     layerContributions: result.layer_contributions,

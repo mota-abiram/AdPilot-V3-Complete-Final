@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, Fragment, Component, type ReactNode, type ErrorInfo } from "react";
+// Intelligence Ads Dashboard v1.1 - Force Reload
+import React, { useState, useMemo, useEffect, Fragment, Component, type ReactNode, type ErrorInfo } from "react";
 import { useClient } from "@/lib/client-context";
 import { DataTablePagination } from "@/components/data-table-pagination";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import {
   Pause,
   Play,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { ExecutionButton } from "@/components/execution-button";
 import { useExecution } from "@/hooks/use-execution";
@@ -28,6 +30,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreIndicator } from "@/components/score-indicator";
+import { HealthScoreBreakdown } from "@/components/health-score-breakdown";
+
+// ─── Helpers ──────────────────────────────────────────────────────
+
+const normalizeRate = (val: any) => {
+  const n = parseFloat(val) || 0;
+  if (n > 0 && n <= 1.0) return n * 100;
+  return n;
+};
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -60,6 +71,7 @@ type AdsPanelCreative = {
   cpm: number;
   tsr: number;
   vhr: number;
+  ffr: number;
   video_p100: number;
   ad_strength: string;
   h_best: number;
@@ -68,6 +80,7 @@ type AdsPanelCreative = {
   expected_ctr: number;
   age_days: number;
   score_breakdown?: Record<string, number>;
+  detailed_breakdown?: Record<string, any>;
   [key: string]: any;
 };
 
@@ -122,67 +135,68 @@ const META_AD_GROUPS = [
   { label: "Identity", span: 2 },
   { label: "Health", span: 2 },
   { label: "Status", span: 1 },
-  { label: "Performance", span: 4 },
+  { label: "Performance", span: 5 },
   { label: "Efficiency", span: 1 },
-  { label: "Video", span: 2 },
+  { label: "Video", span: 3 },
 ];
 
 const SEARCH_AD_COLS: ColDef[] = [
-  { key: "name",         label: "Ad Group / Ad",  align: "left"  },
-  { key: "classification", label: "Class",        align: "left"  },
-  { key: "health_score", label: "Health",         align: "left"  },
-  { key: "ad_strength",  label: "Strength",       align: "left"  },
-  { key: "status",       label: "Status",         align: "left"  },
-  { key: "impressions",  label: "Impr",           align: "right" },
-  { key: "clicks",       label: "Clicks",         align: "right" },
-  { key: "ctr",          label: "CTR",            align: "right" },
-  { key: "leads",        label: "Leads",          align: "right" },
-  { key: "all_conversions", label: "SVs",         align: "right" },
-  { key: "cpl",          label: "CPL",            align: "right" },
-  { key: "cpsv",         label: "CPSV",           align: "right" },
-  { key: "cvr",          label: "CVR",            align: "right" },
-  { key: "avg_cpc",      label: "CPC",            align: "right" },
-  { key: "h_count",      label: "Hdls",           align: "right" },
-  { key: "d_count",      label: "Descs",          align: "right" },
-  { key: "h_best",       label: "H-Perf",         align: "right" },
-  { key: "d_best",       label: "D-Perf",         align: "right" },
+  { key: "name", label: "Ad Group / Ad", align: "left" },
+  { key: "classification", label: "Class", align: "left" },
+  { key: "health_score", label: "Health", align: "left" },
+  { key: "ad_strength", label: "Strength", align: "left" },
+  { key: "status", label: "Status", align: "left" },
+  { key: "impressions", label: "Impr", align: "right" },
+  { key: "clicks", label: "Clicks", align: "right" },
+  { key: "ctr", label: "CTR", align: "right" },
+  { key: "leads", label: "Leads", align: "right" },
+  { key: "all_conversions", label: "SVs", align: "right" },
+  { key: "cpl", label: "CPL", align: "right" },
+  { key: "cpsv", label: "CPSV", align: "right" },
+  { key: "cvr", label: "CVR", align: "right" },
+  { key: "avg_cpc", label: "CPC", align: "right" },
+  { key: "h_count", label: "Hdls", align: "right" },
+  { key: "d_count", label: "Descs", align: "right" },
+  { key: "h_best", label: "H-Perf", align: "right" },
+  { key: "d_best", label: "D-Perf", align: "right" },
 ];
 
 const DG_AD_COLS: ColDef[] = [
-  { key: "name",         label: "Ad / Creative",  align: "left"  },
-  { key: "format",       label: "Format",         align: "left"  },
-  { key: "classification", label: "Class",        align: "left"  },
-  { key: "health_score", label: "Health",         align: "left"  },
-  { key: "status",       label: "Status",         align: "left"  },
-  { key: "age_days",     label: "Age (d)",        align: "right" },
-  { key: "impressions",  label: "Impr",           align: "right" },
-  { key: "clicks",       label: "Clicks",         align: "right" },
-  { key: "leads",        label: "Leads",          align: "right" },
-  { key: "all_conversions", label: "SVs",         align: "right" },
-  { key: "cpl",          label: "CPL",            align: "right" },
-  { key: "cpsv",         label: "CPSV",           align: "right" },
-  { key: "cpm",          label: "CPM",            align: "right" },
-  { key: "ctr",          label: "CTR",            align: "right" },
-  { key: "avg_cpc",      label: "CPC",            align: "right" },
-  { key: "tsr",          label: "TSR",            align: "right" },
-  { key: "vhr",          label: "VHR",            align: "right" },
-  { key: "video_p100",   label: "P100",           align: "right" },
+  { key: "name", label: "Ad / Creative", align: "left" },
+  { key: "format", label: "Format", align: "left" },
+  { key: "classification", label: "Class", align: "left" },
+  { key: "health_score", label: "Health", align: "left" },
+  { key: "status", label: "Status", align: "left" },
+  { key: "age_days", label: "Age (d)", align: "right" },
+  { key: "impressions", label: "Impr", align: "right" },
+  { key: "clicks", label: "Clicks", align: "right" },
+  { key: "leads", label: "Leads", align: "right" },
+  { key: "all_conversions", label: "SVs", align: "right" },
+  { key: "cpl", label: "CPL", align: "right" },
+  { key: "cpsv", label: "CPSV", align: "right" },
+  { key: "cpm", label: "CPM", align: "right" },
+  { key: "ctr", label: "CTR", align: "right" },
+  { key: "avg_cpc", label: "CPC", align: "right" },
+  { key: "tsr", label: "TSR", align: "right" },
+  { key: "vhr", label: "VHR", align: "right" },
+  { key: "video_p100", label: "P100", align: "right" },
 ];
 
 const META_AD_COLS: ColDef[] = [
-  { key: "name",          label: "Creative",       align: "left"  },
-  { key: "format",        label: "Type",           align: "left"  },
-  { key: "classification",label: "Class",          align: "left"  },
-  { key: "health_score",  label: "Health",         align: "left"  },
-  { key: "status",        label: "Status",         align: "left"  },
-  { key: "spend",         label: "Spend",          align: "right" },
-  { key: "impressions",   label: "Impr",           align: "right" },
-  { key: "leads",         label: "Leads",          align: "right" },
-  { key: "cpl",           label: "CPL",            align: "right" },
-  { key: "ctr",           label: "CTR",            align: "right" },
-  { key: "cpm",           label: "CPM",            align: "right" },
-  { key: "tsr",           label: "TSR",            align: "right" },
-  { key: "vhr",           label: "VHR",            align: "right" },
+  { key: "name", label: "Creative", align: "left" },
+  { key: "format", label: "Type", align: "left" },
+  { key: "classification", label: "Class", align: "left" },
+  { key: "health_score", label: "Health", align: "left" },
+  { key: "status", label: "Status", align: "left" },
+  { key: "spend", label: "Spend", align: "right" },
+  { key: "impressions", label: "Impr", align: "right" },
+  { key: "leads", label: "Leads", align: "right" },
+  { key: "cpl", label: "CPL", align: "right" },
+  { key: "cpm", label: "CPM", align: "right" },
+  { key: "ctr", label: "CTR", align: "right" },
+  { key: "tsr", label: "TSR", align: "right" },
+  { key: "vhr", label: "VHR", align: "right" },
+  { key: "ffr", label: "FFR", align: "right" },
 ];
 
 // ─── processAd helper ───────────────────────────────────────────────
@@ -208,8 +222,13 @@ function processAd(ad: any, campaignName: string, adsetName: string): AdsPanelCr
     cvr: ad.cvr || 0,
     avg_cpc: ad.avg_cpc || ad.cpc || 0,
     cpm: ad.cpm || ad.avg_cpm || 0,
-    tsr: ad.tsr || ad.thumb_stop_pct || 0,
-    vhr: ad.vhr || ad.hold_rate_pct || 0,
+    tsr: normalizeRate(ad.tsr || ad.thumb_stop_pct || ad.thumb_stop_rate),
+    vhr: normalizeRate(ad.vhr || ad.hold_rate_pct || ad.hold_rate),
+    ffr: normalizeRate(
+      (ad.video_views > 0 && ad.impressions > 0)
+        ? (ad.video_views / ad.impressions) * 100
+        : (ad.ffr || ad.first_frame_rate_pct || ad.first_frame_rate || ad.hook_rate || 0)
+    ),
     video_p100: ad.video_p100 || 0,
     ad_strength: ad.ad_strength || "PENDING",
     h_best: ad.h_best || 0,
@@ -218,6 +237,7 @@ function processAd(ad: any, campaignName: string, adsetName: string): AdsPanelCr
     expected_ctr: ad.expected_ctr || 0,
     age_days: ad.age_days || 0,
     score_breakdown: ad.score_breakdown,
+    detailed_breakdown: ad.detailed_breakdown || ad.score_breakdown_detailed,
   };
 }
 
@@ -249,8 +269,8 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
   }
   if (col.key === "ad_strength") {
     const cls = val === "EXCELLENT" ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/5"
-              : val === "GOOD"      ? "text-emerald-400/80 border-emerald-500/20"
-              : "text-amber-400 border-amber-500/30";
+      : val === "GOOD" ? "text-emerald-400/80 border-emerald-500/20"
+        : "text-amber-400 border-amber-500/30";
     return (
       <td key={col.key} className="p-3">
         <Badge variant="outline" className={`text-[9px] px-1 py-0 uppercase ${cls}`}>{val || "PENDING"}</Badge>
@@ -263,14 +283,21 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
   if (col.key === "name") {
     return (
       <td key={col.key} className="p-3 max-w-[200px]">
-        <div className="font-medium text-foreground truncate text-xs">{c.name}</div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="font-medium text-foreground truncate text-xs cursor-default hover:text-primary transition-colors">{c.name}</div>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs max-w-[300px] whitespace-normal">{c.name}</p>
+          </TooltipContent>
+        </Tooltip>
         <div className="text-[10px] text-muted-foreground truncate mt-0.5">{c.campaignName}</div>
       </td>
     );
   }
 
   // Numeric renderers
-  const isPct = ["ctr", "cvr", "tsr", "vhr", "video_p100", "expected_ctr"].includes(col.key);
+  const isPct = ["ctr", "cvr", "tsr", "vhr", "ffr", "video_p100", "expected_ctr"].includes(col.key);
   const isINR = ["spend", "cost", "cpl", "avg_cpc", "cpm", "cpsv"].includes(col.key);
   const numVal = typeof val === "number" ? val : (parseFloat(val) || 0);
 
@@ -359,161 +386,34 @@ export default function AnalyticsAdsPage() {
 
   const paginated = useMemo(() => creatives.slice((page - 1) * pageSize, page * pageSize), [creatives, page, pageSize]);
   const searchAds = useMemo(() => paginated.filter(c => c.isSearch), [paginated]);
-  const dgAds     = useMemo(() => paginated.filter(c => !c.isSearch && isGoogle), [paginated, isGoogle]);
+  const dgAds = useMemo(() => paginated.filter(c => !c.isSearch && isGoogle), [paginated, isGoogle]);
 
   const totalSpend = useMemo(() => allAds.reduce((s, c) => s + c.spend, 0), [allAds]);
 
   // ─── Ad row renderer ─────────────────────────────────────────────
-  function renderAdRow(c: AdsPanelCreative, cols: ColDef[]) {
-    const isPaused = c.status === "PAUSED" || c.status === "DISABLED";
-    const isExpanded = expandedIds.has(c.id);
+  const handleToggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
-    return (
-      <Fragment key={c.id}>
-        <tr
-          className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer text-sm ${isPaused ? "opacity-50" : ""} ${c.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}
-          onClick={() => setExpandedIds(prev => {
-            const next = new Set(prev);
-            next.has(c.id) ? next.delete(c.id) : next.add(c.id);
-            return next;
-          })}
-        >
-          <td className="p-3 w-10" onClick={e => e.stopPropagation()}>
-            <Checkbox
-              checked={selectedIds.has(c.id)}
-              onCheckedChange={checked => setSelectedIds(prev => {
-                const next = new Set(prev);
-                checked ? next.add(c.id) : next.delete(c.id);
-                return next;
-              })}
-            />
-          </td>
+  const handleToggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      checked ? next.add(id) : next.delete(id);
+      return next;
+    });
+  };
 
-          {cols.map(col => renderAdCell(c, col, thresholds))}
-
-          <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-            <ExecutionButton
-              action={isPaused ? (isGoogle ? "ENABLE_AD" : "UNPAUSE_AD") : "PAUSE_AD"}
-              entityId={c.id}
-              entityName={c.name}
-              entityType="ad"
-              label=""
-              variant="ghost"
-              size="icon"
-              icon={isPaused
-                ? <Play className="w-3.5 h-3.5 text-emerald-500" />
-                : <Pause className="w-3.5 h-3.5 text-muted-foreground" />
-              }
-              confirmMessage={`${isPaused ? "Resume" : "Pause"} ad "${c.name}"?`}
-              className="h-8 w-8 hover:bg-muted"
-              currentMetrics={{ spend: c.spend, leads: c.leads, cpl: c.cpl, ctr: c.ctr, impressions: c.impressions }}
-            />
-          </td>
-        </tr>
-
-        {isExpanded && (
-          <tr className="border-b border-border/30 bg-muted/20 animate-in fade-in duration-200">
-            <td colSpan={cols.length + 2} className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {[
-                  { label: "Impressions", val: formatNumber(c.impressions) },
-                  { label: "Clicks",      val: formatNumber(c.clicks) },
-                  { label: "CPL",         val: c.cpl > 0 ? formatINR(c.cpl, 0) : "—" },
-                  { label: "CPC",         val: c.avg_cpc > 0 ? formatINR(c.avg_cpc, 2) : "—" },
-                  ...(c.isVideo ? [
-                    { label: "TSR",  val: formatPct(c.tsr) },
-                    { label: "VHR",  val: formatPct(c.vhr) },
-                  ] : []),
-                  ...(c.ad_strength !== "PENDING" ? [
-                    { label: "Ad Strength", val: c.ad_strength },
-                  ] : []),
-                ].map(({ label, val }) => (
-                  <div key={label} className="p-3 rounded-xl bg-card border border-border/50 shadow-sm">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">{label}</p>
-                    <p className="text-sm font-black tabular-nums">{val}</p>
-                  </div>
-                ))}
-              </div>
-            </td>
-          </tr>
-        )}
-      </Fragment>
-    );
-  }
-
-  // ─── Table component ─────────────────────────────────────────────
-  function AdTable({ title, rows, cols, groups, accent = "primary" }: { title: string; rows: AdsPanelCreative[]; cols: ColDef[]; groups?: { label: string, span: number }[], accent?: string }) {
-    return (
-      <section>
-        <h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2">
-          <Info className={`w-3 h-3 text-${accent}-500`} />
-          {title}
-          <span className="text-muted-foreground font-normal">({rows.length})</span>
-        </h2>
-        <Card>
-          <CardContent className="card-content-premium p-0 overflow-x-auto overflow-y-hidden">
-            <table className="t-table w-full text-xs">
-              <thead>
-                {/* Pivot Group Header Row */}
-                {groups && (
-                  <tr className="border-b border-border/10 bg-muted/5">
-                    <th className="p-0 w-10"></th>
-                    {groups.map((g, i) => (
-                      <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
-                        {g.label}
-                      </th>
-                    ))}
-                    <th className="p-0 w-10"></th>
-                  </tr>
-                )}
-                <tr className="border-b border-border/50 bg-muted/20">
-                  <th className="p-3 w-10">
-                    <Checkbox
-                      checked={rows.length > 0 && rows.every(c => selectedIds.has(c.id))}
-                      onCheckedChange={checked => {
-                        setSelectedIds(prev => {
-                          const next = new Set(prev);
-                          rows.forEach(c => checked ? next.add(c.id) : next.delete(c.id));
-                          return next;
-                        });
-                      }}
-                    />
-                  </th>
-                  {cols.map(col => (
-                    <th
-                      key={col.key}
-                      className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
-                      onClick={() => {
-                        if (sortKey === col.key) setSortDir(d => d === "asc" ? "desc" : "asc");
-                        else { setSortKey(col.key); setSortDir("desc"); }
-                      }}
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                  <th className="px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center">
-                    Act
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={cols.length + 2} className="p-12 text-center">
-                      <div className="flex flex-col items-center gap-2 opacity-40">
-                        <BarChart3 className="w-6 h-6" />
-                        <p className="text-xs">No ads found</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : rows.map(c => renderAdRow(c, cols))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      </section>
-    );
-  }
+  const handleSelectAll = (rows: AdsPanelCreative[], checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      rows.forEach(c => checked ? next.add(c.id) : next.delete(c.id));
+      return next;
+    });
+  };
 
   // ─── Loading state ───────────────────────────────────────────────
   if (isLoading || !data) {
@@ -623,8 +523,46 @@ export default function AnalyticsAdsPage() {
         {/* ── Tables ─────────────────────────────────────────────── */}
         {isGoogle ? (
           <div className="space-y-8">
-            <AdTable title="Search Ads (RSA)" rows={searchAds} cols={SEARCH_AD_COLS} groups={SEARCH_AD_GROUPS} accent="blue" />
-            <AdTable title="Demand Gen Ads" rows={dgAds} cols={DG_AD_COLS} groups={DG_AD_GROUPS} accent="purple" />
+            <AdTable
+              title="Search Ads (RSA)"
+              rows={searchAds}
+              cols={SEARCH_AD_COLS}
+              groups={SEARCH_AD_GROUPS}
+              accent="blue"
+              isGoogle={isGoogle}
+              thresholds={thresholds}
+              expandedIds={expandedIds}
+              onToggleExpand={handleToggleExpand}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onSelectAll={handleSelectAll}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(key) => {
+                if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                else { setSortKey(key); setSortDir("desc"); }
+              }}
+            />
+            <AdTable
+              title="Demand Gen Ads"
+              rows={dgAds}
+              cols={DG_AD_COLS}
+              groups={DG_AD_GROUPS}
+              accent="purple"
+              isGoogle={isGoogle}
+              thresholds={thresholds}
+              expandedIds={expandedIds}
+              onToggleExpand={handleToggleExpand}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onSelectAll={handleSelectAll}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(key) => {
+                if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                else { setSortKey(key); setSortDir("desc"); }
+              }}
+            />
             <DataTablePagination
               totalItems={creatives.length}
               pageSize={pageSize}
@@ -635,7 +573,26 @@ export default function AnalyticsAdsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <AdTable title="Meta Creatives" rows={paginated} cols={META_AD_COLS} groups={META_AD_GROUPS} accent="blue" />
+            <AdTable
+              title="Meta Creatives"
+              rows={paginated}
+              cols={META_AD_COLS}
+              groups={META_AD_GROUPS}
+              accent="blue"
+              isGoogle={isGoogle}
+              thresholds={thresholds}
+              expandedIds={expandedIds}
+              onToggleExpand={handleToggleExpand}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onSelectAll={handleSelectAll}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(key) => {
+                if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                else { setSortKey(key); setSortDir("desc"); }
+              }}
+            />
             <DataTablePagination
               totalItems={creatives.length}
               pageSize={pageSize}
@@ -649,3 +606,173 @@ export default function AnalyticsAdsPage() {
     </AnalyticsErrorBoundary>
   );
 }
+
+// ─── Sub-Components ────────────────────────────────────────────────
+
+interface AdTableProps {
+  title: string;
+  rows: AdsPanelCreative[];
+  cols: ColDef[];
+  groups?: { label: string, span: number }[];
+  accent?: string;
+  isGoogle: boolean;
+  thresholds: any;
+  expandedIds: Set<string>;
+  onToggleExpand: (id: string) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string, checked: boolean) => void;
+  onSelectAll: (rows: AdsPanelCreative[], checked: boolean) => void;
+  sortKey: string;
+  sortDir: "asc" | "desc";
+  onSort: (key: string) => void;
+}
+
+const AdTable = React.memo(({
+  title, rows, cols, groups, accent = "primary",
+  isGoogle, thresholds, expandedIds, onToggleExpand,
+  selectedIds, onToggleSelect, onSelectAll,
+  sortKey, sortDir, onSort
+}: AdTableProps) => {
+  return (
+    <section>
+      <h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2">
+        <Info className={`w-3 h-3 text-${accent}-500`} />
+        {title}
+        <span className="text-muted-foreground font-normal">({rows.length})</span>
+      </h2>
+      <Card>
+        <CardContent className="card-content-premium p-0 overflow-x-auto overflow-y-hidden">
+          <table className="t-table w-full text-xs">
+            <thead>
+              {groups && (
+                <tr className="border-b border-border/10 bg-muted/5">
+                  <th className="p-0 w-10"></th>
+                  {groups.map((g, i) => (
+                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                      {g.label}
+                    </th>
+                  ))}
+                  <th className="p-0 w-10"></th>
+                </tr>
+              )}
+              <tr className="border-b border-border/50 bg-muted/20">
+                <th className="p-3 w-10 text-center">
+                  <Checkbox
+                    checked={rows.length > 0 && rows.every(c => selectedIds.has(c.id))}
+                    onCheckedChange={checked => onSelectAll(rows, !!checked)}
+                  />
+                </th>
+                {cols.map(col => (
+                  <th
+                    key={col.key}
+                    className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
+                    onClick={() => onSort(col.key)}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+                <th className="px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center border-l border-border/5">
+                  Act
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={cols.length + 2} className="p-12 text-center">
+                    <div className="flex flex-col items-center gap-2 opacity-40">
+                      <BarChart3 className="w-6 h-6" />
+                      <p className="text-xs font-bold uppercase tracking-tight">No creatives matching current filters</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : rows.map(c => (
+                <AdRow
+                  key={c.id}
+                  c={c}
+                  cols={cols}
+                  isGoogle={isGoogle}
+                  thresholds={thresholds}
+                  isExpanded={expandedIds.has(c.id)}
+                  onToggleExpand={() => onToggleExpand(c.id)}
+                  isSelected={selectedIds.has(c.id)}
+                  onToggleSelect={(checked) => onToggleSelect(c.id, checked)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </section>
+  );
+});
+
+AdTable.displayName = "AdTable";
+
+const AdRow = React.memo(({
+  c, cols, isGoogle, thresholds, isExpanded, onToggleExpand, isSelected, onToggleSelect
+}: {
+  c: AdsPanelCreative,
+  cols: ColDef[],
+  isGoogle: boolean,
+  thresholds: any,
+  isExpanded: boolean,
+  onToggleExpand: () => void,
+  isSelected: boolean,
+  onToggleSelect: (checked: boolean) => void
+}) => {
+  const isPaused = c.status === "PAUSED" || c.status === "DISABLED";
+
+  return (
+    <Fragment>
+      <tr
+        className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer text-sm ${isPaused ? "opacity-50" : ""} ${c.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}
+        onClick={onToggleExpand}
+      >
+        <td className="p-3 w-10 text-center" onClick={e => e.stopPropagation()}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onToggleSelect(!!checked)}
+          />
+        </td>
+
+        {cols.map(col => renderAdCell(c, col, thresholds))}
+
+        <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
+          <ExecutionButton
+            action={isPaused ? (isGoogle ? "ENABLE_AD" : "UNPAUSE_AD") : "PAUSE_AD"}
+            entityId={c.id}
+            entityName={c.name}
+            entityType="ad"
+            label=""
+            variant={(!isPaused && c.classification === "UNDERPERFORMER") ? "destructive" : "ghost"}
+            size="icon"
+            icon={isPaused
+              ? <Play className="w-3.5 h-3.5 text-emerald-500" />
+              : <Pause className="w-3.5 h-3.5" />
+            }
+            confirmMessage={`${isPaused ? "Resume" : "Pause"} ad "${c.name}"?`}
+            className="h-8 w-8 hover:bg-muted"
+            currentMetrics={{ spend: c.spend, leads: c.leads, cpl: c.cpl, ctr: c.ctr, impressions: c.impressions }}
+          />
+        </td>
+      </tr>
+
+      {isExpanded && (
+        <tr className="border-b border-border/30 bg-muted/20 animate-in fade-in duration-200">
+          <td colSpan={cols.length + 2} className="p-4">
+            <HealthScoreBreakdown
+              entityName={c.name}
+              scoreBreakdown={c.score_breakdown || {}}
+              detailedBreakdown={c.detailed_breakdown}
+              scoreBands={c.score_bands}
+              className="py-1"
+            />
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+});
+
+AdRow.displayName = "AdRow";
