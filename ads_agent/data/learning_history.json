@@ -3,14 +3,6 @@
     {
       "date": "2026-04-11",
       "cadence": "multi_cadence",
-      "total_leads": 40,
-      "avg_cpl": 426.78925,
-      "overall_ctr": 1.1687363038714391,
-      "strategic_narrative": "Mojo's Take: Your Meta Ads CPL has dropped to \u20b9397, showing improvement, but don\u2019t get complacent with only 31% pacing. Scale investments in high-performing TOFU channels to maintain momentum and ensure you hit your linear targets."
-    },
-    {
-      "date": "2026-04-11",
-      "cadence": "multi_cadence",
       "total_leads": 66,
       "avg_cpl": 767.623484848485,
       "overall_ctr": 0.4084414051289157,
@@ -239,6 +231,14 @@
       "avg_cpl": 740.409411764706,
       "overall_ctr": 0.6172583728356593,
       "strategic_narrative": "Mojo's Take: Your MTD CPL of \u20b9749 is crushing your ROAS and with a 102% pacing, you risk blowing your budget. Eliminate low-performing campaigns and reallocate funds to assets with a higher CVR before your tCPA spirals out of control."
+    },
+    {
+      "date": "2026-04-16",
+      "cadence": "multi_cadence",
+      "total_leads": 68,
+      "avg_cpl": 740.409411764706,
+      "overall_ctr": 0.6172438797002866,
+      "strategic_narrative": "Mojo's Take: Your MTD CPL of \u20b9749 is already hurting your ROAS, and with a 102% pacing, you're teetering on budget disaster. Cut the dead weight: axe low performers and shift that spend to high-converting assets before your tCPA goes through the roof."
     }
   ],
   "patterns": [
@@ -291,12 +291,6 @@
       ]
     },
     {
-      "date": "2026-04-13",
-      "top_patterns": [
-        "'Video' format appears more in top performers (1/1) than bottom (0/1)."
-      ]
-    },
-    {
       "date": "2026-04-14",
       "top_patterns": [
         "'Static' format appears more in top performers (1/1) than bottom (0/1)."
@@ -340,6 +334,10 @@
     },
     {
       "date": "2026-04-15",
+      "top_patterns": []
+    },
+    {
+      "date": "2026-04-16",
       "top_patterns": []
     },
     {
@@ -355,12 +353,6 @@
   "audience_saturation": {},
   "campaign_cpl_history": {
     "120242148702000466": [
-      {
-        "date": "2026-04-14",
-        "cpl": 2252.075,
-        "leads": 8,
-        "spend": 18016.6
-      },
       {
         "date": "2026-04-14",
         "cpl": 2252.0812499999997,
@@ -414,15 +406,15 @@
         "cpl": 2763.9883333333332,
         "leads": 6,
         "spend": 16583.93
+      },
+      {
+        "date": "2026-04-16",
+        "cpl": 2763.9883333333332,
+        "leads": 6,
+        "spend": 16583.93
       }
     ],
     "120231984866140466": [
-      {
-        "date": "2026-04-14",
-        "cpl": 569.8268965517243,
-        "leads": 58,
-        "spend": 33049.96000000001
-      },
       {
         "date": "2026-04-14",
         "cpl": 569.8317241379311,
@@ -464,6 +456,12 @@
         "cpl": 565.398,
         "leads": 60,
         "spend": 33923.880000000005
+      },
+      {
+        "date": "2026-04-16",
+        "cpl": 544.5791935483871,
+        "leads": 62,
+        "spend": 33763.91
       },
       {
         "date": "2026-04-16",

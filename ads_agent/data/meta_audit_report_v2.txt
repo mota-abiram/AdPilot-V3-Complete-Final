@@ -1,7 +1,7 @@
 ==========================================================================================
   MOJO PERFORMANCE AGENT — ADVANCED META ADS AUDIT
   Deevyashakti Amara | Account: act_391022327028566
-  Generated: 2026-04-16 12:12:27
+  Generated: 2026-04-16 15:12:53
   Alert Thresholds: CPL Alert ₹910 (target ₹700 × 1.3) | Critical ₹1050 (× 1.5)
 ==========================================================================================
 
@@ -36,7 +36,7 @@
   CTR:       0.62%  [UP]  (SOP: 0.7-1.5%)
   CPM:       ₹69.54  (SOP: ₹300-520)
   CPC:       ₹11.27
-  Reach:     497,462
+  Reach:     497,563
 
 ----------------------------------------------------------------------
   [CAMPAIGNS] CAMPAIGN PERFORMANCE (by health score)
