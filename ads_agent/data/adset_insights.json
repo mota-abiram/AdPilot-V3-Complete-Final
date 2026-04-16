@@ -15358,11 +15358,11 @@
       "campaign_id": "120231984866140466",
       "adset_name": "DM Amara | Adv+ OT",
       "adset_id": "120231984866130466",
-      "impressions": "70715",
+      "impressions": "70726",
       "clicks": "273",
-      "ctr": "0.386057",
+      "ctr": "0.385997",
       "cpc": "12.18685",
-      "cpm": "47.048151",
+      "cpm": "47.040834",
       "spend": "3327.01",
       "actions": [
         {
@@ -15375,7 +15375,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "8086"
+          "value": "8087"
         },
         {
           "action_type": "landing_page_view",
@@ -15391,7 +15391,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "8086"
+          "value": "8087"
         },
         {
           "action_type": "post_interaction_gross",
@@ -15435,7 +15435,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "7462"
+          "value": "7463"
         },
         {
           "action_type": "post_reaction",
@@ -15465,7 +15465,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "0.44586"
+          "value": "0.445801"
         },
         {
           "action_type": "link_click",
@@ -15485,7 +15485,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "0.411453"
+          "value": "0.411402"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
@@ -15501,15 +15501,15 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "0.411453"
+          "value": "0.411402"
         },
         {
           "action_type": "omni_landing_page_view",
           "value": "1663.505"
         }
       ],
-      "frequency": "1.442074",
-      "reach": "49037",
+      "frequency": "1.440301",
+      "reach": "49105",
       "date_stop": "2026-04-15"
     },
     {
@@ -15518,11 +15518,11 @@
       "campaign_id": "120231984866140466",
       "adset_name": "DM Amara | Adv+ OT_2",
       "adset_id": "120235869581350466",
-      "impressions": "15766",
+      "impressions": "15767",
       "clicks": "53",
-      "ctr": "0.336166",
+      "ctr": "0.336145",
       "cpc": "21.852453",
-      "cpm": "73.460611",
+      "cpm": "73.455952",
       "spend": "1158.18",
       "actions": [
         {
@@ -15652,7 +15652,7 @@
           "value": "1158.18"
         }
       ],
-      "frequency": "1.106153",
+      "frequency": "1.106223",
       "reach": "14253",
       "date_stop": "2026-04-15"
     },
@@ -15738,11 +15738,11 @@
       "campaign_id": "120242148702000466",
       "adset_name": "DM Amara | Adv+ OT",
       "adset_id": "120242148702090466",
-      "impressions": "1784",
+      "impressions": "1789",
       "clicks": "20",
-      "ctr": "1.121076",
+      "ctr": "1.117943",
       "cpc": "71.456",
-      "cpm": "801.076233",
+      "cpm": "798.837339",
       "spend": "1429.12",
       "actions": [
         {
@@ -15848,8 +15848,8 @@
           "value": "84.065882"
         }
       ],
-      "frequency": "1.574581",
-      "reach": "1133",
+      "frequency": "1.577601",
+      "reach": "1134",
       "date_stop": "2026-04-15"
     }
   ]

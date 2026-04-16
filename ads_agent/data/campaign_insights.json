@@ -9772,11 +9772,11 @@
       "date_start": "2026-04-15",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
-      "impressions": "86481",
+      "impressions": "86493",
       "clicks": "326",
-      "ctr": "0.376961",
+      "ctr": "0.376909",
       "cpc": "13.758252",
-      "cpm": "51.863299",
+      "cpm": "51.856104",
       "spend": "4485.19",
       "actions": [
         {
@@ -9789,7 +9789,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "9616"
+          "value": "9617"
         },
         {
           "action_type": "landing_page_view",
@@ -9805,7 +9805,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "9616"
+          "value": "9617"
         },
         {
           "action_type": "post_interaction_gross",
@@ -9849,7 +9849,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "8911"
+          "value": "8912"
         },
         {
           "action_type": "post_reaction",
@@ -9883,7 +9883,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "0.503332"
+          "value": "0.503275"
         },
         {
           "action_type": "link_click",
@@ -9903,7 +9903,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "0.46643"
+          "value": "0.466381"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
@@ -9919,7 +9919,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "0.46643"
+          "value": "0.466381"
         },
         {
           "action_type": "omni_landing_page_view",
@@ -9930,8 +9930,8 @@
           "value": "4485.19"
         }
       ],
-      "frequency": "1.446558",
-      "reach": "59784",
+      "frequency": "1.444318",
+      "reach": "59885",
       "objective": "OUTCOME_LEADS",
       "video_p25_watched_actions": [
         {
@@ -9951,11 +9951,11 @@
       "date_start": "2026-04-15",
       "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
       "campaign_id": "120242148702000466",
-      "impressions": "2308",
+      "impressions": "2313",
       "clicks": "29",
-      "ctr": "1.256499",
+      "ctr": "1.253783",
       "cpc": "77.87931",
-      "cpm": "978.55286",
+      "cpm": "976.437527",
       "spend": "2258.5",
       "actions": [
         {
@@ -10073,7 +10073,7 @@
           "value": "16.365942"
         }
       ],
-      "frequency": "1.572207",
+      "frequency": "1.575613",
       "reach": "1468",
       "objective": "OUTCOME_LEADS",
       "video_p25_watched_actions": [

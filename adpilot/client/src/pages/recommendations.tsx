@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Brain, ChevronDown, ChevronUp, AlertTriangle, Activity, ShieldCheck } from "lucide-react";
 import { useClient } from "@/lib/client-context";
@@ -7,12 +7,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 import { ExecutionButton } from "@/components/execution-button";
+import { RootCauseChain } from "@/components/root-cause-chain";
 
 type SeverityTier = "CRITICAL" | "MEDIUM" | "LOW";
 type ExecutionClassification = "AUTO-EXECUTE" | "MANUAL" | "REJECT";
+type PlatformFilter = "all" | "meta" | "google";
 
 interface SolutionOption {
   classification: ExecutionClassification;
@@ -97,25 +101,25 @@ function SolutionTierDisplay({ solution, entityId, entityName, entityType }: { s
   return (
     <div className={cn("rounded-lg border p-3", EXECUTION_STYLE[solution.classification])}>
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <Badge variant="outline" className={cn("text-xs font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[solution.classification])}>
+        <Badge variant="outline" className={cn("text-sm font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[solution.classification])}>
           {solution.classification}
         </Badge>
-        <span className="text-xs text-muted-foreground">{solution.confidence}% confidence</span>
-        <span className="text-xs text-muted-foreground">Risk: {solution.risk}</span>
+        <span className="text-sm text-muted-foreground">{solution.confidence}% confidence</span>
+        <span className="text-sm text-muted-foreground">Risk: {solution.risk}</span>
       </div>
       <h4 className="text-sm font-semibold text-foreground">{solution.title}</h4>
-      <p className="mt-2 text-xs leading-relaxed text-foreground/85">{solution.rationale}</p>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/85">{solution.rationale}</p>
       {solution.steps.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Steps</p>
+          <p className="text-sm font-black uppercase tracking-[0.14em] text-muted-foreground">Steps</p>
           {solution.steps.map((step, index) => (
-            <p key={index} className="text-xs leading-relaxed text-foreground/80">
+            <p key={index} className="text-sm leading-relaxed text-foreground/80">
               {index + 1}. {step}
             </p>
           ))}
         </div>
       )}
-      <p className="mt-3 text-xs text-foreground/85"><span className="font-semibold">Expected Outcome:</span> {solution.expectedOutcome}</p>
+      <p className="mt-3 text-sm text-foreground/85"><span className="font-semibold">Expected Outcome:</span> {solution.expectedOutcome}</p>
       {solution.classification === "AUTO-EXECUTE" && solution.actionPayload?.action?.type && (
         <div className="mt-4">
           <ExecutionButton
@@ -125,7 +129,7 @@ function SolutionTierDisplay({ solution, entityId, entityName, entityType }: { s
             entityType={entityType as any}
             params={solution.actionPayload.action.parameters}
             label="Execute Now"
-            className="w-full text-xs font-black uppercase tracking-[0.16em]"
+            className="w-full text-sm font-black uppercase tracking-[0.16em]"
             size="sm"
           />
         </div>
@@ -148,19 +152,19 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className={cn("text-xs font-black uppercase tracking-[0.16em]", style.border, style.tone)}>
+              <Badge variant="outline" className={cn("text-sm font-black uppercase tracking-[0.16em]", style.border, style.tone)}>
                 {severity}
               </Badge>
-              <Badge variant="outline" className="text-xs font-black uppercase tracking-[0.16em] border-border/50 text-foreground/70">
+              <Badge variant="outline" className="text-sm font-black uppercase tracking-[0.16em] border-border/50 text-foreground/70">
                 {card.platform}
               </Badge>
-              <Badge variant="outline" className="text-xs font-black uppercase tracking-[0.16em] border-border/50 text-foreground/70">
+              <Badge variant="outline" className="text-sm font-black uppercase tracking-[0.16em] border-border/50 text-foreground/70">
                 {card.entity.classification}
               </Badge>
             </div>
             <div>
               <h3 className="text-base font-semibold text-foreground">{card.entity.name}</h3>
-              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">
                 {card.entity.type} · Score {card.entity.score.toFixed(1)}/100
               </p>
             </div>
@@ -169,17 +173,17 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
 
           <div className="min-w-[220px] space-y-2">
             <div className="rounded-xl border border-border/40 bg-background/50 px-3 py-2">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Root Cause</p>
-              <p className="mt-1 text-xs leading-relaxed text-foreground/85">{card.diagnosis.rootCauseChain.join(" → ")}</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Root Cause</p>
+              <RootCauseChain steps={card.diagnosis.rootCauseChain} className="mt-2" />
             </div>
             <div className="rounded-xl border border-border/40 bg-background/50 px-3 py-2">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Recommended Action</p>
-              <p className="mt-1 text-xs font-semibold text-foreground">{primary.title}</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Recommended Action</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{primary.title}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className={cn("text-xs font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[primary.classification])}>
+                <Badge variant="outline" className={cn("text-sm font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[primary.classification])}>
                   {primary.classification}
                 </Badge>
-                <span className="text-xs text-muted-foreground">{primary.confidence}%</span>
+                <span className="text-sm text-muted-foreground">{primary.confidence}%</span>
               </div>
             </div>
           </div>
@@ -187,7 +191,7 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
 
         {/* Primary Solution (Recommended) */}
         <div className="space-y-3">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">PRIMARY RECOMMENDATION</p>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">PRIMARY RECOMMENDATION</p>
           <SolutionTierDisplay
             solution={primary}
             entityId={card.entity.id}
@@ -202,7 +206,7 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-0 text-xs font-black uppercase tracking-[0.14em] text-blue-700 dark:text-blue-300 justify-start"
+              className="h-8 px-0 text-sm font-black uppercase tracking-[0.14em] text-blue-700 dark:text-blue-300 justify-start"
               onClick={() => setShowSecondary(!showSecondary)}
             >
               {showSecondary ? <ChevronUp className="mr-2 h-3 w-3" /> : <ChevronDown className="mr-2 h-3 w-3" />}
@@ -230,7 +234,7 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-0 text-xs font-black uppercase tracking-[0.14em] text-red-700 dark:text-red-300 justify-start"
+              className="h-8 px-0 text-sm font-black uppercase tracking-[0.14em] text-red-700 dark:text-red-300 justify-start"
               onClick={() => setShowRejection(!showRejection)}
             >
               {showRejection ? <ChevronUp className="mr-2 h-3 w-3" /> : <ChevronDown className="mr-2 h-3 w-3" />}
@@ -241,13 +245,13 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
                 {rejection.map((solution, index) => (
                   <div key={`rejection-${index}`} className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline" className={cn("text-xs font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[solution.classification])}>
+                      <Badge variant="outline" className={cn("text-sm font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[solution.classification])}>
                         {solution.classification}
                       </Badge>
-                      <span className="text-xs text-red-700 dark:text-red-300">{solution.confidence}% certain this won't work</span>
+                      <span className="text-sm text-red-700 dark:text-red-300">{solution.confidence}% certain this won't work</span>
                     </div>
                     <h4 className="text-sm font-semibold text-foreground">{solution.title}</h4>
-                    <p className="mt-2 text-xs leading-relaxed text-foreground/85">{solution.rationale}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground/85">{solution.rationale}</p>
                   </div>
                 ))}
               </div>
@@ -258,11 +262,11 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
         {/* Diagnosis & Layer Analysis */}
         <div className="rounded-xl border border-border/40 bg-background/40 p-3">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">Layer Analysis</p>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Layer Analysis</p>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs font-black uppercase tracking-[0.14em] text-muted-foreground"
+              className="h-7 px-2 text-sm font-black uppercase tracking-[0.14em] text-muted-foreground"
               onClick={() => setShowSecondary(!showSecondary)}
             >
               {showSecondary ? <ChevronUp className="mr-1 h-3 w-3" /> : <ChevronDown className="mr-1 h-3 w-3" />}
@@ -280,19 +284,19 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
                   { label: "L4", layer: card.layerAnalysis.l4 },
                 ].map(({ label, layer }) => (
                   <div key={label} className="rounded-lg border border-border/30 bg-background/50 p-2.5">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">{label}</p>
-                    <p className="mt-1 text-xs font-semibold text-foreground">{layer.action}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{layer.reasoning}</p>
+                    <p className="text-sm font-black uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">{label}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{layer.action}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{layer.reasoning}</p>
                   </div>
                 ))}
               </div>
 
               {card.layerAnalysis.conflicts.length > 0 && (
                 <div className="rounded-lg border border-amber-500/25 bg-amber-500/8 p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">Layer Conflicts</p>
+                  <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">Layer Conflicts</p>
                   <div className="mt-2 space-y-1.5">
                     {card.layerAnalysis.conflicts.map((conflict, index) => (
-                      <p key={index} className="text-xs leading-relaxed text-amber-100/85">{conflict}</p>
+                      <p key={index} className="text-sm leading-relaxed text-black">{conflict}</p>
                     ))}
                   </div>
                 </div>
@@ -308,6 +312,7 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
 export default function RecommendationsPage() {
   const { activeClient, activePlatform, activePlatformInfo } = useClient();
   const [showContributions, setShowContributions] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
 
   const { data, isLoading } = useQuery<RecommendationsResponse>({
     queryKey: ["/api/intelligence", activeClient?.id, activePlatform, "insights"],
@@ -317,6 +322,17 @@ export default function RecommendationsPage() {
     },
     enabled: !!activeClient?.id && !!activePlatform,
   });
+
+  const tiers = data?.recommendation_tiers || { CRITICAL: [], MEDIUM: [], LOW: [] };
+  const allCards = useMemo(
+    () => [...tiers.CRITICAL, ...tiers.MEDIUM, ...tiers.LOW],
+    [tiers],
+  );
+  const availablePlatforms = useMemo<PlatformFilter[]>(
+    () => ["all", ...Array.from(new Set(allCards.map((card) => card.platform)))],
+    [allCards],
+  );
+  const totalCards = allCards.filter((card) => platformFilter === "all" || card.platform === platformFilter).length;
 
   if (isLoading) {
     return (
@@ -328,9 +344,6 @@ export default function RecommendationsPage() {
       </div>
     );
   }
-
-  const tiers = data?.recommendation_tiers || { CRITICAL: [], MEDIUM: [], LOW: [] };
-  const totalCards = tiers.CRITICAL.length + tiers.MEDIUM.length + tiers.LOW.length;
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
@@ -350,7 +363,7 @@ export default function RecommendationsPage() {
         <Button
           variant="outline"
           size="sm"
-          className="w-fit border-border/50 text-xs font-black uppercase tracking-[0.16em]"
+          className="w-fit border-border/50 text-sm font-black uppercase tracking-[0.16em]"
           onClick={() => setShowContributions((value) => !value)}
         >
           <Activity className="mr-2 h-3.5 w-3.5" />
@@ -358,12 +371,22 @@ export default function RecommendationsPage() {
         </Button>
       </div>
 
+      {availablePlatforms.length > 2 && (
+        <Tabs value={platformFilter} onValueChange={(value) => setPlatformFilter(value as PlatformFilter)}>
+          <TabsList className="grid w-full max-w-sm grid-cols-3">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="meta">Meta</TabsTrigger>
+            <TabsTrigger value="google">Google</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
       {showContributions && data?.layer_contributions && (
         <Card className="border-border/50 bg-card/50">
           <CardContent className="grid gap-3 p-4 md:grid-cols-5">
             {Object.entries(data.layer_contributions).map(([key, value]) => (
               <div key={key} className="rounded-lg border border-border/40 bg-background/50 px-3 py-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">{key.replace(/_/g, " ")}</p>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">{key.replace(/_/g, " ")}</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">{String(value)}</p>
               </div>
             ))}
@@ -375,38 +398,42 @@ export default function RecommendationsPage() {
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4">
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4" />
-            <p className="text-xs font-black uppercase tracking-[0.18em]">Visible Layer Conflicts</p>
+            <p className="text-sm font-black uppercase tracking-[0.18em]">Visible Layer Conflicts</p>
           </div>
           <div className="mt-3 space-y-2">
             {data.conflicts.map((conflict, index) => (
-              <p key={index} className="text-xs leading-relaxed text-amber-100/85">{conflict}</p>
+              <p key={index} className="text-sm leading-relaxed text-black">{conflict}</p>
             ))}
           </div>
         </div>
       ) : null}
 
-      {(["CRITICAL", "MEDIUM", "LOW"] as SeverityTier[]).map((severity) => {
-        const cards = tiers[severity];
-        if (!cards.length) return null;
-        const style = SECTION_STYLE[severity];
+      <Accordion type="multiple" defaultValue={["CRITICAL"]} className="space-y-4">
+        {(["CRITICAL", "MEDIUM", "LOW"] as SeverityTier[]).map((severity) => {
+          const cards = tiers[severity].filter((card) => platformFilter === "all" || card.platform === platformFilter);
+          if (!cards.length) return null;
+          const style = SECTION_STYLE[severity];
 
-        return (
-          <section key={severity} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className={cn("h-2 w-2 rounded-full", severity === "CRITICAL" ? "bg-red-400" : severity === "MEDIUM" ? "bg-amber-400" : "bg-emerald-400")} />
-              <h2 className={cn("text-sm font-black uppercase tracking-[0.18em]", style.tone)}>
-                {severity} · {cards.length} item{cards.length === 1 ? "" : "s"}
-              </h2>
-              <div className="h-px flex-1 bg-border/40" />
-            </div>
-            <div className="space-y-4">
-              {cards.map((card) => (
-                <SectionCard key={card.id} severity={severity} card={card} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+          return (
+            <AccordionItem key={severity} value={severity} className={cn("rounded-xl border px-4", style.border, style.bg)}>
+              <AccordionTrigger className="py-4 hover:no-underline">
+                <div className="flex w-full items-center gap-3 text-left">
+                  <div className={cn("h-2 w-2 rounded-full", severity === "CRITICAL" ? "bg-red-400" : severity === "MEDIUM" ? "bg-amber-400" : "bg-emerald-400")} />
+                  <h2 className={cn("text-sm font-black uppercase tracking-[0.18em]", style.tone)}>
+                    {severity} · {cards.length} item{cards.length === 1 ? "" : "s"}
+                  </h2>
+                  <div className="h-px flex-1 bg-border/40" />
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-2">
+                {cards.map((card) => (
+                  <SectionCard key={card.id} severity={severity} card={card} />
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
 
       {totalCards === 0 && (
         <div className="py-24 text-center space-y-4">

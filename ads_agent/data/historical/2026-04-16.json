@@ -9773,11 +9773,11 @@
       "date_start": "2026-04-15",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
-      "impressions": "86481",
+      "impressions": "86493",
       "clicks": "326",
-      "ctr": "0.376961",
+      "ctr": "0.376909",
       "cpc": "13.758252",
-      "cpm": "51.863299",
+      "cpm": "51.856104",
       "spend": "4485.19",
       "actions": [
         {
@@ -9790,7 +9790,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "9616"
+          "value": "9617"
         },
         {
           "action_type": "landing_page_view",
@@ -9806,7 +9806,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "9616"
+          "value": "9617"
         },
         {
           "action_type": "post_interaction_gross",
@@ -9850,7 +9850,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "8911"
+          "value": "8912"
         },
         {
           "action_type": "post_reaction",
@@ -9884,7 +9884,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "0.503332"
+          "value": "0.503275"
         },
         {
           "action_type": "link_click",
@@ -9904,7 +9904,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "0.46643"
+          "value": "0.466381"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
@@ -9920,7 +9920,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "0.46643"
+          "value": "0.466381"
         },
         {
           "action_type": "omni_landing_page_view",
@@ -9931,8 +9931,8 @@
           "value": "4485.19"
         }
       ],
-      "frequency": "1.446558",
-      "reach": "59784",
+      "frequency": "1.444318",
+      "reach": "59885",
       "objective": "OUTCOME_LEADS",
       "video_p25_watched_actions": [
         {
@@ -9952,11 +9952,11 @@
       "date_start": "2026-04-15",
       "campaign_name": "DM-23/03/2026-500-AL-MO-LED-(Jobtitles_interest_behaviours)-ABO-DB-SL-LO-LC-HYD-SEC",
       "campaign_id": "120242148702000466",
-      "impressions": "2308",
+      "impressions": "2313",
       "clicks": "29",
-      "ctr": "1.256499",
+      "ctr": "1.253783",
       "cpc": "77.87931",
-      "cpm": "978.55286",
+      "cpm": "976.437527",
       "spend": "2258.5",
       "actions": [
         {
@@ -10074,7 +10074,7 @@
           "value": "16.365942"
         }
       ],
-      "frequency": "1.572207",
+      "frequency": "1.575613",
       "reach": "1468",
       "objective": "OUTCOME_LEADS",
       "video_p25_watched_actions": [
@@ -35632,11 +35632,11 @@
       "adset_id": "120231984866130466",
       "ad_name": "DM_Influencer",
       "ad_id": "120234312309520466",
-      "impressions": "70715",
+      "impressions": "70726",
       "clicks": "273",
-      "ctr": "0.386057",
+      "ctr": "0.385997",
       "cpc": "12.18685",
-      "cpm": "47.048151",
+      "cpm": "47.040834",
       "spend": "3327.01",
       "actions": [
         {
@@ -35649,7 +35649,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "8085"
+          "value": "8087"
         },
         {
           "action_type": "landing_page_view",
@@ -35665,7 +35665,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "8085"
+          "value": "8087"
         },
         {
           "action_type": "post_interaction_gross",
@@ -35709,7 +35709,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "7461"
+          "value": "7463"
         },
         {
           "action_type": "post_reaction",
@@ -35739,7 +35739,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "0.44592"
+          "value": "0.445801"
         },
         {
           "action_type": "link_click",
@@ -35759,7 +35759,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "0.411504"
+          "value": "0.411402"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
@@ -35775,15 +35775,15 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "0.411504"
+          "value": "0.411402"
         },
         {
           "action_type": "omni_landing_page_view",
           "value": "1663.505"
         }
       ],
-      "frequency": "1.442074",
-      "reach": "49037",
+      "frequency": "1.440301",
+      "reach": "49105",
       "video_avg_time_watched_actions": [
         {
           "action_type": "video_view",
@@ -35824,11 +35824,11 @@
       "adset_id": "120235869581350466",
       "ad_name": "DM_Influencer - 2",
       "ad_id": "120235869581380466",
-      "impressions": "15743",
+      "impressions": "15744",
       "clicks": "53",
-      "ctr": "0.336658",
+      "ctr": "0.336636",
       "cpc": "21.840755",
-      "cpm": "73.528552",
+      "cpm": "73.523882",
       "spend": "1157.56",
       "actions": [
         {
@@ -35958,7 +35958,7 @@
           "value": "1157.56"
         }
       ],
-      "frequency": "1.10516",
+      "frequency": "1.10523",
       "reach": "14245",
       "video_avg_time_watched_actions": [
         {
@@ -36051,11 +36051,11 @@
       "adset_id": "120242148702090466",
       "ad_name": "DM_Static_your_city_gives_traffic",
       "ad_id": "120242148702010466",
-      "impressions": "1784",
+      "impressions": "1789",
       "clicks": "20",
-      "ctr": "1.121076",
+      "ctr": "1.117943",
       "cpc": "71.456",
-      "cpm": "801.076233",
+      "cpm": "798.837339",
       "spend": "1429.12",
       "actions": [
         {
@@ -36161,8 +36161,8 @@
           "value": "84.065882"
         }
       ],
-      "frequency": "1.574581",
-      "reach": "1133",
+      "frequency": "1.577601",
+      "reach": "1134",
       "date_stop": "2026-04-15"
     },
     {
@@ -36973,11 +36973,11 @@
     },
     {
       "spend": "6743.69",
-      "impressions": "88789",
+      "impressions": "88806",
       "clicks": "355",
-      "ctr": "0.399824",
+      "ctr": "0.399748",
       "cpc": "18.99631",
-      "cpm": "75.951863",
+      "cpm": "75.937324",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -36989,7 +36989,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "9753"
+          "value": "9755"
         },
         {
           "action_type": "landing_page_view",
@@ -37005,7 +37005,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "9753"
+          "value": "9755"
         },
         {
           "action_type": "post_interaction_gross",
@@ -37049,7 +37049,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "9026"
+          "value": "9028"
         },
         {
           "action_type": "post_reaction",
@@ -37064,8 +37064,8 @@
           "value": "1"
         }
       ],
-      "frequency": "1.454794",
-      "reach": "61032",
+      "frequency": "1.45255",
+      "reach": "61138",
       "video_p25_watched_actions": [
         {
           "action_type": "video_view",
@@ -37082,12 +37082,12 @@
       "date_stop": "2026-04-15"
     },
     {
-      "spend": "1368.81",
-      "impressions": "20046",
-      "clicks": "75",
-      "ctr": "0.374139",
-      "cpc": "18.2508",
-      "cpm": "68.283448",
+      "spend": "1379.02",
+      "impressions": "20511",
+      "clicks": "76",
+      "ctr": "0.370533",
+      "cpc": "18.145",
+      "cpm": "67.233192",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -37095,11 +37095,11 @@
         },
         {
           "action_type": "link_click",
-          "value": "34"
+          "value": "36"
         },
         {
           "action_type": "page_engagement",
-          "value": "2238"
+          "value": "2309"
         },
         {
           "action_type": "landing_page_view",
@@ -37115,15 +37115,15 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "2238"
+          "value": "2309"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "128"
+          "value": "129"
         },
         {
           "action_type": "post_interaction_net",
-          "value": "140"
+          "value": "141"
         },
         {
           "action_type": "post",
@@ -37143,7 +37143,7 @@
         },
         {
           "action_type": "onsite_conversion.post_net_like",
-          "value": "108"
+          "value": "109"
         },
         {
           "action_type": "lead",
@@ -37159,25 +37159,25 @@
         },
         {
           "action_type": "video_view",
-          "value": "2076"
+          "value": "2144"
         },
         {
           "action_type": "post_reaction",
-          "value": "120"
+          "value": "121"
         }
       ],
-      "frequency": "1.207154",
-      "reach": "16606",
+      "frequency": "1.212234",
+      "reach": "16920",
       "video_p25_watched_actions": [
         {
           "action_type": "video_view",
-          "value": "289"
+          "value": "299"
         }
       ],
       "video_p50_watched_actions": [
         {
           "action_type": "video_view",
-          "value": "101"
+          "value": "104"
         }
       ],
       "date_start": "2026-04-16",
