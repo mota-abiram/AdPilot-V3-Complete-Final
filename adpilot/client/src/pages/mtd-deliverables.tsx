@@ -74,33 +74,6 @@ interface ConsolidatedMtdData {
   last_updated: string;
 }
 
-interface PacingRow {
-  metric: string;
-  monthly_target: number | string | null;
-  mtd_target: number | string | null;
-  mtd_delivered: number | string | null;
-  projected: number | string | null;
-  daily_needed: number | string | null;
-  status: string;
-  format: "inr" | "number";
-}
-
-interface PacingResponse {
-  client_id: string;
-  platform: string;
-  month: string;
-  days_elapsed: number;
-  days_remaining: number;
-  total_days: number;
-  pct_through_month: number;
-  rows: PacingRow[];
-  alerts: string[];
-  data_integrity: {
-    manual_input_missing: boolean;
-    tracking_issue: boolean;
-  };
-}
-
 interface ManualDeliverables {
   svs_achieved: number;
   positive_leads_achieved: number;
@@ -114,107 +87,6 @@ interface ManualDeliverables {
 interface MtdHistoryEntry extends ManualDeliverables {
   id: number;
   mtd?: ConsolidatedMtdData['mtd']; // Snapshot of computed metrics
-}
-
-const KPI_META: Record<string, { description: string; source: string; type: string }> = {
-  Spend: {
-    description: "Month-to-date media spend against the planned pacing curve.",
-    source: "Backend Pacing",
-    type: "COMPUTED",
-  },
-  Leads: {
-    description: "Month-to-date lead volume against the current monthly target.",
-    source: "Backend Pacing",
-    type: "COMPUTED",
-  },
-  Conversions: {
-    description: "Month-to-date conversion volume against the current monthly target.",
-    source: "Backend Pacing",
-    type: "COMPUTED",
-  },
-  CPL: {
-    description: "Month-to-date cost per lead benchmarked against the configured target.",
-    source: "Backend Pacing",
-    type: "EFFICIENCY",
-  },
-  "Cost/Conv.": {
-    description: "Month-to-date cost per conversion benchmarked against the configured target.",
-    source: "Backend Pacing",
-    type: "EFFICIENCY",
-  },
-  "Qualified Leads": {
-    description: "Manually synced qualified leads against the configured monthly target.",
-    source: "Backend Pacing",
-    type: "MANUAL",
-  },
-  "Qualified Conversions": {
-    description: "Manually synced qualified conversions against the configured monthly target.",
-    source: "Backend Pacing",
-    type: "MANUAL",
-  },
-  CPQL: {
-    description: "Month-to-date cost per qualified lead benchmarked against the configured target.",
-    source: "Backend Pacing",
-    type: "EFFICIENCY",
-  },
-  SVs: {
-    description: "Manually synced site visits against the configured monthly target range.",
-    source: "Backend Pacing",
-    type: "MANUAL",
-  },
-  "Site Visits (SVs)": {
-    description: "Manually synced site visits against the configured monthly target range.",
-    source: "Backend Pacing",
-    type: "MANUAL",
-  },
-  CPSV: {
-    description: "Month-to-date cost per site visit benchmarked against the configured target range.",
-    source: "Backend Pacing",
-    type: "EFFICIENCY",
-  },
-  CPM: {
-    description: "Month-to-date CPM benchmarked against the configured target.",
-    source: "Backend Pacing",
-    type: "EFFICIENCY",
-  },
-  CPC: {
-    description: "Month-to-date CPC benchmarked against the configured target.",
-    source: "Backend Pacing",
-    type: "EFFICIENCY",
-  },
-  Closures: {
-    description: "Month-to-date closures manually tracked by the delivery team.",
-    source: "Manual",
-    type: "MANUAL",
-  },
-};
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function formatPacingValue(value: number | string | null | undefined, format: PacingRow["format"]): string {
-  if (typeof value === "string") return value;
-  if (!isFiniteNumber(value)) return "—";
-  return format === "inr" ? formatINR(value, 0) : formatNumber(value);
-}
-
-function getPacingBadge(status: string): { label: string; variant: "success" | "warning" | "destructive" | "secondary" } {
-  const normalized = status.toUpperCase();
-
-  if (["ON TRACK", "ON TARGET", "TRACKING"].includes(normalized)) {
-    return { label: status, variant: "success" };
-  }
-
-  if (["SLIGHTLY BEHIND", "SLIGHTLY HIGH", "SLIGHTLY UNDER", "TIGHTEN SPEND", "AWAITING DATA"].includes(normalized)) {
-    return { label: status, variant: "warning" };
-  }
-
-  if (["OFF TRACK", "OFF TARGET", "OVERSPENT", "UNDERSPENT", "PACING DRIFT", "OUT OF CONTROL"].includes(normalized)) {
-    return { label: status, variant: "destructive" };
-  }
-
-  return { label: status || "Awaiting", variant: "secondary" };
 }
 
 // ─── Chart Component ─────────────────────────────────────────────
@@ -283,12 +155,13 @@ function DeliverablesChart({ data, view }: { data: ConsolidatedMtdData['mtd'], v
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function MtdDeliverablesPage() {
-  const { activeClientId, activePlatform, benchmarks } = useClient();
+  const { activeClientId, activeClient, activePlatform, apiBase } = useClient();
   const { isAdmin } = useAuth();
   const { toast } = useToast();
 
   const [viewMode, setViewMode] = useState<'volume' | 'efficiency'>('volume');
   const [svsAchieved, setSvsAchieved] = useState(0);
+  const [positiveLeads, setPositiveLeads] = useState(0);
   const [closures, setClosures] = useState(0);
   const [qualityLeadCount, setQualityLeadCount] = useState(0);
   const [notes, setNotes] = useState("");
@@ -304,16 +177,6 @@ export default function MtdDeliverablesPage() {
     },
     enabled: !!activeClientId,
     refetchInterval: 60000, // Sync every minute
-  });
-
-  const { data: pacingData, isLoading: isLoadingPacing } = useQuery<PacingResponse>({
-    queryKey: ["/api/clients", activeClientId, activePlatform, "pacing"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/clients/${activeClientId}/pacing?platform=${activePlatform}`);
-      return res.json();
-    },
-    enabled: !!activeClientId && !!activePlatform,
-    refetchInterval: 60000,
   });
 
   // 2. Fetch Manual Entry for specific form fields
@@ -340,8 +203,9 @@ export default function MtdDeliverablesPage() {
   useEffect(() => {
     if (deliverables) {
       setSvsAchieved(deliverables.svs_achieved || 0);
+      setPositiveLeads(deliverables.positive_leads_achieved || 0);
       setClosures(deliverables.closures_achieved || 0);
-      setQualityLeadCount(deliverables.positive_leads_achieved || deliverables.quality_lead_count || 0);
+      setQualityLeadCount(deliverables.quality_lead_count || 0);
       setNotes(deliverables.notes || "");
       setHasChanges(false);
     }
@@ -355,7 +219,6 @@ export default function MtdDeliverablesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform, "mtd-deliverables"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform, "mtd-deliverables", "history"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", activeClientId, activePlatform, "pacing"] });
       queryClient.invalidateQueries({ queryKey: ["/api/mtd-deliverables", activeClientId, activePlatform] });
       setHasChanges(false);
       toast({ title: "Saved", description: "MTD data updated successfully" });
@@ -365,7 +228,7 @@ export default function MtdDeliverablesPage() {
   function handleSave() {
     saveMutation.mutate({
       svs_achieved: svsAchieved,
-      positive_leads_achieved: qualityLeadCount,
+      positive_leads_achieved: positiveLeads,
       closures_achieved: closures,
       quality_lead_count: qualityLeadCount,
       notes,
@@ -375,7 +238,7 @@ export default function MtdDeliverablesPage() {
 
   function markChanged() { setHasChanges(true); }
 
-  if (isLoadingMtd || isLoadingPacing) {
+  if (isLoadingMtd) {
     return (
       <div className="p-12 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary/40" />
@@ -385,8 +248,132 @@ export default function MtdDeliverablesPage() {
 
   const mtd = mtdData?.mtd;
   const status = mtdData?.status;
-  const pacingRows = pacingData?.rows || [];
-  const positivePctTarget = Number((benchmarks as any)?.positive_pct_target ?? 0);
+  const targets = activeClient?.targets?.[activePlatform];
+
+  // Calculate month progress locally
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysElapsed = now.getDate();
+  const pctThroughMonth = (daysElapsed / daysInMonth) * 100;
+
+  // ─── MTD Deliverables Engine Configuration ──────────────────────
+  const MTD_SOP_CONFIG = [
+    {
+      label: "Total Spend",
+      value: mtd?.spend || 0,
+      target: targets?.budget,
+      mtdTarget: (targets?.budget || 0) * (pctThroughMonth / 100),
+      isCurrency: true,
+      description: "MTD spend across campaigns",
+      source: "API",
+      type: "COMPUTED"
+    },
+    {
+      label: "Total Leads",
+      value: mtd?.leads || 0,
+      target: targets?.leads,
+      mtdTarget: (targets?.leads || 0) * (pctThroughMonth / 100),
+      description: "MTD leads count",
+      source: "API",
+      type: "COMPUTED"
+    },
+    {
+      label: "Qualified Leads",
+      value: mtd?.qualified_leads || 0,
+      target: (targets?.leads || 0) * 0.4,
+      mtdTarget: ((targets?.leads || 0) * 0.4) * (pctThroughMonth / 100),
+      description: "Quality leads (manual input)",
+      source: "Manual",
+      type: "MANUAL"
+    },
+    {
+      label: "Site Visits",
+      value: mtd?.svs || 0,
+      target: targets?.svs?.low,
+      mtdTarget: (targets?.svs?.low || 0) * (pctThroughMonth / 100),
+      description: "Actual visits",
+      source: "Manual",
+      type: "MANUAL"
+    },
+    {
+      label: "CPL",
+      value: mtd?.cpl || 0,
+      target: targets?.cpl,
+      isCurrency: true,
+      isInverse: true,
+      description: "Spend / Leads",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "CPQL",
+      value: mtd?.cpql || 0,
+      target: (targets?.cpl || 0) * 2.5,
+      isCurrency: true,
+      isInverse: true,
+      description: "Spend / Qualified Leads",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "CPSV",
+      value: mtd?.cpsv || 0,
+      target: targets?.cpsv?.high,
+      isCurrency: true,
+      isInverse: true,
+      description: "Spend / Site Visits",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "Positive %",
+      value: mtd?.positive_pct || 0,
+      target: 25,
+      isPct: true,
+      description: "Qualified Leads / Total Leads × 100",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "SV %",
+      value: mtd?.sv_pct || 0,
+      target: 10,
+      isPct: true,
+      description: "Site Visits / Total Leads × 100",
+      source: "Agent",
+      type: "COMPUTED"
+    },
+    {
+      label: "Closures",
+      value: mtd?.closures || 0,
+      description: "Deals closed (manual tracking)",
+      source: "Manual",
+      type: "MANUAL"
+    }
+  ];
+
+  function getStatus(kpi: any) {
+    if (kpi.isInverse) {
+      if (!kpi.target) return { label: "Awaiting", variant: "secondary" };
+      if (kpi.value <= kpi.target) return { label: "Good", variant: "success" };
+      if (kpi.value <= kpi.target * 1.3) return { label: "Watch", variant: "warning" };
+      return { label: "Poor", variant: "destructive" };
+    }
+
+    if (kpi.isPct) {
+      if (kpi.value >= kpi.target) return { label: "Target Met", variant: "success" };
+      if (kpi.value >= kpi.target * 0.7) return { label: "Moderate", variant: "warning" };
+      return { label: "At Risk", variant: "destructive" };
+    }
+
+    if (kpi.mtdTarget) {
+      if (kpi.value >= kpi.mtdTarget) return { label: "On Track", variant: "success" };
+      if (kpi.value >= kpi.mtdTarget * 0.8) return { label: "Watch", variant: "warning" };
+      return { label: "Behind", variant: "destructive" };
+    }
+
+    return kpi.value > 0 ? { label: "Recorded", variant: "success" } : { label: "Pending", variant: "secondary" };
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
@@ -415,31 +402,22 @@ export default function MtdDeliverablesPage() {
         <div className="h-1 bg-gradient-to-r from-primary/40 to-primary/5" />
         <CardContent className="card-content-premium p-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-x divide-y divide-border/20">
-            {pacingRows.map((row, i) => {
-              const meta = KPI_META[row.metric] || {
-                description: `${row.metric} calculated by the backend pacing engine.`,
-                source: "Backend Pacing",
-                type: row.daily_needed === null ? "EFFICIENCY" : "PACING",
-              };
-              const kpiStatus = getPacingBadge(row.status);
-              const numericMtdTarget = isFiniteNumber(row.mtd_target) ? row.mtd_target : null;
-              const numericMtdDelivered = isFiniteNumber(row.mtd_delivered) ? row.mtd_delivered : null;
-              const hasProgress = numericMtdTarget !== null && numericMtdTarget > 0 && numericMtdDelivered !== null && row.daily_needed !== null;
-              const progressPct = hasProgress ? Math.min((numericMtdDelivered / numericMtdTarget) * 100, 100) : 0;
+            {MTD_SOP_CONFIG.map((kpi, i) => {
+              const kpiStatus = getStatus(kpi);
               return (
                 <div key={i} className="p-6 hover:bg-muted/5 transition-all group relative">
                   <div className="flex items-center justify-between mb-4">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors overflow-hidden truncate max-w-[120px]">
-                          {row.metric}
+                          {kpi.label}
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
-                          <p className="font-bold border-b border-border/50 pb-1 pl-5">{row.metric} Pacing</p>
-                          <p className="text-xs leading-relaxed text-muted-foreground">{meta.description}</p>
+                          <p className="font-bold border-b border-border/50 pb-1">{kpi.label} SOP</p>
+                          <p className="text-xs leading-relaxed text-muted-foreground">{kpi.description}</p>
                           <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50 text-xs">
-                            <div><span className="opacity-50">Source:</span> <br />{meta.source}</div>
-                            <div><span className="opacity-50">Type:</span> <br />{meta.type}</div>
+                            <div><span className="opacity-50">Source:</span> <br />{kpi.source}</div>
+                            <div><span className="opacity-50">Type:</span> <br />{kpi.type}</div>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -450,28 +428,27 @@ export default function MtdDeliverablesPage() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold tabular-nums tracking-tight mb-1">
-                      {formatPacingValue(row.mtd_delivered, row.format)}
+                      {kpi.isCurrency ? formatINR(kpi.value, 0) : kpi.isPct ? `${kpi.value.toFixed(1)}%` : formatNumber(kpi.value)}
                     </h3>
-                    <div className="space-y-1">
-                      {row.mtd_target !== null ? (
+                    <div className="flex items-center gap-2">
+                      {kpi.mtdTarget ? (
                         <p className="text-xs text-muted-foreground font-medium">
-                          Expected: <span className="text-foreground">{formatPacingValue(row.mtd_target, row.format)}</span>
+                          Expected: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.mtdTarget, 0) : formatNumber(Math.round(kpi.mtdTarget))}</span>
                         </p>
-                      ) : null}
-                      {row.monthly_target !== null ? (
+                      ) : kpi.target ? (
                         <p className="text-xs text-muted-foreground font-medium">
-                          Monthly: <span className="text-foreground">{formatPacingValue(row.monthly_target, row.format)}</span>
+                          Target: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.target, 0) : kpi.isPct ? `${kpi.target}%` : formatNumber(kpi.target)}</span>
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground font-medium">Manual Tracking</p>
                       )}
                     </div>
                   </div>
-                  {hasProgress && (
+                  {kpi.mtdTarget && (
                     <div className="absolute bottom-0 left-0 w-full h-0.5 bg-muted/30">
                       <div
                         className={cn("h-full transition-all", kpiStatus.variant === 'success' ? 'bg-emerald-500' : kpiStatus.variant === 'warning' ? 'bg-amber-400' : 'bg-red-500')}
-                        style={{ width: `${progressPct}%` }}
+                        style={{ width: `${Math.min((kpi.value / kpi.mtdTarget) * 100, 100)}%` }}
                       />
                     </div>
                   )}
@@ -600,12 +577,9 @@ export default function MtdDeliverablesPage() {
                     <TrendingUp className="w-3 h-3 text-emerald-400" />
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Positive %</p>
                   </div>
-                  <p className={`text-2xl font-bold tabular-nums ${positivePctTarget > 0 && mtd && (mtd.positive_pct || 0) >= positivePctTarget ? 'text-emerald-400' : 'text-foreground'}`}>
+                  <p className={`text-2xl font-bold tabular-nums ${mtd && (mtd.positive_pct || 0) >= 25 ? 'text-emerald-400' : 'text-foreground'}`}>
                     {mtd ? `${(mtd.positive_pct || 0).toFixed(1)}%` : '—'}
                   </p>
-                  {positivePctTarget > 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">Target: {positivePctTarget.toFixed(1)}%</p>
-                  )}
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30 border border-border/40 group hover:border-primary/20 transition-colors">
                   <div className="flex items-center gap-1.5 mb-1.5">
