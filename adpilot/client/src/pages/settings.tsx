@@ -389,14 +389,14 @@ export default function SettingsPage() {
                     {metaApiVersion && ` · ${metaApiVersion}`}
                   </p>
                   {metaTokenDebug && (
-                    <p className="text-[10px] text-muted-foreground/70">{metaTokenDebug}</p>
+                    <p className="text-xs text-muted-foreground">{metaTokenDebug}</p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] ${
+                  className={`text-xs ${
                     metaStatus === "ok"
                       ? "bg-emerald-500/15 text-emerald-400"
                       : metaStatus === "error"
@@ -447,13 +447,13 @@ export default function SettingsPage() {
                     {googleApiVersion && ` · ${googleApiVersion}`}
                   </p>
                   {googleCustomerId && (
-                    <p className="text-[10px] text-muted-foreground/70">
+                    <p className="text-xs text-muted-foreground">
                       Customer: {googleCustomerId}
                       {googleMccId && ` · MCC: ${googleMccId}`}
                     </p>
                   )}
                   {!googleCustomerId && (data as any)?.customer_id && (
-                    <p className="text-[10px] text-muted-foreground/70">
+                    <p className="text-xs text-muted-foreground">
                       Customer: {(data as any).customer_id}
                     </p>
                   )}
@@ -462,7 +462,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className={`text-[10px] ${
+                  className={`text-xs ${
                     googleStatus === "ok"
                       ? "bg-emerald-500/15 text-emerald-400"
                       : googleStatus === "error"
@@ -497,31 +497,31 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
             <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Text Engine</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Text Engine</p>
               <div className="flex items-center gap-2">
                 {aiConfig.openapiApiKey ? (
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
                   <XCircle className="w-3.5 h-3.5 text-red-400" />
                 )}
-                <span className="text-[11px] text-foreground font-medium">
+                <span className="text-xs text-foreground font-medium">
                   {aiConfig.openapiApiKey ? "Ready" : "Not Configured"}
                 </span>
-                <Badge variant="secondary" className="text-[9px] px-1 py-0">{aiConfig.geminiModel || "gemini-1.5-flash"}</Badge>
+                <Badge variant="secondary" className="text-xs px-1 py-0">{aiConfig.geminiModel || "gemini-1.5-flash"}</Badge>
               </div>
             </div>
             <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Image Engine</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Image Engine</p>
               <div className="flex items-center gap-2">
                 {aiConfig.openapiApiKey ? (
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
                   <XCircle className="w-3.5 h-3.5 text-red-400" />
                 )}
-                <span className="text-[11px] text-foreground font-medium">
+                <span className="text-xs text-foreground font-medium">
                   {aiConfig.openapiApiKey ? "Ready" : "Not Configured"}
                 </span>
-                <Badge variant="secondary" className="text-[9px] px-1 py-0">{aiConfig.geminiImageModel || "gemini-2.0-flash-img"}</Badge>
+                <Badge variant="secondary" className="text-xs px-1 py-0">{aiConfig.geminiImageModel || "gemini-2.0-flash-img"}</Badge>
               </div>
             </div>
           </div>
@@ -544,35 +544,35 @@ export default function SettingsPage() {
           </p>
 
           <div className="space-y-2 p-3 rounded-lg bg-muted/10 border border-border/30">
-            <p className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">OpenAPI</Badge>
               API Key &amp; Models
             </p>
             <div className="grid md:grid-cols-3 gap-3 pt-1">
               <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase">API Key</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase">API Key</label>
                 <Input
                   type="password"
                   placeholder="AIzaSy..."
-                  className="h-8 text-[11px] bg-background mt-1"
+                  className="h-8 text-xs bg-background mt-1"
                   value={aiConfig.openapiApiKey}
                   onChange={(e) => setAiConfig(prev => ({ ...prev, openapiApiKey: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase">Text Model</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase">Text Model</label>
                 <Input
                   placeholder="gemini-1.5-flash"
-                  className="h-8 text-[11px] bg-background mt-1"
+                  className="h-8 text-xs bg-background mt-1"
                   value={aiConfig.geminiModel}
                   onChange={(e) => setAiConfig(prev => ({ ...prev, geminiModel: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase">Image Model</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase">Image Model</label>
                 <Input
                   placeholder="gemini-2.0-flash-preview-image-generation"
-                  className="h-8 text-[11px] bg-background mt-1"
+                  className="h-8 text-xs bg-background mt-1"
                   value={aiConfig.geminiImageModel}
                   onChange={(e) => setAiConfig(prev => ({ ...prev, geminiImageModel: e.target.value }))}
                 />
@@ -595,7 +595,7 @@ export default function SettingsPage() {
           <CardTitle className="text-sm flex items-center gap-2">
             <Users className="w-4 h-4" />
             Access Management
-            <Badge variant="secondary" className="text-[10px]">{user?.role || "member"}</Badge>
+            <Badge variant="secondary" className="text-xs">{user?.role || "member"}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="card-content-premium">
@@ -649,24 +649,24 @@ export default function SettingsPage() {
 
               <div className="space-y-2">
                 {isLoadingUsers ? (
-                  <p className="text-[10px] text-muted-foreground italic">Loading users...</p>
+                  <p className="text-xs text-muted-foreground italic">Loading users...</p>
                 ) : accessUsers.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground italic">No users found</p>
+                  <p className="text-xs text-muted-foreground italic">No users found</p>
                 ) : (
                   accessUsers.map((accessUser) => (
                     <div key={accessUser.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 p-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{accessUser.name}</span>
-                          <Badge variant="secondary" className="text-[10px]">{accessUser.role}</Badge>
+                          <Badge variant="secondary" className="text-xs">{accessUser.role}</Badge>
                           <Badge
                             variant="secondary"
-                            className={`text-[10px] ${accessUser.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
+                            className={`text-xs ${accessUser.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
                           >
                             {accessUser.status}
                           </Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">{accessUser.email}</p>
+                        <p className="text-xs text-muted-foreground">{accessUser.email}</p>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -690,7 +690,7 @@ export default function SettingsPage() {
               </div>
             </>
           ) : (
-            <p className="text-[10px] text-muted-foreground italic">Only admins can manage user access.</p>
+            <p className="text-xs text-muted-foreground italic">Only admins can manage user access.</p>
           )}
         </CardContent>
       </Card>
@@ -708,7 +708,7 @@ export default function SettingsPage() {
             <span className="t-body font-medium text-foreground">
               {activeClient?.name || "Amara"}
             </span>
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               {activeClient?.shortName || "Amara"}
             </Badge>
             {activeClient?.location && (
@@ -721,12 +721,12 @@ export default function SettingsPage() {
           {/* Target locations */}
           {targetLocations.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
                 Target Locations
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {targetLocations.map((loc: string) => (
-                  <Badge key={loc} variant="outline" className="text-[10px]">
+                  <Badge key={loc} variant="outline" className="text-xs">
                     {loc}
                   </Badge>
                 ))}
@@ -737,29 +737,29 @@ export default function SettingsPage() {
           {/* Targets Table */}
           {targets && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
                 Monthly Targets
               </p>
               <div className="overflow-x-auto">
                 <table className="t-table w-full">
                   <thead>
                     <tr className="border-b border-border/50">
-                      <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-left">
+                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-left">
                         Platform
                       </th>
-                      <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">
+                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
                         Budget
                       </th>
-                      <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">
+                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
                         Leads
                       </th>
-                      <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">
+                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
                         CPL
                       </th>
-                      <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">
+                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
                         SVs
                       </th>
-                      <th className="p-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground text-right">
+                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
                         CPSV
                       </th>
                     </tr>
@@ -773,7 +773,7 @@ export default function SettingsPage() {
                         <td className="p-2">
                           <Badge
                             variant="secondary"
-                            className={`text-[10px] ${
+                            className={`text-xs ${
                               platform === "meta"
                                 ? "bg-blue-500/15 text-blue-400"
                                 : "bg-amber-500/15 text-amber-400"
@@ -825,7 +825,7 @@ export default function SettingsPage() {
                   Runs every day at 9:00 AM IST — refreshes all data, campaigns, metrics, alerts, and insights
                 </p>
               </div>
-              <Badge variant="secondary" className="bg-primary/15 text-primary text-[10px]">
+              <Badge variant="secondary" className="bg-primary/15 text-primary text-xs">
                 Active
               </Badge>
             </div>
@@ -846,7 +846,7 @@ export default function SettingsPage() {
               </div>
             </div>
             {lastAgentRun && (
-              <Badge variant="secondary" className="text-[10px]">
+              <Badge variant="secondary" className="text-xs">
                 {Math.round((Date.now() - new Date(lastAgentRun).getTime()) / 3600000)}h ago
               </Badge>
             )}
@@ -854,7 +854,7 @@ export default function SettingsPage() {
 
           {/* Audit cadence schedule */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Audit Cadences</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Audit Cadences</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 { cadence: "Twice Weekly", timing: "Monday & Thursday 9 AM", color: "text-blue-400" },
@@ -882,7 +882,7 @@ export default function SettingsPage() {
 
           {/* Run Agent Now */}
           <div className="border-t border-border/30 pt-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-4">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
               Manual Agent Trigger
             </p>
             
@@ -925,7 +925,7 @@ export default function SettingsPage() {
                   </div>
 
                   {schedulerStatus?.lastRunDuration && (
-                    <p className="text-[10px] text-muted-foreground border-t border-border/20 pt-2">
+                    <p className="text-xs text-muted-foreground border-t border-border/20 pt-2">
                        Processing time for last run: <span className="text-foreground font-medium">{schedulerStatus.lastRunDuration < 60000 ? `${Math.round(schedulerStatus.lastRunDuration / 1000)}s` : `${(schedulerStatus.lastRunDuration / 60000).toFixed(1)}m`}</span>
                     </p>
                   )}
@@ -937,14 +937,14 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <XCircle className="w-3.5 h-3.5 text-red-400" />
-                      <span className="text-xs font-medium text-red-300">Last Execution Error</span>
+                      <span className="text-xs font-medium text-red-700 dark:text-red-400">Last Execution Error</span>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setShowError(!showError)}>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowError(!showError)}>
                       {showError ? "Hide Details" : "Show Details"}
                     </Button>
                   </div>
                   {showError && (
-                    <div className="mt-2 p-2 rounded bg-black/40 border border-white/5 font-mono text-[9px] text-red-200/70 overflow-auto max-h-40 whitespace-pre">
+                    <div className="mt-2 p-2 rounded bg-black/40 border border-white/5 font-mono text-xs text-red-200/70 overflow-auto max-h-40 whitespace-pre">
                       {schedulerStatus.lastError}
                     </div>
                   )}
@@ -957,7 +957,7 @@ export default function SettingsPage() {
                     <Facebook className="w-3.5 h-3.5 text-blue-400" />
                     <span className="t-body font-medium text-foreground">Meta Ads Agent</span>
                   </div>
-                  <code className="block text-[9px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
+                  <code className="block text-xs px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
                     python3 ads_agent/meta_ads_agent_v2.py
                   </code>
                 </div>
@@ -966,7 +966,7 @@ export default function SettingsPage() {
                     <Globe className="w-3.5 h-3.5 text-amber-400" />
                     <span className="t-body font-medium text-foreground">Google Ads Agent</span>
                   </div>
-                  <code className="block text-[9px] px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
+                  <code className="block text-xs px-2 py-1.5 rounded bg-background border border-border/50 text-muted-foreground font-mono">
                     python3 ads_agent/google_ads_agent_v2.py
                   </code>
                 </div>
@@ -1178,11 +1178,11 @@ export default function SettingsPage() {
                 Powered by Digital Mojo
               </p>
             </div>
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               v2.0.0
             </Badge>
           </div>
-          <div className="text-[10px] text-muted-foreground space-y-1 pt-2 border-t border-border/30">
+          <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border/30">
             <p>
               Version: 2.0.0 · Build: {new Date().toISOString().split("T")[0]}
             </p>

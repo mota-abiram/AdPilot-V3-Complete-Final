@@ -192,7 +192,7 @@ export default function AudiencesPage() {
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <AlertTriangle className="w-10 h-10 text-muted-foreground/30" />
+            <AlertTriangle className="w-10 h-10 text-muted-foreground" />
             <div>
               <p className="t-body font-medium text-foreground">No audience data available</p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -226,7 +226,7 @@ export default function AudiencesPage() {
               <button
                 onClick={() => setFilterLayer("all")}
                 className={cn(
-                  "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all",
+                  "px-2.5 py-1 text-xs font-bold rounded-md transition-all",
                   filterLayer === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -239,7 +239,7 @@ export default function AudiencesPage() {
                     key={l}
                     onClick={() => setFilterLayer(l)}
                     className={cn(
-                      "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all",
+                      "px-2.5 py-1 text-xs font-bold rounded-md transition-all",
                       filterLayer === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -307,10 +307,10 @@ export default function AudiencesPage() {
             <thead>
               {/* Pivot Group Header Row */}
               <tr className="border-b border-border/10 bg-muted/5">
-                <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Identity</th>
-                <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Delivery</th>
-                <th colSpan={4} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Efficiency/Performance</th>
-                <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 text-center">Health</th>
+                <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Identity</th>
+                <th colSpan={3} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Delivery</th>
+                <th colSpan={4} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Efficiency/Performance</th>
+                <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Health</th>
               </tr>
               <tr className="bg-muted/20 border-b border-border/50">
                 {([
@@ -329,7 +329,7 @@ export default function AudiencesPage() {
                   <th
                     key={col.key}
                     className={cn(
-                      "p-3 py-4 text-[10px] font-black uppercase tracking-wider text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 hover:text-foreground transition-colors",
+                      "p-3 py-4 text-xs font-black uppercase tracking-wider text-muted-foreground cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 hover:text-foreground transition-colors",
                       col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
                     )}
                     onClick={() => toggleSort(col.key)}
@@ -384,7 +384,7 @@ export default function AudiencesPage() {
 
                       {/* Layer */}
                       <td className="p-3">
-                        <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border whitespace-nowrap", lBadge.cls)}>
+                        <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border whitespace-nowrap", lBadge.cls)}>
                           {lBadge.label}
                         </Badge>
                       </td>
@@ -451,11 +451,11 @@ export default function AudiencesPage() {
                       {/* Classification */}
                       <td className="p-3 text-center">
                         {a.classification ? (
-                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border whitespace-nowrap", clsBadge.cls)}>
+                          <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border whitespace-nowrap", clsBadge.cls)}>
                             {clsBadge.label}
                           </Badge>
                         ) : a.should_pause ? (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border bg-red-500/15 text-red-400 border-red-500/30">
+                          <Badge variant="outline" className="text-xs px-1.5 py-0 border bg-red-500/15 text-red-400 border-red-500/30">
                             Pause
                           </Badge>
                         ) : <span className="text-muted-foreground">—</span>}
@@ -490,7 +490,7 @@ export default function AudiencesPage() {
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/30 pt-3">
+      <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/30 pt-3">
         <span>
           {filtered.length} of {audiences.length} segments · {totalLeads} leads · {formatINR(totalSpend, 0)} spend
         </span>

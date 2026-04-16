@@ -9772,11 +9772,11 @@
       "date_start": "2026-04-15",
       "campaign_name": "DM Amara | Adv+OT | [HNIs Narrowed by Real Estate Audience] | Sept 2025",
       "campaign_id": "120231984866140466",
-      "impressions": "86467",
-      "clicks": "325",
-      "ctr": "0.375866",
-      "cpc": "13.800585",
-      "cpm": "51.871697",
+      "impressions": "86481",
+      "clicks": "326",
+      "ctr": "0.376961",
+      "cpc": "13.758252",
+      "cpm": "51.863299",
       "spend": "4485.19",
       "actions": [
         {
@@ -9785,11 +9785,11 @@
         },
         {
           "action_type": "link_click",
-          "value": "140"
+          "value": "141"
         },
         {
           "action_type": "page_engagement",
-          "value": "9614"
+          "value": "9616"
         },
         {
           "action_type": "landing_page_view",
@@ -9805,7 +9805,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "9614"
+          "value": "9616"
         },
         {
           "action_type": "post_interaction_gross",
@@ -9849,7 +9849,7 @@
         },
         {
           "action_type": "video_view",
-          "value": "8910"
+          "value": "8911"
         },
         {
           "action_type": "post_reaction",
@@ -9883,11 +9883,11 @@
         },
         {
           "action_type": "video_view",
-          "value": "0.503388"
+          "value": "0.503332"
         },
         {
           "action_type": "link_click",
-          "value": "32.037071"
+          "value": "31.809858"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
@@ -9903,7 +9903,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "0.466527"
+          "value": "0.46643"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
@@ -9919,7 +9919,7 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "0.466527"
+          "value": "0.46643"
         },
         {
           "action_type": "omni_landing_page_view",
@@ -9930,7 +9930,7 @@
           "value": "4485.19"
         }
       ],
-      "frequency": "1.446323",
+      "frequency": "1.446558",
       "reach": "59784",
       "objective": "OUTCOME_LEADS",
       "video_p25_watched_actions": [

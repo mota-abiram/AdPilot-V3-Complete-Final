@@ -311,7 +311,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight">Meta Breakdowns Engine</h2>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Performance Audit Layer</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Performance Audit Layer</p>
           </div>
         </div>
         <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
@@ -330,7 +330,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
       <div className="flex items-center gap-1 bg-muted/20 p-1 rounded-xl border border-border/40 w-fit">
         {META_TABS.map(tab => (
           <button key={tab} onClick={() => { setActiveTab(tab); setExpandedIds(new Set()); }}
-            className={cn("px-6 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all", activeTab === tab ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground")}>
+            className={cn("px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all", activeTab === tab ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground")}>
             {tab}
           </button>
         ))}
@@ -342,7 +342,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
             <thead>
               <tr className="bg-muted/30 border-b border-border/60">
                 {META_COLUMN_CONFIG.map((col, idx) => (
-                  <th key={idx} className={cn("px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-left")}>
+                  <th key={idx} className={cn("px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground text-left")}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger className="flex items-center gap-1.5 hover:text-foreground transition-colors">
@@ -350,7 +350,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
                           <p className="font-bold border-b border-border/50 pb-1">{col.column} SOP</p>
-                          <p className="text-[10px] leading-relaxed text-muted-foreground">{col.description}</p>
+                          <p className="text-xs leading-relaxed text-muted-foreground">{col.description}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -372,8 +372,8 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                             <TooltipTrigger asChild>
                               <div className="w-full max-w-[180px]">
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", health.color)}>{health.label}</span>
-                                  <span className="text-[11px] font-bold text-foreground">{score.total}<span className="text-muted-foreground/60">/100</span></span>
+                                  <span className={cn("text-xs font-bold uppercase tracking-widest", health.color)}>{health.label}</span>
+                                  <span className="text-xs font-bold text-foreground">{score.total}<span className="text-muted-foreground">/100</span></span>
                                 </div>
                                 <div className="h-1.5 w-full bg-border/40 rounded-full overflow-hidden">
                                   <div className={cn("h-full rounded-full", health.bg)} style={{ width: `${score.total}%` }} />
@@ -393,7 +393,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                       <td className="p-4">
                         <div className={cn("inline-flex items-center gap-2 px-2.5 py-1 rounded border shadow-xs", rec.lightBg, rec.border, rec.color)}>
                           <div className={cn("w-1.5 h-1.5 rounded-full", rec.color.replace('text-', 'bg-'))} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">{rec.text}</span>
+                          <span className="text-xs font-bold uppercase tracking-wider">{rec.text}</span>
                         </div>
                       </td>
                     </tr>
@@ -418,7 +418,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                             />
                             
                             <div className={cn("p-5 rounded-xl border bg-background/80 shadow-sm space-y-2", health.border)}>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Expert Recommendation:</p>
+                              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Expert Recommendation:</p>
                               <p className="text-sm font-medium text-foreground leading-relaxed">
                                 System indicates <span className={cn("font-bold", rec.color)}>{rec.text}</span> because {rec.reason.toLowerCase()}. 
                                 Efficiency Score of <span className={cn("font-bold", health.color)}>{score.total}/100</span> suggests this segment is 
@@ -536,7 +536,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
     return (
       <Card className="m-6 bg-muted/20 border-border/50">
         <CardContent className="p-12 text-center">
-          <Clock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+          <Clock className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
             {data?.message || "Google breakdown data not yet synced for this cadence."}
           </p>
@@ -549,7 +549,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
     return (
       <Card className="m-6 bg-muted/20 border-border/50" >
         <CardContent className="p-12 text-center">
-          <Clock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+          <Clock className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
             No {activeTab.toLowerCase()} segments detected for the selected period.
           </p>
@@ -633,7 +633,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
                             }}
                           />
                           <div className="p-5 rounded-xl border border-border/40 bg-background/80 shadow-sm mt-4">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Strategic analysis:</p>
+                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Strategic analysis:</p>
                             <p className="text-sm font-medium text-foreground leading-relaxed">
                               Strategic analysis for Google segment <strong>{row.dimension}</strong>. Cost per lead is {row.cpl > 0 ? formatINR(row.cpl, 0) : "not yet established"}. 
                               {row.cpl > 0 && row.cpl < 850 ? " Performance is within acceptable Google benchmarks." : " Intervention may be required to qualify traffic and reduce CPA drift."}
@@ -661,10 +661,10 @@ function MetricCard({ icon: Icon, label, value, subValue, color }: any) {
       <CardContent className="card-content-premium">
         <div className="flex items-center gap-2 mb-2">
           <Icon className={cn("w-4 h-4", color)} />
-          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
+          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">{label}</span>
         </div>
         <p className="text-lg font-black tracking-tight">{value}</p>
-        {subValue && <p className="text-[10px] text-muted-foreground mt-1">{subValue}</p>}
+        {subValue && <p className="text-xs text-muted-foreground mt-1">{subValue}</p>}
       </CardContent>
     </Card>
   );
@@ -676,7 +676,7 @@ function ProgressBar({ pct, color }: { pct: number, color: string }) {
       <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
         <div className={cn("h-full", color)} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
-      <span className="text-[10px] text-muted-foreground w-8 text-right font-medium">{pct.toFixed(0)}%</span>
+      <span className="text-xs text-muted-foreground w-8 text-right font-medium">{pct.toFixed(0)}%</span>
     </div>
   );
 }

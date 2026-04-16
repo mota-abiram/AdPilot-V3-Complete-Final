@@ -450,7 +450,7 @@ function GoogleBenchmarks() {
                       <Target className="w-4 h-4 text-[#F0BC00]" />
                       <CardTitle className="text-sm font-medium">{config.label}</CardTitle>
                     </div>
-                    <Badge variant="outline" className={cn("text-[10px]", hasCampaigns ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-muted/50 text-muted-foreground border-border")}>{typeCampaigns.length} campaign{typeCampaigns.length !== 1 ? "s" : ""}</Badge>
+                    <Badge variant="outline" className={cn("text-xs", hasCampaigns ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-muted/50 text-muted-foreground border-border")}>{typeCampaigns.length} campaign{typeCampaigns.length !== 1 ? "s" : ""}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 pt-0">
@@ -460,10 +460,10 @@ function GoogleBenchmarks() {
                     <div className="overflow-x-auto">
                       <table className="t-table w-full">
                         <thead><tr className="border-b border-border/50">
-                          <th className="text-left py-4 px-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Metric</th>
-                          <th className="text-right py-2 px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
-                          <th className="text-right py-2 px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actual</th>
-                          <th className="text-center py-2 pl-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                          <th className="text-left py-4 px-4 t-label font-bold uppercase tracking-widest text-muted-foreground">Metric</th>
+                          <th className="text-right py-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Target</th>
+                          <th className="text-right py-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Actual</th>
+                          <th className="text-center py-2 pl-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
                         </tr></thead>
                         <tbody>
                           {config.metrics.map((metric) => {
@@ -550,15 +550,15 @@ function EditableSection({
           <Icon className="w-4 h-4 text-primary" />
           <CardTitle className="text-sm font-medium">{section.title}</CardTitle>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-1">{section.description}</p>
+        <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {section.fields.map((field) => (
             <div key={field.key} className="space-y-1.5">
-              <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
                 {field.label}
-                {field.suffix && <span className="text-[9px] text-muted-foreground/60">({field.suffix})</span>}
+                {field.suffix && <span className="text-xs text-muted-foreground">({field.suffix})</span>}
               </label>
               <Input
                 type={field.type}
@@ -569,7 +569,7 @@ function EditableSection({
                 data-testid={`input-${field.key.replace(/\./g, "-")}`}
               />
               {field.help && (
-                <p className="text-[9px] text-muted-foreground/60">{field.help}</p>
+                <p className="text-xs text-muted-foreground">{field.help}</p>
               )}
             </div>
           ))}
@@ -690,13 +690,13 @@ function MetaBenchmarks() {
                 <MapPin className="w-4 h-4 text-primary" />
                 <CardTitle className="text-sm font-medium">Target Location</CardTitle>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Locations used for geo-spend alerts and breakdown flagging
               </p>
             </CardHeader>
             <CardContent className="px-4 pb-4 pt-0">
               <div className="space-y-1.5">
-                <label className="text-[11px] text-muted-foreground font-medium">Locations (comma-separated)</label>
+                <label className="text-xs text-muted-foreground font-medium">Locations (comma-separated)</label>
                 <Input
                   type="text"
                   value={locations}
@@ -705,7 +705,7 @@ function MetaBenchmarks() {
                   className="h-8 text-sm bg-muted/30"
                   data-testid="input-target-locations"
                 />
-                <p className="text-[9px] text-muted-foreground/60">
+                <p className="text-xs text-muted-foreground">
                   Used for geo-breakdown alerts. Spend outside these locations will be flagged.
                 </p>
               </div>

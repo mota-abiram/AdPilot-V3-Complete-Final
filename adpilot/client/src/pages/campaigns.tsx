@@ -91,7 +91,7 @@ function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark:
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={`inline-flex items-center text-[9px] font-medium px-1 py-0 rounded ml-1 cursor-default ${isAbove ? "text-red-400 bg-red-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
+        <span className={`inline-flex items-center text-xs font-medium px-1 py-0 rounded ml-1 cursor-default ${isAbove ? "text-red-400 bg-red-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
           {isAbove ? "▲" : "▼"} {Math.abs(Math.round(pct))}%
         </span>
       </TooltipTrigger>
@@ -394,7 +394,7 @@ export default function CampaignsPage() {
       const typeInfo = getCampaignTypeBadge(val);
       return (
         <td key={col.key} className="p-3">
-          <Badge variant="outline" className={`${typeInfo.bg} ${typeInfo.text} border-transparent text-[10px] uppercase font-bold`}>
+          <Badge variant="outline" className={`${typeInfo.bg} ${typeInfo.text} border-transparent text-xs uppercase font-bold`}>
             {typeInfo.label}
           </Badge>
         </td>
@@ -405,7 +405,7 @@ export default function CampaignsPage() {
       const isActive = val === "ENABLED" || val === "ACTIVE";
       return (
         <td key={col.key} className="p-3">
-          <Badge variant={isActive ? "outline" : "secondary"} className={`text-[9px] px-1 py-0 ${isActive ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>
+          <Badge variant={isActive ? "outline" : "secondary"} className={`text-xs px-1 py-0 ${isActive ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>
             {val}
           </Badge>
         </td>
@@ -424,7 +424,7 @@ export default function CampaignsPage() {
       </td>
     );
 
-    if (col.key === "bidding_strategy") return <td key={col.key} className="p-3 text-[10px] text-muted-foreground uppercase">{val || "—"}</td>;
+    if (col.key === "bidding_strategy") return <td key={col.key} className="p-3 text-xs text-muted-foreground uppercase">{val || "—"}</td>;
 
     const rowIsPct = ["ctr", "cvr", "search_impression_share", "search_rank_lost_is", "search_budget_lost_is", "top_is", "tsr", "vhr", "ptr"].includes(col.key as string);
     const rowIsINR = ["daily_budget", "cost", "spend", "cpl", "avg_cpc", "average_cpm", "target_cpa", "cpsv"].includes(col.key as string);
@@ -433,7 +433,7 @@ export default function CampaignsPage() {
     let colorClass = "";
 
     if (rowIsPct) {
-      if (impressions === 0 && ["ctr", "cvr"].includes(col.key as string)) return <td key={col.key} className="p-3 text-right text-muted-foreground/40 italic text-[10px]">No Delivery</td>;
+      if (impressions === 0 && ["ctr", "cvr"].includes(col.key as string)) return <td key={col.key} className="p-3 text-right text-muted-foreground italic text-xs">No Delivery</td>;
 
       if (typeof val === "number") {
         const pctValue = val < 1 && val > 0 ? val * 100 : val;
@@ -515,7 +515,7 @@ export default function CampaignsPage() {
                       </TooltipContent>
                     </Tooltip>
                     {isPaused && (
-                      <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400 shrink-0">PAUSED</Badge>
+                      <Badge variant="secondary" className="text-xs px-1 py-0 text-red-400 shrink-0">PAUSED</Badge>
                     )}
                   </div>
                 </td>
@@ -591,24 +591,24 @@ export default function CampaignsPage() {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="p-2 rounded-md bg-card border border-border/30">
-                    <p className="text-[10px] text-muted-foreground">CTR</p>
+                    <p className="text-xs text-muted-foreground">CTR</p>
                     <p className="text-sm font-semibold tabular-nums">{formatPct(c.ctr || 0)}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
-                    <p className="text-[10px] text-muted-foreground">CVR</p>
+                    <p className="text-xs text-muted-foreground">CVR</p>
                     <p className="text-sm font-semibold tabular-nums">{c.cvr != null ? formatPct(c.cvr) : "—"}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
-                    <p className="text-[10px] text-muted-foreground">CPL</p>
+                    <p className="text-xs text-muted-foreground">CPL</p>
                     <p className="text-sm font-semibold tabular-nums">{(c.cpl || 0) > 0 ? formatINR(c.cpl, 0) : "—"}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
-                    <p className="text-[10px] text-muted-foreground">Cost Stack</p>
+                    <p className="text-xs text-muted-foreground">Cost Stack</p>
                     <p className="text-sm font-semibold">{c.cost_stack?.overall || "—"}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
-                    <p className="text-[10px] text-muted-foreground">Scoring Weights</p>
-                    <div className="text-[9px] text-muted-foreground mt-1 space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Scoring Weights</p>
+                    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
                       <p>{isGoogle ? "CPL · CVR · CTR · IS · QS" : "CPL · CPM · CTR · CVR · Freq"}</p>
                       <p>Leads & Budget pacing excluded</p>
                     </div>
@@ -644,7 +644,7 @@ export default function CampaignsPage() {
                 <tr className="border-b border-border/10 bg-muted/5">
                   <th className="p-0 w-8"></th>
                   {(sectionType === "search" ? googleSearchGroups : googleDgGroups).map((g, i) => (
-                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 last:border-0 text-center">
                       {g.label}
                     </th>
                   ))}
@@ -670,7 +670,7 @@ export default function CampaignsPage() {
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className={`px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
+                      className={`px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
                         }`}
                       onClick={() => toggleSort(col.key)}
                     >
@@ -681,7 +681,7 @@ export default function CampaignsPage() {
                       </span>
                     </th>
                   ))}
-                  <th className="px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
+                  <th className="px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground text-center whitespace-nowrap">
                     Act
                   </th>
                 </tr>
@@ -839,7 +839,7 @@ export default function CampaignsPage() {
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Search Campaigns (Branded + Location)</h2>
                 {searchSummary && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {searchSummary.campaign_count} campaigns · Spend {formatINR(searchSummary.spend, 0)} · Leads {searchSummary.leads} · CPL {formatINR(searchSummary.cpl, 0)} · CTR {formatPct(searchSummary.ctr)} · CVR {formatPct(searchSummary.cvr)}
                   </p>
                 )}
@@ -854,7 +854,7 @@ export default function CampaignsPage() {
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Demand Gen Campaigns</h2>
                 {dgSummary && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {dgSummary.campaign_count} campaigns · Spend {formatINR(dgSummary.spend, 0)} · Leads {dgSummary.leads} · CPL {formatINR(dgSummary.cpl, 0)} · CTR {formatPct(dgSummary.ctr)} · CVR {formatPct(dgSummary.cvr)}
                     {dgSummary.video_metrics_aggregate && (
                       <> · TSR {dgSummary.video_metrics_aggregate.tsr_avg}% · VHR {dgSummary.video_metrics_aggregate.vhr_avg}%</>
@@ -877,7 +877,7 @@ export default function CampaignsPage() {
                   <tr className="border-b border-border/10 bg-muted/5">
                     <th className="p-0 w-8"></th>
                     {metaColumnGroups.map((g, i) => (
-                      <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                      <th key={i} colSpan={g.span} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 last:border-0 text-center">
                         {g.label}
                       </th>
                     ))}
@@ -908,7 +908,7 @@ export default function CampaignsPage() {
                     {metaColumns.map((col) => (
                       <th
                         key={col.key}
-                        className={`px-4 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
+                        className={`px-4 py-4 t-label font-black uppercase tracking-widest text-muted-foreground cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"
                           }`}
                         onClick={() => toggleSort(col.key)}
                       >
@@ -918,7 +918,7 @@ export default function CampaignsPage() {
                         </span>
                       </th>
                     ))}
-                    <th className="px-4 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center whitespace-nowrap">
+                    <th className="px-4 py-4 t-label font-black uppercase tracking-widest text-muted-foreground text-center whitespace-nowrap">
                       Act
                     </th>
                   </tr>
@@ -973,7 +973,7 @@ export default function CampaignsPage() {
                                       </TooltipContent>
                                     </Tooltip>
                                     {c.status === "PAUSED" && (
-                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 text-red-400 w-fit">PAUSED</Badge>
+                                      <Badge variant="secondary" className="text-xs px-1 py-0 text-red-400 w-fit">PAUSED</Badge>
                                     )}
                                   </div>
                                 </td>
@@ -996,7 +996,7 @@ export default function CampaignsPage() {
                               return (
                                 <td key={col.key} className="p-3">
                                   <Badge variant="outline" className={cn(
-                                    "text-[9px] px-1.5 py-0 font-bold uppercase",
+                                    "text-xs px-1.5 py-0 font-bold uppercase",
                                     col.key === "layer" ? getLayerColor(val) :
                                       col.key === "learning_status" ? getLearningStatusColor(val) :
                                         "text-muted-foreground border-border/40"

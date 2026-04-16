@@ -61,7 +61,7 @@ function Field({
 
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+      <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
         {label}
         {required && <span className="text-red-400">*</span>}
       </label>
@@ -89,7 +89,7 @@ function Field({
         )}
       </div>
       {helpText && (
-        <p className="text-[10px] text-muted-foreground">{helpText}</p>
+        <p className="text-xs text-muted-foreground">{helpText}</p>
       )}
     </div>
   );
@@ -112,7 +112,7 @@ function Select({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+      <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
         {label}
         {required && <span className="text-red-400">*</span>}
       </label>

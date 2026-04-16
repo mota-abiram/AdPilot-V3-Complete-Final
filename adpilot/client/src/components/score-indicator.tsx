@@ -26,7 +26,7 @@ export function ScoreIndicator({ score, breakdown, detailedBreakdown, label, des
               style={{ width: `${safeScore}%` }} 
             />
           </div>
-          <span className="tabular-nums text-[11px] font-bold text-muted-foreground group-hover:text-foreground transition-colors w-6">
+          <span className="tabular-nums text-xs font-bold text-muted-foreground group-hover:text-foreground transition-colors w-6">
             {safeScore}
           </span>
         </div>
@@ -35,12 +35,12 @@ export function ScoreIndicator({ score, breakdown, detailedBreakdown, label, des
         <div className="text-xs space-y-1.5">
           <div className="flex items-center justify-between border-b border-border/50 pb-1.5 mb-1.5">
             <p className="font-bold">{label || "Scoring Breakdown"}</p>
-            <span className={`text-[11px] font-black ${getHealthBgColor(safeScore).replace('bg-', 'text-')}`}>
+            <span className={`text-xs font-black ${getHealthBgColor(safeScore).replace('bg-', 'text-')}`}>
               {safeScore}/100
             </span>
           </div>
           
-          {description && <p className="text-[10px] text-muted-foreground pb-1">{description}</p>}
+          {description && <p className="text-xs text-muted-foreground pb-1">{description}</p>}
           
           {detailedBreakdown || breakdown ? (
             <div className="space-y-1">
@@ -61,14 +61,14 @@ export function ScoreIndicator({ score, breakdown, detailedBreakdown, label, des
 
                 return (
                   <div key={k} className="flex justify-between gap-4">
-                    <span className="uppercase text-[9px] font-bold opacity-70">{k.replace(/_/g, ' ')}</span>
-                    <span className={`font-bold tabular-nums text-[10px] ${color}`}>{displayVal}</span>
+                    <span className="uppercase text-xs font-bold opacity-70">{k.replace(/_/g, ' ')}</span>
+                    <span className={`font-bold tabular-nums text-xs ${color}`}>{displayVal}</span>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-muted-foreground italic text-[10px]">Detailed breakdown unavailable</p>
+            <p className="text-muted-foreground italic text-xs">Detailed breakdown unavailable</p>
           )}
         </div>
       </TooltipContent>

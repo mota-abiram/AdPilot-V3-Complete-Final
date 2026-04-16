@@ -1,5 +1,6 @@
 import { assembleContext, type QueryType } from "./context-assembler";
-import { detectProblemsFromScores, type DetectedProblem } from "./problem-detector";
+import { detectProblemsFromScores } from "./problem-detector";
+import { deduplicateProblems } from "./problem-deduplicator";
 import {
   cardsToRecommendations,
   runSolutionPipeline,
@@ -227,9 +228,16 @@ function sortCards(cards: RecommendationCard[], query: IntelligenceQuery): Recom
 }
 
 function analyzeSinglePlatform(ctx: any, query: IntelligenceQuery, platform: "meta" | "google", analysisData: any) {
-  const problems = detectProblemsFromScores(analysisData, platform, ctx);
-  const cards = problems.map((problem) => runSolutionPipeline(problem, ctx));
-  return { problems, cards };
+  const allProblems = detectProblemsFromScores(analysisData, platform, ctx);
+
+  // Deduplicate problems: eliminate same issue at multiple hierarchy levels
+  // Keep only the most specific/actionable version of each problem
+  const dedupedProblems = deduplicateProblems(allProblems);
+
+  // Generate recommendation cards for deduplicated problems
+  const cards = dedupedProblems.map((problem) => runSolutionPipeline(problem, ctx));
+
+  return { problems: allProblems, dedupedProblems, cards };
 }
 
 function analysisDataForPlatform(query: IntelligenceQuery, platform: "meta" | "google") {

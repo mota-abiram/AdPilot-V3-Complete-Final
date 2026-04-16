@@ -163,7 +163,7 @@ function NavSection({
                   >
                     <item.icon className={cn(
                       "w-4 h-4 shrink-0 transition-colors",
-                      isActive ? "text-primary-foreground font-black" : "text-muted-foreground/80"
+                      isActive ? "text-primary-foreground font-black" : "text-muted-foreground"
                     )} />
                     <span className="text-[13px] uppercase tracking-wider">{item.title}</span>
                   </Link>
@@ -232,14 +232,14 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
             className="w-10 h-10 rounded-[10px] shadow-sm shrink-0 object-fill p-1"
           />
           <div className="grid gap-1 leading-none">
-            <p className="text-lg font-extrabold tracking-[-0.03em] leading-none">Mojo AdCortex</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground leading-none">By Digital Mojo</p>
+            <p className="text-lg font-extrabold tracking-tight leading-none">Mojo AdCortex</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground leading-none">By Digital Mojo</p>
           </div>
         </div>
 
         {/* ── Unified Workspace Switcher ──────────────────────────────── */}
             <div className="grid gap-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center justify-between px-1">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground flex items-center justify-between px-1">
                 Workspace
                 {syncState?.sync_status === "loading" && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
               </p>
@@ -261,7 +261,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                       </div>
                       <div className="grid flex-1 text-left leading-tight">
                         <span className="truncate font-bold text-[14px] leading-none">{activeClient?.shortName || activeClient?.name || "Select Client"}</span>
-                        <span className="truncate text-[10px] text-muted-foreground capitalize mt-1 flex items-center gap-1.5 leading-none">
+                        <span className="truncate text-xs text-muted-foreground capitalize mt-1 flex items-center gap-1.5 leading-none">
                           Client <span className="opacity-70">· {lastSynced || "Never"}</span>
                         </span>
                       </div>
@@ -271,7 +271,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent className="w-[260px] rounded-xl bg-background/95 backdrop-blur-xl border-border/60 shadow-2xl p-2" align="start" sideOffset={8}>
-                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Switch Client
                   </div>
 
@@ -297,7 +297,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                           )}
                         >
                           <div className={cn(
-                            "size-6 flex items-center justify-center rounded-md border text-[10px] font-bold",
+                            "size-6 flex items-center justify-center rounded-md border text-xs font-bold",
                             isSelected ? "border-primary/30 bg-primary/20 text-primary" : "border-border/40 bg-muted/40 text-muted-foreground"
                           )}>
                             <Zap className="size-3.5" />
@@ -347,7 +347,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                           ? "bg-primary/16 text-primary border-primary/35 shadow-xs"
                           : isEnabled
                             ? "bg-card/65 text-muted-foreground border-border/60 hover:bg-accent/70 hover:text-foreground"
-                            : "bg-muted/30 text-muted-foreground/40 border-border/30 cursor-not-allowed"
+                            : "bg-muted/30 text-muted-foreground border-border/30 cursor-not-allowed"
                       )}
                       disabled={!isEnabled}
                     >
@@ -361,7 +361,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
 
             {/* Cadence selector */}
             <div className="grid gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Time Window</p>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Time Window</p>
               <div className="grid grid-cols-5 gap-1.5">
                 {cadenceOptions.map((opt) => {
                   const isActive = opt.value === activeCadence;
@@ -369,7 +369,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                     <button
                       key={opt.value}
                       className={cn(
-                        "py-1.5 text-[11px] font-semibold rounded-md border transition-colors duration-150",
+                        "py-1.5 text-xs font-semibold rounded-md border transition-colors duration-150",
                         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                         isActive
                           ? "bg-primary/16 text-foreground border-primary/35 shadow-xs"
@@ -415,7 +415,7 @@ export function AppSidebar({ syncState, lastSynced }: AppSidebarProps) {
                     ? "bg-emerald-500"
                     : "bg-muted-foreground/40"
             )} />
-            <span className="text-[11px] font-medium text-muted-foreground mr-2">
+            <span className="text-xs font-medium text-muted-foreground mr-2">
               {syncState?.sync_status === "failed"
                 ? "Sync failed"
                 : syncState?.sync_status === "loading"

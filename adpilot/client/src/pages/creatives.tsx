@@ -198,9 +198,9 @@ function formatStatusLabel(status: CreativeStatusTag) {
 }
 
 function promptHistoryStatusClass(status: CreativeStatusTag) {
-  if (status === "winner") return "border-emerald-500/25 bg-emerald-500/8 text-emerald-300";
+  if (status === "winner") return "border-emerald-500/25 bg-emerald-500/8 text-emerald-700 dark:text-emerald-400";
   if (status === "loser") return "border-rose-500/25 bg-rose-500/8 text-rose-300";
-  return "border-amber-500/25 bg-amber-500/8 text-amber-300";
+  return "border-amber-500/25 bg-amber-500/8 text-amber-700 dark:text-amber-400";
 }
 
 async function filesToAssets(files: FileList | null, category: CreativeAsset["category"]) {
@@ -712,11 +712,11 @@ export default function CreativesPage() {
               <CardDescription>Every generation stays client-scoped and easy to revisit.</CardDescription>
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <div className="rounded-[12px] border border-border/50 bg-background/70 px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Threads</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Threads</p>
                   <p className="mt-1 text-lg font-semibold text-foreground">{hubData?.threads.length || 0}</p>
                 </div>
                 <div className="rounded-[12px] border border-border/50 bg-background/70 px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Latest</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Latest</p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
                     {hubData?.threads[0] ? formatRelativeTime(hubData.threads[0].updatedAt) : "None"}
                   </p>
@@ -745,13 +745,13 @@ export default function CreativesPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-base font-semibold leading-tight text-foreground line-clamp-2">{thread.title}</p>
-                        <p className="mt-1 t-label uppercase tracking-widest text-muted-foreground/80">
+                        <p className="mt-1 t-label uppercase tracking-widest text-muted-foreground">
                           {thread.input?.platform === "google_display" ? "Google Display" : "Meta"}
                         </p>
                       </div>
                       <span
                         className={cn(
-                          "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                          "shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em]",
                           promptHistoryStatusClass(thread.statusTag),
                         )}
                       >
@@ -760,7 +760,7 @@ export default function CreativesPage() {
                     </div>
 
                     <div className="rounded-[12px] bg-muted/35 px-3 py-2.5">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Offer</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Offer</p>
                       <p className="mt-1 text-sm leading-relaxed text-foreground/88 line-clamp-2">
                         {thread.input?.offer || thread.input?.campaignIdea || "No offer added"}
                       </p>
@@ -768,13 +768,13 @@ export default function CreativesPage() {
 
                     <div className="grid grid-cols-2 gap-2 text-left">
                       <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Versions</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Versions</p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
                           {Array.isArray(thread.versions) ? thread.versions.length : 0} version{(Array.isArray(thread.versions) ? thread.versions.length : 0) === 1 ? "" : "s"}
                         </p>
                       </div>
                       <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Updated</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Updated</p>
                         <p className="mt-1 text-sm font-semibold text-foreground">{formatRelativeTime(thread.updatedAt)}</p>
                       </div>
                     </div>
@@ -856,7 +856,7 @@ export default function CreativesPage() {
 
               <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border/40">
                 <div className="flex flex-col gap-1.5 min-w-[200px]">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Primary Generation</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Primary Generation</p>
                   <Button
                     size="lg"
                     className="gap-2 px-6 shadow-md shadow-primary/20"
@@ -869,7 +869,7 @@ export default function CreativesPage() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Visual Assets</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Visual Assets</p>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -890,7 +890,7 @@ export default function CreativesPage() {
                           key={size}
                           type="button"
                           className={cn(
-                            "rounded-md px-2 py-1.5 text-[10px] font-bold transition-all",
+                            "rounded-md px-2 py-1.5 text-xs font-bold transition-all",
                             selectedImageSize === size
                               ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
                               : "text-muted-foreground hover:text-foreground",
@@ -906,7 +906,7 @@ export default function CreativesPage() {
 
                 {selectedSection && (
                   <div className="flex flex-col gap-1.5 ml-auto lg:ml-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-0.5">Refine Current</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-0.5">Refine Current</p>
                     <Button
                       variant="secondary"
                       size="lg"
@@ -922,7 +922,7 @@ export default function CreativesPage() {
               </div>
 
               {!selectedThread && (
-                <p className="text-[11px] text-muted-foreground italic flex items-center gap-2 bg-muted/20 p-2 rounded-md">
+                <p className="text-xs text-muted-foreground italic flex items-center gap-2 bg-muted/20 p-2 rounded-md">
                   <TriangleAlert className="w-3.5 h-3.5 text-warning" />
                   Select or generate an ad concept to enable Visual and Refinement tools.
                 </p>
@@ -1000,7 +1000,7 @@ export default function CreativesPage() {
                       </div>
                       <div className="mt-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Original Build</p>
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Original Build</p>
                           <p className="text-sm font-semibold text-foreground truncate">
                             {latestGeneratedImage.requestedSize} · {latestGeneratedImage.modelSize}
                           </p>

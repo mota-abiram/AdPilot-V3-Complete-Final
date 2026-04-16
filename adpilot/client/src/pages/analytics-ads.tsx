@@ -261,24 +261,24 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
     const isActive = val === "ENABLED" || val === "ACTIVE";
     return (
       <td key={col.key} className="p-3">
-        <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isActive ? "text-emerald-400 border-emerald-500/30" : "text-red-400 border-red-500/30"}`}>
+        <Badge variant="outline" className={`text-xs px-1 py-0 ${isActive ? "text-emerald-700 dark:text-emerald-400 border-emerald-500/30" : "text-red-700 dark:text-red-400 border-red-500/30"}`}>
           {val}
         </Badge>
       </td>
     );
   }
   if (col.key === "ad_strength") {
-    const cls = val === "EXCELLENT" ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/5"
-      : val === "GOOD" ? "text-emerald-400/80 border-emerald-500/20"
-        : "text-amber-400 border-amber-500/30";
+    const cls = val === "EXCELLENT" ? "text-emerald-700 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/5"
+      : val === "GOOD" ? "text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+        : "text-amber-700 dark:text-amber-400 border-amber-500/30";
     return (
       <td key={col.key} className="p-3">
-        <Badge variant="outline" className={`text-[9px] px-1 py-0 uppercase ${cls}`}>{val || "PENDING"}</Badge>
+        <Badge variant="outline" className={`text-xs px-1 py-0 uppercase ${cls}`}>{val || "PENDING"}</Badge>
       </td>
     );
   }
   if (col.key === "format") {
-    return <td key={col.key} className="p-3"><span className="text-[10px] font-bold uppercase text-primary/70">{val || "—"}</span></td>;
+    return <td key={col.key} className="p-3"><span className="text-xs font-bold uppercase text-primary/70">{val || "—"}</span></td>;
   }
   if (col.key === "name") {
     return (
@@ -291,7 +291,7 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
             <p className="text-xs max-w-[300px] whitespace-normal">{c.name}</p>
           </TooltipContent>
         </Tooltip>
-        <div className="text-[10px] text-muted-foreground truncate mt-0.5">{c.campaignName}</div>
+        <div className="text-xs text-muted-foreground truncate mt-0.5">{c.campaignName}</div>
       </td>
     );
   }
@@ -449,7 +449,7 @@ export default function AnalyticsAdsPage() {
               <div className="h-4 w-px bg-primary/20 mx-1" />
               <Button
                 variant="ghost" size="sm"
-                className="h-7 text-[10px] font-bold uppercase text-primary hover:bg-primary/20"
+                className="h-7 text-xs font-bold uppercase text-primary hover:bg-primary/20"
                 onClick={async () => {
                   const actions = Array.from(selectedIds).map(id => ({
                     action: "PAUSE_AD" as const,
@@ -468,7 +468,7 @@ export default function AnalyticsAdsPage() {
               </Button>
               <Button
                 variant="ghost" size="sm"
-                className="h-7 text-[10px] font-bold uppercase text-emerald-500 hover:bg-emerald-500/10"
+                className="h-7 text-xs font-bold uppercase text-emerald-500 hover:bg-emerald-500/10"
                 onClick={async () => {
                   const actions = Array.from(selectedIds).map(id => ({
                     action: isGoogle ? ("ENABLE_AD" as const) : ("UNPAUSE_AD" as const),
@@ -486,7 +486,7 @@ export default function AnalyticsAdsPage() {
               </Button>
               <Button
                 variant="ghost" size="sm"
-                className="h-7 text-[10px] font-bold text-muted-foreground"
+                className="h-7 text-xs font-bold text-muted-foreground"
                 onClick={() => setSelectedIds(new Set())}
               >
                 Clear
@@ -648,7 +648,7 @@ const AdTable = React.memo(({
                 <tr className="border-b border-border/10 bg-muted/5">
                   <th className="p-0 w-10"></th>
                   {groups.map((g, i) => (
-                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 last:border-0 text-center">
                       {g.label}
                     </th>
                   ))}
@@ -665,13 +665,13 @@ const AdTable = React.memo(({
                 {cols.map(col => (
                   <th
                     key={col.key}
-                    className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
+                    className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground cursor-pointer select-none whitespace-nowrap border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
                     onClick={() => onSort(col.key)}
                   >
                     {col.label}
                   </th>
                 ))}
-                <th className="px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 text-center border-l border-border/5">
+                <th className="px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground text-center border-l border-border/5">
                   Act
                 </th>
               </tr>

@@ -284,28 +284,28 @@ export default function GoogleRestructuringPage() {
           <CardContent className="p-4 text-center">
             <Layers className="w-4 h-4 text-muted-foreground mx-auto mb-1.5" />
             <p className="text-2xl font-black text-foreground tabular-nums">{summary.ad_groups_analyzed}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Ad Groups Analyzed</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mt-1">Ad Groups Analyzed</p>
           </CardContent>
         </Card>
         <Card className="bg-purple-500/5 border-purple-500/25">
           <CardContent className="p-4 text-center">
             <Split className="w-4 h-4 text-purple-400 mx-auto mb-1.5" />
             <p className="text-2xl font-black text-purple-400 tabular-nums">{summary.segregate_candidates}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Split Candidates</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mt-1">Split Candidates</p>
           </CardContent>
         </Card>
         <Card className="bg-blue-500/5 border-blue-500/25">
           <CardContent className="p-4 text-center">
             <Combine className="w-4 h-4 text-blue-400 mx-auto mb-1.5" />
             <p className="text-2xl font-black text-blue-400 tabular-nums">{summary.merge_candidates}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Merge Candidates</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mt-1">Merge Candidates</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-500/5 border-emerald-500/25">
           <CardContent className="p-4 text-center">
             <ShieldCheck className="w-4 h-4 text-emerald-400 mx-auto mb-1.5" />
             <p className="text-2xl font-black text-emerald-400 tabular-nums">{summary.no_action}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">No Action Needed</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mt-1">No Action Needed</p>
           </CardContent>
         </Card>
       </div>
@@ -313,22 +313,22 @@ export default function GoogleRestructuringPage() {
       {/* C2: SEGREGATE reason types */}
       <Card className="bg-purple-500/5 border-purple-500/25" data-testid="segregate-reasons-guide">
         <CardContent className="p-4 space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400">SEGREGATE (Split) — Reason Types</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-purple-400">SEGREGATE (Split) — Reason Types</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="rounded-lg border border-purple-500/25 bg-purple-500/8 p-4">
               <p className="text-xs font-semibold text-foreground">QS_VARIANCE</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Split when QS spread is too wide inside one ad group.</p>
-              <p className="text-[10px] text-emerald-400 mt-1">Impact: estimated QS gain = spread / 2</p>
+              <p className="text-xs text-muted-foreground mt-1">Split when QS spread is too wide inside one ad group.</p>
+              <p className="text-xs text-emerald-400 mt-1">Impact: estimated QS gain = spread / 2</p>
             </div>
             <div className="rounded-lg border border-purple-500/25 bg-purple-500/8 p-4">
               <p className="text-xs font-semibold text-foreground">CPL_VARIANCE</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Split when ad-level CPL spread is high.</p>
-              <p className="text-[10px] text-emerald-400 mt-1">Impact: isolates high-CPL ads for controlled tests</p>
+              <p className="text-xs text-muted-foreground mt-1">Split when ad-level CPL spread is high.</p>
+              <p className="text-xs text-emerald-400 mt-1">Impact: isolates high-CPL ads for controlled tests</p>
             </div>
             <div className="rounded-lg border border-purple-500/25 bg-purple-500/8 p-4">
               <p className="text-xs font-semibold text-foreground">SEARCH_TERM_CLUSTER</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Split high-CVR search-term clusters into dedicated groups.</p>
-              <p className="text-[10px] text-emerald-400 mt-1">Impact: tighter copy-theme match + cleaner signals</p>
+              <p className="text-xs text-muted-foreground mt-1">Split high-CVR search-term clusters into dedicated groups.</p>
+              <p className="text-xs text-emerald-400 mt-1">Impact: tighter copy-theme match + cleaner signals</p>
             </div>
           </div>
         </CardContent>
@@ -337,22 +337,22 @@ export default function GoogleRestructuringPage() {
       {/* C3: MERGE reason types */}
       <Card className="bg-blue-500/5 border-blue-500/25" data-testid="merge-reasons-guide">
         <CardContent className="p-4 space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400">MERGE (Consolidate) — Reason Types</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-400">MERGE (Consolidate) — Reason Types</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="rounded-lg border border-blue-500/25 bg-blue-500/8 p-4">
               <p className="text-xs font-semibold text-foreground">LOW_VOLUME_FRAGMENTATION</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Merge fragmented low-volume groups to clear learning signals.</p>
-              <p className="text-[10px] text-emerald-400 mt-1">Impact: faster optimization from combined volume</p>
+              <p className="text-xs text-muted-foreground mt-1">Merge fragmented low-volume groups to clear learning signals.</p>
+              <p className="text-xs text-emerald-400 mt-1">Impact: faster optimization from combined volume</p>
             </div>
             <div className="rounded-lg border border-blue-500/25 bg-blue-500/8 p-4">
               <p className="text-xs font-semibold text-foreground">OVERLAPPING_INTENT</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Merge groups with overlapping intent to reduce cannibalization.</p>
-              <p className="text-[10px] text-emerald-400 mt-1">Impact: cleaner data and unified intent targeting</p>
+              <p className="text-xs text-muted-foreground mt-1">Merge groups with overlapping intent to reduce cannibalization.</p>
+              <p className="text-xs text-emerald-400 mt-1">Impact: cleaner data and unified intent targeting</p>
             </div>
             <div className="rounded-lg border border-blue-500/25 bg-blue-500/8 p-4">
               <p className="text-xs font-semibold text-foreground">LEARNING_LIMITED_RESCUE</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Merge to move conversions above learning threshold.</p>
-              <p className="text-[10px] text-emerald-400 mt-1">Impact: learning-limited recovery</p>
+              <p className="text-xs text-muted-foreground mt-1">Merge to move conversions above learning threshold.</p>
+              <p className="text-xs text-emerald-400 mt-1">Impact: learning-limited recovery</p>
             </div>
           </div>
         </CardContent>
@@ -429,7 +429,7 @@ export default function GoogleRestructuringPage() {
       {/* C6: Recommended Enhancements */}
       <Card className="bg-card/40 border-border/50" data-testid="restructuring-enhancements">
         <CardContent className="p-4 space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Recommended Enhancements</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Recommended Enhancements</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
             {[
               "Campaign-level restructuring (branded/location/generic segregation)",
@@ -499,7 +499,7 @@ function RestructuringCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={cn("text-sm font-medium", reasonTextTone)}>{reasonLabel(rec.reason)}</span>
-                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border", pb.cls)}>
+                <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border", pb.cls)}>
                   {pb.label}
                 </Badge>
               </div>
@@ -546,7 +546,7 @@ function RestructuringCard({
 
         {/* Execution note */}
         {rec.execution_note && (
-          <p className="text-[10px] text-muted-foreground italic">{rec.execution_note}</p>
+          <p className="text-xs text-muted-foreground italic">{rec.execution_note}</p>
         )}
 
         {/* Execute / Manual Only / Acknowledge buttons */}
@@ -614,7 +614,7 @@ function RestructuringCard({
                       <li>Monitor performance for 7 days before making further changes</li>
                     </ol>
                   )}
-                  <p className="text-[10px] text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Naming SOP: DM-dd/mm/yyyy-(number)-CampaignType-BiddingStrategy-BidLimit-MatchType-LocationOption-Theme
                   </p>
                 </TooltipContent>
@@ -643,9 +643,9 @@ function RestructuringCard({
           </div>
           {!rec.executable && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-2.5 py-2 space-y-1" data-testid={`manual-steps-${recId}`}>
-              <p className="text-[10px] font-semibold text-blue-400">Manual Steps Required</p>
+              <p className="text-xs font-semibold text-blue-400">Manual Steps Required</p>
               {isSegregate ? (
-                <ol className="text-[10px] text-muted-foreground space-y-0.5 list-decimal list-inside">
+                <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
                   <li>Create a new ad group in the campaign</li>
                   <li>Move keywords{" "}
                     {((rec.data?.keywords_to_split || rec.data?.keyword_groups || []) as string[]).length > 0
@@ -657,7 +657,7 @@ function RestructuringCard({
                   <li>Set initial bid based on historical performance</li>
                 </ol>
               ) : (
-                <ol className="text-[10px] text-muted-foreground space-y-0.5 list-decimal list-inside">
+                <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
                   <li>Choose the primary ad group to keep</li>
                   <li>Move all keywords from the secondary ad group into the primary</li>
                   <li>Pause the secondary ad group</li>
@@ -757,7 +757,7 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
           {badges.map((b, i) => (
             <div key={i} className="bg-muted/20 border border-border/50 rounded-md px-2.5 py-1.5 text-center">
               <p className={cn("text-xs font-semibold", b.color)}>{b.value}</p>
-              <p className="text-[10px] text-muted-foreground">{b.label}</p>
+              <p className="text-xs text-muted-foreground">{b.label}</p>
             </div>
           ))}
         </div>
@@ -770,14 +770,14 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <Tag className="w-3 h-3 text-purple-400" />
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Keywords to Separate</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Keywords to Separate</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {segregateKeywords.map((kw: string, i: number) => (
                   <Badge
                     key={i}
                     variant="outline"
-                    className="text-[10px] px-1.5 py-0 bg-purple-500/15 text-purple-300 border-purple-500/40"
+                    className="text-xs px-1.5 py-0 bg-purple-500/15 text-purple-300 border-purple-500/40"
                   >
                     {kw}
                   </Badge>
@@ -788,7 +788,7 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
           {qsImprovementText && (
             <div className="flex items-center gap-1.5">
               <TrendingUp className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-              <span className="text-[10px] text-emerald-400">
+              <span className="text-xs text-emerald-400">
                 <span className="font-medium">Expected QS Improvement:</span> {qsImprovementText}
               </span>
             </div>
@@ -796,7 +796,7 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
           {ctrImpactText && (
             <div className="flex items-center gap-1.5">
               <TrendingUp className="w-3 h-3 text-blue-400 flex-shrink-0" />
-              <span className="text-[10px] text-blue-400">
+              <span className="text-xs text-blue-400">
                 <span className="font-medium">Expected CTR Impact:</span> {ctrImpactText}
               </span>
             </div>
@@ -811,7 +811,7 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <Users className="w-3 h-3 text-blue-400" />
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Ad Groups to Combine</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ad Groups to Combine</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {mergeAdGroupNames.map((name: string, i: number) => {
@@ -820,7 +820,7 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
                     <Badge
                       key={i}
                       variant="outline"
-                      className="text-[10px] px-1.5 py-0 bg-blue-500/15 text-blue-300 border-blue-500/40"
+                      className="text-xs px-1.5 py-0 bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/40"
                     >
                       {name}
                       {vol != null ? ` (${vol.toLocaleString()} impr)` : ""}
@@ -829,7 +829,7 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
                 })}
               </div>
               {d.total_impressions != null && Object.keys(individualVolumes).length === 0 && (
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Combined impressions: {Number(d.total_impressions).toLocaleString()}
                 </p>
               )}
@@ -838,14 +838,14 @@ function DataBadges({ rec }: { rec: RestructuringRecommendation }) {
           {learningSpeedText && (
             <div className="flex items-center gap-1.5">
               <Zap className="w-3 h-3 text-amber-400 flex-shrink-0" />
-              <span className="text-[10px] text-amber-400">
+              <span className="text-xs text-amber-400">
                 <span className="font-medium">Expected Learning Speed:</span> {learningSpeedText}
               </span>
             </div>
           )}
           {rec.reason === "LEARNING_LIMITED_RESCUE" && combinedConversions != null && primaryConversions != null && learningThreshold != null && (
             <div className="bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-2" data-testid="learning-limited-note">
-              <p className="text-[10px] text-amber-400 leading-relaxed">
+              <p className="text-xs text-amber-400 leading-relaxed">
                 <span className="font-semibold">Learning Limited:</span> Merging will bring conversions from{" "}
                 <span className="font-semibold">{primaryConversions}</span> to{" "}
                 <span className="font-semibold text-emerald-400">{combinedConversions}</span>, clearing the learning

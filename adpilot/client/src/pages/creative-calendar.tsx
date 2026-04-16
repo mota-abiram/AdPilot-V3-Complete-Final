@@ -238,15 +238,15 @@ export default function CreativeCalendarPage() {
         {/* ─── MTD Performance Snapshot ─── */}
         <div className="flex items-center gap-3">
           <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">MTD Spend</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">MTD Spend</p>
             <p className="text-sm font-bold tabular-nums">{formatINR(mtdSpend, 0)}</p>
           </div>
           <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">MTD Leads</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">MTD Leads</p>
             <p className="text-sm font-bold tabular-nums">{formatNumber(mtdLeads)}</p>
           </div>
           <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">CPL</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">CPL</p>
             <p className="text-sm font-bold tabular-nums text-primary">{formatINR(mtdCpl, 0)}</p>
           </div>
         </div>
@@ -257,29 +257,29 @@ export default function CreativeCalendarPage() {
         {/* Existing health summary stats moved into this grid for compactness */}
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Fresh (&lt;30d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Fresh (&lt;30d)</p>
             <p className="text-xl font-bold tabular-nums text-emerald-400">
               {timelineCreatives.filter(c => (c.age_days ?? 0) < 30).length}
             </p>
-            <p className="text-[9px] text-muted-foreground mt-1">Active rotation</p>
+            <p className="text-xs text-muted-foreground mt-1">Active rotation</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Aging (30–45d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Aging (30–45d)</p>
             <p className="text-xl font-bold tabular-nums text-amber-400">
               {timelineCreatives.filter(c => (c.age_days ?? 0) >= 30 && (c.age_days ?? 0) <= 45).length}
             </p>
-            <p className="text-[9px] text-muted-foreground mt-1">Watch for fatigue</p>
+            <p className="text-xs text-muted-foreground mt-1">Watch for fatigue</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stale (&gt;45d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Stale (&gt;45d)</p>
             <p className="text-xl font-bold tabular-nums text-red-400">
               {timelineCreatives.filter(c => (c.age_days ?? 0) > 45).length}
             </p>
-            <p className="text-[9px] text-muted-foreground mt-1">Needs refresh</p>
+            <p className="text-xs text-muted-foreground mt-1">Needs refresh</p>
           </CardContent>
         </Card>
       </div>
@@ -313,25 +313,25 @@ export default function CreativeCalendarPage() {
                           <span className="text-xs font-medium text-foreground truncate max-w-[240px] block">
                             {truncate(c.name, 40)}
                           </span>
-                          <Badge variant="secondary" className={cn("text-[10px] px-1.5 py-0 shrink-0", ageClasses)}>
+                          <Badge variant="secondary" className={cn("text-xs px-1.5 py-0 shrink-0", ageClasses)}>
                             {c.age_days}d old
                           </Badge>
                           <Badge variant="outline" className={cn(
-                            "text-[9px] px-1.5 py-0 shrink-0",
+                            "text-xs px-1.5 py-0 shrink-0",
                             ins.priority === "CRITICAL" ? "border-red-500/30 text-red-400" : "border-amber-500/30 text-amber-400"
                           )}>
                             {ins.priority}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground mb-1">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1">
                           <span>CTR: {formatPct(c.ctr)}</span>
                           <span>Spend: {formatINR(c.spend, 0)}</span>
                           <span>Leads: {c.leads}</span>
                         </div>
-                        <p className="text-[11px] font-bold text-foreground italic mb-1">
+                        <p className="text-xs font-bold text-foreground italic mb-1">
                           {ins.issue}: {ins.impact}
                         </p>
-                        <p className="text-[10px] text-primary font-medium leading-relaxed">
+                        <p className="text-xs text-primary font-medium leading-relaxed">
                           Recommendation: {ins.recommendation}
                         </p>
                       </div>
@@ -373,7 +373,7 @@ export default function CreativeCalendarPage() {
         <CardHeader className="pb-2 px-4 pt-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium">Creative Age Timeline</CardTitle>
-            <div className="flex items-center gap-3 text-[10px]">
+            <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />
                 &lt;30d
@@ -409,14 +409,14 @@ export default function CreativeCalendarPage() {
                   {[0, 10, 20, 30, 35, 45].filter(d => d <= maxAge).map((day) => (
                     <span
                       key={day}
-                      className="absolute text-[9px] text-muted-foreground -translate-x-1/2"
+                      className="absolute text-xs text-muted-foreground -translate-x-1/2"
                       style={{ left: `${(day / maxAge) * 100}%` }}
                     >
                       {day}d
                     </span>
                   ))}
                   <span
-                    className="absolute text-[9px] text-muted-foreground right-0"
+                    className="absolute text-xs text-muted-foreground right-0"
                   >
                     {maxAge}d
                   </span>
@@ -460,7 +460,7 @@ export default function CreativeCalendarPage() {
                     <div className="w-[210px] shrink-0 flex items-center gap-1.5">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="text-[11px] text-foreground truncate block max-w-[180px]">
+                          <span className="text-xs text-foreground truncate block max-w-[180px]">
                             {truncate(c.name, 28)}
                           </span>
                         </TooltipTrigger>
@@ -472,7 +472,7 @@ export default function CreativeCalendarPage() {
                             {c.health_signals.length > 0 && (
                               <div className="pt-1 border-t border-border/30">
                                 {c.health_signals.map((s, i) => (
-                                  <p key={i} className="text-[10px]">{s}</p>
+                                  <p key={i} className="text-xs">{s}</p>
                                 ))}
                               </div>
                             )}
@@ -482,7 +482,7 @@ export default function CreativeCalendarPage() {
                       {c.performance_score !== null && c.performance_score >= 70 && ageDays > 30 && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Badge variant="secondary" className="text-[8px] px-1 py-0 text-emerald-400 bg-emerald-500/10 shrink-0">
+                            <Badge variant="secondary" className="text-xs px-1 py-0 text-emerald-400 bg-emerald-500/10 shrink-0">
                               HIGH_PERF
                             </Badge>
                           </TooltipTrigger>
@@ -516,7 +516,7 @@ export default function CreativeCalendarPage() {
                       {/* Score badge on bar */}
                       {c.creative_score !== null && (
                         <div
-                          className="absolute top-0.5 text-[9px] font-bold text-white px-1 z-20 pointer-events-none"
+                          className="absolute top-0.5 text-xs font-bold text-white px-1 z-20 pointer-events-none"
                           style={{ left: `${Math.min(barWidth - 5, 90)}%` }}
                         >
                           {Math.round(c.creative_score)}
@@ -543,7 +543,7 @@ export default function CreativeCalendarPage() {
                     </div>
 
                     {/* Age label */}
-                    <span className={`text-[10px] tabular-nums w-10 text-right shrink-0 ${colorClasses.text}`}>
+                    <span className={`text-xs tabular-nums w-10 text-right shrink-0 ${colorClasses.text}`}>
                       {ageDays}d
                     </span>
                   </div>
@@ -558,13 +558,13 @@ export default function CreativeCalendarPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Creatives</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Creatives</p>
             <p className="text-lg font-semibold tabular-nums">{creatives.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Fresh (&lt;30d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Fresh (&lt;30d)</p>
             <p className="text-lg font-semibold tabular-nums text-emerald-400">
               {timelineCreatives.filter(c => (c.age_days ?? 0) < 30).length}
             </p>
@@ -572,7 +572,7 @@ export default function CreativeCalendarPage() {
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Aging (30–45d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Aging (30–45d)</p>
             <p className="text-lg font-semibold tabular-nums text-amber-400">
               {timelineCreatives.filter(c => (c.age_days ?? 0) >= 30 && (c.age_days ?? 0) <= 45).length}
             </p>
@@ -580,7 +580,7 @@ export default function CreativeCalendarPage() {
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stale (&gt;45d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Stale (&gt;45d)</p>
             <p className="text-lg font-semibold tabular-nums text-red-400">
               {timelineCreatives.filter(c => (c.age_days ?? 0) > 45).length}
             </p>

@@ -40,16 +40,16 @@ export function DataTablePagination({
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t border-border/30" data-testid="pagination">
       {/* Left: item count */}
-      <span className="text-[11px] text-muted-foreground tabular-nums">
+      <span className="text-xs text-muted-foreground tabular-nums">
         Showing {startItem}–{endItem} of {totalItems} items
       </span>
 
       {/* Center: page size selector */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-muted-foreground">Rows:</span>
+          <span className="text-xs text-muted-foreground">Rows:</span>
           <select
-            className="text-[11px] bg-muted/50 border border-border/50 rounded px-1.5 py-0.5 text-foreground tabular-nums"
+            className="text-xs bg-muted/50 border border-border/50 rounded px-1.5 py-0.5 text-foreground tabular-nums"
             value={isAll ? "all" : pageSize}
             onChange={(e) => {
               const val = e.target.value;
@@ -100,7 +100,7 @@ export function DataTablePagination({
                 key={page}
                 variant={page === currentPage ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-7 w-7 text-[11px] tabular-nums ${
+                className={`h-7 w-7 text-xs tabular-nums ${
                   page === currentPage ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground"
                 }`}
                 onClick={() => onPageChange(page)}

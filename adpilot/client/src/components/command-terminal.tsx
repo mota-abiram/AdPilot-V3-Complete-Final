@@ -152,7 +152,7 @@ function ActionPlanChip({ actionJson }: { actionJson: ActionPlan }) {
 
   return (
     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border font-mono uppercase tracking-wide", color)}>
+      <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border font-mono uppercase tracking-wide", color)}>
         {actionJson.action.type}
       </Badge>
     </div>
@@ -164,7 +164,7 @@ function TerminalSection({ title, lines }: { title: string; lines: string[] }) {
 
   return (
     <div className="rounded-xl border border-border/30 bg-background/40 px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-400">{title}</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-400">{title}</p>
       <div className="mt-2 space-y-1.5">
         {lines.map((line, index) => (
           <p key={`${title}-${index}`} className="text-[12px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
@@ -234,7 +234,7 @@ function MessageBubble({ message }: { message: Message }) {
 
         {/* Timestamp */}
         {!message.loading && (
-          <span className="text-[10px] text-muted-foreground mt-1 px-1">
+          <span className="text-xs text-muted-foreground mt-1 px-1">
             {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
@@ -389,13 +389,13 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
             </div>
             <div>
               <h2 className="text-sm font-semibold leading-none">Mojo Terminal</h2>
-              <p className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+              <p className="text-xs text-muted-foreground mt-0.5 leading-none">
                 Instant command execution
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500/30 text-violet-400 bg-violet-500/10">
+            <Badge variant="outline" className="text-xs px-1.5 py-0 border-violet-500/30 text-violet-400 bg-violet-500/10">
               AI
             </Badge>
             <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close terminal" className="h-7 w-7">
@@ -417,14 +417,14 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
         {/* Suggested commands — shown only when empty-ish history */}
         {messages.length <= 1 && (
           <div className="px-4 pb-2 shrink-0">
-            <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wide font-medium">Quick commands</p>
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">Quick commands</p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTED_COMMANDS.map((cmd) => (
                 <button
                   key={cmd}
                   onClick={() => sendCommand(cmd)}
                   disabled={isLoading}
-                  className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  className="text-xs px-2.5 py-1 rounded-full border border-border/60 bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                 >
                   {cmd}
                 </button>
@@ -445,7 +445,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
               onKeyDown={handleKeyDown}
               placeholder="Type a command… (e.g. pause bad campaigns)"
               disabled={isLoading}
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 text-foreground min-w-0"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground text-foreground min-w-0"
             />
             <Button
               size="icon"
@@ -461,7 +461,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
               )}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+          <p className="text-xs text-muted-foreground mt-1.5 text-center">
             Powered by Mojo AdCortex · 4-Layer Intelligence
           </p>
         </div>

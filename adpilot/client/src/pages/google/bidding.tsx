@@ -255,7 +255,7 @@ function SOPFormulaStrip() {
       <CardContent className="card-content-premium">
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+          <p className="text-xs font-bold uppercase tracking-wider text-primary">
             SOP Formula Reference — Digital Mojo Bidding Rules
           </p>
         </div>
@@ -264,10 +264,10 @@ function SOPFormulaStrip() {
             <div key={rule.label} className="space-y-1">
               <div className="flex items-center gap-1">
                 {rule.icon}
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">{rule.label}</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">{rule.label}</p>
               </div>
-              <p className={cn("text-[11px] font-bold leading-snug", rule.color)}>{rule.value}</p>
-              <p className="text-[9px] text-muted-foreground leading-tight">{rule.note}</p>
+              <p className={cn("text-xs font-bold leading-snug", rule.color)}>{rule.value}</p>
+              <p className="text-xs text-muted-foreground leading-tight">{rule.note}</p>
             </div>
           ))}
         </div>
@@ -296,9 +296,9 @@ function MetricChip({
   const content = (
     <div className="flex items-center gap-1 cursor-default">
       <span className="text-muted-foreground">{icon}</span>
-      <span className="text-muted-foreground text-[10px]">{label}</span>
-      <span className={cn("font-bold tabular-nums text-[11px]", colorClass)}>{value}</span>
-      {sub && <span className="text-[9px] text-muted-foreground">{sub}</span>}
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className={cn("font-bold tabular-nums text-xs", colorClass)}>{value}</span>
+      {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
     </div>
   );
 
@@ -380,7 +380,7 @@ function ActionDialog({
                 </div>
               </div>
               {state.type !== "reject" && (
-                <div className="space-y-1 text-[11px] text-muted-foreground">
+                <div className="space-y-1 text-xs text-muted-foreground">
                   {(Array.isArray(state.campaign.reasons) ? state.campaign.reasons : []).map((r, i) => (
                     <div key={i} className="flex items-start gap-1.5">
                       <span className="text-primary mt-0.5">·</span>
@@ -407,7 +407,7 @@ function ActionDialog({
             className="min-h-[90px] text-sm resize-none"
             data-testid="input-rationale"
           />
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             All bidding decisions are logged with rationale for audit and team accountability.
             {rationale.length < 10 && rationale.length > 0 && (
               <span className="text-red-400 ml-1">Min 10 characters required ({10 - rationale.length} more)</span>
@@ -541,15 +541,15 @@ function CampaignRecommendationCard({
               </span>
             </button>
             {camp.campaign_type && (
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+              <Badge variant="outline" className="text-xs px-1.5 py-0">
                 {camp.campaign_type}
               </Badge>
             )}
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+            <Badge variant="secondary" className="text-xs px-1.5 py-0 text-muted-foreground">
               {formatStrategy(camp.current_strategy)}
             </Badge>
             {criticalAlerts.length > 0 && (
-              <Badge className="text-[9px] px-1.5 py-0 bg-red-500/15 text-red-400 border-red-500/30">
+              <Badge className="text-xs px-1.5 py-0 bg-red-500/15 text-red-400 border-red-500/30">
                 {criticalAlerts.length} critical
               </Badge>
             )}
@@ -670,7 +670,7 @@ function CampaignRecommendationCard({
                   <div
                     key={i}
                     className={cn(
-                      "flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                      "flex items-start gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity",
                       ac.cls
                     )}
                     onClick={() => navigate(`/campaigns?campaign_id=${camp.campaign_id}`)}
@@ -702,7 +702,7 @@ function CampaignRecommendationCard({
         {/* Right panel */}
         <div className="flex flex-col items-end gap-3 shrink-0">
           {/* Confidence badge */}
-          <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold", conf.cls)}>
+          <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold", conf.cls)}>
             <span className={cn("w-1.5 h-1.5 rounded-full", conf.dot)} />
             {conf.label} Confidence
           </div>
@@ -710,27 +710,27 @@ function CampaignRecommendationCard({
           {/* tCPA target */}
           {camp.recommendation === "switch_tcpa" && camp.suggested_tcpa > 0 && (
             <div className="text-right">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Suggested tCPA</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Suggested tCPA</p>
               <p className="text-lg font-black text-emerald-400 tabular-nums">{formatINR(camp.suggested_tcpa, 0)}</p>
-              <p className="text-[9px] text-muted-foreground">Current CPA × 0.80</p>
+              <p className="text-xs text-muted-foreground">Current CPA × 0.80</p>
             </div>
           )}
 
           {/* Bid cap for Max Clicks */}
           {camp.recommendation === "stay_max_clicks" && camp.computed_bid_limit > 0 && (
             <div className="text-right">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Bid Cap</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Bid Cap</p>
               <p className="text-lg font-black text-blue-400 tabular-nums">{formatINR(camp.computed_bid_limit, 0)}</p>
-              <p className="text-[9px] text-muted-foreground">SOP Formula</p>
+              <p className="text-xs text-muted-foreground">SOP Formula</p>
             </div>
           )}
 
           {/* Revert bid cap */}
           {camp.recommendation === "revert_max_clicks" && (
             <div className="text-right">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Revert Bid Cap</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Revert Bid Cap</p>
               <p className="text-lg font-black text-red-400 tabular-nums">{formatINR(revertBidCap, 0)}</p>
-              <p className="text-[9px] text-muted-foreground">Avg CPC × 1.20</p>
+              <p className="text-xs text-muted-foreground">Avg CPC × 1.20</p>
             </div>
           )}
 
@@ -739,7 +739,7 @@ function CampaignRecommendationCard({
             {camp.recommendation !== "hold" && (
               <Button
                 size="sm"
-                className="gap-1.5 text-[11px] h-8 px-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                className="gap-1.5 text-xs h-8 px-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                 onClick={() => onAction("apply")}
                 data-testid={`button-apply-${camp.campaign_id}`}
               >
@@ -750,7 +750,7 @@ function CampaignRecommendationCard({
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5 text-[11px] h-8 px-3 w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+              className="gap-1.5 text-xs h-8 px-3 w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
               onClick={() => onAction("manual_apply")}
               data-testid={`button-manual-${camp.campaign_id}`}
             >
@@ -760,7 +760,7 @@ function CampaignRecommendationCard({
             <Button
               size="sm"
               variant="ghost"
-              className="gap-1.5 text-[11px] h-8 px-3 w-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+              className="gap-1.5 text-xs h-8 px-3 w-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
               onClick={() => onAction("reject")}
               data-testid={`button-reject-${camp.campaign_id}`}
             >
@@ -773,7 +773,7 @@ function CampaignRecommendationCard({
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1 text-[10px] h-6 text-muted-foreground hover:text-primary w-full"
+            className="gap-1 text-xs h-6 text-muted-foreground hover:text-primary w-full"
             onClick={() => navigate(`/campaigns?campaign_id=${camp.campaign_id}`)}
           >
             <ExternalLink className="w-3 h-3" />
@@ -785,7 +785,7 @@ function CampaignRecommendationCard({
       {/* ── A6 Bid Formula Breakdown (expanded) ── */}
       {expanded && (
         <div className="px-4 pb-4 border-t border-border/30 pt-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
             A6 · Bid Limit Formula Breakdown
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
@@ -842,11 +842,11 @@ function CampaignRecommendationCard({
                   },
             ].map((item) => (
               <div key={item.label} className="p-3 rounded-lg bg-muted/20 border border-border/30">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{item.label}</p>
-                <p className="text-[9px] text-muted-foreground font-mono mb-1">{item.formula}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{item.label}</p>
+                <p className="text-xs text-muted-foreground font-mono mb-1">{item.formula}</p>
                 <p className={cn("text-base font-extrabold tabular-nums", item.color)}>{item.value}</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">{item.sub}</p>
-                <p className="text-[9px] text-muted-foreground/60 mt-1 italic">{item.note}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.sub}</p>
+                <p className="text-xs text-muted-foreground mt-1 italic">{item.note}</p>
               </div>
             ))}
           </div>
@@ -855,7 +855,7 @@ function CampaignRecommendationCard({
           {camp.recommendation === "switch_tcpa" && (
             <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
               <p className="text-xs font-bold text-emerald-400 mb-2">tCPA Readiness Checklist</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                 {[
                   { label: "Conv ≥ 30", pass: camp.conversions_30d >= 30 },
                   { label: "CVR Var < ±20%", pass: camp.cvr_variance_14d == null || Math.abs(camp.cvr_variance_14d) < 20 },
@@ -887,7 +887,7 @@ function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-10 text-center gap-2">
-          <History className="w-8 h-8 text-muted-foreground/30" />
+          <History className="w-8 h-8 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">No actions recorded yet.</p>
         </CardContent>
       </Card>
@@ -900,7 +900,7 @@ function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
         <CardTitle className="text-sm flex items-center gap-2">
           <History className="w-4 h-4 text-primary" />
           Bidding Action History
-          <span className="text-[10px] font-normal text-muted-foreground ml-1">· All decisions logged with rationale</span>
+          <span className="text-xs font-normal text-muted-foreground ml-1">· All decisions logged with rationale</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="card-content-premium p-0">
@@ -911,7 +911,7 @@ function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
                 {["Time", "Campaign", "Action", "Strategy", "Rationale", "Parameters"].map((h) => (
                   <th
                     key={h}
-                    className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80 text-left"
+                    className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground text-left"
                   >
                     {h}
                   </th>
@@ -935,7 +935,7 @@ function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
                   <td className="p-3">
                     <Badge
                       className={cn(
-                        "text-[9px] px-1.5",
+                        "text-xs px-1.5",
                         entry.action === "apply"
                           ? "bg-emerald-500/15 text-emerald-400"
                           : entry.action === "reject"
@@ -1038,7 +1038,7 @@ function EnhancementsPanel() {
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors py-2"
+        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
       >
         <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
         <span className="font-semibold">A8 · SOP Recommended Enhancements ({ENHANCEMENTS.length})</span>
@@ -1052,7 +1052,7 @@ function EnhancementsPanel() {
               <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                 <Badge
                   className={cn(
-                    "text-[8px] px-1.5 py-0",
+                    "text-xs px-1.5 py-0",
                     e.priority === "HIGH"
                       ? "bg-red-500/15 text-red-400"
                       : "bg-amber-500/15 text-amber-400"
@@ -1060,10 +1060,10 @@ function EnhancementsPanel() {
                 >
                   {e.priority}
                 </Badge>
-                <Badge className="text-[8px] px-1.5 py-0 bg-muted text-muted-foreground">{e.effort} EFFORT</Badge>
+                <Badge className="text-xs px-1.5 py-0 bg-muted text-muted-foreground">{e.effort} EFFORT</Badge>
               </div>
-              <p className="text-[11px] font-semibold text-foreground mb-1">{e.title}</p>
-              <p className="text-[10px] text-muted-foreground leading-snug">{e.description}</p>
+              <p className="text-xs font-semibold text-foreground mb-1">{e.title}</p>
+              <p className="text-xs text-muted-foreground leading-snug">{e.description}</p>
             </div>
           ))}
         </div>
@@ -1288,7 +1288,7 @@ export default function GoogleBiddingPage() {
         <SOPFormulaStrip />
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-3">
-            <AlertTriangle className="w-12 h-12 text-muted-foreground/40" />
+            <AlertTriangle className="w-12 h-12 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium text-foreground">No Bidding Data Available</p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1357,7 +1357,7 @@ export default function GoogleBiddingPage() {
             <History className="w-3.5 h-3.5" />
             Action History
             {data.history.length > 0 && (
-              <Badge className="ml-1 text-[9px] px-1 py-0 bg-primary/20 text-primary">
+              <Badge className="ml-1 text-xs px-1 py-0 bg-primary/20 text-primary">
                 {data.history.length}
               </Badge>
             )}
@@ -1376,10 +1376,10 @@ export default function GoogleBiddingPage() {
           <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Campaigns</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Total Campaigns</p>
             </div>
             <p className="text-3xl font-black tabular-nums text-foreground">{meta.total_campaigns}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">Active under analysis</p>
+            <p className="text-xs text-muted-foreground mt-1">Active under analysis</p>
           </CardContent>
         </Card>
 
@@ -1393,7 +1393,7 @@ export default function GoogleBiddingPage() {
           <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active Alerts</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Active Alerts</p>
             </div>
             <div className="flex items-end gap-2">
               <p
@@ -1405,12 +1405,12 @@ export default function GoogleBiddingPage() {
                 {totalAlerts}
               </p>
               {criticalAlertCount > 0 && (
-                <Badge className="mb-1 text-[9px] px-1.5 bg-red-500/15 text-red-400 border-red-500/30">
+                <Badge className="mb-1 text-xs px-1.5 bg-red-500/15 text-red-400 border-red-500/30">
                   {criticalAlertCount} critical
                 </Badge>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {criticalAlertCount > 0
                 ? `${criticalAlertCount} require immediate action`
                 : totalAlerts > 0
@@ -1425,7 +1425,7 @@ export default function GoogleBiddingPage() {
           <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">tCPA Candidates</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">tCPA Candidates</p>
             </div>
             <p
               className={cn(
@@ -1435,7 +1435,7 @@ export default function GoogleBiddingPage() {
             >
               {tcpaCandidates}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1">Ready to switch strategy</p>
+            <p className="text-xs text-muted-foreground mt-1">Ready to switch strategy</p>
           </CardContent>
         </Card>
 
@@ -1444,7 +1444,7 @@ export default function GoogleBiddingPage() {
           <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-1">
               <Ban className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hold / Monitor</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Hold / Monitor</p>
             </div>
             <p
               className={cn(
@@ -1454,7 +1454,7 @@ export default function GoogleBiddingPage() {
             >
               {holdCandidates}
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1">Budget / tracking issues</p>
+            <p className="text-xs text-muted-foreground mt-1">Budget / tracking issues</p>
           </CardContent>
         </Card>
       </div>
@@ -1479,7 +1479,7 @@ export default function GoogleBiddingPage() {
               key={f.key}
               onClick={() => setFilterRec(f.key)}
               className={cn(
-                "px-3 py-1.5 text-[11px] font-bold rounded-md transition-all",
+                "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
                 filterRec === f.key
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -1491,7 +1491,7 @@ export default function GoogleBiddingPage() {
         </div>
 
         <div className="flex items-center gap-0.5 p-1 bg-muted/30 rounded-lg border border-border/50 ml-auto">
-          <span className="text-[10px] text-muted-foreground px-2">Sort:</span>
+          <span className="text-xs text-muted-foreground px-2">Sort:</span>
           {[
             { key: "alerts" as const, label: "Alerts" },
             { key: "confidence" as const, label: "Confidence" },
@@ -1501,7 +1501,7 @@ export default function GoogleBiddingPage() {
               key={s.key}
               onClick={() => setSortBy(s.key)}
               className={cn(
-                "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all",
+                "px-2.5 py-1 text-xs font-bold rounded-md transition-all",
                 sortBy === s.key
                   ? "bg-background text-foreground shadow-sm border border-border/50"
                   : "text-muted-foreground hover:text-foreground"
@@ -1547,7 +1547,7 @@ export default function GoogleBiddingPage() {
       </div>
 
       {/* ─── Footer ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground pb-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground pb-2">
         <span>
           Last computed:{" "}
           {new Date(meta.generated_at).toLocaleString("en-IN", {

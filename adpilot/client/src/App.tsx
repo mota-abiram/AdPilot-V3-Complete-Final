@@ -124,7 +124,7 @@ function AppLayout() {
             <nav className="flex items-center gap-3" aria-label="Workspace controls">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div className="hidden md:grid leading-none gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
                   {activeClient?.name || "No client selected"}
                 </span>
                 <span className="text-sm font-medium text-foreground/90">
@@ -140,7 +140,7 @@ function AppLayout() {
                 </Badge>
               )}
               {analysisData?.agent_version && (
-                <span className="text-[11px] font-medium text-muted-foreground hidden md:inline">
+                <span className="text-xs font-medium text-muted-foreground hidden md:inline">
                   {analysisData.agent_version}
                 </span>
               )}
@@ -149,7 +149,7 @@ function AppLayout() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="hidden lg:grid text-right leading-none gap-1 px-3 py-1.5 rounded-lg hover:bg-accent/50 transition-colors outline-none group text-left">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground group-hover:text-primary transition-colors">Operator</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground group-hover:text-primary transition-colors">Operator</span>
                     <span className="text-sm font-medium text-foreground/90">
                       {user?.name} · {user?.role}
                     </span>
@@ -159,7 +159,7 @@ function AppLayout() {
                   <DropdownMenuLabel className="px-2 py-1.5">
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold">{user?.name}</span>
-                      <span className="text-[10px] text-muted-foreground truncate">{user?.email}</span>
+                      <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-border/40" />

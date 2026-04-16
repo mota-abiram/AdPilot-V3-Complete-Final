@@ -385,11 +385,11 @@ export default function MtdDeliverablesPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">MTD Deliverables Master</h1>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Marketing-to-Sales Performance Engine</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Marketing-to-Sales Performance Engine</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Badge variant="outline" className="bg-card py-1 text-[10px] border-border/60">Updated: {mtdData?.last_updated ? new Date(mtdData.last_updated).toLocaleTimeString() : 'Never'}</Badge>
+          <Badge variant="outline" className="bg-card py-1 text-xs border-border/60">Updated: {mtdData?.last_updated ? new Date(mtdData.last_updated).toLocaleTimeString() : 'Never'}</Badge>
           {status?.tracking_issue_flag && (
             <Badge variant="destructive" className="gap-1 px-3 py-1 animate-pulse">
               <AlertTriangle className="w-3 h-3" /> Tracking Alert
@@ -409,13 +409,13 @@ export default function MtdDeliverablesPage() {
                   <div className="flex items-center justify-between mb-4">
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors overflow-hidden truncate max-w-[120px]">
+                        <TooltipTrigger className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors overflow-hidden truncate max-w-[120px]">
                           {kpi.label}
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
                           <p className="font-bold border-b border-border/50 pb-1">{kpi.label} SOP</p>
-                          <p className="text-[10px] leading-relaxed text-muted-foreground">{kpi.description}</p>
-                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50 text-[10px]">
+                          <p className="text-xs leading-relaxed text-muted-foreground">{kpi.description}</p>
+                          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50 text-xs">
                             <div><span className="opacity-50">Source:</span> <br />{kpi.source}</div>
                             <div><span className="opacity-50">Type:</span> <br />{kpi.type}</div>
                           </div>
@@ -432,15 +432,15 @@ export default function MtdDeliverablesPage() {
                     </h3>
                     <div className="flex items-center gap-2">
                       {kpi.mtdTarget ? (
-                        <p className="text-[10px] text-muted-foreground font-medium">
+                        <p className="text-xs text-muted-foreground font-medium">
                           Expected: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.mtdTarget, 0) : formatNumber(Math.round(kpi.mtdTarget))}</span>
                         </p>
                       ) : kpi.target ? (
-                        <p className="text-[10px] text-muted-foreground font-medium">
+                        <p className="text-xs text-muted-foreground font-medium">
                           Target: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.target, 0) : kpi.isPct ? `${kpi.target}%` : formatNumber(kpi.target)}</span>
                         </p>
                       ) : (
-                        <p className="text-[10px] text-muted-foreground font-medium">Manual Tracking</p>
+                        <p className="text-xs text-muted-foreground font-medium">Manual Tracking</p>
                       )}
                     </div>
                   </div>
@@ -553,7 +553,7 @@ export default function MtdDeliverablesPage() {
                     Publish Updates
                   </Button>
                 ) : (
-                  <Badge variant="outline" className="h-10 px-4 bg-muted/30 border-border text-muted-foreground uppercase tracking-widest text-[10px]">
+                  <Badge variant="outline" className="h-10 px-4 bg-muted/30 border-border text-muted-foreground uppercase tracking-widest text-xs">
                     Read Only
                   </Badge>
                 )}
@@ -575,7 +575,7 @@ export default function MtdDeliverablesPage() {
                 <div className="p-3 rounded-xl bg-muted/30 border border-border/40 group hover:border-primary/20 transition-colors">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <TrendingUp className="w-3 h-3 text-emerald-400" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Positive %</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Positive %</p>
                   </div>
                   <p className={`text-2xl font-bold tabular-nums ${mtd && (mtd.positive_pct || 0) >= 25 ? 'text-emerald-400' : 'text-foreground'}`}>
                     {mtd ? `${(mtd.positive_pct || 0).toFixed(1)}%` : '—'}
@@ -584,7 +584,7 @@ export default function MtdDeliverablesPage() {
                 <div className="p-3 rounded-xl bg-muted/30 border border-border/40 group hover:border-primary/20 transition-colors">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="w-3 h-3 text-amber-400" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">SV %</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">SV %</p>
                   </div>
                   <p className="text-2xl font-bold tabular-nums">
                     {mtd ? `${(mtd.sv_pct || 0).toFixed(1)}%` : '—'}
@@ -595,18 +595,18 @@ export default function MtdDeliverablesPage() {
               {/* Update History Log */}
               <div className="space-y-2 pt-4 border-t border-border/40">
                 <div className="flex items-center justify-between mb-2 px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Update History</p>
-                  <Clock className="w-3 h-3 text-muted-foreground/40" />
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Update History</p>
+                  <Clock className="w-3 h-3 text-muted-foreground" />
                 </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {history.length > 0 ? (
                     history.slice(0, 5).map((entry) => (
                       <div key={entry.id} className="p-3 rounded-xl border border-border/40 bg-muted/10 space-y-2">
-                        <div className="flex justify-between items-center text-[9px] uppercase font-bold tracking-tight">
+                        <div className="flex justify-between items-center text-xs uppercase font-bold tracking-tight">
                           <span className="text-primary">{entry.updated_by || 'System'}</span>
                           <span className="text-muted-foreground">{entry.updated_at ? new Date(entry.updated_at).toLocaleDateString() : '—'}</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-1 text-[10px] font-bold tabular-nums">
+                        <div className="grid grid-cols-3 gap-1 text-xs font-bold tabular-nums">
                           <div className="text-emerald-400">QL: {entry.quality_lead_count}</div>
                           <div className="text-amber-400">SV: {entry.svs_achieved}</div>
                           <div className="text-blue-400">D: {entry.closures_achieved}</div>
@@ -614,7 +614,7 @@ export default function MtdDeliverablesPage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-[10px] text-center text-muted-foreground py-4">No recent updates</p>
+                    <p className="text-xs text-center text-muted-foreground py-4">No recent updates</p>
                   )}
                 </div>
               </div>

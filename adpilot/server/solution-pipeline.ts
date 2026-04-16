@@ -2,6 +2,7 @@ import type { AssembledContext } from "./context-assembler";
 import type { LearningEntry } from "./execution-learning";
 import type { AdCortexRecommendation } from "./prompt-templates";
 import type { DetectedProblem, SeverityTier } from "./problem-detector";
+import { generateSolutionTiers } from "./solution-tiers";
 
 export type ExecutionClassification = "AUTO-EXECUTE" | "MANUAL" | "REJECT";
 
@@ -22,6 +23,12 @@ export interface SolutionOption {
   confidence: number;
   expectedOutcome: string;
   actionPayload?: AdCortexRecommendation["action_payload"];
+}
+
+export interface TieredSolutions {
+  primary: SolutionOption;
+  secondary: SolutionOption[];
+  rejection: SolutionOption[];
 }
 
 export interface RecommendationCard {
@@ -49,6 +56,7 @@ export interface RecommendationCard {
     conflicts: string[];
   };
   solutions: SolutionOption[];
+  tieredSolutions: TieredSolutions;
   expectedOutcome: string;
 }
 
@@ -60,6 +68,32 @@ function toActionKeyword(title: string): "pause" | "scale" | "budget" | "creativ
   if (text.includes("creative")) return "creative";
   if (text.includes("landing") || text.includes("form") || text.includes("audit")) return "landing";
   return "clarify";
+}
+
+function getExecutionAction(
+  intent: "pause" | "unpause" | "scale_up" | "scale_down" | "set_budget",
+  entityType: string,
+  platform: string
+): string {
+  const isGoogle = platform === "google";
+  
+  if (intent === "pause") {
+    if (entityType === "campaign") return "PAUSE_CAMPAIGN";
+    if (entityType === "adset" || entityType.includes("ad_group")) return isGoogle ? "PAUSE_AD_GROUP" : "PAUSE_ADSET";
+    return "PAUSE_AD";
+  }
+  
+  if (intent === "unpause") {
+    if (entityType === "campaign") return isGoogle ? "ENABLE_CAMPAIGN" : "UNPAUSE_CAMPAIGN";
+    if (entityType === "adset" || entityType.includes("ad_group")) return isGoogle ? "ENABLE_AD_GROUP" : "UNPAUSE_ADSET";
+    return isGoogle ? "ENABLE_AD" : "UNPAUSE_AD";
+  }
+  
+  if (intent === "scale_up") return "SCALE_BUDGET_UP";
+  if (intent === "scale_down") return "SCALE_BUDGET_DOWN";
+  if (intent === "set_budget") return isGoogle ? "SET_CAMPAIGN_BUDGET" : "SET_BUDGET";
+  
+  return intent.toUpperCase();
 }
 
 function buildEntityFilter(problem: DetectedProblem) {
@@ -82,13 +116,16 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
   const raw = problem.entity.raw || {};
   const cvr = Number(raw.cvr || raw.overall_cvr || 0);
 
-  if (problem.triggers.includes("zero_lead_budget_drain")) {
+  if (problem.triggers.includes("zero_lead_budget_drain") || problem.triggers.includes("zero_lead_heavy_spend")) {
+    const isDrain = problem.triggers.includes("zero_lead_budget_drain");
     return {
-      ruleId: "zero_lead_pause",
+      ruleId: isDrain ? "zero_lead_pause" : "heavy_spend_no_leads_pause",
       title: "L1 (SOP)",
       action: `Pause ${problem.entity.type} immediately`,
       confidence: 95,
-      reasoning: "Document rule match: zero leads plus spend above 2x target CPL maps to an immediate pause draft action.",
+      reasoning: isDrain 
+        ? "Document rule match: zero leads plus spend above 2x target CPL maps to an immediate pause draft action."
+        : "Critical performance breach: entity has spent significantly with zero lead contribution. Pause recommended to prevent further drain.",
       execution: "AUTO-EXECUTE",
       actionPayload: {
         intent: `Pause ${problem.entity.name} immediately`,
@@ -96,14 +133,127 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
         entity_type: problem.entity.type,
         entity_ids: problem.entity.id ? [problem.entity.id] : [],
         filters: buildEntityFilter(problem) as any,
-        action: { type: "pause", parameters: { reason: "Zero leads plus high spend" } },
+        action: { 
+          type: getExecutionAction("pause", problem.entity.type, problem.platform), 
+          parameters: { reason: isDrain ? "Zero leads plus high spend" : "Significant spend with zero leads" } 
+        },
         execution_plan: [
-          `Pause ${problem.entity.name}.`,
+          `Pause ${problem.entity.name} via API.`,
           "Watch the account for volume replacement over the next 72 hours.",
           "Reallocate budget only after a replacement winner is confirmed.",
         ],
-        strategic_rationale: "Safe, reversible, deterministic pause based on zero leads and budget drain.",
+        strategic_rationale: "Safe, reversible, deterministic pause based on performance failure.",
         risk_checks: ["Confirm zero leads are not caused by tracking gaps."],
+      },
+    };
+  }
+
+  if (problem.triggers.includes("inflated_cpc")) {
+    return {
+      ruleId: "high_cpc_audit",
+      title: "L1 (SOP)",
+      action: "Review bidding and audience overlap",
+      confidence: 75,
+      reasoning: "CPC is significantly higher than the account average, suggesting creative exhaustion or auction overlap.",
+      execution: "MANUAL",
+      actionPayload: {
+        intent: `Optimize CPC for ${problem.entity.name}`,
+        platform: problem.platform,
+        entity_type: problem.entity.type,
+        entity_ids: problem.entity.id ? [problem.entity.id] : [],
+        filters: buildEntityFilter(problem) as any,
+        action: { type: "clarify", parameters: {} },
+        execution_plan: [
+          "Check audience overlap with other active campaigns.",
+          "Refresh creative assets to improve click-through rate.",
+          "Consider shifting to a more efficient bidding strategy.",
+        ],
+        strategic_rationale: "High CPC usually requires creative or audience shifts that cannot be automated safely.",
+        risk_checks: ["Ensure high CPC isn't skewed by a small sample of impressions."],
+      },
+    };
+  }
+
+  if (problem.triggers.includes("creative_aging")) {
+    return {
+      ruleId: "creative_fatigue_refresh",
+      title: "L1 (SOP)",
+      action: "Mandatory creative refresh",
+      confidence: 80,
+      reasoning: "Winning assets have exceeded 21 days or have a low aging score, and represent a high spend share. Creative fatigue is imminent.",
+      execution: "MANUAL",
+      actionPayload: {
+        intent: `Refresh creative for ${problem.entity.name}`,
+        platform: problem.platform,
+        entity_type: problem.entity.type,
+        entity_ids: problem.entity.id ? [problem.entity.id] : [],
+        filters: buildEntityFilter(problem) as any,
+        action: { type: "clarify", parameters: {} },
+        execution_plan: [
+          "Identify top performing creative hook and iterate on it.",
+          "Introduce 2 new video formats (Reels/Feed).",
+          "Test a disruptive new headline hook.",
+        ],
+        strategic_rationale: "Refreshes required human creative input for first-frame and hook design.",
+        risk_checks: ["Keep the existing winner active at low spend until the refresh is validated."],
+      },
+    };
+  }
+
+  if (problem.triggers.includes("frequency_breach")) {
+    return {
+      ruleId: "frequency_reduce_budget",
+      title: "L1 (SOP)",
+      action: "Reduce budget by 30% or pause",
+      confidence: 85,
+      reasoning: "Document rule match: frequency in breach territory drafts a budget reduction or pause pending audience validation.",
+      execution: "AUTO-EXECUTE",
+      actionPayload: {
+        intent: `Reduce budget on ${problem.entity.name}`,
+        platform: problem.platform,
+        entity_type: problem.entity.type,
+        entity_ids: problem.entity.id ? [problem.entity.id] : [],
+        filters: buildEntityFilter(problem) as any,
+        action: { 
+          type: getExecutionAction("scale_down", problem.entity.type, problem.platform), 
+          parameters: { scalePercent: 30, reason: "Frequency breach" } 
+        },
+        execution_plan: [
+          `Reduce budget on ${problem.entity.name} by 30%.`,
+          "Watch CTR and CPL for 72 hours after the budget reduction.",
+          "Prepare a creative refresh if fatigue persists.",
+        ],
+        strategic_rationale: "Budget reduction is reversible and safe when fatigue is already confirmed by score.",
+        risk_checks: ["Do not cut budget if this entity is the only lead driver and no replacement exists."],
+      },
+    };
+  }
+
+  if (problem.triggers.includes("winner_underfunded")) {
+    return {
+      ruleId: "winner_scale",
+      title: "L1 (SOP)",
+      action: "Scale budget by 20-25%",
+      confidence: 75,
+      reasoning: "Document rule match: score above 70 plus low budget utilization is a missed scaling opportunity.",
+      execution: "AUTO-EXECUTE",
+      actionPayload: {
+        intent: `Scale winner ${problem.entity.name}`,
+        platform: problem.platform,
+        entity_type: problem.entity.type,
+        entity_ids: problem.entity.id ? [problem.entity.id] : [],
+        filters: buildEntityFilter(problem) as any,
+        action: { 
+          type: getExecutionAction("scale_up", problem.entity.type, problem.platform), 
+          parameters: { scalePercent: 20, reason: "Winner is underfunded" } 
+        },
+        execution_plan: [
+          `Increase ${problem.entity.name} budget by 20%.`,
+          "Monitor CPL and frequency after the scale.",
+          "Stop further scaling if CPL drifts above target.",
+        ],
+        strategic_rationale: "Moderate winner scaling is reversible and aligned to the document's missed-opportunity rule.",
+        risk_checks: ["Avoid scaling beyond 25% in one step."],
       },
     };
   }
@@ -130,58 +280,6 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
         ],
         strategic_rationale: "Manual funnel work is required; the platform cannot execute this safely via API.",
         risk_checks: ["Confirm whether the bottleneck is page friction versus audience intent."],
-      },
-    };
-  }
-
-  if (problem.triggers.includes("frequency_breach")) {
-    return {
-      ruleId: "frequency_reduce_budget",
-      title: "L1 (SOP)",
-      action: "Reduce budget by 30% or pause",
-      confidence: 85,
-      reasoning: "Document rule match: frequency in breach territory drafts a budget reduction or pause pending audience validation.",
-      execution: "AUTO-EXECUTE",
-      actionPayload: {
-        intent: `Reduce budget on ${problem.entity.name}`,
-        platform: problem.platform,
-        entity_type: problem.entity.type,
-        entity_ids: problem.entity.id ? [problem.entity.id] : [],
-        filters: buildEntityFilter(problem) as any,
-        action: { type: "adjust_budget", parameters: { direction: "down", scale_percent: 30, reason: "Frequency breach" } },
-        execution_plan: [
-          `Reduce budget on ${problem.entity.name} by 30%.`,
-          "Watch CTR and CPL for 72 hours after the budget reduction.",
-          "Prepare a creative refresh if fatigue persists.",
-        ],
-        strategic_rationale: "Budget reduction is reversible and safe when fatigue is already confirmed by score.",
-        risk_checks: ["Do not cut budget if this entity is the only lead driver and no replacement exists."],
-      },
-    };
-  }
-
-  if (problem.triggers.includes("winner_underfunded")) {
-    return {
-      ruleId: "winner_scale",
-      title: "L1 (SOP)",
-      action: "Scale budget by 20-25%",
-      confidence: 75,
-      reasoning: "Document rule match: score above 70 plus low budget utilization is a missed scaling opportunity.",
-      execution: "AUTO-EXECUTE",
-      actionPayload: {
-        intent: `Scale winner ${problem.entity.name}`,
-        platform: problem.platform,
-        entity_type: problem.entity.type,
-        entity_ids: problem.entity.id ? [problem.entity.id] : [],
-        filters: buildEntityFilter(problem) as any,
-        action: { type: "scale", parameters: { scale_percent: 20, reason: "Winner is underfunded" } },
-        execution_plan: [
-          `Increase ${problem.entity.name} budget by 20%.`,
-          "Monitor CPL and frequency after the scale.",
-          "Stop further scaling if CPL drifts above target.",
-        ],
-        strategic_rationale: "Moderate winner scaling is reversible and aligned to the document's missed-opportunity rule.",
-        risk_checks: ["Avoid scaling beyond 25% in one step."],
       },
     };
   }
@@ -238,7 +336,7 @@ function buildL2(problem: DetectedProblem, l1: ReturnType<typeof buildSopDraft>)
   let expectedOutcome = "Stabilize performance while addressing the first broken layer in the chain.";
   let actionPayload = l1.actionPayload;
 
-  if (l1.ruleId === "zero_lead_pause" && typeof raw.learning_status === "string" && raw.learning_status.toLowerCase().includes("learning")) {
+  if ((l1.ruleId === "zero_lead_pause" || l1.ruleId === "heavy_spend_no_leads_pause") && typeof raw.learning_status === "string" && raw.learning_status.toLowerCase().includes("learning")) {
     position = "OVERRIDE";
     action = "Hold for 3 days and monitor learning instead of pausing";
     reasoning = "SOP wants an immediate pause, but the entity is still in a learning state. The document allows Layer 2 to override when current data contradicts the SOP. Conflicting data: the entity is still learning.";
@@ -259,7 +357,7 @@ function buildL2(problem: DetectedProblem, l1: ReturnType<typeof buildSopDraft>)
       risk_checks: ["Revert to the SOP pause if leads stay at zero after the hold period."],
     };
   } else if (primaryMetric === "ctr") {
-    position = l1.ruleId === "zero_lead_pause" || l1.ruleId === "escalate_to_l2" ? "OVERRIDE" : "EXTEND";
+    position = (l1.ruleId === "zero_lead_pause" || l1.ruleId === "heavy_spend_no_leads_pause" || l1.ruleId === "escalate_to_l2") ? "OVERRIDE" : "EXTEND";
     action = `Refresh creative instead of treating ${problem.rootCause.primaryLabel} as a generic CPL issue`;
     reasoning = `The cost stack points to CTR as the first broken layer. Conflicting data: reach cost is not the first failure, engagement is. The document example explicitly says a CTR drop should be treated as a creative problem, not a blanket pause.`;
     expectedOutcome = "A creative refresh should lift engagement and reduce downstream CPL pressure within the next optimization cycle.";
@@ -533,6 +631,21 @@ export function runSolutionPipeline(problem: DetectedProblem, ctx: AssembledCont
 
   const alternativeReject = rejectSolution(problem, l1, l2);
 
+  // Generate tiered solutions using the multi-tier solution generator
+  // Extract entity context for tier generation
+  const analysisData = ctx.layer2?.analysisData || {};
+  const accountMetrics = analysisData.account_pulse || {};
+  const accountScore = Number(accountMetrics.health_score ?? 50);
+  const spend = Number(problem.entity.raw?.spend ?? problem.entity.raw?.budget ?? 0);
+  const leads = Number(problem.entity.raw?.leads ?? problem.entity.raw?.conversions ?? 0);
+
+  const tieredSolutions = generateSolutionTiers(problem, {
+    accountScore,
+    entityScore: problem.entity.score,
+    spend,
+    leads,
+  });
+
   return {
     id: problem.id,
     severity: problem.severity,
@@ -558,6 +671,7 @@ export function runSolutionPipeline(problem: DetectedProblem, ctx: AssembledCont
       conflicts,
     },
     solutions: alternativeReject ? [primarySolution, alternativeReject] : [primarySolution],
+    tieredSolutions,
     expectedOutcome: problem.expectedIfIgnored,
   };
 }

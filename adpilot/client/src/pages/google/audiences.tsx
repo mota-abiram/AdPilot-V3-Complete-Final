@@ -136,7 +136,7 @@ function AdGroupSubTable({ adGroups, targetCpl }: { adGroups: DgAdGroup[]; targe
                     <td className="px-3 py-1.5 text-right">
                       {ag.health_score != null ? (
                         <span className={cn(
-                          "text-[9px] font-black px-1.5 py-0.5 rounded tabular-nums",
+                          "text-xs font-black px-1.5 py-0.5 rounded tabular-nums",
                           ag.health_score >= 70 ? "bg-emerald-500/15 text-emerald-400" :
                           ag.health_score >= 50 ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400"
                         )}>
@@ -189,16 +189,16 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
         <td className="px-3 py-2.5 max-w-[220px]">
           <p className="font-bold text-foreground text-xs leading-tight truncate">{truncate(camp.name, 50)}</p>
           <div className="flex items-center gap-1 mt-0.5">
-            <Badge variant="outline" className={cn("text-[8px] px-1 py-0 border", audienceType.color)}>{audienceType.label}</Badge>
+            <Badge variant="outline" className={cn("text-xs px-1 py-0 border", audienceType.color)}>{audienceType.label}</Badge>
             {camp.status && (
-              <span className="text-[9px] text-muted-foreground">{camp.status}</span>
+              <span className="text-xs text-muted-foreground">{camp.status}</span>
             )}
           </div>
         </td>
 
         {/* Class */}
         <td className="px-3 py-2.5">
-          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border font-bold", classBadge.color)}>
+          <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border font-bold", classBadge.color)}>
             {classBadge.label}
           </Badge>
         </td>
@@ -206,7 +206,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
         {/* Status */}
         <td className="px-3 py-2.5">
           <Badge variant="outline" className={cn(
-            "text-[9px] px-1.5 py-0",
+            "text-xs px-1.5 py-0",
             camp.status === "ENABLED" || camp.status === "ACTIVE"
               ? "text-emerald-400 border-emerald-500/30"
               : "text-muted-foreground border-border/50"
@@ -263,7 +263,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
               <TooltipTrigger asChild>
                 <span className="cursor-default">{formatINR(cpm, 0)}</span>
               </TooltipTrigger>
-              <TooltipContent side="top" className="text-[10px]">
+              <TooltipContent side="top" className="text-xs">
                 {cpmStatus === "high" ? "CPM above baseline" : cpmStatus === "ok" ? "CPM within baseline" : "CPM data"}
                 {camp.dg_health?.cpm_baseline ? ` · Baseline: ${formatINR(camp.dg_health.cpm_baseline, 0)}` : ""}
               </TooltipContent>
@@ -288,7 +288,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
               <TooltipTrigger asChild>
                 <span className="text-amber-400 cursor-default underline decoration-dotted">Note</span>
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[220px] text-[10px]">
+              <TooltipContent side="top" className="max-w-[220px] text-xs">
                 {camp.dg_health!.frequency_note}
               </TooltipContent>
             </Tooltip>
@@ -297,7 +297,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
 
         {/* Action */}
         <td className="px-3 py-2.5">
-          <span className={cn("flex items-center gap-1 text-[10px] font-bold", action.color)}>
+          <span className={cn("flex items-center gap-1 text-xs font-bold", action.color)}>
             {action.icon}
             {action.label}
           </span>
@@ -381,7 +381,7 @@ export default function GoogleAudiencesPage() {
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <AlertTriangle className="w-10 h-10 text-muted-foreground/30" />
+            <AlertTriangle className="w-10 h-10 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium text-foreground">No Demand Gen data found</p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -408,7 +408,7 @@ export default function GoogleAudiencesPage() {
           </p>
         </div>
         {highCpmCampaigns.length > 0 && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">
             <AlertTriangle className="w-3 h-3" />
             {highCpmCampaigns.length} high CPM {highCpmCampaigns.length === 1 ? "campaign" : "campaigns"}
           </div>
@@ -428,7 +428,7 @@ export default function GoogleAudiencesPage() {
         ].map((kpi) => (
           <Card key={kpi.label} className="border-border/50">
             <CardContent className="card-content-premium">
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{kpi.label}</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{kpi.label}</p>
               <p className={cn("text-2xl font-black tabular-nums", kpi.color || "text-foreground")}>
                 {kpi.fmt === "inr" ? (kpi.value > 0 ? formatINR(kpi.value as number, 0) : "—")
                   : kpi.fmt === "pct" ? pct(kpi.value as number)
@@ -447,41 +447,41 @@ export default function GoogleAudiencesPage() {
               {/* Column group labels */}
               <tr className="border-b border-border/20 bg-muted/20">
                 <th className="p-0 w-8" />
-                <th colSpan={3} className="px-3 py-1.5 text-left text-[8px] uppercase tracking-widest font-black text-muted-foreground/60 border-r border-border/20">
+                <th colSpan={3} className="px-3 py-1.5 text-left text-xs uppercase tracking-widest font-black text-muted-foreground border-r border-border/20">
                   Identity
                 </th>
-                <th colSpan={2} className="px-3 py-1.5 text-right text-[8px] uppercase tracking-widest font-black text-muted-foreground/60 border-r border-border/20">
+                <th colSpan={2} className="px-3 py-1.5 text-right text-xs uppercase tracking-widest font-black text-muted-foreground border-r border-border/20">
                   Budget
                 </th>
-                <th colSpan={3} className="px-3 py-1.5 text-right text-[8px] uppercase tracking-widest font-black text-muted-foreground/60 border-r border-border/20">
+                <th colSpan={3} className="px-3 py-1.5 text-right text-xs uppercase tracking-widest font-black text-muted-foreground border-r border-border/20">
                   Delivery
                 </th>
-                <th colSpan={2} className="px-3 py-1.5 text-right text-[8px] uppercase tracking-widest font-black text-muted-foreground/60 border-r border-border/20">
+                <th colSpan={2} className="px-3 py-1.5 text-right text-xs uppercase tracking-widest font-black text-muted-foreground border-r border-border/20">
                   Performance
                 </th>
-                <th colSpan={4} className="px-3 py-1.5 text-right text-[8px] uppercase tracking-widest font-black text-muted-foreground/60 border-r border-border/20">
+                <th colSpan={4} className="px-3 py-1.5 text-right text-xs uppercase tracking-widest font-black text-muted-foreground border-r border-border/20">
                   Efficiency
                 </th>
-                <th className="px-3 py-1.5 text-left text-[8px] uppercase tracking-widest font-black text-muted-foreground/60" />
+                <th className="px-3 py-1.5 text-left text-xs uppercase tracking-widest font-black text-muted-foreground" />
               </tr>
               {/* Column headers */}
               <tr className="border-b border-border/50">
                 <th className="w-8 p-0" />
-                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground/80 w-[220px]">Campaign</th>
-                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground/80">Class</th>
-                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/20">Status</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">Budget</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/20">Spend</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">Impr</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">Clicks</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/20">CTR</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">Leads</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/20">CPL</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">CPM</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">CVR</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80">CPC</th>
-                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/20">Freq</th>
-                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground/80">Action</th>
+                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground w-[220px]">Campaign</th>
+                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground">Class</th>
+                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/20">Status</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">Budget</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/20">Spend</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">Impr</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">Clicks</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/20">CTR</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">Leads</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/20">CPL</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">CPM</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">CVR</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground">CPC</th>
+                <th className="px-3 py-3 text-right t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/20">Freq</th>
+                <th className="px-3 py-3 text-left t-label font-black uppercase tracking-widest text-muted-foreground">Action</th>
               </tr>
             </thead>
             <tbody>

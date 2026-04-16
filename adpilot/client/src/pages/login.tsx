@@ -43,8 +43,8 @@ export default function LoginPage() {
               <CardDescription>Sign in with an approved account to open the workspace.</CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Badge variant="secondary" className="text-[10px]">Protected</Badge>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="secondary" className="text-xs">Protected</Badge>
             <span>Blocked users cannot log in.</span>
           </div>
         </CardHeader>
@@ -77,7 +77,7 @@ export default function LoginPage() {
               </div>
             </div>
             {error && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-400">
                 {error.replace(/^\d+:\s*/, "")}
               </div>
             )}
@@ -86,7 +86,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-[11px] text-muted-foreground space-y-1">
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
             <p>Bootstrap admin: <span className="text-foreground">{bootstrapEmail}</span></p>
             <p>
               {bootstrapPasswordIsDefault

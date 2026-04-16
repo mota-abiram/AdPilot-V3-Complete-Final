@@ -108,7 +108,7 @@ export default function AuditPage() {
           </div>
           <div className="flex items-center gap-3">
              <div className="text-right">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pipeline Health</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pipeline Health</p>
                 <p className="text-lg font-black text-foreground tabular-nums">{criticalCount > 0 ? "34%" : highCount > 0 ? "78%" : "100%"}</p>
              </div>
              <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
@@ -137,12 +137,12 @@ export default function AuditPage() {
                   <div key={idx} className="p-4 space-y-2 hover:bg-muted/10 transition-colors">
                      <div className="flex items-center justify-between">
                         <Badge variant="outline" className={cn(
-                          "text-[9px] px-1.5 py-0",
+                          "text-xs px-1.5 py-0",
                           ins.priority === "CRITICAL" ? "border-red-500/30 text-red-400" : "border-amber-500/30 text-amber-400"
                         )}>
                            {ins.priority}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground font-medium uppercase">{ins.entityType || "Account"}</span>
+                        <span className="text-xs text-muted-foreground font-medium uppercase">{ins.entityType || "Account"}</span>
                      </div>
                      <p className="text-sm font-bold text-foreground italic">"{ins.issue}"</p>
                      <p className="text-xs text-muted-foreground leading-relaxed">{ins.impact}</p>
@@ -175,10 +175,10 @@ export default function AuditPage() {
                 {insights.filter(i => i.source === "AI").map((ins, idx) => (
                   <div key={idx} className="p-4 space-y-2 hover:bg-muted/10 transition-colors">
                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="border-blue-500/30 text-blue-400 text-[9px] px-1.5 py-0">
+                        <Badge variant="outline" className="border-blue-500/30 text-blue-400 text-xs px-1.5 py-0">
                            AI STRATEGY
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground font-medium uppercase">{ins.entityType || "Account"}</span>
+                        <span className="text-xs text-muted-foreground font-medium uppercase">{ins.entityType || "Account"}</span>
                      </div>
                      <p className="text-sm font-bold text-foreground italic">"{ins.issue}"</p>
                      <p className="text-xs text-muted-foreground leading-relaxed">{ins.impact}</p>
@@ -206,7 +206,7 @@ export default function AuditPage() {
          </div>
          <div className="space-y-1">
             <p className="text-xs font-bold text-foreground">Audit Complete</p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
                This audit reviews campaign performance against standard operating procedures and identifies optimization opportunities.
             </p>
          </div>

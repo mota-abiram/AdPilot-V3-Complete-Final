@@ -197,25 +197,25 @@ export default function KeywordsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-card/50 border-border/40">
           <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Spend</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Spend</p>
             <p className="text-2xl font-black text-foreground tabular-nums">{formatINR(stats.totalSpend, 0)}</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/40">
           <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Conversions</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Conversions</p>
             <p className="text-2xl font-black text-emerald-400 tabular-nums">{stats.totalConversions}</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/40">
           <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg CPL</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Avg CPL</p>
             <p className="text-2xl font-black text-primary tabular-nums">{formatINR(stats.avgCpl, 0)}</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/40">
           <CardContent className="p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Spend-Weighted QS</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Spend-Weighted QS</p>
             <p className={cn("text-2xl font-black tabular-nums",
               stats.avgQs >= 7 ? "text-emerald-400" : stats.avgQs >= 5 ? "text-amber-400" : "text-red-400"
             )}>
@@ -249,7 +249,7 @@ export default function KeywordsPage() {
                   <th
                     key={col.key}
                     className={cn(
-                      "p-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none",
+                      "p-3 text-xs font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none",
                       col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
                     )}
                     onClick={() => toggleSort(col.key as any)}
@@ -293,14 +293,14 @@ export default function KeywordsPage() {
                     <td className="p-3">
                       <div className="font-semibold text-foreground flex items-center gap-2">
                         {kw.keyword}
-                        {kw.status !== "active" && <span className="text-[9px] uppercase bg-muted px-1 py-0.5 rounded text-muted-foreground">{kw.status}</span>}
+                        {kw.status !== "active" && <span className="text-xs uppercase bg-muted px-1 py-0.5 rounded text-muted-foreground">{kw.status}</span>}
                       </div>
-                      <div className="text-[10px] text-muted-foreground truncate uppercase mt-0.5">
+                      <div className="text-xs text-muted-foreground truncate uppercase mt-0.5">
                         {kw.match_type} • {truncate(kw.ad_group, 20)}
                       </div>
                     </td>
                     <td className="p-3 text-center">
-                      <Badge variant="outline" className={cn("text-[9px] uppercase whitespace-nowrap", classCls)}>
+                      <Badge variant="outline" className={cn("text-xs uppercase whitespace-nowrap", classCls)}>
                         {classification}
                       </Badge>
                     </td>
@@ -322,14 +322,14 @@ export default function KeywordsPage() {
                             style={{ width: `${(kw.quality_score / 10) * 100}%` }}
                           />
                         </div>
-                        <span className={cn("font-bold tabular-nums text-[11px]",
+                        <span className={cn("font-bold tabular-nums text-xs",
                           kw.quality_score >= 7 ? "text-emerald-400" : kw.quality_score >= 5 ? "text-amber-400" : "text-red-400"
                         )}>{kw.quality_score}</span>
                       </div>
                     </td>
                     <td className="p-3 text-right tabular-nums text-muted-foreground">{((kw as any).top_is || 0).toFixed(1)}%</td>
                     <td className="p-3 text-center">
-                      <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", actionCls)}>
+                      <Badge variant="outline" className={cn("text-xs font-bold px-2 py-0.5", actionCls)}>
                         {action}
                       </Badge>
                     </td>

@@ -308,22 +308,39 @@ function detectSeverity(
     triggers.push("multiple_weak_metrics");
   }
 
+  // ─── NEW: More Actionable Performance Triggers ──────────────
+  
+  // Lead Draing with spent but no results (entity level)
+  if (spend > 2000 && leads === 0 && entity.type !== "account") {
+    triggers.push("zero_lead_heavy_spend");
+  }
+
+  // CPC Overinflation
+  const cpc = toNumber(raw.cpc ?? raw.avg_cpc, 0);
+  const avgCpc = toNumber(analysisData?.account_pulse?.overall_cpc, 0);
+  if (cpc > avgCpc * 2 && avgCpc > 0) {
+    triggers.push("inflated_cpc");
+  }
+
+  // Creative Aging & Frequency (Already existing but refined)
   const freqMetric = weakSupporting.find((metric) => normalizeMetricKey(metric.key) === "freq");
   if (freqMetric && freqMetric.score < 40) {
     triggers.push("frequency_breach");
   }
 
-  const creativeAgeScore = toNumber(raw.age_score, 100);
-  if (creativeAgeScore < 50 && toNumber(raw.spend_share_pct ?? raw.spend_share, 0) > 30) {
+  const creativeAgeScore = toNumber(raw.age_score ?? raw.creative_age_score, 100);
+  const ageDays = toNumber(raw.creative_age_days ?? raw.age_days, 0);
+  if ((creativeAgeScore < 50 || ageDays > 21) && toNumber(raw.spend_share_pct ?? raw.spend_share, 0) > 30) {
     triggers.push("creative_aging");
   }
 
-  if (entity.score > 70 && toNumber(raw.budget_utilization_pct, 100) < 60) {
-    triggers.push("winner_underfunded");
-  }
-
+  // Google Specifics
   if (entity.platform === "google" && toNumber(raw.search_budget_lost_is, 0) > 20) {
     triggers.push("google_is_budget_lost");
+  }
+  
+  if (entity.platform === "google" && toNumber(raw.ad_strength_score, 100) < 50) {
+    triggers.push("weak_ad_strength");
   }
 
   if (triggers.length > 0) {
@@ -337,13 +354,17 @@ function weakMetricsCount(weakKPIs: EntityMetricScore[], weakSupporting: EntityM
   return weakKPIs.length + weakSupporting.length;
 }
 
-function buildProblemStatement(entity: IntelligenceEntity, kpiMetric: EntityMetricScore, rootCause: RootCauseTrace): string {
+function buildProblemStatement(entity: IntelligenceEntity, kpiMetrics: EntityMetricScore[], rootCause: RootCauseTrace): string {
+  const kpiDisplay = kpiMetrics.length > 1 
+    ? `multiple KPI failures (${kpiMetrics.map(k => k.label).join(", ")})`
+    : `a ${kpiMetrics[0].label} problem`;
+
   const chain = rootCause.chain
     .filter((step) => step.status !== "HEALTHY")
     .map((step) => `${step.label} ${step.score.toFixed(0)}/100`)
     .join(" -> ");
 
-  return `${entity.type === "account" ? "Account" : entity.type} "${entity.name}" is score-led into a ${kpiMetric.label} problem. Root cause chain: ${chain || `${kpiMetric.label} ${kpiMetric.score.toFixed(0)}/100`}.`;
+  return `${entity.type === "account" ? "Account" : entity.type.charAt(0).toUpperCase() + entity.type.slice(1)} "${entity.name}" is score-led into ${kpiDisplay}. Root cause chain: ${chain || `${kpiMetrics[0].label} ${kpiMetrics[0].score.toFixed(0)}/100`}.`;
 }
 
 function buildExpectedIfIgnored(problem: DetectedProblem): string {
@@ -368,31 +389,35 @@ function buildExpectedIfIgnored(problem: DetectedProblem): string {
 
 function buildProblem(
   entity: IntelligenceEntity,
-  symptomMetric: EntityMetricScore,
+  symptomMetrics: EntityMetricScore[], // Now supports multiple
   weakMetrics: EntityMetricScore[],
   weakKPIs: EntityMetricScore[],
   weakSupporting: EntityMetricScore[],
   severity: SeverityTier,
   triggers: string[],
 ): DetectedProblem {
-  const rootCause = traceRootCause(entity.metrics, entity.platform, symptomMetric.key);
+  const primaryMetric = symptomMetrics[0];
+  const rootCause = traceRootCause(entity.metrics, entity.platform, primaryMetric.key);
   const dataPoints = [
     `Entity score ${entity.score.toFixed(1)}/100 (${entity.classification})`,
     ...weakMetrics.slice(0, 4).map(metricSummary),
   ];
 
-  const symptom = `${symptomMetric.label} is scoring ${symptomMetric.score.toFixed(0)}/100 on ${entity.name}`;
+  const symptom = symptomMetrics.length > 1
+    ? `${symptomMetrics.length} metrics are failing on ${entity.name}`
+    : `${primaryMetric.label} is scoring ${primaryMetric.score.toFixed(0)}/100 on ${entity.name}`;
+
   const problem: DetectedProblem = {
-    id: `${entity.platform}:${entity.type}:${entity.id || entity.name}:${symptomMetric.key}`,
+    id: `${entity.platform}:${entity.type}:${entity.id || entity.name}:${primaryMetric.key}`,
     platform: entity.platform,
     severity,
     entity,
-    symptomMetric: symptomMetric.key,
+    symptomMetric: primaryMetric.key,
     weakMetrics,
     weakKPIs,
     weakSupporting,
     symptom,
-    problemStatement: buildProblemStatement(entity, symptomMetric, rootCause),
+    problemStatement: buildProblemStatement(entity, symptomMetrics, rootCause),
     rootCause,
     dataPoints,
     triggers,
@@ -418,13 +443,12 @@ function detectScoreDrivenProblems(
     if (entity.score < 70) {
       if (weakKPIs.length > 0) {
         const { severity, triggers } = detectSeverity(entity, weakKPIs, weakSupporting, analysisData, ctx);
-        for (const weakKpi of weakKPIs) {
-          problems.push(buildProblem(entity, weakKpi, weakMetrics, weakKPIs, weakSupporting, severity, triggers));
-        }
+        // FIX: Pick all weak KPIs but only create ONE problem entry for this entity
+        problems.push(buildProblem(entity, weakKPIs, weakMetrics, weakKPIs, weakSupporting, severity, triggers));
       } else if (weakSupporting.length > 0) {
         const supportingProblem = buildProblem(
           entity,
-          weakSupporting[0],
+          [weakSupporting[0]],
           weakMetrics,
           weakKPIs,
           weakSupporting,

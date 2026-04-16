@@ -57,7 +57,7 @@ export const HealthScoreBreakdown: React.FC<HealthScoreBreakdownProps> = React.m
 
   return (
     <div className={cn("space-y-3", className)}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/70">
+      <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
         HEALTH SCORE BREAKDOWN — {entityName}
       </p>
       <div className="flex flex-wrap gap-2.5">
@@ -77,36 +77,36 @@ export const HealthScoreBreakdown: React.FC<HealthScoreBreakdownProps> = React.m
               <TooltipTrigger asChild>
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-card/50 border border-border/40 min-w-[160px] flex-1 cursor-help transition-all hover:border-primary/20 hover:bg-card">
                   <div className="flex flex-col gap-0.5">
-                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-wider">
+                    <p className="text-xs text-muted-foreground font-black uppercase tracking-wider">
                       {metric.replace(/_/g, " ")}
                     </p>
                     <p className="text-sm font-black tabular-nums text-foreground tracking-tight">
                       {displayScore}
                     </p>
                   </div>
-                  <Badge variant="outline" className={cn("text-[9px] font-black tracking-tight px-1.5 py-0 border-none shadow-none uppercase", colorClass)}>
+                  <Badge variant="outline" className={cn("text-xs font-black tracking-tight px-1.5 py-0 border-none shadow-none uppercase", colorClass)}>
                     {band}
                   </Badge>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="space-y-1.5 p-3">
-                <p className="text-[11px] font-black uppercase tracking-wider border-b border-border/50 pb-1 text-primary">
+                <p className="text-xs font-black uppercase tracking-wider border-b border-border/50 pb-1 text-primary">
                   {metric.replace(/_/g, " ")}
                 </p>
                 <div className="space-y-1">
-                  <div className="flex justify-between gap-6 text-[11px]">
+                  <div className="flex justify-between gap-6 text-xs">
                     <span className="text-muted-foreground font-medium">Current:</span>
                     <span className="font-bold text-foreground">
                       {formatMetricValue(metric, detailed?.actual, detailed?.unit)}
                     </span>
                   </div>
-                  <div className="flex justify-between gap-6 text-[11px]">
+                  <div className="flex justify-between gap-6 text-xs">
                     <span className="text-muted-foreground font-medium">Target:</span>
                     <span className="font-bold text-foreground">
                       {formatMetricValue(metric, detailed?.target, detailed?.unit)}
                     </span>
                   </div>
-                  <div className="flex justify-between gap-6 text-[11px] border-t border-border/30 pt-1 mt-1">
+                  <div className="flex justify-between gap-6 text-xs border-t border-border/30 pt-1 mt-1">
                     <span className="text-muted-foreground font-medium">Contribution:</span>
                     <span className="font-bold text-primary">
                       {Math.round(detailed?.contribution || (typeof score === 'number' ? score : 0))} pts

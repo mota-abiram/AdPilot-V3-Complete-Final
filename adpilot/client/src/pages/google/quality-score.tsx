@@ -345,7 +345,7 @@ export default function GoogleQualityScorePage() {
         ].map((kpi, i) => (
           <Card key={i} className="hover:border-primary/20 transition-colors">
             <CardContent className="card-content-premium">
-              <p className="text-[10px] uppercase font-bold tracking-[0.08em] text-muted-foreground">{kpi.label}</p>
+              <p className="text-xs uppercase font-bold tracking-[0.08em] text-muted-foreground">{kpi.label}</p>
               <p className={cn("text-2xl font-black mt-1 tabular-nums", kpi.color)}>
                 {kpi.value}
                 {kpi.suffix && <span className="text-xs font-medium ml-1 text-muted-foreground">{kpi.suffix}</span>}
@@ -435,11 +435,11 @@ export default function GoogleQualityScorePage() {
                     <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-muted/20">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-foreground">{name}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-medium">{keywords.length} keywords</span>
+                        <span className="text-xs text-muted-foreground uppercase font-medium">{keywords.length} keywords</span>
                       </div>
                       <div className="flex items-center gap-4 ml-auto">
                         <div className="text-right">
-                          <p className="text-[10px] uppercase font-bold text-muted-foreground">AG Score</p>
+                          <p className="text-xs uppercase font-bold text-muted-foreground">AG Score</p>
                           <p className={cn("text-sm font-black", qsColor(agAvg))}>{agAvg.toFixed(1)}</p>
                         </div>
                         {agCritical > 0 && (
@@ -455,7 +455,7 @@ export default function GoogleQualityScorePage() {
                         <thead>
                           <tr className="bg-muted/30">
                             {["Keyword", "Score", "Exp CTR", "Relevance", "LP Exp", "Conv", "CPL", "Doctor Action"].map(h => (
-                              <th key={h} className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">{h}</th>
+                              <th key={h} className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground">{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -464,7 +464,7 @@ export default function GoogleQualityScorePage() {
                             <tr key={idx} className="border-b last:border-0 hover:bg-muted/10">
                               <td className="p-3">
                                 <p className="font-semibold text-foreground">{kw.keyword_text}</p>
-                                <p className="text-[10px] text-muted-foreground">{kw.match_type}</p>
+                                <p className="text-xs text-muted-foreground">{kw.match_type}</p>
                               </td>
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
@@ -484,7 +484,7 @@ export default function GoogleQualityScorePage() {
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <div className="flex items-center gap-1.5 cursor-help group/doc">
-                                        <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 max-w-[120px] truncate">
+                                        <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20 max-w-[120px] truncate">
                                           {kw.optimization_actions[0]}
                                         </Badge>
                                         {kw.optimization_actions.length > 1 && (
@@ -498,7 +498,7 @@ export default function GoogleQualityScorePage() {
                                       <p className="font-bold text-xs border-b border-border/40 pb-1.5">QS Doctor Recommendations</p>
                                       <div className="space-y-1.5">
                                         {kw.optimization_actions.map((action, i) => (
-                                          <p key={i} className="text-[10px] leading-relaxed text-muted-foreground flex gap-2">
+                                          <p key={i} className="text-xs leading-relaxed text-muted-foreground flex gap-2">
                                             <span className="text-primary font-bold">{i+1}.</span>
                                             {action}
                                           </p>
@@ -507,7 +507,7 @@ export default function GoogleQualityScorePage() {
                                     </TooltipContent>
                                   </Tooltip>
                                 ) : (
-                                  <span className="text-[10px] text-muted-foreground italic">Optimal QS</span>
+                                  <span className="text-xs text-muted-foreground italic">Optimal QS</span>
                                 )}
                               </td>
                             </tr>
@@ -521,7 +521,7 @@ export default function GoogleQualityScorePage() {
                         <Info className="w-5 h-5 text-primary shrink-0" />
                         <div>
                           <p className="text-xs font-bold text-primary uppercase">AdPilot SOP Recommendation</p>
-                          <p className="text-[11px] text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             This ad group has a sub-optimal QS. Ensure your RSA ad copy contains these keywords in headlines 1-3
                             and that the landing page H1 precisely matches the high-volume terms in this set.
                           </p>
@@ -550,7 +550,7 @@ export default function GoogleQualityScorePage() {
 function FactorBadge({ val }: { val: string }) {
   const b = subFactorBadge(val);
   return (
-    <Badge variant="secondary" className={cn("px-1.5 py-0 text-[10px]", b.cls)}>
+    <Badge variant="secondary" className={cn("px-1.5 py-0 text-xs", b.cls)}>
       {b.label}
     </Badge>
   );

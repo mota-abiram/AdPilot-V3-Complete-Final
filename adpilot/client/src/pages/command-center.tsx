@@ -253,7 +253,7 @@ function CommandInput({ clientId, platform, apiBase }: { clientId: string; platf
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
           <Terminal className="w-4 h-4 text-primary" />
-          <h3 className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground/80">Execute Command</h3>
+          <h3 className="px-4 py-4 t-label font-bold uppercase tracking-widest text-muted-foreground">Execute Command</h3>
         </div>
         <div className="flex gap-2">
           <Input
@@ -269,11 +269,11 @@ function CommandInput({ clientId, platform, apiBase }: { clientId: string; platf
           </Button>
         </div>
         {parseMessage && parsedActions.length === 0 && (
-          <p className="text-[11px] text-muted-foreground">{parseMessage}</p>
+          <p className="text-xs text-muted-foreground">{parseMessage}</p>
         )}
         {parsedActions.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[11px] text-muted-foreground">{parsedActions.length} action(s) parsed:</p>
+            <p className="text-xs text-muted-foreground">{parsedActions.length} action(s) parsed:</p>
             {parsedActions.map((a, i) => (
               <div key={i} className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border border-border/30">
                 <Zap className="w-3 h-3 text-amber-400 shrink-0" />
@@ -651,7 +651,7 @@ export default function CommandCenterPage() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[10px]"
+              className="h-6 px-2 text-xs"
               onClick={() => setBatchResults(null)}
             >
               Dismiss
@@ -669,7 +669,7 @@ export default function CommandCenterPage() {
           <Zap className="w-3.5 h-3.5" />
           Quick Actions — These Execute Immediately
         </h2>
-        <p className="text-[10px] text-muted-foreground mb-3">
+        <p className="text-xs text-muted-foreground mb-3">
           These buttons call the Meta/Google API directly. Changes are applied to your live ad account.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -699,12 +699,12 @@ export default function CommandCenterPage() {
                   <span className="text-xs text-foreground font-medium block">
                     ⚡ {action.label}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {affected > 0 ? `${affected} ${isGoogle ? "ad groups" : "adsets"} will be affected` : "No matching entities found"}
                   </span>
                 </div>
                 {affected > 0 && (
-                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                  <Badge variant="secondary" className="text-xs shrink-0">
                     {affected}
                   </Badge>
                 )}
@@ -720,7 +720,7 @@ export default function CommandCenterPage() {
           <ListChecks className="w-3.5 h-3.5" />
           Manual Task Tracker
         </h2>
-        <p className="text-[10px] text-muted-foreground mb-3">
+        <p className="text-xs text-muted-foreground mb-3">
           Your manual action items — track what you need to do outside the dashboard. This is NOT an AI execution engine.
         </p>
 
@@ -767,7 +767,7 @@ export default function CommandCenterPage() {
             >
               {tab.label}
               {tab.count > 0 && (
-                <Badge variant="secondary" className="text-[9px] ml-1.5 px-1 py-0">
+                <Badge variant="secondary" className="text-xs ml-1.5 px-1 py-0">
                   {tab.count}
                 </Badge>
               )}
@@ -779,7 +779,7 @@ export default function CommandCenterPage() {
         {filteredTasks.length === 0 ? (
           <Card className="border-border/50">
             <CardContent className="p-6 text-center">
-              <ListChecks className="w-6 h-6 mx-auto text-muted-foreground/30 mb-2" />
+              <ListChecks className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
               <p className="text-xs text-muted-foreground">
                 No {taskFilterTab} tasks
               </p>
@@ -804,16 +804,16 @@ export default function CommandCenterPage() {
                         {task.text}
                       </p>
                       {task.strategicCall && (
-                        <div className="text-[10px] text-muted-foreground bg-muted/30 rounded p-1.5">
+                        <div className="text-xs text-muted-foreground bg-muted/30 rounded p-1.5">
                           Strategic call: {task.strategicCall}
                         </div>
                       )}
                       {task.rejectionReason && (
-                        <div className="text-[10px] text-red-400 bg-red-500/10 rounded p-1.5">
+                        <div className="text-xs text-red-400 bg-red-500/10 rounded p-1.5">
                           Rejection: {task.rejectionReason}
                         </div>
                       )}
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {timeAgo(task.createdAt)}
                         {task.completedAt && ` · ${task.status === "completed" ? "completed" : "rejected"} ${timeAgo(task.completedAt)}`}
                       </span>
@@ -824,7 +824,7 @@ export default function CommandCenterPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 px-2 text-[10px] text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                            className="h-7 px-2 text-xs text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
                             onClick={() => { setCompleteDialogTask(task); setTaskStrategicCall(""); }}
                           >
                             <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -833,7 +833,7 @@ export default function CommandCenterPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 px-2 text-[10px] text-red-400 border-red-500/30 hover:bg-red-500/10"
+                            className="h-7 px-2 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
                             onClick={() => { setRejectDialogTask(task); setTaskRejectionReason(""); setTaskStrategicCall(""); }}
                           >
                             <XCircle className="w-3 h-3 mr-1" />
@@ -878,7 +878,7 @@ export default function CommandCenterPage() {
           <CardContent className="p-3 space-y-2">
             <Textarea
               placeholder="Add a note for the agent... e.g., Prioritize TOFU campaigns next week or Do not pause Campaign X"
-              className="min-h-[70px] resize-none bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground/60"
+              className="min-h-[70px] resize-none bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={(e) => {
@@ -894,7 +894,7 @@ export default function CommandCenterPage() {
               }}
             />
             <div className="flex items-center justify-between">
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Press Ctrl+Enter to send
               </p>
               <Button
@@ -932,7 +932,7 @@ export default function CommandCenterPage() {
         ) : activeNotes.length === 0 ? (
           <Card className="border-border/50">
             <CardContent className="p-6 text-center">
-              <StickyNote className="w-6 h-6 mx-auto text-muted-foreground/30 mb-2" />
+              <StickyNote className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
               <p className="text-xs text-muted-foreground">No active notes for the agent</p>
             </CardContent>
           </Card>
@@ -945,11 +945,11 @@ export default function CommandCenterPage() {
                     <div className="flex-1 min-w-0 space-y-1">
                       <p className="text-sm text-foreground leading-relaxed">{item.instruction}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px]">
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-xs">
                           <Clock className="w-3 h-3 mr-1" />
                           Pending Review
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">{timeAgo(item.createdAt)}</span>
+                        <span className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</span>
                       </div>
                     </div>
                     <Button
@@ -976,7 +976,7 @@ export default function CommandCenterPage() {
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 History
-                <Badge variant="secondary" className="text-[10px] ml-1">
+                <Badge variant="secondary" className="text-xs ml-1">
                   {completedNotes.length}
                 </Badge>
                 <ChevronDown className={cn("w-3.5 h-3.5 ml-auto transition-transform", historyOpen && "rotate-180")} />
@@ -996,14 +996,14 @@ export default function CommandCenterPage() {
                         )}
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className={cn(
-                            "text-[10px]",
+                            "text-xs",
                             item.status === "completed"
                               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                               : "bg-gray-500/10 text-gray-400 border-gray-500/30"
                           )}>
                             {item.status === "completed" ? "Reviewed" : "Cancelled"}
                           </Badge>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {item.executedAt ? timeAgo(item.executedAt) : timeAgo(item.createdAt)}
                           </span>
                         </div>

@@ -47,7 +47,7 @@ function Field({
   const isPassword = type === "password";
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+      <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
         {label}{required && <span className="text-red-400">*</span>}
       </label>
       <div className="relative">
@@ -68,7 +68,7 @@ function Field({
           </button>
         )}
       </div>
-      {helpText && <p className="text-[10px] text-muted-foreground">{helpText}</p>}
+      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
     </div>
   );
 }
@@ -152,7 +152,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold flex items-center gap-2">
             <KeyRound className="w-4 h-4 text-amber-400" /> API Credentials
-            <Badge variant="outline" className="text-[10px]">{clientId}</Badge>
+            <Badge variant="outline" className="text-xs">{clientId}</Badge>
           </h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
@@ -167,7 +167,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
           <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
             <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Client-specific credentials are stored server-side. If a client has none, the app falls back to global defaults from `.env`. Tokens are masked in the UI.
               </p>
             </div>
@@ -178,12 +178,12 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
                 <Facebook className="w-4 h-4 text-blue-400" />
                 <p className="text-sm font-medium">Meta Ads</p>
                 {credStatus?.hasMeta
-                  ? <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
-                  : <Badge variant="outline" className="text-[10px] text-muted-foreground">Not configured</Badge>}
-                <Badge variant="outline" className="text-[10px] text-muted-foreground">{sourceLabel(credStatus?.metaSource)}</Badge>
+                  ? <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
+                  : <Badge variant="outline" className="text-xs text-muted-foreground">Not configured</Badge>}
+                <Badge variant="outline" className="text-xs text-muted-foreground">{sourceLabel(credStatus?.metaSource)}</Badge>
               </div>
               {credStatus?.hasMeta && credStatus.meta && (
-                <div className="p-2 rounded-md bg-muted/30 text-[10px] text-muted-foreground space-y-0.5">
+                <div className="p-2 rounded-md bg-muted/30 text-xs text-muted-foreground space-y-0.5">
                   <p>Access Token: <span className="font-mono">{credStatus.meta.accessToken}</span></p>
                   <p>Ad Account ID: <span className="font-mono">{credStatus.meta.adAccountId}</span></p>
                 </div>
@@ -208,12 +208,12 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
                 <Globe className="w-4 h-4 text-amber-400" />
                 <p className="text-sm font-medium">Google Ads</p>
                 {credStatus?.hasGoogle
-                  ? <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
-                  : <Badge variant="outline" className="text-[10px] text-muted-foreground">Not configured</Badge>}
-                <Badge variant="outline" className="text-[10px] text-muted-foreground">{sourceLabel(credStatus?.googleSource)}</Badge>
+                  ? <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
+                  : <Badge variant="outline" className="text-xs text-muted-foreground">Not configured</Badge>}
+                <Badge variant="outline" className="text-xs text-muted-foreground">{sourceLabel(credStatus?.googleSource)}</Badge>
               </div>
               {credStatus?.hasGoogle && credStatus.google && (
-                <div className="p-2 rounded-md bg-muted/30 text-[10px] text-muted-foreground space-y-0.5 font-mono">
+                <div className="p-2 rounded-md bg-muted/30 text-xs text-muted-foreground space-y-0.5 font-mono">
                   <p>Client ID: {credStatus.google.clientId}</p>
                   <p>Client Secret: {credStatus.google.clientSecret}</p>
                   <p>Refresh Token: {credStatus.google.refreshToken}</p>
@@ -294,19 +294,19 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium text-foreground truncate">{client.name}</span>
-              {isDefault && <Badge variant="secondary" className="text-[10px]">Default</Badge>}
+              {isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
               {client.location && (
-                <span className="text-[10px] text-muted-foreground">📍 {client.location}</span>
+                <span className="text-xs text-muted-foreground">📍 {client.location}</span>
               )}
             </div>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               {metaEnabled && (
-                <Badge className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20 gap-1">
+                <Badge className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/20 gap-1">
                   <Facebook className="w-2.5 h-2.5" /> Meta
                 </Badge>
               )}
               {googleEnabled && (
-                <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20 gap-1">
+                <Badge className="text-xs bg-amber-500/10 text-amber-400 border-amber-500/20 gap-1">
                   <Globe className="w-2.5 h-2.5" /> Google
                 </Badge>
               )}
@@ -316,14 +316,14 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
           <div className="flex items-center gap-2 shrink-0">
             {(isAdmin || client.createdBy === user?.id) && (
               <Button
-                size="sm" variant="outline" className="h-7 text-[11px] gap-1"
+                size="sm" variant="outline" className="h-7 text-xs gap-1"
                 onClick={(e) => { e.stopPropagation(); setShowCreds(true); }}
               >
                 <KeyRound className="w-3 h-3" /> Credentials
               </Button>
             )}
             <Button
-              size="sm" variant="outline" className="h-7 text-[11px] gap-1"
+              size="sm" variant="outline" className="h-7 text-xs gap-1"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 setActiveClientId(client.id);
@@ -347,7 +347,7 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
         {/* Expanded details */}
         {expanded && (
           <div className="border-t border-border/30 px-4 py-3 space-y-3 bg-muted/10">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
               <div>
                 <p className="text-muted-foreground uppercase tracking-wider mb-0.5">Client ID</p>
                 <p className="font-mono text-foreground">{client.id}</p>
@@ -378,7 +378,7 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
             {/* Platform paths */}
             <div className="space-y-1.5">
               {client.platforms.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 text-[10px]">
+                <div key={p.id} className="flex items-center gap-2 text-xs">
                   {p.enabled
                     ? <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
                     : <AlertCircle className="w-3 h-3 text-muted-foreground shrink-0" />}
@@ -440,7 +440,7 @@ export default function ManageClientsPage() {
         ].map(({ label, value, color }) => (
           <Card key={label} className="border-border/50">
             <CardContent className="px-4 py-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
               <p className={`text-lg font-semibold mt-0.5 ${color}`}>{value}</p>
             </CardContent>
           </Card>
@@ -452,7 +452,7 @@ export default function ManageClientsPage() {
         <CardContent className="px-4 py-3">
           <div className="flex items-start gap-2">
             <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <div className="space-y-1 text-[11px] text-muted-foreground">
+            <div className="space-y-1 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">How to add a new client</p>
               <ol className="list-decimal list-inside space-y-0.5 pl-1">
                 <li>Click <strong>Add Client</strong> and fill in the basic details.</li>

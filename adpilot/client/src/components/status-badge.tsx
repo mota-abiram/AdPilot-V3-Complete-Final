@@ -12,7 +12,7 @@ export function StatusBadge({ classification }: { classification: string | Class
   return (
     <Badge 
       variant="secondary" 
-      className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight ${colors.bg} ${colors.text} border-none shadow-sm`}
+      className={`text-xs px-1.5 py-0.5 rounded font-bold uppercase tracking-tight ${colors.bg} ${colors.text} border-none shadow-sm`}
     >
       {normalized}
     </Badge>

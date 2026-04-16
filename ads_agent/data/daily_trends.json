@@ -698,11 +698,11 @@
     },
     {
       "spend": "6743.69",
-      "impressions": "88775",
-      "clicks": "354",
-      "ctr": "0.398761",
-      "cpc": "19.049972",
-      "cpm": "75.963841",
+      "impressions": "88789",
+      "clicks": "355",
+      "ctr": "0.399824",
+      "cpc": "18.99631",
+      "cpm": "75.951863",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -710,11 +710,11 @@
         },
         {
           "action_type": "link_click",
-          "value": "158"
+          "value": "159"
         },
         {
           "action_type": "page_engagement",
-          "value": "9752"
+          "value": "9753"
         },
         {
           "action_type": "landing_page_view",
@@ -730,7 +730,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "9752"
+          "value": "9753"
         },
         {
           "action_type": "post_interaction_gross",
@@ -789,7 +789,7 @@
           "value": "1"
         }
       ],
-      "frequency": "1.454565",
+      "frequency": "1.454794",
       "reach": "61032",
       "video_p25_watched_actions": [
         {
@@ -807,12 +807,12 @@
       "date_stop": "2026-04-15"
     },
     {
-      "spend": "1313.37",
-      "impressions": "19014",
-      "clicks": "70",
-      "ctr": "0.36815",
-      "cpc": "18.762429",
-      "cpm": "69.07384",
+      "spend": "1368.81",
+      "impressions": "20046",
+      "clicks": "75",
+      "ctr": "0.374139",
+      "cpc": "18.2508",
+      "cpm": "68.283448",
       "actions": [
         {
           "action_type": "offsite_complete_registration_add_meta_leads",
@@ -820,11 +820,11 @@
         },
         {
           "action_type": "link_click",
-          "value": "31"
+          "value": "34"
         },
         {
           "action_type": "page_engagement",
-          "value": "2135"
+          "value": "2238"
         },
         {
           "action_type": "landing_page_view",
@@ -836,19 +836,19 @@
         },
         {
           "action_type": "onsite_conversion.post_unlike",
-          "value": "10"
+          "value": "12"
         },
         {
           "action_type": "post_engagement",
-          "value": "2135"
+          "value": "2238"
         },
         {
           "action_type": "post_interaction_gross",
-          "value": "123"
+          "value": "128"
         },
         {
           "action_type": "post_interaction_net",
-          "value": "133"
+          "value": "140"
         },
         {
           "action_type": "post",
@@ -868,7 +868,7 @@
         },
         {
           "action_type": "onsite_conversion.post_net_like",
-          "value": "105"
+          "value": "108"
         },
         {
           "action_type": "lead",
@@ -884,19 +884,19 @@
         },
         {
           "action_type": "video_view",
-          "value": "1981"
+          "value": "2076"
         },
         {
           "action_type": "post_reaction",
-          "value": "115"
+          "value": "120"
         }
       ],
-      "frequency": "1.207085",
-      "reach": "15752",
+      "frequency": "1.207154",
+      "reach": "16606",
       "video_p25_watched_actions": [
         {
           "action_type": "video_view",
-          "value": "279"
+          "value": "289"
         }
       ],
       "video_p50_watched_actions": [

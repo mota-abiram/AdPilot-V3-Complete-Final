@@ -138,7 +138,7 @@ export function StrategicCallDialog({
                   <p className="t-label text-muted-foreground mt-0.5">Decision Intelligence Layer</p>
                </div>
             </div>
-            <div className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${actionDisplay.bgColor} ${actionDisplay.color} border border-border/30 shadow-xs`}>
+            <div className={`px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-widest ${actionDisplay.bgColor} ${actionDisplay.color} border border-border/30 shadow-xs`}>
                 {actionDisplay.label}
             </div>
           </div>
@@ -153,7 +153,7 @@ export function StrategicCallDialog({
                  ) : (
                    <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Logo_Meta_Platforms.svg" className="w-5 h-5" alt="Meta" />
                  )}
-                 <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground/60">{platform}</span>
+                 <span className="text-xs font-black uppercase mt-1 text-muted-foreground">{platform}</span>
               </div>
               <div className="flex-1 min-w-0">
                  <p className="t-label text-muted-foreground mb-0.5 tracking-wider">{entityType}</p>
@@ -165,31 +165,31 @@ export function StrategicCallDialog({
            {hasMetrics && (
              <div className="space-y-2.5 px-1">
                 <div className="flex items-center gap-2">
-                   <BarChart3 className="w-3.5 h-3.5 text-muted-foreground/60" />
+                   <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
                    <span className="t-label text-muted-foreground uppercase tracking-widest">Decision Parameters</span>
                 </div>
                 <div className="grid grid-cols-4 gap-4 bg-muted/20 p-3.5 rounded-xl border border-border/30">
                    {metrics.spend != null && (
                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Spend</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Spend</p>
                         <p className="text-sm font-bold text-foreground tabular-nums">{formatINR(metrics.spend, 0)}</p>
                      </div>
                    )}
                    {metrics.cpl != null && metrics.cpl > 0 && (
                      <div className="space-y-1 border-l border-border/30 pl-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">CPL</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">CPL</p>
                         <p className="text-sm font-bold text-foreground tabular-nums">{formatINR(metrics.cpl, 0)}</p>
                      </div>
                    )}
                    {metrics.ctr != null && (
                      <div className="space-y-1 border-l border-border/30 pl-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">CTR</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">CTR</p>
                         <p className="text-sm font-bold text-foreground tabular-nums">{metrics.ctr.toFixed(2)}%</p>
                      </div>
                    )}
                    {metrics.leads != null && (
                      <div className="space-y-1 border-l border-border/30 pl-4">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Leads</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Leads</p>
                         <p className="text-sm font-bold text-foreground tabular-nums">{metrics.leads}</p>
                      </div>
                    )}
@@ -204,7 +204,7 @@ export function StrategicCallDialog({
                     <Zap className="w-3.5 h-3.5 text-primary" />
                     <span className="t-label text-muted-foreground uppercase tracking-widest">Executive Rationale</span>
                  </div>
-                 <span className={`text-[10px] font-black tabular-nums px-2 py-0.5 rounded-full border ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-muted text-muted-foreground/60 border-border/40'}`}>
+                 <span className={`text-xs font-black tabular-nums px-2 py-0.5 rounded-full border ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-muted text-muted-foreground border-border/40'}`}>
                     {rationale.trim().length}/{MIN_RATIONALE_LENGTH}
                  </span>
               </div>
@@ -213,13 +213,13 @@ export function StrategicCallDialog({
                     value={rationale}
                     onChange={(e) => setRationale(e.target.value)}
                     placeholder={getPlaceholderText(actionType)}
-                    className="min-h-[120px] p-4 t-body-sm font-medium bg-muted/40 border-border/60 rounded-xl focus:bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-muted-foreground/40 resize-none shadow-inner"
+                    className="min-h-[120px] p-4 t-body-sm font-medium bg-muted/40 border-border/60 rounded-xl focus:bg-card focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-muted-foreground resize-none shadow-inner"
                     data-testid="input-strategic-rationale"
                  />
                  {rationale.trim().length > 0 && rationale.trim().length < MIN_RATIONALE_LENGTH && (
                     <div className="absolute right-3 bottom-3 flex items-center gap-1.5 px-2 py-1 bg-card/90 backdrop-blur rounded-lg border border-primary/20 shadow-sm animate-in fade-in slide-in-from-bottom-2">
                        <Info className="w-3 h-3 text-primary" strokeWidth={3} />
-                       <span className="text-[9px] font-black text-primary uppercase">Min {MIN_RATIONALE_LENGTH-rationale.trim().length} chars</span>
+                       <span className="text-xs font-black text-primary uppercase">Min {MIN_RATIONALE_LENGTH-rationale.trim().length} chars</span>
                     </div>
                  )}
               </div>

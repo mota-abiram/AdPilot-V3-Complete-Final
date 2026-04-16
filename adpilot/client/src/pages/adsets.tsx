@@ -57,7 +57,7 @@ function BenchmarkBadge({ value, benchmark, label }: { value: number; benchmark:
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={`inline-flex items-center text-[9px] font-medium px-1 py-0 rounded ml-1 cursor-default ${isAbove ? "text-red-400 bg-red-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
+        <span className={`inline-flex items-center text-xs font-medium px-1 py-0 rounded ml-1 cursor-default ${isAbove ? "text-red-400 bg-red-500/10" : "text-emerald-400 bg-emerald-500/10"}`}>
           {isAbove ? "▲" : "▼"} {Math.abs(Math.round(pct))}%
         </span>
       </TooltipTrigger>
@@ -349,13 +349,13 @@ export default function AdsetsPage() {
     const val = a[col.key];
 
     if ((col.key as string) === "classification") return <td className="p-3"><StatusBadge classification={val} /></td>;
-    if ((col.key as string) === "recommendation") return <td className="p-3"><Badge variant="outline" className="text-[9px] font-bold uppercase py-0">{val || "Hold"}</Badge></td>;
+    if ((col.key as string) === "recommendation") return <td className="p-3"><Badge variant="outline" className="text-xs font-bold uppercase py-0">{val || "Hold"}</Badge></td>;
     if ((col.key as string) === "health_score") return (
       <td className="p-3">
         <ScoreIndicator score={val} breakdown={a.score_breakdown} label="Ad Group Health" description="Backend-calculated ad group health score" />
       </td>
     );
-    if ((col.key as string) === "status") return <td className="p-3"><Badge variant={val === "ENABLED" ? "outline" : "secondary"} className={`text-[9px] px-1 py-0 ${val === "ENABLED" ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>{val}</Badge></td>;
+    if ((col.key as string) === "status") return <td className="p-3"><Badge variant={val === "ENABLED" ? "outline" : "secondary"} className={`text-xs px-1 py-0 ${val === "ENABLED" ? "text-emerald-400 border-emerald-500/30" : "text-red-400"}`}>{val}</Badge></td>;
 
     const isPct = ["ctr", "cvr", "impression_share", "top_is_pct"].includes(col.key as string);
     const isINR = ["cost", "spend", "cpl", "avg_cpc", "cpm", "cpsv"].includes(col.key as string);
@@ -440,7 +440,7 @@ export default function AdsetsPage() {
                   <th className="p-0 w-8"></th>
                   <th className="p-0 w-[200px]"></th>
                   {groups.slice(0, -1).map((g, i) => (
-                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 last:border-0 text-center">
+                    <th key={i} colSpan={g.span} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 last:border-0 text-center">
                       {g.label}
                     </th>
                   ))}
@@ -458,13 +458,13 @@ export default function AdsetsPage() {
                   {columns.map(col => (
                     <th
                       key={col.key}
-                      className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
+                      className={`px-3 py-4 t-label font-black uppercase tracking-widest text-muted-foreground cursor-pointer border-r border-border/5 last:border-0 ${col.align === "right" ? "text-right" : "text-left"}`}
                       onClick={() => toggleSort(col.key)}
                     >
                       <span className="inline-flex items-center gap-1">{col.label} <SortIcon col={col.key} /></span>
                     </th>
                   ))}
-                  <th className="px-3 py-4 t-label text-center font-black uppercase tracking-widest text-muted-foreground/80">Act</th>
+                  <th className="px-3 py-4 t-label text-center font-black uppercase tracking-widest text-muted-foreground">Act</th>
                 </tr>
               </thead>
               <tbody>
@@ -524,9 +524,9 @@ export default function AdsetsPage() {
       {hasSelection && (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 animate-in slide-in-from-top-2">
           <span className="text-xs font-bold text-primary tabular-nums">{selectedIds.size} selected</span>
-          <Button size="sm" variant="destructive" className="h-7 text-[10px] uppercase font-black" onClick={() => setBulkConfirm({ open: true, action: "pause" })}>Pause Selection</Button>
-          <Button size="sm" variant="default" className="h-7 text-[10px] uppercase font-black bg-emerald-600" onClick={() => setBulkConfirm({ open: true, action: "activate" })}>Activate Selection</Button>
-          <Button size="sm" variant="ghost" className="h-7 text-[10px] uppercase font-bold" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+          <Button size="sm" variant="destructive" className="h-7 text-xs uppercase font-black" onClick={() => setBulkConfirm({ open: true, action: "pause" })}>Pause Selection</Button>
+          <Button size="sm" variant="default" className="h-7 text-xs uppercase font-black bg-emerald-600" onClick={() => setBulkConfirm({ open: true, action: "activate" })}>Activate Selection</Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs uppercase font-bold" onClick={() => setSelectedIds(new Set())}>Clear</Button>
         </div>
       )}
 
@@ -548,7 +548,7 @@ export default function AdsetsPage() {
                       <th
                         key={i}
                         colSpan={g.span}
-                        className={`px-3 py-1.5 text-[8px] uppercase tracking-widest font-black text-muted-foreground/50 ${i < metaColumnGroups.length - 1 ? (i % 2 === 0 ? "text-left" : "text-right") : ""} border-r border-border/20 last:border-r-0`}
+                        className={`px-3 py-1.5 text-xs uppercase tracking-widest font-black text-muted-foreground ${i < metaColumnGroups.length - 1 ? (i % 2 === 0 ? "text-left" : "text-right") : ""} border-r border-border/20 last:border-r-0`}
                       >
                         {g.label}
                       </th>
@@ -566,13 +566,13 @@ export default function AdsetsPage() {
                     {metaColumns.map(col => (
                       <th
                         key={col.key}
-                        className={`p-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
+                        className={`p-3 t-label font-black uppercase tracking-widest text-muted-foreground cursor-pointer whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
                         onClick={() => toggleSort(col.key)}
                       >
                         <span className="inline-flex items-center gap-1">{col.label} <SortIcon col={col.key} /></span>
                       </th>
                     ))}
-                    <th className="p-3 t-label text-center font-black uppercase tracking-widest text-muted-foreground/80 w-10">Act</th>
+                    <th className="p-3 t-label text-center font-black uppercase tracking-widest text-muted-foreground w-10">Act</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -616,10 +616,10 @@ export default function AdsetsPage() {
                                   {a.adset_name}
                                 </p>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="text-[10px]">{a.adset_name}</TooltipContent>
+                              <TooltipContent side="top" className="text-xs">{a.adset_name}</TooltipContent>
                             </Tooltip>
                             {a.learning_status && a.learning_status !== "ACTIVE" && (
-                              <span className={`text-[8px] font-bold uppercase ${getLearningStatusColor(a.learning_status)}`}>
+                              <span className={`text-xs font-bold uppercase ${getLearningStatusColor(a.learning_status)}`}>
                                 {a.learning_status.replace(/_/g, " ")}
                               </span>
                             )}
@@ -639,7 +639,7 @@ export default function AdsetsPage() {
 
                           {/* layer */}
                           <td className="p-3">
-                            <Badge variant="outline" className={`text-[8px] font-black uppercase px-1.5 py-0 ${getLayerColor(a.layer)}`}>
+                            <Badge variant="outline" className={`text-xs font-black uppercase px-1.5 py-0 ${getLayerColor(a.layer)}`}>
                               {a.layer || "—"}
                             </Badge>
                           </td>
@@ -743,7 +743,7 @@ export default function AdsetsPage() {
                                     {(a.frequency ?? 0).toFixed(2)}
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-[10px]">
+                                <TooltipContent side="top" className="text-xs">
                                   {(a.frequency ?? 0) > (metaBenchmarks.frequencySevere || 2.5) ? "High frequency — creative fatigue risk" :
                                     (a.frequency ?? 0) > (metaBenchmarks.frequencyWarn || 1.8) ? "Monitor — approaching fatigue threshold" :
                                       "Frequency within healthy range"}

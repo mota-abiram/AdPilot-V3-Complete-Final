@@ -179,7 +179,7 @@ export function UnifiedActions(props: UnifiedActionProps) {
     },
   };
 
-  const btnSize = compact ? "h-6 px-2 text-[10px]" : "h-7 px-2.5 text-xs";
+  const btnSize = compact ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-xs";
   const iconSize = compact ? "w-3 h-3" : "w-3.5 h-3.5";
 
   return (
@@ -272,13 +272,13 @@ export function UnifiedActions(props: UnifiedActionProps) {
               {/* Context: recommendation + metrics */}
               <div className="rounded-xl p-4 border border-border/60 bg-muted/20 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20">
+                  <Badge variant="secondary" className="text-xs font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20">
                     {actionType.replace(/_/g, " ")}
                   </Badge>
-                  <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider">
+                  <Badge variant="outline" className="text-xs font-bold uppercase tracking-wider">
                     {entityType}
                   </Badge>
-                  <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider">
+                  <Badge variant="outline" className="text-xs font-bold uppercase tracking-wider">
                     {platform === "google" ? "Google" : "Meta"}
                   </Badge>
                 </div>
@@ -293,17 +293,17 @@ export function UnifiedActions(props: UnifiedActionProps) {
                 {currentMetrics && Object.keys(currentMetrics).length > 0 && (
                   <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 border-t border-border/30">
                     {currentMetrics.spend != null && currentMetrics.spend > 0 && (
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                      <span className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">
                         Spend: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.spend, 0)}</span>
                       </span>
                     )}
                     {currentMetrics.leads != null && (
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                      <span className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">
                         Leads: <span className="text-foreground tabular-nums">{currentMetrics.leads}</span>
                       </span>
                     )}
                     {currentMetrics.cpl != null && currentMetrics.cpl > 0 && (
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                      <span className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">
                         CPL: <span className="text-foreground tabular-nums">{formatINR(currentMetrics.cpl, 0)}</span>
                       </span>
                     )}
@@ -326,11 +326,11 @@ export function UnifiedActions(props: UnifiedActionProps) {
                      value={rationale}
                      onChange={(e) => setRationale(e.target.value)}
                      placeholder={dialogConfig[dialogMode].placeholder}
-                     className="min-h-[110px] t-body-sm bg-muted/30 border-border/60 focus-visible:ring-primary/30 rounded-xl placeholder:text-muted-foreground/40 resize-none shadow-inner"
+                     className="min-h-[110px] t-body-sm bg-muted/30 border-border/60 focus-visible:ring-primary/30 rounded-xl placeholder:text-muted-foreground resize-none shadow-inner"
                      data-testid="ua-rationale-input"
                    />
                    <div className="absolute right-3 bottom-3">
-                      <span className={`text-[9px] font-black tabular-nums px-2 py-0.5 rounded-full border ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-muted text-muted-foreground/60 border-border/40'}`}>
+                      <span className={`text-xs font-black tabular-nums px-2 py-0.5 rounded-full border ${rationale.trim().length >= MIN_RATIONALE_LENGTH ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-muted text-muted-foreground border-border/40'}`}>
                          {rationale.trim().length}/{MIN_RATIONALE_LENGTH}
                       </span>
                    </div>

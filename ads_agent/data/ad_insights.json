@@ -25539,11 +25539,11 @@
       "adset_id": "120231984866130466",
       "ad_name": "DM_Influencer",
       "ad_id": "120234312309520466",
-      "impressions": "70702",
-      "clicks": "272",
-      "ctr": "0.384713",
-      "cpc": "12.231654",
-      "cpm": "47.056802",
+      "impressions": "70715",
+      "clicks": "273",
+      "ctr": "0.386057",
+      "cpc": "12.18685",
+      "cpm": "47.048151",
       "spend": "3327.01",
       "actions": [
         {
@@ -25552,11 +25552,11 @@
         },
         {
           "action_type": "link_click",
-          "value": "118"
+          "value": "119"
         },
         {
           "action_type": "page_engagement",
-          "value": "8084"
+          "value": "8085"
         },
         {
           "action_type": "landing_page_view",
@@ -25572,7 +25572,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "8084"
+          "value": "8085"
         },
         {
           "action_type": "post_interaction_gross",
@@ -25650,7 +25650,7 @@
         },
         {
           "action_type": "link_click",
-          "value": "28.195"
+          "value": "27.958067"
         },
         {
           "action_type": "onsite_conversion.lead_grouped",
@@ -25666,7 +25666,7 @@
         },
         {
           "action_type": "post_engagement",
-          "value": "0.411555"
+          "value": "0.411504"
         },
         {
           "action_type": "offsite_content_view_add_meta_leads",
@@ -25682,14 +25682,14 @@
         },
         {
           "action_type": "page_engagement",
-          "value": "0.411555"
+          "value": "0.411504"
         },
         {
           "action_type": "omni_landing_page_view",
           "value": "1663.505"
         }
       ],
-      "frequency": "1.441809",
+      "frequency": "1.442074",
       "reach": "49037",
       "video_avg_time_watched_actions": [
         {
@@ -25731,11 +25731,11 @@
       "adset_id": "120235869581350466",
       "ad_name": "DM_Influencer - 2",
       "ad_id": "120235869581380466",
-      "impressions": "15742",
+      "impressions": "15743",
       "clicks": "53",
-      "ctr": "0.336679",
+      "ctr": "0.336658",
       "cpc": "21.840755",
-      "cpm": "73.533223",
+      "cpm": "73.528552",
       "spend": "1157.56",
       "actions": [
         {
@@ -25865,7 +25865,7 @@
           "value": "1157.56"
         }
       ],
-      "frequency": "1.10509",
+      "frequency": "1.10516",
       "reach": "14245",
       "video_avg_time_watched_actions": [
         {

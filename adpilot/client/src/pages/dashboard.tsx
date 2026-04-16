@@ -232,16 +232,16 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
               <div className="flex items-center gap-2">
                 <DialogTitle className="t-page-title text-foreground text-xl">4-Layer AI Diagnosis</DialogTitle>
                 {isLoadingAI && (
-                  <Badge variant="outline" className="animate-pulse bg-primary/10 text-primary border-primary/20 text-[9px] font-black uppercase py-0">
+                  <Badge variant="outline" className="animate-pulse bg-primary/10 text-primary border-primary/20 text-xs font-black uppercase py-0">
                     Strategic AI Reasoning...
                   </Badge>
                 )}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
+                <Badge variant="secondary" className="text-xs font-black uppercase tracking-wider bg-primary/20 text-primary border-primary/20 px-1.5 py-0.5">
                   {alert.metric} ALERT
                 </Badge>
-                <span className="text-[10px] text-muted-foreground font-medium truncate opacity-70">
+                <span className="text-xs text-muted-foreground font-medium truncate opacity-70">
                   {isLoadingAI ? "Parallelizing SOP, Data & Execution History..." : "Root-cause analysis across all 4 layers"}
                 </span>
               </div>
@@ -249,7 +249,7 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
           </div>
           {/* Alert problem statement */}
           <div className="mt-3 p-2.5 rounded-lg bg-red-500/5 border border-red-500/20">
-            <p className="text-[11px] font-semibold text-red-400 leading-snug">{alert.summary}</p>
+            <p className="text-xs font-semibold text-red-400 leading-snug">{alert.summary}</p>
           </div>
         </DialogHeader>
 
@@ -278,17 +278,17 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
                 {/* Card header row */}
                 <div className="flex items-center gap-2 px-4 pt-3.5 pb-2">
                   <div className="size-5 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-[9px] font-black text-primary">{i + 1}</span>
+                    <span className="text-xs font-black text-primary">{i + 1}</span>
                   </div>
-                  <span className="text-[11px] font-black text-foreground uppercase tracking-wide flex-1 truncate">{s.issue}</span>
+                  <span className="text-xs font-black text-foreground uppercase tracking-wide flex-1 truncate">{s.issue}</span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={cn(
-                      "text-[9px] font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
+                      "text-xs font-black uppercase tracking-tight px-1.5 py-0.5 rounded border",
                       s.source === "AI" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                     )}>
                       {s.source}
                     </span>
-                    <span className={cn("text-[9px] font-bold uppercase tracking-tight px-1.5 py-0.5 rounded border", typeBadge.className)}>
+                    <span className={cn("text-xs font-bold uppercase tracking-tight px-1.5 py-0.5 rounded border", typeBadge.className)}>
                       {typeBadge.label}
                     </span>
                   </div>
@@ -312,12 +312,12 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
                 {/* Execution plan steps */}
                 {Array.isArray(s.executionPlan) && s.executionPlan.length > 0 && (
                   <div className="px-4 pb-3.5">
-                    <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-1.5">Execution Steps</p>
+                    <p className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1.5">Execution Steps</p>
                     <ol className="space-y-1">
                       {s.executionPlan.map((step: string, si: number) => (
                         <li key={si} className="flex items-start gap-2">
-                          <span className="text-[9px] font-black text-primary/60 mt-0.5 shrink-0">{si + 1}.</span>
-                          <span className="text-[11px] text-foreground/70 leading-snug">{step}</span>
+                          <span className="text-xs font-black text-primary/60 mt-0.5 shrink-0">{si + 1}.</span>
+                          <span className="text-xs text-foreground/70 leading-snug">{step}</span>
                         </li>
                       ))}
                     </ol>
@@ -330,10 +330,10 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
           {/* Diagnostic context */}
           {alert.campaigns?.length > 0 && (
             <div className="p-3.5 rounded-xl bg-muted/10 border border-border/30">
-              <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mb-2">Affected Entities ({alert.campaigns.length})</p>
+              <p className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-2">Affected Entities ({alert.campaigns.length})</p>
               <div className="grid grid-cols-1 gap-1">
                 {alert.campaigns.map((c: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between text-[11px] font-semibold text-foreground/80 bg-background/40 p-1.5 px-2 rounded-lg border border-border/20">
+                  <div key={i} className="flex items-center justify-between text-xs font-semibold text-foreground/80 bg-background/40 p-1.5 px-2 rounded-lg border border-border/20">
                     <span className="truncate">{c.name}</span>
                     <span className="text-primary tabular-nums shrink-0 ml-2">{c.value}</span>
                   </div>
@@ -399,7 +399,7 @@ function KpiCard({
       <CardContent className="p-3.5">
         {/* Title row */}
         <div className="flex items-start justify-between gap-1 mb-1.5">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground leading-tight truncate pr-1">
+          <h3 className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground leading-tight truncate pr-1">
             {title}
           </h3>
           <Icon className="w-3.5 h-3.5 text-primary/90 shrink-0 mt-0.5" />
@@ -431,7 +431,7 @@ function KpiCard({
             <div>
               <Badge
                 variant={status.variant ?? "secondary"}
-                className={`text-[9px] px-1.5 py-0 ${status.className ?? ""}`}
+                className={`text-xs px-1.5 py-0 ${status.className ?? ""}`}
               >
                 {status.label}
               </Badge>
@@ -1437,7 +1437,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         {hasAlerts && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-amber-500/20 bg-amber-500/5 text-amber-600 shrink-0">
+                          <Badge variant="outline" className="text-xs px-1 py-0 h-4 border-amber-500/20 bg-amber-500/5 text-amber-600 shrink-0">
                             Action
                           </Badge>
                         )}
@@ -1523,7 +1523,7 @@ export default function DashboardPage() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-[9px] font-bold tracking-tight px-1.5 py-0 rounded h-4 border-0",
+                          "text-xs font-bold tracking-tight px-1.5 py-0 rounded h-4 border-0",
                           isCritical ? "bg-red-500/15 text-red-400" :
                             isWarning ? "bg-amber-500/15 text-amber-600" :
                               "bg-blue-500/15 text-blue-600"
@@ -1548,7 +1548,7 @@ export default function DashboardPage() {
                   {/* Context & Values */}
                   <div className="flex flex-col gap-1.5 ml-1">
                     {group.isGeneric ? (
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{group.value}</span>
                         {group.benchmark && (
                           <>
@@ -1565,20 +1565,20 @@ export default function DashboardPage() {
                               <div className="w-1 h-1 rounded-full bg-current opacity-20 shrink-0" />
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="text-[11px] text-muted-foreground truncate transition-colors cursor-help">
+                                  <span className="text-xs text-muted-foreground truncate transition-colors cursor-help">
                                     {camp.name}
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  <p className="text-[10px]">{camp.name}</p>
+                                  <p className="text-xs">{camp.name}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </div>
                             {camp.value && (
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[11px] font-bold text-foreground">{camp.value}</span>
+                                <span className="text-xs font-bold text-foreground">{camp.value}</span>
                                 {group.benchmark && (
-                                  <span className="text-[10px] text-muted-foreground opacity-60">vs {group.benchmark}</span>
+                                  <span className="text-xs text-muted-foreground opacity-60">vs {group.benchmark}</span>
                                 )}
                               </div>
                             )}
@@ -1594,7 +1594,7 @@ export default function DashboardPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
+                        className="h-6 text-xs px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
                         onClick={() => setActiveFixAlert(group)}
                       >
                         Fix Suggestion
@@ -1603,7 +1603,7 @@ export default function DashboardPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 text-[9px] px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
+                          className="h-6 text-xs px-2 py-0 border border-current/10 hover:bg-white/40 font-bold"
                           onClick={() => setSelectedCampaignId(group.campaigns[0].id)}
                         >
                           View Campaign
@@ -1615,7 +1615,7 @@ export default function DashboardPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 text-[9px] px-2 py-0 border border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 font-bold flex items-center gap-1"
+                          className="h-6 text-xs px-2 py-0 border border-emerald-500/20 text-emerald-600 hover:bg-emerald-50 font-bold flex items-center gap-1"
                           onClick={() => handleComplete(group.id!)}
                         >
                           <Check className="w-2.5 h-2.5" />
@@ -1624,7 +1624,7 @@ export default function DashboardPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 text-[9px] px-2 py-0 border border-red-500/20 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1"
+                          className="h-6 text-xs px-2 py-0 border border-red-500/20 text-red-600 hover:bg-red-50 font-bold flex items-center gap-1"
                           onClick={() => handleReject(group.id!)}
                         >
                           <Ban className="w-2.5 h-2.5" />
@@ -1639,7 +1639,7 @@ export default function DashboardPage() {
             {criticalAlerts.length > 3 && (
               <button
                 onClick={() => setShowAllCriticalAlerts(prev => !prev)}
-                className="w-full text-center text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
+                className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
               >
                 {showAllCriticalAlerts ? "Show less" : `Show ${criticalAlerts.length - 3} more alert${criticalAlerts.length - 3 > 1 ? "s" : ""}`}
               </button>
@@ -1654,7 +1654,7 @@ export default function DashboardPage() {
           <h2 id="dashboard-new-entities" className="sr-only">New entities detected</h2>
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500/10 border border-blue-500/30">
             <AlertCircle className="w-4 h-4 text-blue-400 shrink-0" />
-            <span className="text-xs text-blue-300 font-medium">
+            <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">
               {newEntities.totalNew} new {newEntities.totalNew === 1 ? "entity" : "entities"} detected since last analysis
               {newEntities.newCampaigns.length > 0 && ` (${newEntities.newCampaigns.length} campaign${newEntities.newCampaigns.length > 1 ? "s" : ""})`}
               {newEntities.newAdsets.length > 0 && ` (${newEntities.newAdsets.length} ad set${newEntities.newAdsets.length > 1 ? "s" : ""})`}
@@ -1811,11 +1811,11 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {verifyData.leadsCorrectionApplied && (
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-blue-400 bg-blue-500/10">
+                    <Badge variant="secondary" className="text-xs px-2 py-0.5 text-blue-400 bg-blue-500/10">
                       Daily leads auto-corrected ({verifyData.leadsCorrectionFactor}x → 1x)
                     </Badge>
                   )}
-                  <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${verifyData.verified ? "text-emerald-400 bg-emerald-500/10" : (verifyData.discrepancyPct <= 5 && verifyData.leadsDiscrepancyPct <= 5) ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"
+                  <Badge variant="secondary" className={`text-xs px-2 py-0.5 ${verifyData.verified ? "text-emerald-400 bg-emerald-500/10" : (verifyData.discrepancyPct <= 5 && verifyData.leadsDiscrepancyPct <= 5) ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"
                     }`}>
                     {verifyData.verified ? "All Verified" : (verifyData.discrepancyPct <= 5 && verifyData.leadsDiscrepancyPct <= 5) ? "Warning" : "Mismatch"}
                   </Badge>
@@ -1824,7 +1824,7 @@ export default function DashboardPage() {
               {/* Spend Verification Row */}
               <div className="flex items-center gap-6 text-center border-t border-border/30 pt-3">
                 <div className="w-20 text-left">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Spend</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Spend</p>
                 </div>
                 <div>
                   <p className="t-label text-muted-foreground uppercase tracking-widest">API Spend</p>
@@ -1840,14 +1840,14 @@ export default function DashboardPage() {
                     {(verifyData.discrepancyPct ?? 0).toFixed(1)}%
                   </p>
                 </div>
-                <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${verifyData.discrepancyPct <= 2 ? "text-emerald-400 bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>
+                <Badge variant="secondary" className={`text-xs px-2 py-0.5 ${verifyData.discrepancyPct <= 2 ? "text-emerald-400 bg-emerald-500/10" : verifyData.discrepancyPct <= 5 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>
                   {verifyData.discrepancyPct <= 2 ? "✓ Match" : verifyData.discrepancyPct <= 5 ? "⚠ Drift" : "✗ Mismatch"}
                 </Badge>
               </div>
               {/* Leads Verification Row */}
               <div className="flex items-center gap-6 text-center border-t border-border/30 pt-3">
                 <div className="w-20 text-left">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Leads</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Leads</p>
                 </div>
                 <div>
                   <Tooltip>
@@ -1874,7 +1874,7 @@ export default function DashboardPage() {
                     {(verifyData.leadsDiscrepancyPct ?? 0).toFixed(1)}%
                   </p>
                 </div>
-                <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400 bg-emerald-500/10" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>
+                <Badge variant="secondary" className={`text-xs px-2 py-0.5 ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400 bg-emerald-500/10" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>
                   {verifyData.leadsDiscrepancyPct <= 2 ? "✓ Match" : verifyData.leadsDiscrepancyPct <= 10 ? "⚠ Drift" : "✗ Mismatch"}
                 </Badge>
               </div>
@@ -1890,7 +1890,7 @@ export default function DashboardPage() {
           <CardContent className="p-4 flex flex-col justify-center flex-1">
             <div className="flex items-center gap-1.5 mb-4">
               <h3 className="t-label text-foreground/90">Account Health</h3>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-400 bg-blue-500/10 border-blue-500/20">MTD Fixed</Badge>
+              <Badge variant="secondary" className="text-xs px-1.5 py-0 text-blue-400 bg-blue-500/10 border-blue-500/20">MTD Fixed</Badge>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
@@ -1917,7 +1917,7 @@ export default function DashboardPage() {
                       </>
                     )}
                   </div>
-                  <p className="pt-1 text-[10px] italic">Hover individual metrics for target details</p>
+                  <p className="pt-1 text-xs italic">Hover individual metrics for target details</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -1952,7 +1952,7 @@ export default function DashboardPage() {
           <CardContent className="card-content-premium">
             <div className="flex items-center gap-2 mb-3">
               <h3 className="t-label font-bold text-foreground uppercase tracking-wider">Health Score Breakdown</h3>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-blue-400 bg-blue-500/10 border-blue-500/20">MTD Fixed</Badge>
+              <Badge variant="secondary" className="text-xs px-1.5 py-0 text-blue-400 bg-blue-500/10 border-blue-500/20">MTD Fixed</Badge>
             </div>
             <div className={`grid gap-3 ${isGoogle ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {healthBreakdownItems.map((item) => {
@@ -2361,7 +2361,7 @@ export default function DashboardPage() {
                     <p className="t-micro text-muted-foreground">
                       {daysElapsed} days elapsed · {daysRemaining} remaining · {((mp?.pct_through_month || 0)).toFixed(0)}% through month
                       {mtdData?.last_updated && (
-                        <span className="ml-2 text-muted-foreground/60">· updated {new Date(mtdData.last_updated).toLocaleDateString()}</span>
+                        <span className="ml-2 text-muted-foreground">· updated {new Date(mtdData.last_updated).toLocaleDateString()}</span>
                       )}
                     </p>
                   </div>
@@ -2390,16 +2390,16 @@ export default function DashboardPage() {
                       {/* Pivot Group Header Row */}
                       <tr className="border-b border-border/10 bg-muted/5">
                         <th className="p-0 w-8"></th>
-                        <th colSpan={1} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Identity</th>
-                        <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Targets</th>
-                        <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Performance</th>
-                        <th colSpan={1} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Health</th>
-                        <th colSpan={1} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 text-center">Pace</th>
+                        <th colSpan={1} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Identity</th>
+                        <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Targets</th>
+                        <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Performance</th>
+                        <th colSpan={1} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Health</th>
+                        <th colSpan={1} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Pace</th>
                       </tr>
                       <tr className="border-b border-border/50 bg-muted/20">
-                        <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 sticky left-0 bg-card border-r border-border/5">Metric</th>
-                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Target</th>
-                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5 cursor-help">
+                        <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground sticky left-0 bg-card border-r border-border/5">Metric</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Target</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5 cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>MTD Target</span>
@@ -2409,8 +2409,8 @@ export default function DashboardPage() {
                             </TooltipContent>
                           </Tooltip>
                         </th>
-                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">MTD Delivered</th>
-                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5 cursor-help">
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">MTD Delivered</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5 cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>Projected</span>
@@ -2420,8 +2420,8 @@ export default function DashboardPage() {
                             </TooltipContent>
                           </Tooltip>
                         </th>
-                        <th className="text-center px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Status</th>
-                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 cursor-help">
+                        <th className="text-center px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Status</th>
+                        <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground cursor-help">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span>Daily Needed</span>
@@ -2485,7 +2485,7 @@ export default function DashboardPage() {
                 <h3 className="t-micro font-medium text-muted-foreground uppercase tracking-wider group-hover:text-primary transition-colors">
                   Campaign Scoring
                 </h3>
-                <ArrowRight className="w-3 h-3 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="w-3 h-3 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </Link>
               <div className="flex items-center gap-3">
                 <span className="t-micro text-muted-foreground tabular-nums">
@@ -2748,7 +2748,7 @@ export default function DashboardPage() {
             {isZeroToday && (
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-t-lg bg-red-500/15 border-b border-red-500/30">
                 <ShieldX className="w-4 h-4 text-red-400 shrink-0" />
-                <span className="t-micro text-red-300 font-semibold">
+                <span className="t-micro text-red-700 dark:text-red-400 font-semibold">
                   TRACKING ALERT: Zero leads captured yesterday — verify {isGoogle ? "conversion setup / GA4 linking" : "pixel / conversion setup"}
                 </span>
               </div>
@@ -2764,7 +2764,7 @@ export default function DashboardPage() {
                       <h3 className="t-card-title text-foreground">Tracking Sanity</h3>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <AlertCircle className="w-3.5 h-3.5 text-muted-foreground/60 cursor-help" />
+                          <AlertCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs">
                           Monitors pixel/conversion stability by comparing MTD performance against expected daily velocity. Flags sudden drops or zero-lead days.
@@ -2774,22 +2774,22 @@ export default function DashboardPage() {
                         {healthStatus}
                       </Badge>
                     </div>
-                    <p className="t-micro text-muted-foreground/70 mt-1">
+                    <p className="t-micro text-muted-foreground mt-1">
                       Last verified: {lastVerified}
                     </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-6 text-center">
                   <div className="space-y-1">
-                    <p className="t-micro text-muted-foreground/80">MTD Leads Target</p>
+                    <p className="t-micro text-muted-foreground">MTD Leads Target</p>
                     <p className="t-kpi-sm text-foreground">{Math.round(mtdLeadsTarget)}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="t-micro text-muted-foreground/80">MTD Leads Delivered</p>
+                    <p className="t-micro text-muted-foreground">MTD Leads Delivered</p>
                     <p className="t-kpi-sm text-foreground">{mtdLeads}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="t-micro text-muted-foreground/80">Yesterday's Delivered</p>
+                    <p className="t-micro text-muted-foreground">Yesterday's Delivered</p>
                     <p className="t-kpi-sm text-foreground">{prevDayLeads || 0}</p>
                   </div>
                 </div>
@@ -2852,25 +2852,25 @@ export default function DashboardPage() {
                 <thead>
                   {/* Pivot Group Header Row */}
                   <tr className="border-b border-border/10 bg-muted/5">
-                    <th colSpan={2} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Identity/Status</th>
-                    <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Budget</th>
-                    <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Performance</th>
-                    <th colSpan={3} className="px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-r border-border/10 text-center">Efficiency</th>
+                    <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Identity/Status</th>
+                    <th colSpan={3} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Budget</th>
+                    <th colSpan={3} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Performance</th>
+                    <th colSpan={3} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Efficiency</th>
                     <th className="p-0"></th>
                   </tr>
                   <tr className="border-b border-border/50 bg-muted/20">
-                    <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Campaign</th>
-                    <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Class</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Budget</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Spend</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Utility</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Leads</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Impr</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">Clicks</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">CTR</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">CPM</th>
-                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 border-r border-border/5">CPL</th>
-                    <th className="text-center px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground/80 whitespace-nowrap">Act</th>
+                    <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Campaign</th>
+                    <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Class</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Budget</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Spend</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Utility</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Leads</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Impr</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">Clicks</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">CTR</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">CPM</th>
+                    <th className="text-right px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground border-r border-border/5">CPL</th>
+                    <th className="text-center px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground whitespace-nowrap">Act</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -3004,7 +3004,7 @@ export default function DashboardPage() {
                 {fatigueAlerts.length > 3 && (
                   <button
                     onClick={() => setShowAllFatigueAlerts(prev => !prev)}
-                    className="w-full text-center text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
+                    className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
                   >
                     {showAllFatigueAlerts ? "Show less" : `Show ${fatigueAlerts.length - 3} more alert${fatigueAlerts.length - 3 > 1 ? "s" : ""}`}
                   </button>
@@ -3223,10 +3223,10 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-4 py-2">
                         {/* Label Layer */}
                         <div className="w-20 md:w-28 shrink-0 text-left">
-                          <p className="t-label font-bold uppercase tracking-widest text-muted-foreground/60 group-hover:text-primary/70 transition-colors">
+                          <p className="t-label font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary/70 transition-colors">
                             {step.label}
                           </p>
-                          <p className="t-micro font-medium text-muted-foreground/40 italic">
+                          <p className="t-micro font-medium text-muted-foreground italic">
                             {step.sub}
                           </p>
                         </div>
@@ -3261,7 +3261,7 @@ export default function DashboardPage() {
               <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/20 border border-border/40">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <p className="text-[10px] font-semibold text-foreground uppercase tracking-wider">
+                  <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
                     Spend context
                   </p>
                 </div>
@@ -3270,7 +3270,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-bold text-primary">
                       {formatINR(ap.total_spend_30d, 0)}
                     </p>
-                    <p className="text-[9px] text-muted-foreground uppercase">
+                    <p className="text-xs text-muted-foreground uppercase">
                       {periodLabel} Window
                     </p>
                   </div>
@@ -3346,7 +3346,7 @@ export default function DashboardPage() {
                   <CheckCircle2 className="w-4 h-4 text-primary" />
                   Audit Status
                 </CardTitle>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Audit Completion:{" "}
                   <span className={`font-semibold tabular-nums ${completionPct >= 80 ? "text-emerald-400" : completionPct >= 50 ? "text-amber-400" : "text-red-400"}`}>
                     {completionPct}%
@@ -3363,15 +3363,15 @@ export default function DashboardPage() {
                     className={`flex flex-col gap-1 p-2.5 rounded-md border ${a.isCurrent ? "border-primary/30 bg-primary/5" : "border-border/30 bg-muted/20"}`}
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className={`text-[10px] font-medium uppercase tracking-wider ${a.isCurrent ? "text-primary" : "text-muted-foreground"}`}>
+                      <span className={`text-xs font-medium uppercase tracking-wider ${a.isCurrent ? "text-primary" : "text-muted-foreground"}`}>
                         {a.label}{a.isCurrent ? " ●" : ""}
                       </span>
                       <StatusIcon s={a.status} />
                     </div>
-                    <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 self-start ${statusStyles[a.status]}`}>
+                    <Badge variant="secondary" className={`text-xs px-1.5 py-0 self-start ${statusStyles[a.status]}`}>
                       {a.status}
                     </Badge>
-                    <span className="text-[9px] text-muted-foreground leading-tight">
+                    <span className="text-xs text-muted-foreground leading-tight">
                       {a.status === "Completed" ? `Last: ${lastCompletedDate}` : `Window: ${a.windowHours}h`}
                     </span>
                   </div>

@@ -570,12 +570,12 @@ export default function GoogleSearchTermsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="search-terms-summary">
         <Card className="bg-card border-border">
           <CardContent className="card-content-premium">
-            <p className="text-[10px] uppercase tracking-wider text-black-400">Terms Reviewed</p>
+            <p className="text-xs uppercase tracking-wider text-black-400">Terms Reviewed</p>
             <p className="text-2xl font-bold tabular-nums text-black mt-1">{termsReviewed.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card className={cn("bg-card border-border", negativesCount > 0 && "border-red-500/30")}>          <CardContent className="card-content-premium">
-          <p className="text-[10px] uppercase tracking-wider text-black-400">Negatives Found</p>
+          <p className="text-xs uppercase tracking-wider text-black-400">Negatives Found</p>
           <p className={cn("text-2xl font-bold tabular-nums mt-1 text-black", negativesCount > 0 ? "text-red-400" : "text-black")}>
             {negativesCount}
           </p>
@@ -583,13 +583,13 @@ export default function GoogleSearchTermsPage() {
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="card-content-premium">
-            <p className="text-[10px] uppercase tracking-wider text-black-400">Competitor Terms</p>
+            <p className="text-xs uppercase tracking-wider text-black-400">Competitor Terms</p>
             <p className="text-2xl font-bold tabular-nums text-amber-400 mt-1">{competitorsCount}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="card-content-premium">
-            <p className="text-[10px] uppercase tracking-wider text-black-400">High-Value Terms</p>
+            <p className="text-xs uppercase tracking-wider text-black-400">High-Value Terms</p>
             <p className="text-2xl font-bold tabular-nums text-emerald-400 mt-1">{highValueCount}</p>
           </CardContent>
         </Card>
@@ -660,7 +660,7 @@ export default function GoogleSearchTermsPage() {
             <tab.icon className="w-3.5 h-3.5" />
             {tab.label}
             {tab.count > 0 && (
-              <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-gray-700 text-gray-400">
+              <Badge variant="outline" className="text-xs px-1 py-0 ml-1 border-gray-700 text-gray-400">
                 {tab.count}
               </Badge>
             )}
@@ -694,7 +694,7 @@ export default function GoogleSearchTermsPage() {
                       <th
                         key={col.key}
                         className={cn(
-                          "p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 cursor-pointer select-none whitespace-nowrap",
+                          "p-3 text-xs font-medium uppercase tracking-wider text-gray-500 cursor-pointer select-none whitespace-nowrap",
                           col.align === "right" ? "text-right" : "text-left"
                         )}
                         onClick={() => toggleSort(col.key)}
@@ -705,7 +705,7 @@ export default function GoogleSearchTermsPage() {
                         </span>
                       </th>
                     ))}
-                    <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-gray-500 text-left">Action</th>
+                    <th className="p-3 text-xs font-medium uppercase tracking-wider text-gray-500 text-left">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -748,19 +748,19 @@ export default function GoogleSearchTermsPage() {
                             <TooltipContent><p className="text-xs max-w-xs">{termText}</p></TooltipContent>
                           </Tooltip>
                           {term.reason && (
-                            <span className="text-[10px] text-gray-600 block truncate mt-0.5">
+                            <span className="text-xs text-gray-600 block truncate mt-0.5">
                               {truncate(term.reason, 40)}
                             </span>
                           )}
                         </td>
                         <td className="p-3 max-w-[150px]">
                           <span className="text-gray-400 truncate block font-semibold">{truncate(term.campaign || "—", 25)}</span>
-                          <span className="text-[10px] text-gray-500 truncate block mt-0.5" title={term.ad_group || term.ad_group_name || "—"}>
+                          <span className="text-xs text-gray-500 truncate block mt-0.5" title={term.ad_group || term.ad_group_name || "—"}>
                             {truncate(term.ad_group || term.ad_group_name || "—", 25)}
                           </span>
                         </td>
                         <td className="p-3">
-                          <span className="text-gray-500 text-[10px] uppercase">{term.match_type || "—"}</span>
+                          <span className="text-gray-500 text-xs uppercase">{term.match_type || "—"}</span>
                         </td>
                         <td className="p-3">
                           {(() => {
@@ -780,7 +780,7 @@ export default function GoogleSearchTermsPage() {
                             }
                             
                             return (
-                              <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 border", cls)}>
+                              <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border", cls)}>
                                 {intent}
                               </Badge>
                             );
@@ -806,7 +806,7 @@ export default function GoogleSearchTermsPage() {
                         </td>
                         <td className="p-3">
                           {isExecuted ? (
-                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                            <Badge variant="outline" className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Blocked
                             </Badge>
@@ -814,7 +814,7 @@ export default function GoogleSearchTermsPage() {
                             <div className="flex items-center gap-1">
                               <button
                                 className={cn(
-                                  "inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded border transition-colors",
+                                  "inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border transition-colors",
                                   "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 cursor-pointer"
                                 )}
                                 onClick={() => openBlockDialog(term)}
@@ -827,7 +827,7 @@ export default function GoogleSearchTermsPage() {
                               {/* Promote to Keyword button for high-value terms */}
                               {term.conversions > 0 && term.cost > 0 && (term.cpl || term.cost / term.conversions) <= (((data as any)?.benchmarks?.cpl || 1000) * 1.3) && (
                                 <button
-                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded border transition-colors bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
+                                  className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border transition-colors bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
                                   onClick={() => {
                                     const matchType = term.match_type === "EXACT" ? "EXACT" : term.match_type === "PHRASE" ? "PHRASE" : "EXACT";
                                     navigator.clipboard.writeText(term.search_term || term.term || "");
@@ -842,7 +842,7 @@ export default function GoogleSearchTermsPage() {
                               {isNegativeCandidate && !isExecuted && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[9px] px-1 py-0 bg-red-500/5 text-red-300 border-red-500/20"
+                                  className="text-xs px-1 py-0 bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20"
                                 >
                                   neg
                                 </Badge>
@@ -851,7 +851,7 @@ export default function GoogleSearchTermsPage() {
                                 <Badge
                                   variant="outline"
                                   className={cn(
-                                    "text-[10px] px-1.5 py-0 border",
+                                    "text-xs px-1.5 py-0 border",
                                     term.recommendation.includes("expand") || term.recommendation.includes("exact")
                                       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                                       : "bg-amber-500/10 text-amber-400 border-amber-500/30"
@@ -919,7 +919,7 @@ export default function GoogleSearchTermsPage() {
                         <th
                           key={col.key}
                           className={cn(
-                            "p-3 text-[10px] font-medium uppercase tracking-wider text-black cursor-pointer select-none whitespace-nowrap",
+                            "p-3 text-xs font-medium uppercase tracking-wider text-black cursor-pointer select-none whitespace-nowrap",
                             col.align === "right" ? "text-right" : "text-left"
                           )}
                           onClick={() => toggleSort(col.key)}
@@ -930,7 +930,7 @@ export default function GoogleSearchTermsPage() {
                           </span>
                         </th>
                       ))}
-                      <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">
+                      <th className="p-3 text-xs font-medium uppercase tracking-wider text-black text-left">
                         Signal
                       </th>
                     </tr>
@@ -957,7 +957,7 @@ export default function GoogleSearchTermsPage() {
                         <td className="p-3">
                           {ng.recommendation ? (
                             <Badge variant="outline" className={cn(
-                              "text-[10px] px-1.5 py-0 border",
+                              "text-xs px-1.5 py-0 border",
                               ng.recommendation.toLowerCase().includes("negative") ? "bg-red-500/10 text-red-400 border-red-500/30" :
                                 ng.recommendation.toLowerCase().includes("keep") || ng.recommendation.toLowerCase().includes("expand") ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
                                   "bg-amber-500/10 text-amber-400 border-amber-500/30"
@@ -965,15 +965,15 @@ export default function GoogleSearchTermsPage() {
                               {truncate(ng.recommendation, 25)}
                             </Badge>
                           ) : (ng.conversions ?? 0) === 0 && (ng.cost ?? 0) > 0 ? (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-500/10 text-red-400 border-red-500/30">
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-red-500/10 text-red-400 border-red-500/30">
                               Potential Negative
                             </Badge>
                           ) : (ng.conversions ?? 0) > 0 && (ng.cvr ?? ng.avg_cvr ?? 0) > 3 ? (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                               High-Value
                             </Badge>
                           ) : (
-                            <span className="text-black text-[10px]">Monitor</span>
+                            <span className="text-black text-xs">Monitor</span>
                           )}
                         </td>
                       </tr>
@@ -1039,10 +1039,10 @@ export default function GoogleSearchTermsPage() {
                   <table className="t-table w-full">
                     <thead>
                       <tr className="border-b border-gray-800">
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Keyword</th>
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Match Type</th>
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Campaign</th>
-                        <th className="p-3 text-[10px] font-medium uppercase tracking-wider text-black text-left">Criterion ID</th>
+                        <th className="p-3 text-xs font-medium uppercase tracking-wider text-black text-left">Keyword</th>
+                        <th className="p-3 text-xs font-medium uppercase tracking-wider text-black text-left">Match Type</th>
+                        <th className="p-3 text-xs font-medium uppercase tracking-wider text-black text-left">Campaign</th>
+                        <th className="p-3 text-xs font-medium uppercase tracking-wider text-black text-left">Criterion ID</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1055,7 +1055,7 @@ export default function GoogleSearchTermsPage() {
                           <td className="p-3 text-black font-medium">{neg.keyword}</td>
                           <td className="p-3">
                             <Badge variant="outline" className={cn(
-                              "text-[10px] px-1.5 py-0 border",
+                              "text-xs px-1.5 py-0 border",
                               neg.matchType === "EXACT" ? "bg-blue-500/10 text-blue-400 border-blue-500/30" :
                                 neg.matchType === "PHRASE" ? "bg-purple-500/10 text-purple-400 border-purple-500/30" :
                                   "bg-gray-500/10 text-gray-400 border-gray-500/30"
@@ -1064,12 +1064,12 @@ export default function GoogleSearchTermsPage() {
                             </Badge>
                           </td>
                           <td className="p-3 text-black">{truncate(neg.campaignName, 40)}</td>
-                          <td className="p-3 text-gray-600 font-mono text-[10px]">{neg.criterionId}</td>
+                          <td className="p-3 text-gray-600 font-mono text-xs">{neg.criterionId}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div className="p-3 border-t bg-card border border-border text-[10px] text-black">
+                  <div className="p-3 border-t bg-card border border-border text-xs text-black">
                     {existingNegatives.length} negative keyword{existingNegatives.length !== 1 ? "s" : ""} found
                   </div>
                 </div>
@@ -1095,7 +1095,7 @@ export default function GoogleSearchTermsPage() {
           <div className="space-y-4 py-2">
             {/* Keyword (read-only) */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Keyword</label>
+              <label className="text-xs uppercase tracking-wider text-black block mb-1">Keyword</label>
               <div className="text-sm text-black bg-card border border-border rounded px-3 py-2">
                 {blockTerm ? getTermText(blockTerm) : ""}
               </div>
@@ -1103,7 +1103,7 @@ export default function GoogleSearchTermsPage() {
 
             {/* Match Type */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Match Type</label>
+              <label className="text-xs uppercase tracking-wider text-black block mb-1">Match Type</label>
               <Select value={blockMatchType} onValueChange={(val) => setBlockMatchType(val as "EXACT" | "PHRASE" | "BROAD")}>
                 <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue />
@@ -1118,7 +1118,7 @@ export default function GoogleSearchTermsPage() {
 
             {/* Campaign */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Campaign</label>
+              <label className="text-xs uppercase tracking-wider text-black block mb-1">Campaign</label>
               <Select value={blockCampaignId} onValueChange={setBlockCampaignId}>
                 <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue placeholder="Select campaign" />
@@ -1176,24 +1176,24 @@ export default function GoogleSearchTermsPage() {
           <div className="space-y-4 py-2">
             {/* Preview of selected terms */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">
+              <label className="text-xs uppercase tracking-wider text-black block mb-1">
                 Keywords ({selectedTermKeys.size})
               </label>
               <div className="bg-card border border-border rounded p-2 max-h-32 overflow-y-auto space-y-1">
                 {Array.from(selectedTermKeys).slice(0, 20).map((key) => (
-                  <div key={key} className="text-[11px] text-black">
+                  <div key={key} className="text-xs text-black">
                     {key.split("__")[0]}
                   </div>
                 ))}
                 {selectedTermKeys.size > 20 && (
-                  <div className="text-[10px] text-black">...and {selectedTermKeys.size - 20} more</div>
+                  <div className="text-xs text-black">...and {selectedTermKeys.size - 20} more</div>
                 )}
               </div>
             </div>
 
             {/* Match Type */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Match Type (applied to all)</label>
+              <label className="text-xs uppercase tracking-wider text-black block mb-1">Match Type (applied to all)</label>
               <Select value={bulkMatchType} onValueChange={(val) => setBulkMatchType(val as "EXACT" | "PHRASE" | "BROAD")}>
                 <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue />
@@ -1208,7 +1208,7 @@ export default function GoogleSearchTermsPage() {
 
             {/* Campaign */}
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-black block mb-1">Target Campaign</label>
+              <label className="text-xs uppercase tracking-wider text-black block mb-1">Target Campaign</label>
               <Select value={bulkCampaignId} onValueChange={setBulkCampaignId}>
                 <SelectTrigger className="text-xs bg-card border border-border text-black h-9">
                   <SelectValue placeholder="Select campaign" />
