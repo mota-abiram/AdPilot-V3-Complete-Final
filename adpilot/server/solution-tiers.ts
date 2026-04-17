@@ -54,7 +54,7 @@ function getExecutionAction(
   if (intent === "scale_down") return "SCALE_BUDGET_DOWN";
   if (intent === "set_budget") return isGoogle ? "SET_CAMPAIGN_BUDGET" : "SET_BUDGET";
 
-  return intent.toUpperCase();
+  return String(intent).toUpperCase();
 }
 
 /**

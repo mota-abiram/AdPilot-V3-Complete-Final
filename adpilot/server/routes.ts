@@ -3529,7 +3529,8 @@ export async function registerRoutes(
 
   app.get("/api/performance-alerts/:clientId/:platform", requireAdmin, async (req, res) => {
     try {
-      const { clientId, platform } = req.params;
+      const clientId = String(req.params.clientId);
+      const platform = String(req.params.platform);
       const alerts = await db.select().from(performanceAlerts).where(
         and(
           eq(performanceAlerts.clientId, clientId),
@@ -3545,7 +3546,7 @@ export async function registerRoutes(
 
   app.post("/api/performance-alerts/:id/complete", requireAdmin, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       await db.update(performanceAlerts)
         .set({ status: "completed", updatedAt: new Date() })
         .where(eq(performanceAlerts.id, parseInt(id)));
@@ -3557,7 +3558,7 @@ export async function registerRoutes(
 
   app.post("/api/performance-alerts/:id/reject", requireAdmin, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       await db.update(performanceAlerts)
         .set({ status: "rejected", updatedAt: new Date() })
         .where(eq(performanceAlerts.id, parseInt(id)));

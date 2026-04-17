@@ -524,7 +524,6 @@ export default function CampaignsPage() {
             return renderCell(c, col, sectionType);
           })}
 
-          const isUnderperformer = getClassification(c) === "UNDERPERFORMER";
           {/* Execution Actions Cell */}
           <td className="p-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-1 justify-center">
@@ -535,7 +534,7 @@ export default function CampaignsPage() {
                   entityName={c.campaign_name || c.name}
                   entityType="campaign"
                   label=""
-                  variant={isUnderperformer ? "destructive" : "ghost"}
+                  variant={getClassification(c) === "UNDERPERFORMER" ? "destructive" : "ghost"}
                   size="icon"
                   icon={<Pause className="w-3.5 h-3.5" />}
                   confirmMessage={`Pause campaign "${c.campaign_name || c.name}"?`}

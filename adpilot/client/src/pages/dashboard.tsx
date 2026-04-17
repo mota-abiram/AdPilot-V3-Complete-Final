@@ -111,6 +111,7 @@ import {
   getFrequencyColorWithBenchmarks,
   getHealthColor,
   getClassificationColor as getClassificationStyle,
+  type MetricStatus,
 } from "@/lib/format";
 import { useMetaBenchmarks } from "@/hooks/use-meta-benchmarks";
 
@@ -564,7 +565,7 @@ export default function DashboardPage() {
   const now = useNow();
 
   // --- Stateful Performance Alerts ---
-  const { data: statefulAlerts = [], refetch: refetchAlerts } = useQuery({
+  const { data: statefulAlerts = [] as any[], refetch: refetchAlerts } = useQuery<any[]>({
     queryKey: [`/api/performance-alerts/${activeClient?.id}/${activePlatform}`],
     enabled: !!activeClient?.id && !!activePlatform
   });
@@ -1293,21 +1294,21 @@ export default function DashboardPage() {
   const kpiCplStatus = useMemo(() => (
     metaBenchmarksData
       ? displayAp.overall_cpl <= t_cpl_target
-        ? { label: "On Target", variant: "success" }
+        ? { label: "On Target", variant: "success" as const }
         : displayAp.overall_cpl <= t_cpl_critical
-          ? { label: "Watch", variant: "warning" }
-          : { label: "Alert", variant: "destructive" }
+          ? { label: "Watch", variant: "warning" as const }
+          : { label: "Alert", variant: "destructive" as const }
       : undefined
   ), [displayAp.overall_cpl, t_cpl_target, t_cpl_critical, metaBenchmarksData]);
 
   const kpiCpsvStatus = useMemo(() => (
     (cpsvMtd || 0) > 0
       ? (cpsvMtd || 0) <= targetCpsvValue
-        ? { label: "On Target", variant: "success" }
+        ? { label: "On Target", variant: "success" as const }
         : (cpsvMtd || 0) <= targetCpsvValue * 1.3
-          ? { label: "Watch", variant: "warning" }
-          : { label: "Alert", variant: "destructive" }
-      : { label: "Awaiting Data", variant: "secondary" }
+          ? { label: "Watch", variant: "warning" as const }
+          : { label: "Alert", variant: "destructive" as const }
+      : { label: "Awaiting Data", variant: "secondary" as const }
   ), [cpsvMtd, targetCpsvValue]);
 
   const kpiPacingValue = useMemo(() => (
@@ -1317,11 +1318,11 @@ export default function DashboardPage() {
   ), [authMtd.spend, proRatedBudgetThreshold]);
 
   const kpiPacingStatus = useMemo(() => {
-    if (!authMtd.spend || !proRatedBudgetThreshold || proRatedBudgetThreshold <= 0) return { label: "N/A", variant: "secondary" };
+    if (!authMtd.spend || !proRatedBudgetThreshold || proRatedBudgetThreshold <= 0) return { label: "N/A", variant: "secondary" as const };
     const ratio = authMtd.spend / proRatedBudgetThreshold;
-    if (ratio >= 0.9 && ratio <= 1.1) return { label: "On Track", variant: "success" };
-    if (ratio > 1.1) return { label: "Ahead", variant: "warning" };
-    return { label: "Behind", variant: "destructive" };
+    if (ratio >= 0.9 && ratio <= 1.1) return { label: "On Track", variant: "success" as const };
+    if (ratio > 1.1) return { label: "Ahead", variant: "warning" as const };
+    return { label: "Behind", variant: "destructive" as const };
   }, [authMtd.spend, proRatedBudgetThreshold]);
 
   // ─── 7. Data Loading & Errors (Below hooks) ─────────────────────────
@@ -2267,7 +2268,7 @@ export default function DashboardPage() {
             mtdTarget: qLeadTargetMonthly > 0 ? Math.round(mtdTarget(qLeadTargetMonthly)) : <Dash />,
             delivered: <span className="font-semibold">{mtdQLeads > 0 ? mtdQLeads : <Dash />}</span>,
             projectedNode: projectedQLeads > 0 ? Math.round(projectedQLeads) : <Dash />,
-            status: qLeadTargetMonthly > 0 ? pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)) : { label: "Awaiting", status: "YELLOW", variant: "secondary" },
+            status: qLeadTargetMonthly > 0 ? pacingStatus(mtdQLeads, mtdTarget(qLeadTargetMonthly)) : { label: "Awaiting", status: "YELLOW" as MetricStatus, variant: "secondary" },
             daily: qLeadTargetMonthly > 0 && daysRemaining > 0 ? dailyNeeded(qLeadTargetMonthly, mtdQLeads).toFixed(1) : <Dash />,
           };
           const cpqlRow = {
@@ -2275,7 +2276,7 @@ export default function DashboardPage() {
             mtdTarget: cpqlTargetVal > 0 ? formatINR(cpqlTargetVal, 0) : <Dash />,
             delivered: <span className="font-semibold">{mtdCpql > 0 ? formatINR(mtdCpql, 0) : <Dash />}</span>,
             projectedNode: projectedRatio(projectedSpend, projectedQLeads) > 0 ? formatINR(projectedRatio(projectedSpend, projectedQLeads), 0) : <Dash />,
-            status: cpqlTargetVal > 0 ? costStatus(mtdCpql, cpqlTargetVal) : { label: "Awaiting", status: "YELLOW", variant: "secondary" },
+            status: cpqlTargetVal > 0 ? costStatus(mtdCpql, cpqlTargetVal) : { label: "Awaiting", status: "YELLOW" as MetricStatus, variant: "secondary" },
             daily: <Dash />,
           };
           const svsRow = {
@@ -2283,7 +2284,7 @@ export default function DashboardPage() {
             mtdTarget: svsTargetLow > 0 ? Math.round(mtdTarget(svsTargetLow)) : <Dash />,
             delivered: <span className="font-semibold">{mtdSvs > 0 ? mtdSvs : <Dash />}</span>,
             projectedNode: projectedSvs > 0 ? Math.round(projectedSvs) : <Dash />,
-            status: mtdSvs > 0 ? pacingStatus(mtdSvs, mtdTarget(svsTargetLow)) : { label: "Awaiting data", status: "YELLOW", variant: "secondary" },
+            status: mtdSvs > 0 ? pacingStatus(mtdSvs, mtdTarget(svsTargetLow)) : { label: "Awaiting data", status: "YELLOW" as MetricStatus, variant: "secondary" },
             daily: svsTargetLow > 0 && daysRemaining > 0 ? dailyNeeded(svsTargetLow, mtdSvs).toFixed(1) : <Dash />,
             highlight: true,
           };
@@ -2292,7 +2293,7 @@ export default function DashboardPage() {
             mtdTarget: cpsvTargetHigh > 0 ? `${formatINR(cpsvTargetLow, 0)}–${formatINR(cpsvTargetHigh, 0)}` : <Dash />,
             delivered: <span className="font-semibold">{mtdCpsv > 0 ? formatINR(mtdCpsv, 0) : <Dash />}</span>,
             projectedNode: projectedRatio(projectedSpend, projectedSvs) > 0 ? formatINR(projectedRatio(projectedSpend, projectedSvs), 0) : <Dash />,
-            status: mtdCpsv > 0 ? costStatus(mtdCpsv, cpsvTargetHigh) : { label: "Awaiting data", status: "YELLOW", variant: "secondary" },
+            status: mtdCpsv > 0 ? costStatus(mtdCpsv, cpsvTargetHigh) : { label: "Awaiting data", status: "YELLOW" as MetricStatus, variant: "secondary" },
             daily: <Dash />,
           };
           const cpmRow = {
@@ -2319,7 +2320,7 @@ export default function DashboardPage() {
             mtdTarget: <Dash />,
             delivered: <span className="font-semibold">{mtdClosures > 0 ? mtdClosures : <Dash />}</span>,
             projectedNode: <Dash />,
-            status: mtdClosures > 0 ? { label: "TRACKING", status: "GREEN", variant: "success" } : { label: "Awaiting data", status: "YELLOW", variant: "secondary" },
+            status: mtdClosures > 0 ? { label: "TRACKING", status: "GREEN" as MetricStatus, variant: "success" } : { label: "Awaiting data", status: "YELLOW" as MetricStatus, variant: "secondary" },
             daily: <Dash />,
           };
 
@@ -2909,7 +2910,7 @@ export default function DashboardPage() {
                         <td className="p-2 text-right tabular-nums t-micro text-muted-foreground">{c.clicks || 0}</td>
                         <td className="p-2 text-right tabular-nums t-micro">{formatPct(c.ctr || 0)}</td>
                         <td className="p-2 text-right tabular-nums t-micro">{formatINR(c.cpm || 0, 0)}</td>
-                        <td className={`p-2 text-right tabular-nums t-micro font-medium ${c.cpl > 0 ? getCplColorWithBenchmarks(c.cpl, metaBenchmarksData) : "text-foreground"}`}>
+                        <td className={`p-2 text-right tabular-nums t-micro font-medium ${c.cpl > 0 ? getCplColorWithBenchmarks(c.cpl, metaBenchmarks) : "text-foreground"}`}>
                           {c.cpl > 0 ? formatINR(c.cpl, 0) : "—"}
                         </td>
                         <td className="p-2 text-center">
