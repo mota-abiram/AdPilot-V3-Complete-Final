@@ -25,7 +25,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="text-sm bg-muted/30 border-border/50"
+        className="text-base bg-muted/30 border-border/50"
       />
       {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
     </div>
@@ -70,7 +70,7 @@ export function AddClientModal({ onClose, onCreated }: { onClose: () => void; on
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="w-full max-w-lg mx-4 bg-background border border-border rounded-xl shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
+          <h2 className="text-base font-semibold flex items-center gap-2">
             <Plus className="w-4 h-4 text-primary" /> Add New Client
           </h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">

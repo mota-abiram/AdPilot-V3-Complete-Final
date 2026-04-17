@@ -365,7 +365,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                 return (
                   <React.Fragment key={i}>
                     <tr className={cn("border-b border-border/20 hover:bg-muted/30 transition-all cursor-pointer group", isExpanded && "bg-primary/5")} onClick={() => toggleExpand(row.dimension)}>
-                      <td className="p-4 font-bold text-foreground text-sm tracking-tight">{row.dimension}</td>
+                      <td className="p-4 font-bold text-foreground text-base tracking-tight">{row.dimension}</td>
                       <td className="p-4">
                         <TooltipProvider>
                           <Tooltip>
@@ -419,7 +419,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                             
                             <div className={cn("p-5 rounded-xl border bg-background/80 shadow-sm space-y-2", health.border)}>
                               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Expert Recommendation:</p>
-                              <p className="text-sm font-medium text-foreground leading-relaxed">
+                              <p className="text-base font-medium text-foreground leading-relaxed">
                                 System indicates <span className={cn("font-bold", rec.color)}>{rec.text}</span> because {rec.reason.toLowerCase()}. 
                                 Efficiency Score of <span className={cn("font-bold", health.color)}>{score.total}/100</span> suggests this segment is 
                                 {score.total >= 60 ? " prime for budget acceleration or stabilization." : " currently underperforming relative to account-wide benchmarks and requires intervention."}
@@ -537,7 +537,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
       <Card className="m-6 bg-muted/20 border-border/50">
         <CardContent className="p-12 text-center">
           <Clock className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             {data?.message || "Google breakdown data not yet synced for this cadence."}
           </p>
         </CardContent>
@@ -550,7 +550,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
       <Card className="m-6 bg-muted/20 border-border/50" >
         <CardContent className="p-12 text-center">
           <Clock className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             No {activeTab.toLowerCase()} segments detected for the selected period.
           </p>
         </CardContent>
@@ -634,7 +634,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
                           />
                           <div className="p-5 rounded-xl border border-border/40 bg-background/80 shadow-sm mt-4">
                             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Strategic analysis:</p>
-                            <p className="text-sm font-medium text-foreground leading-relaxed">
+                            <p className="text-base font-medium text-foreground leading-relaxed">
                               Strategic analysis for Google segment <strong>{row.dimension}</strong>. Cost per lead is {row.cpl > 0 ? formatINR(row.cpl, 0) : "not yet established"}. 
                               {row.cpl > 0 && row.cpl < 850 ? " Performance is within acceptable Google benchmarks." : " Intervention may be required to qualify traffic and reduce CPA drift."}
                             </p>

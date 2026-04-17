@@ -361,7 +361,7 @@ export default function SettingsPage() {
       {/* ─── A) API Status Section ──────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <Globe className="w-4 h-4" />
             API Status
           </CardTitle>
@@ -532,7 +532,7 @@ export default function SettingsPage() {
       {/* ─── AI Engine Configuration ────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2 text-foreground">
+          <CardTitle className="text-base flex items-center gap-2 text-foreground">
             <Terminal className="w-4 h-4 text-primary" />
             AI Engine Configuration
           </CardTitle>
@@ -592,7 +592,7 @@ export default function SettingsPage() {
       {/* ─── B) Access Management Section ───────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <Users className="w-4 h-4" />
             Access Management
             <Badge variant="secondary" className="text-xs">{user?.role || "member"}</Badge>
@@ -607,20 +607,20 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <Input
                   placeholder="Full name"
-                  className="text-sm bg-muted/30"
+                  className="text-base bg-muted/30"
                   value={newUser.name}
                   onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
                 />
                 <Input
                   placeholder="email@example.com"
-                  className="text-sm bg-muted/30"
+                  className="text-base bg-muted/30"
                   value={newUser.email}
                   onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
                 />
                 <Input
                   placeholder="Temporary password"
                   type="password"
-                  className="text-sm bg-muted/30"
+                  className="text-base bg-muted/30"
                   value={newUser.password}
                   onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
                 />
@@ -649,15 +649,15 @@ export default function SettingsPage() {
 
               <div className="space-y-2">
                 {isLoadingUsers ? (
-                  <p className="text-xs text-muted-foreground italic">Loading users...</p>
+                  <p className="text-xs text-muted-foreground ">Loading users...</p>
                 ) : accessUsers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">No users found</p>
+                  <p className="text-xs text-muted-foreground ">No users found</p>
                 ) : (
                   accessUsers.map((accessUser) => (
                     <div key={accessUser.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 p-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{accessUser.name}</span>
+                          <span className="text-base font-medium">{accessUser.name}</span>
                           <Badge variant="secondary" className="text-xs">{accessUser.role}</Badge>
                           <Badge
                             variant="secondary"
@@ -690,7 +690,7 @@ export default function SettingsPage() {
               </div>
             </>
           ) : (
-            <p className="text-xs text-muted-foreground italic">Only admins can manage user access.</p>
+            <p className="text-xs text-muted-foreground ">Only admins can manage user access.</p>
           )}
         </CardContent>
       </Card>
@@ -698,7 +698,7 @@ export default function SettingsPage() {
       {/* ─── C) Client Configuration Section ────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <Target className="w-4 h-4" />
             Client Configuration
           </CardTitle>
@@ -810,7 +810,7 @@ export default function SettingsPage() {
       {/* ─── D) Agent Schedule Section ──────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             Agent Schedule
           </CardTitle>
@@ -820,7 +820,7 @@ export default function SettingsPage() {
           <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-primary">Daily Agent Run</p>
+                <p className="text-base font-medium text-primary">Daily Agent Run</p>
                 <p className="t-label">
                   Runs every day at 9:00 AM IST — refreshes all data, campaigns, metrics, alerts, and insights
                 </p>
@@ -979,7 +979,7 @@ export default function SettingsPage() {
       {/* ─── E) Data Export Section ──────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <Download className="w-4 h-4" />
             Data Export
           </CardTitle>
@@ -1163,7 +1163,7 @@ export default function SettingsPage() {
       {/* ─── F) About Section ───────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
             <Info className="w-4 h-4" />
             About
           </CardTitle>
@@ -1171,7 +1171,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-base font-semibold text-foreground">
                 Mojo Performance Agent V2
               </p>
               <p className="t-label">

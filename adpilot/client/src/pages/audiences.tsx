@@ -349,7 +349,7 @@ export default function AudiencesPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-10 text-center text-xs text-muted-foreground italic">
+                  <td colSpan={11} className="p-10 text-center text-xs text-muted-foreground ">
                     No audiences match your filter.
                   </td>
                 </tr>

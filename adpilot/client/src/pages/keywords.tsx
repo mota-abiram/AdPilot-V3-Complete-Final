@@ -165,7 +165,7 @@ export default function KeywordsPage() {
             <Search className="w-6 h-6 text-primary" />
             Keyword Intelligence
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Search keywords performance and Quality Score optimization
           </p>
         </div>
@@ -220,7 +220,7 @@ export default function KeywordsPage() {
               stats.avgQs >= 7 ? "text-emerald-400" : stats.avgQs >= 5 ? "text-amber-400" : "text-red-400"
             )}>
               {stats.avgQs.toFixed(1)}
-              <span className="text-sm font-medium text-muted-foreground ml-1">/ 10</span>
+              <span className="text-base font-medium text-muted-foreground ml-1">/ 10</span>
             </p>
           </CardContent>
         </Card>

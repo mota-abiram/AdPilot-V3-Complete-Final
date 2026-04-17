@@ -97,7 +97,7 @@ export default function AuditPage() {
               <h2 className="text-xl font-bold text-foreground">
                 {criticalCount > 0 ? "Critical System Deviations" : highCount > 0 ? "Performance Warnings" : "System in Optimal Equilibrium"}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 {criticalCount > 0 
                   ? `${criticalCount} mission-critical issues require immediate intervention.` 
                   : highCount > 0 
@@ -144,7 +144,7 @@ export default function AuditPage() {
                         </Badge>
                         <span className="text-xs text-muted-foreground font-medium uppercase">{ins.entityType || "Account"}</span>
                      </div>
-                     <p className="text-sm font-bold text-foreground italic">"{ins.issue}"</p>
+                     <p className="text-base font-bold text-foreground ">"{ins.issue}"</p>
                      <p className="text-xs text-muted-foreground leading-relaxed">{ins.impact}</p>
                      <div className="flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/10 p-2.5 rounded-lg">
                         <ArrowRight className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
@@ -156,7 +156,7 @@ export default function AuditPage() {
             ) : (
               <div className="p-12 text-center space-y-3">
                  <ShieldCheck className="w-10 h-10 text-emerald-500/40 mx-auto" />
-                 <p className="text-sm text-muted-foreground">All deterministic SOP rules are in a passing state.</p>
+                 <p className="text-base text-muted-foreground">All deterministic SOP rules are in a passing state.</p>
               </div>
             )}
           </CardContent>
@@ -180,7 +180,7 @@ export default function AuditPage() {
                         </Badge>
                         <span className="text-xs text-muted-foreground font-medium uppercase">{ins.entityType || "Account"}</span>
                      </div>
-                     <p className="text-sm font-bold text-foreground italic">"{ins.issue}"</p>
+                     <p className="text-base font-bold text-foreground ">"{ins.issue}"</p>
                      <p className="text-xs text-muted-foreground leading-relaxed">{ins.impact}</p>
                      <div className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/10 p-2.5 rounded-lg">
                         <Brain className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
@@ -192,7 +192,7 @@ export default function AuditPage() {
             ) : (
               <div className="p-12 text-center space-y-3">
                  <Activity className="w-10 h-10 text-blue-500/40 mx-auto" />
-                 <p className="text-sm text-muted-foreground">AI hasn't identified any strategic shifts beyond SOP baselines.</p>
+                 <p className="text-base text-muted-foreground">AI hasn't identified any strategic shifts beyond SOP baselines.</p>
               </div>
             )}
           </CardContent>

@@ -469,7 +469,7 @@ export default function AdsetsPage() {
               </thead>
               <tbody>
                 {paginatedItems.map(a => renderGoogleAgRow(a, columns, isSearch))}
-                {rows.length === 0 && <tr><td colSpan={columns.length + 2} className="p-8 text-center text-muted-foreground italic text-xs">No entries found</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={columns.length + 2} className="p-8 text-center text-muted-foreground text-xs">No entries found</td></tr>}
               </tbody>
             </table>
           </div>
@@ -790,7 +790,7 @@ export default function AdsetsPage() {
                   })}
                   {adsets.length === 0 && (
                     <tr>
-                      <td colSpan={metaColumns.length + 2} className="p-10 text-center text-muted-foreground italic text-xs">
+                      <td colSpan={metaColumns.length + 2} className="p-10 text-center text-muted-foreground text-xs">
                         No active adsets found
                       </td>
                     </tr>

@@ -68,7 +68,7 @@ export function ScoreIndicator({ score, breakdown, detailedBreakdown, label, des
               })}
             </div>
           ) : (
-            <p className="text-muted-foreground italic text-xs">Detailed breakdown unavailable</p>
+            <p className="text-muted-foreground text-xs">Detailed breakdown unavailable</p>
           )}
         </div>
       </TooltipContent>

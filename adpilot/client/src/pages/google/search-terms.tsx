@@ -505,7 +505,7 @@ export default function GoogleSearchTermsPage() {
         <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <AlertTriangle className="w-10 h-10 text-gray-500 mb-3" />
-            <p className="text-sm text-gray-400">
+            <p className="text-base text-gray-400">
               Search terms data requires search_term_view API access.
             </p>
             <p className="text-xs text-gray-500 mt-1">
@@ -1083,7 +1083,7 @@ export default function GoogleSearchTermsPage() {
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
         <DialogContent className="bg-card border border-border text-black max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
               <Ban className="w-4 h-4 text-red-400" />
               Add Negative Keyword
             </DialogTitle>
@@ -1096,7 +1096,7 @@ export default function GoogleSearchTermsPage() {
             {/* Keyword (read-only) */}
             <div>
               <label className="text-xs uppercase tracking-wider text-black block mb-1">Keyword</label>
-              <div className="text-sm text-black bg-card border border-border rounded px-3 py-2">
+              <div className="text-base text-black bg-card border border-border rounded px-3 py-2">
                 {blockTerm ? getTermText(blockTerm) : ""}
               </div>
             </div>
@@ -1164,7 +1164,7 @@ export default function GoogleSearchTermsPage() {
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
         <DialogContent className="bg-card border border-border text-black max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
               <Ban className="w-4 h-4 text-red-400" />
               Bulk Add Negative Keywords
             </DialogTitle>

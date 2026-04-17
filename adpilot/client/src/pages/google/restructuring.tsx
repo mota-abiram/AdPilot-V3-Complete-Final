@@ -211,7 +211,7 @@ export default function GoogleRestructuringPage() {
         <Card className="bg-card/40 border-border/50">
           <CardContent className="p-8 text-center">
             <Layers className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">Ad Group Restructuring analysis is available for Google Ads only.</p>
+            <p className="text-muted-foreground text-base">Ad Group Restructuring analysis is available for Google Ads only.</p>
           </CardContent>
         </Card>
       </div>
@@ -226,7 +226,7 @@ export default function GoogleRestructuringPage() {
           <CardContent className="p-8 text-center">
             <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
             <p className="text-foreground font-medium">No restructuring needed</p>
-            <p className="text-muted-foreground text-sm mt-1">
+            <p className="text-muted-foreground text-base mt-1">
               All ad groups are well-structured. No segregation or merging opportunities detected.
             </p>
           </CardContent>
@@ -249,7 +249,7 @@ export default function GoogleRestructuringPage() {
             <GitBranch className="w-6 h-6 text-primary" />
             Ad Group Restructuring
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-base text-muted-foreground mt-0.5">
             Intelligent analysis of when to split or consolidate ad groups
           </p>
         </div>
@@ -363,7 +363,7 @@ export default function GoogleRestructuringPage() {
         <div className="space-y-3" data-testid="segregate-section">
           <div className="flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-purple-400" />
-            <h3 className="text-sm font-semibold text-foreground">Segregate (Split)</h3>
+            <h3 className="text-base font-semibold text-foreground">Segregate (Split)</h3>
             <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30">
               {segregateRecs.length}
             </Badge>
@@ -391,7 +391,7 @@ export default function GoogleRestructuringPage() {
         <div className="space-y-3" data-testid="merge-section">
           <div className="flex items-center gap-2">
             <GitMerge className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-semibold text-foreground">Merge (Consolidate)</h3>
+            <h3 className="text-base font-semibold text-foreground">Merge (Consolidate)</h3>
             <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
               {mergeRecs.length}
             </Badge>
@@ -498,7 +498,7 @@ function RestructuringCard({
             <Icon className={cn("w-4 h-4 mt-0.5 flex-shrink-0", iconColor)} />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={cn("text-sm font-medium", reasonTextTone)}>{reasonLabel(rec.reason)}</span>
+                <span className={cn("text-base font-medium", reasonTextTone)}>{reasonLabel(rec.reason)}</span>
                 <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border", pb.cls)}>
                   {pb.label}
                 </Badge>
@@ -546,7 +546,7 @@ function RestructuringCard({
 
         {/* Execution note */}
         {rec.execution_note && (
-          <p className="text-xs text-muted-foreground italic">{rec.execution_note}</p>
+          <p className="text-xs text-muted-foreground ">{rec.execution_note}</p>
         )}
 
         {/* Execute / Manual Only / Acknowledge buttons */}

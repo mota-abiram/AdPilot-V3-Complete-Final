@@ -56,7 +56,7 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="text-sm bg-muted/30 border-border/50 pr-10"
+          className="text-base bg-muted/30 border-border/50 pr-10"
         />
         {isPassword && (
           <button
@@ -150,7 +150,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="w-full max-w-2xl mx-4 bg-background border border-border rounded-xl shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
+          <h2 className="text-base font-semibold flex items-center gap-2">
             <KeyRound className="w-4 h-4 text-amber-400" /> API Credentials
             <Badge variant="outline" className="text-xs">{clientId}</Badge>
           </h2>
@@ -176,7 +176,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Facebook className="w-4 h-4 text-blue-400" />
-                <p className="text-sm font-medium">Meta Ads</p>
+                <p className="text-base font-medium">Meta Ads</p>
                 {credStatus?.hasMeta
                   ? <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
                   : <Badge variant="outline" className="text-xs text-muted-foreground">Not configured</Badge>}
@@ -206,7 +206,7 @@ function CredentialsPanel({ clientId, onClose }: { clientId: string; onClose: ()
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-amber-400" />
-                <p className="text-sm font-medium">Google Ads</p>
+                <p className="text-base font-medium">Google Ads</p>
                 {credStatus?.hasGoogle
                   ? <Badge className="text-xs bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Credentials saved</Badge>
                   : <Badge variant="outline" className="text-xs text-muted-foreground">Not configured</Badge>}
@@ -293,7 +293,7 @@ function ClientRow({ client, isDefault }: { client: ClientInfo; isDefault: boole
           {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-foreground truncate">{client.name}</span>
+              <span className="text-base font-medium text-foreground truncate">{client.name}</span>
               {isDefault && <Badge variant="secondary" className="text-xs">Default</Badge>}
               {client.location && (
                 <span className="text-xs text-muted-foreground">📍 {client.location}</span>
@@ -467,7 +467,7 @@ export default function ManageClientsPage() {
 
       {/* Client list */}
       {isLoadingClients ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground text-base">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading clients…
         </div>
       ) : (

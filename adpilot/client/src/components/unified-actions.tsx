@@ -286,7 +286,7 @@ export function UnifiedActions(props: UnifiedActionProps) {
                   {entityName}
                 </p>
                 {recommendation && (
-                  <p className="text-xs text-muted-foreground leading-relaxed italic border-l-2 border-primary/20 pl-3">
+                  <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-primary/20 pl-3">
                     {recommendation}
                   </p>
                 )}

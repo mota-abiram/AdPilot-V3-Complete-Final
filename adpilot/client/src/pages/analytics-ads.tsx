@@ -103,7 +103,7 @@ class AnalyticsErrorBoundary extends Component<{ children: ReactNode; location?:
           <h2 className="text-lg font-bold text-foreground">
             Something went wrong {this.state.errorLocation ? `in ${this.state.errorLocation}` : ""}
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{this.state.error?.message}</p>
+          <p className="text-base text-muted-foreground leading-relaxed">{this.state.error?.message}</p>
         </div>
       );
     }
@@ -726,7 +726,7 @@ const AdRow = React.memo(({
   return (
     <Fragment>
       <tr
-        className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer text-sm ${isPaused ? "opacity-50" : ""} ${c.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}
+        className={`border-b border-border/30 hover:bg-muted/30 transition-colors cursor-pointer text-base ${isPaused ? "opacity-50" : ""} ${c.classification === "UNDERPERFORMER" ? "border-l-2 border-l-red-500" : ""}`}
         onClick={onToggleExpand}
       >
         <td className="p-3 w-10 text-center" onClick={e => e.stopPropagation()}>

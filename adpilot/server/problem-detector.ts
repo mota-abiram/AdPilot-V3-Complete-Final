@@ -266,8 +266,10 @@ function detectSeverity(
   const targetCpl = getTargetCpl(ctx, analysisData);
   const raw = entity.raw || {};
 
-  if (entity.type === "account" && entity.score < 55) {
-    triggers.push("account_score_below_55");
+  // CRITICAL triggers
+  // Account score < 40 is CRITICAL (tightened from 55)
+  if (entity.type === "account" && entity.score < 40) {
+    triggers.push("account_score_critical");
   }
 
   if (weakKPIs.some((metric) => metric.score < 15)) {
@@ -276,7 +278,8 @@ function detectSeverity(
 
   const spend = toNumber(raw.spend ?? raw.cost ?? analysisData?.monthly_pacing?.mtd?.spend, 0);
   const leads = toNumber(raw.leads ?? raw.conversions ?? raw.total_leads ?? raw.total_leads_30d, 0);
-  if (targetCpl > 0 && spend > targetCpl * 2 && leads === 0) {
+  // CRITICAL: spend > 3x target CPL with zero leads (tightened from 2x)
+  if (targetCpl > 0 && spend > targetCpl * 3 && leads === 0) {
     triggers.push("zero_lead_budget_drain");
   }
 
@@ -292,15 +295,39 @@ function detectSeverity(
     triggers.push("entity_freefall");
   }
 
+  // CRITICAL: CPL > 2x target is a severe breach
+  const cplValue = toNumber(raw.cpl ?? raw.overall_cpl, 0);
+  if (targetCpl > 0 && cplValue > targetCpl * 2 && cplValue > 0) {
+    triggers.push("cpl_severe_breach");
+  }
+
   if (triggers.length > 0) {
     return { severity: "CRITICAL", triggers };
   }
 
-  if (entity.score < 35) {
+  // MEDIUM triggers
+  // Account score < 55 is MEDIUM (was CRITICAL above 40)
+  if (entity.type === "account" && entity.score < 55) {
+    triggers.push("account_score_medium");
+  }
+
+  // MEDIUM: spend > 2x target CPL with zero leads
+  if (targetCpl > 0 && spend > targetCpl * 2 && leads === 0) {
+    triggers.push("zero_lead_budget_drain");
+  }
+
+  // MEDIUM: CPL > 1.5x target (2x was already CRITICAL above, so no conflict here)
+  if (targetCpl > 0 && cplValue > targetCpl * 1.5 && cplValue <= targetCpl * 2 && cplValue > 0) {
+    triggers.push("cpl_medium_breach");
+  }
+
+  // entity_score_below_35 now requires at least one weak KPI score < 40 to avoid noise
+  if (entity.score < 35 && weakKPIs.some((metric) => metric.score < 40)) {
     triggers.push("entity_score_below_35");
   }
 
-  if (weakKPIs.some((metric) => metric.score >= 15 && metric.score <= 40)) {
+  // kpi_alert_zone: requires at least one weak KPI score < 40 (tightened)
+  if (weakKPIs.some((metric) => metric.score >= 15 && metric.score < 40)) {
     triggers.push("kpi_alert_zone");
   }
 
@@ -440,10 +467,10 @@ function detectScoreDrivenProblems(
     const weakKPIs = weakMetrics.filter((metric) => metric.category === "kpi");
     const weakSupporting = weakMetrics.filter((metric) => metric.category !== "kpi");
 
+    // ── Score-breakdown-driven detection ────────────────────────────
     if (entity.score < 70) {
       if (weakKPIs.length > 0) {
         const { severity, triggers } = detectSeverity(entity, weakKPIs, weakSupporting, analysisData, ctx);
-        // FIX: Pick all weak KPIs but only create ONE problem entry for this entity
         problems.push(buildProblem(entity, weakKPIs, weakMetrics, weakKPIs, weakSupporting, severity, triggers));
       } else if (weakSupporting.length > 0) {
         const supportingProblem = buildProblem(
@@ -457,12 +484,27 @@ function detectScoreDrivenProblems(
         );
         supportingProblem.problemStatement = `${entity.type === "account" ? "Account" : entity.type} "${entity.name}" has weak supporting metrics, but KPIs remain healthy. This stays in optimization territory.`;
         problems.push(supportingProblem);
+      } else {
+        // Entity is underperforming but has no metric breakdown — surface a generic score health alert
+        const { severity, triggers } = detectSeverity(entity, [], [], analysisData, ctx);
+        if (severity !== "LOW" || triggers.some((t) => t !== "watch_zone")) {
+          const syntheticMetric: EntityMetricScore = {
+            key: "health_score",
+            label: "Health Score",
+            score: entity.score,
+            value: entity.score,
+            category: "kpi",
+          };
+          const rawProblem = buildProblem(entity, [syntheticMetric], [syntheticMetric], [syntheticMetric], [], severity, triggers);
+          rawProblem.problemStatement = `${entity.type === "account" ? "Account" : entity.type} "${entity.name}" has a health score of ${entity.score.toFixed(0)}/100 (${entity.classification}) but its detailed metric breakdown is unavailable. The overall score indicates a performance issue that warrants investigation.`;
+          problems.push(rawProblem);
+        }
       }
     }
 
+    // ── Winner underfunded ───────────────────────────────────────────
     if (entity.score > 70 && toNumber(entity.raw?.budget_utilization_pct, 100) < 60) {
       const budgetMetric = entity.metrics.find((metric) => metric.key === "budget");
-      const trigger = "winner_underfunded";
       problems.push({
         id: `${entity.platform}:${entity.type}:${entity.id || entity.name}:winner_underfunded`,
         platform: entity.platform,
@@ -473,36 +515,91 @@ function detectScoreDrivenProblems(
         weakKPIs: budgetMetric ? [budgetMetric] : [],
         weakSupporting: [],
         symptom: `Winner opportunity missed on ${entity.name}`,
-        problemStatement: `${entity.name} is a winner above 70/100 but budget utilization is below 60%, which the document classifies as a missed scaling opportunity.`,
+        problemStatement: `${entity.name} is a winner above 70/100 but budget utilization is below 60%, which classifies as a missed scaling opportunity.`,
         rootCause: traceRootCause(entity.metrics, entity.platform, "budget"),
         dataPoints: [
           `Entity score ${entity.score.toFixed(1)}/100 (${entity.classification})`,
           `Budget utilization ${toNumber(entity.raw?.budget_utilization_pct, 0).toFixed(1)}%`,
         ],
-        triggers: [trigger],
+        triggers: ["winner_underfunded"],
         expectedIfIgnored: "If no action is taken, efficient lead volume remains underfunded and the account loses revenue opportunity.",
       });
     }
 
+    // ── Google impression share budget loss ─────────────────────────
     if (entity.platform === "google" && toNumber(entity.raw?.search_budget_lost_is, 0) > 20) {
       problems.push({
         id: `${entity.platform}:${entity.type}:${entity.id || entity.name}:google_is_budget_lost`,
         platform: entity.platform,
         severity: "MEDIUM",
         entity,
-        symptomMetric: "budget",
+        symptomMetric: "is",
         weakMetrics: [],
         weakKPIs: [],
         weakSupporting: [],
         symptom: `Google impression share budget loss on ${entity.name}`,
-        problemStatement: `${entity.name} is losing impression share due to budget, which the document marks as a medium-priority opportunity when Search IS budget lost exceeds 20%.`,
-        rootCause: traceRootCause(entity.metrics, entity.platform, "budget"),
+        problemStatement: `${entity.name} is losing impression share due to budget constraints. Search IS budget lost exceeds 20% — this is a medium-priority missed opportunity.`,
+        rootCause: traceRootCause(entity.metrics, entity.platform, "is"),
         dataPoints: [
           `Entity score ${entity.score.toFixed(1)}/100 (${entity.classification})`,
           `Search budget lost IS ${toNumber(entity.raw?.search_budget_lost_is, 0).toFixed(1)}%`,
         ],
         triggers: ["google_is_budget_lost"],
         expectedIfIgnored: "If no action is taken, competitors keep capturing impression share that this campaign could win back.",
+      });
+    }
+
+    // ── Google low Quality Score ─────────────────────────────────────
+    if (entity.platform === "google" && toNumber(entity.raw?.qs_avg ?? entity.raw?.quality_score, 0) > 0 && toNumber(entity.raw?.qs_avg ?? entity.raw?.quality_score, 10) < 5) {
+      const qsValue = toNumber(entity.raw?.qs_avg ?? entity.raw?.quality_score, 0);
+      problems.push({
+        id: `${entity.platform}:${entity.type}:${entity.id || entity.name}:low_quality_score`,
+        platform: entity.platform,
+        severity: qsValue < 3 ? "CRITICAL" : "MEDIUM",
+        entity,
+        symptomMetric: "qs",
+        weakMetrics: [],
+        weakKPIs: [],
+        weakSupporting: [],
+        symptom: `Low Quality Score (${qsValue.toFixed(1)}/10) on ${entity.name}`,
+        problemStatement: `${entity.name} has a Quality Score of ${qsValue.toFixed(1)}/10. Quality Scores below 5 increase CPCs significantly and reduce ad placement. This directly inflates CPL.`,
+        rootCause: traceRootCause(entity.metrics, entity.platform, "qs"),
+        dataPoints: [
+          `Quality Score ${qsValue.toFixed(1)}/10`,
+          `Entity score ${entity.score.toFixed(1)}/100 (${entity.classification})`,
+        ],
+        triggers: ["weak_ad_strength", "low_quality_score"],
+        expectedIfIgnored: "Low Quality Score will keep CPC elevated, increasing CPL above target without any increase in traffic quality.",
+      });
+    }
+
+    // ── Pacing emergency (applicable to any entity with pacing data) ─
+    const pacing = entity.raw?.pacing ?? analysisData?.monthly_pacing?.pacing;
+    const spendPct = toNumber(pacing?.spend_pct, 100);
+    const daysRemaining = toNumber(entity.raw?.days_remaining ?? analysisData?.monthly_pacing?.days_remaining, 99);
+    const hasPacingEmergency = Math.abs(spendPct - 100) > 30 && daysRemaining < 7 && entity.type === "account";
+    if (hasPacingEmergency && !problems.some((p) => p.id.includes("budget_pacing") && p.entity.type === "account")) {
+      problems.push({
+        id: `${entity.platform}:account:pacing_emergency`,
+        platform: entity.platform,
+        severity: "CRITICAL",
+        entity,
+        symptomMetric: "budget",
+        weakMetrics: [],
+        weakKPIs: [],
+        weakSupporting: [],
+        symptom: `Budget pacing emergency — ${spendPct.toFixed(1)}% spent with ${daysRemaining} days left`,
+        problemStatement: `Account budget pacing is severely off-track: ${spendPct.toFixed(1)}% of monthly budget consumed with ${daysRemaining} days remaining. ${spendPct > 120 ? "Over-pacing risks exhausting budget early." : "Under-pacing risks missing delivery targets."}`,
+        rootCause: traceRootCause(entity.metrics, entity.platform, "budget"),
+        dataPoints: [
+          `Spend pct: ${spendPct.toFixed(1)}% of monthly budget`,
+          `Days remaining: ${daysRemaining}`,
+          `Entity score ${entity.score.toFixed(1)}/100`,
+        ],
+        triggers: ["budget_pacing_emergency"],
+        expectedIfIgnored: spendPct > 120
+          ? "Budget exhaustion risk: account may stop delivering before month end."
+          : "Under-delivery will result in missed monthly targets and underutilized budget.",
       });
     }
   }

@@ -284,7 +284,7 @@ export default function GoogleQualityScorePage() {
               <Info className="w-8 h-8" />
             </div>
             <h3 className="t-page-title">No keyword data found</h3>
-            <p className="text-sm text-muted-foreground max-w-md mt-2">
+            <p className="text-base text-muted-foreground max-w-md mt-2">
               Quality Score monitoring is active, but we couldn't find keywords for this client.
               Ensure 'keyword_view' is enabled in your Google Ads agent configuration.
             </p>
@@ -434,13 +434,13 @@ export default function GoogleQualityScorePage() {
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-muted/20">
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold text-foreground">{name}</span>
+                        <span className="text-base font-bold text-foreground">{name}</span>
                         <span className="text-xs text-muted-foreground uppercase font-medium">{keywords.length} keywords</span>
                       </div>
                       <div className="flex items-center gap-4 ml-auto">
                         <div className="text-right">
                           <p className="text-xs uppercase font-bold text-muted-foreground">AG Score</p>
-                          <p className={cn("text-sm font-black", qsColor(agAvg))}>{agAvg.toFixed(1)}</p>
+                          <p className={cn("text-base font-black", qsColor(agAvg))}>{agAvg.toFixed(1)}</p>
                         </div>
                         {agCritical > 0 && (
                           <Badge variant="destructive" className="bg-red-500/10 text-red-400 h-6 px-2">{agCritical} Alert</Badge>
@@ -507,7 +507,7 @@ export default function GoogleQualityScorePage() {
                                     </TooltipContent>
                                   </Tooltip>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground italic">Optimal QS</span>
+                                  <span className="text-xs text-muted-foreground ">Optimal QS</span>
                                 )}
                               </td>
                             </tr>

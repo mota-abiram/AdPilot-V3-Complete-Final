@@ -465,7 +465,7 @@ export default function MtdDeliverablesPage() {
           <Card className="border-primary/20 shadow-lg overflow-hidden bg-gradient-to-br from-card to-card/60">
             <div className="h-1 bg-primary/40" />
             <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
                 <FileText className="w-4 h-4 text-primary" />
                 Manual Performance Sync
               </CardTitle>
@@ -565,7 +565,7 @@ export default function MtdDeliverablesPage() {
           <Card className="bg-gradient-to-br from-card to-card/50 border-border/60 shadow-xl overflow-hidden mt-6">
             <div className="h-1 bg-primary/20" />
             <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Activity className="w-4 h-4 text-primary" />
                 Funnel Health Audit
               </CardTitle>

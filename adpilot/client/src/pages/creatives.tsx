@@ -608,7 +608,7 @@ export default function CreativesPage() {
                       key={tone}
                       type="button"
                       className={cn(
-                        "rounded-lg border px-3 py-2 text-sm font-semibold capitalize transition-colors",
+                        "rounded-lg border px-3 py-2 text-base font-semibold capitalize transition-colors",
                         setupForm.tone === tone
                           ? "border-primary/40 bg-primary/14 text-foreground shadow-xs"
                           : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/70 text-muted-foreground",
@@ -642,7 +642,7 @@ export default function CreativesPage() {
                     <CardDescription>{group.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-3">
-                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-primary/35 bg-primary/10 px-4 py-3 text-sm font-semibold text-foreground hover:bg-primary/15">
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-primary/35 bg-primary/10 px-4 py-3 text-base font-semibold text-foreground hover:bg-primary/15">
                       <Upload className="w-4 h-4" />
                       Upload {group.title}
                       <input
@@ -660,7 +660,7 @@ export default function CreativesPage() {
                         setupForm[group.field].map((asset) => (
                           <div key={asset.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-foreground truncate">{asset.name}</p>
+                              <p className="text-base font-semibold text-foreground truncate">{asset.name}</p>
                               <p className="type-sm text-muted-foreground">
                                 {asset.type || "asset"}{asset.size ? ` · ${Math.round(asset.size / 1024)} KB` : ""}
                               </p>
@@ -717,7 +717,7 @@ export default function CreativesPage() {
                 </div>
                 <div className="rounded-[12px] border border-border/50 bg-background/70 px-3 py-2">
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Latest</p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">
+                  <p className="mt-1 text-base font-semibold text-foreground">
                     {hubData?.threads[0] ? formatRelativeTime(hubData.threads[0].updatedAt) : "None"}
                   </p>
                 </div>
@@ -761,7 +761,7 @@ export default function CreativesPage() {
 
                     <div className="rounded-[12px] bg-muted/35 px-3 py-2.5">
                       <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Offer</p>
-                      <p className="mt-1 text-sm leading-relaxed text-foreground/88 line-clamp-2">
+                      <p className="mt-1 text-base leading-relaxed text-foreground/88 line-clamp-2">
                         {thread.input?.offer || thread.input?.campaignIdea || "No offer added"}
                       </p>
                     </div>
@@ -769,13 +769,13 @@ export default function CreativesPage() {
                     <div className="grid grid-cols-2 gap-2 text-left">
                       <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
                         <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Versions</p>
-                        <p className="mt-1 text-sm font-semibold text-foreground">
+                        <p className="mt-1 text-base font-semibold text-foreground">
                           {Array.isArray(thread.versions) ? thread.versions.length : 0} version{(Array.isArray(thread.versions) ? thread.versions.length : 0) === 1 ? "" : "s"}
                         </p>
                       </div>
                       <div className="rounded-[12px] border border-border/50 bg-background/65 px-3 py-2">
                         <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Updated</p>
-                        <p className="mt-1 text-sm font-semibold text-foreground">{formatRelativeTime(thread.updatedAt)}</p>
+                        <p className="mt-1 text-base font-semibold text-foreground">{formatRelativeTime(thread.updatedAt)}</p>
                       </div>
                     </div>
                   </button>
@@ -831,7 +831,7 @@ export default function CreativesPage() {
                         key={option.value}
                         type="button"
                         className={cn(
-                          "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
+                          "rounded-lg border px-3 py-2 text-base font-semibold transition-colors",
                           promptInput.platform === option.value
                             ? "border-primary/40 bg-primary/14 text-foreground shadow-xs"
                             : "border-border/60 bg-card hover:border-primary/25 hover:bg-accent/70 text-muted-foreground",
@@ -922,7 +922,7 @@ export default function CreativesPage() {
               </div>
 
               {!selectedThread && (
-                <p className="text-xs text-muted-foreground italic flex items-center gap-2 bg-muted/20 p-2 rounded-md">
+                <p className="text-xs text-muted-foreground flex items-center gap-2 bg-muted/20 p-2 rounded-md">
                   <TriangleAlert className="w-3.5 h-3.5 text-warning" />
                   Select or generate an ad concept to enable Visual and Refinement tools.
                 </p>
@@ -1001,7 +1001,7 @@ export default function CreativesPage() {
                       <div className="mt-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Original Build</p>
-                          <p className="text-sm font-semibold text-foreground truncate">
+                          <p className="text-base font-semibold text-foreground truncate">
                             {latestGeneratedImage.requestedSize} · {latestGeneratedImage.modelSize}
                           </p>
                         </div>

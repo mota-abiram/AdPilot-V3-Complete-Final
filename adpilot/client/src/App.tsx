@@ -127,7 +127,7 @@ function AppLayout() {
                 <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
                   {activeClient?.name || "No client selected"}
                 </span>
-                <span className="text-sm font-medium text-foreground/90">
+                <span className="text-base font-medium text-foreground/90">
                   {activePlatformInfo?.enabled ? activePlatformInfo.label : "Platform unavailable"}
                   {analysisData?.period?.primary_7d
                     ? ` · ${analysisData.period.primary_7d.start} — ${analysisData.period.primary_7d.end}`
@@ -150,7 +150,7 @@ function AppLayout() {
                 <DropdownMenuTrigger asChild>
                   <button className="hidden lg:grid text-right leading-none gap-1 px-3 py-1.5 rounded-lg hover:bg-accent/50 transition-colors outline-none group text-left">
                     <span className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground group-hover:text-primary transition-colors">Operator</span>
-                    <span className="text-sm font-medium text-foreground/90">
+                    <span className="text-base font-medium text-foreground/90">
                       {user?.name} · {user?.role}
                     </span>
                   </button>
@@ -158,7 +158,7 @@ function AppLayout() {
                 <DropdownMenuContent align="end" className="w-[220px] rounded-xl bg-background/95 backdrop-blur-xl border-border/60 shadow-2xl p-2">
                   <DropdownMenuLabel className="px-2 py-1.5">
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold">{user?.name}</span>
+                      <span className="text-base font-semibold">{user?.name}</span>
                       <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
                     </div>
                   </DropdownMenuLabel>
@@ -237,7 +237,7 @@ function AuthGate() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+      <div className="min-h-screen flex items-center justify-center text-base text-muted-foreground">
         Checking access...
       </div>
     );

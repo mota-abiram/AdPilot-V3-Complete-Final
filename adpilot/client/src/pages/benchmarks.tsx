@@ -448,7 +448,7 @@ function GoogleBenchmarks() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Target className="w-4 h-4 text-[#F0BC00]" />
-                      <CardTitle className="text-sm font-medium">{config.label}</CardTitle>
+                      <CardTitle className="text-base font-medium">{config.label}</CardTitle>
                     </div>
                     <Badge variant="outline" className={cn("text-xs", hasCampaigns ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-muted/50 text-muted-foreground border-border")}>{typeCampaigns.length} campaign{typeCampaigns.length !== 1 ? "s" : ""}</Badge>
                   </div>
@@ -548,7 +548,7 @@ function EditableSection({
       <CardHeader className="px-4 py-3">
         <div className="flex items-center gap-2">
           <Icon className="w-4 h-4 text-primary" />
-          <CardTitle className="text-sm font-medium">{section.title}</CardTitle>
+          <CardTitle className="text-base font-medium">{section.title}</CardTitle>
         </div>
         <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
       </CardHeader>
@@ -565,7 +565,7 @@ function EditableSection({
                 step={field.step}
                 value={getNestedValue(field.key)}
                 onChange={(e) => onFieldChange(field.key, e.target.value)}
-                className="h-8 text-sm bg-muted/30"
+                className="h-8 text-base bg-muted/30"
                 data-testid={`input-${field.key.replace(/\./g, "-")}`}
               />
               {field.help && (
@@ -688,7 +688,7 @@ function MetaBenchmarks() {
             <CardHeader className="px-4 py-3">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary" />
-                <CardTitle className="text-sm font-medium">Target Location</CardTitle>
+                <CardTitle className="text-base font-medium">Target Location</CardTitle>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Locations used for geo-spend alerts and breakdown flagging
@@ -702,7 +702,7 @@ function MetaBenchmarks() {
                   value={locations}
                   onChange={(e) => setLocations(e.target.value)}
                   placeholder="Hyderabad, Secunderabad, Nallagandla"
-                  className="h-8 text-sm bg-muted/30"
+                  className="h-8 text-base bg-muted/30"
                   data-testid="input-target-locations"
                 />
                 <p className="text-xs text-muted-foreground">

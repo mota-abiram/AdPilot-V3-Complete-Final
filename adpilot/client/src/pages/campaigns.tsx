@@ -433,7 +433,7 @@ export default function CampaignsPage() {
     let colorClass = "";
 
     if (rowIsPct) {
-      if (impressions === 0 && ["ctr", "cvr"].includes(col.key as string)) return <td key={col.key} className="p-3 text-right text-muted-foreground italic text-xs">No Delivery</td>;
+      if (impressions === 0 && ["ctr", "cvr"].includes(col.key as string)) return <td key={col.key} className="p-3 text-right text-muted-foreground text-xs">No Delivery</td>;
 
       if (typeof val === "number") {
         const pctValue = val < 1 && val > 0 ? val * 100 : val;
@@ -592,19 +592,19 @@ export default function CampaignsPage() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="p-2 rounded-md bg-card border border-border/30">
                     <p className="text-xs text-muted-foreground">CTR</p>
-                    <p className="text-sm font-semibold tabular-nums">{formatPct(c.ctr || 0)}</p>
+                    <p className="text-base font-semibold tabular-nums">{formatPct(c.ctr || 0)}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
                     <p className="text-xs text-muted-foreground">CVR</p>
-                    <p className="text-sm font-semibold tabular-nums">{c.cvr != null ? formatPct(c.cvr) : "—"}</p>
+                    <p className="text-base font-semibold tabular-nums">{c.cvr != null ? formatPct(c.cvr) : "—"}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
                     <p className="text-xs text-muted-foreground">CPL</p>
-                    <p className="text-sm font-semibold tabular-nums">{(c.cpl || 0) > 0 ? formatINR(c.cpl, 0) : "—"}</p>
+                    <p className="text-base font-semibold tabular-nums">{(c.cpl || 0) > 0 ? formatINR(c.cpl, 0) : "—"}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
                     <p className="text-xs text-muted-foreground">Cost Stack</p>
-                    <p className="text-sm font-semibold">{c.cost_stack?.overall || "—"}</p>
+                    <p className="text-base font-semibold">{c.cost_stack?.overall || "—"}</p>
                   </div>
                   <div className="p-2 rounded-md bg-card border border-border/30">
                     <p className="text-xs text-muted-foreground">Scoring Weights</p>
@@ -837,7 +837,7 @@ export default function CampaignsPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Search Campaigns (Branded + Location)</h2>
+                <h2 className="text-base font-semibold text-foreground">Search Campaigns (Branded + Location)</h2>
                 {searchSummary && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {searchSummary.campaign_count} campaigns · Spend {formatINR(searchSummary.spend, 0)} · Leads {searchSummary.leads} · CPL {formatINR(searchSummary.cpl, 0)} · CTR {formatPct(searchSummary.ctr)} · CVR {formatPct(searchSummary.cvr)}
@@ -852,7 +852,7 @@ export default function CampaignsPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Demand Gen Campaigns</h2>
+                <h2 className="text-base font-semibold text-foreground">Demand Gen Campaigns</h2>
                 {dgSummary && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {dgSummary.campaign_count} campaigns · Spend {formatINR(dgSummary.spend, 0)} · Leads {dgSummary.leads} · CPL {formatINR(dgSummary.cpl, 0)} · CTR {formatPct(dgSummary.ctr)} · CVR {formatPct(dgSummary.cvr)}

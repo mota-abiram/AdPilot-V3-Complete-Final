@@ -230,7 +230,7 @@ function AuditLogTab({
       <Card>
         <CardContent className="p-12 text-center">
           <Clock className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             {platformFilter === "All"
               ? "No execution history yet"
               : `No ${platformFilter} execution history`}
@@ -454,7 +454,7 @@ function ManuallyCompletedDialog({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Describe what you did manually, e.g., 'Refreshed creatives for DM_Branded campaign with new testimonial video assets'"
-          className="min-h-[80px] text-sm"
+          className="min-h-[80px] text-base"
           data-testid="input-manual-complete-note"
         />
         <div className="text-xs text-muted-foreground">
@@ -612,7 +612,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                 Total Tracked
               </span>
             </div>
-            <p className="text-sm font-semibold tabular-nums">{total}</p>
+            <p className="text-base font-semibold tabular-nums">{total}</p>
           </CardContent>
         </Card>
         <Card>
@@ -623,7 +623,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                 Positive
               </span>
             </div>
-            <p className="text-sm font-semibold text-emerald-400 tabular-nums">
+            <p className="text-base font-semibold text-emerald-400 tabular-nums">
               {outcomes.POSITIVE}
             </p>
           </CardContent>
@@ -636,7 +636,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                 Negative
               </span>
             </div>
-            <p className="text-sm font-semibold text-red-400 tabular-nums">
+            <p className="text-base font-semibold text-red-400 tabular-nums">
               {outcomes.NEGATIVE}
             </p>
           </CardContent>
@@ -649,7 +649,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                 Pending
               </span>
             </div>
-            <p className="text-sm font-semibold text-amber-400 tabular-nums">
+            <p className="text-base font-semibold text-amber-400 tabular-nums">
               {outcomes.PENDING}
             </p>
           </CardContent>
@@ -696,7 +696,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
             {summary.patterns &&
               summary.patterns.length > 0 &&
               summary.patterns.map((insight, i) => (
-                <p key={i} className="text-xs text-muted-foreground italic pl-1 pt-1">
+                <p key={i} className="text-xs text-muted-foreground pl-1 pt-1">
                   {insight}
                 </p>
               ))}
@@ -777,7 +777,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                     of bid adjustments led to CPL improvement
                   </p>
                 ) : (
-                  <p className="text-muted-foreground italic">
+                  <p className="text-muted-foreground ">
                     Bid change success rate: no measured outcomes yet
                   </p>
                 )}
@@ -798,7 +798,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                     of paused entities showed positive reallocation effect
                   </p>
                 ) : (
-                  <p className="text-muted-foreground italic">
+                  <p className="text-muted-foreground ">
                     Pause effectiveness: no measured outcomes yet
                   </p>
                 )}
@@ -820,7 +820,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                     CPL change after budget modifications
                   </p>
                 ) : (
-                  <p className="text-muted-foreground italic">
+                  <p className="text-muted-foreground ">
                     Budget adjustment impact: no measured outcomes yet
                   </p>
                 )}
@@ -835,7 +835,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
         <Card>
           <CardContent className="p-12 text-center">
             <Brain className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               {platformFilter === "All"
                 ? "No learning data yet"
                 : `No ${platformFilter} learning data`}
@@ -904,7 +904,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                           Strategic Call
                         </span>
                       </div>
-                      <p className="text-xs text-foreground/80 italic leading-relaxed">
+                      <p className="text-xs text-foreground/80 leading-relaxed">
                         "{entry.strategicCall}"
                       </p>
                     </div>
@@ -973,7 +973,7 @@ function LearningInsightsTab({ platformFilter }: { platformFilter: PlatformTab }
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground italic">
+                        <p className="text-xs text-muted-foreground ">
                           Pending measurement...
                         </p>
                       )}

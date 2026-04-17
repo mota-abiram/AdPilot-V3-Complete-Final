@@ -413,7 +413,7 @@ function normalizeMonthlyPacing(accountPulse: any, targets: any): any {
   const month = now.getMonth();
   const totalDays = new Date(year, month + 1, 0).getDate();
   const daysElapsed = mtd.days_elapsed || Math.min(now.getDate(), totalDays);
-  
+
   // Guard against stale data from a previous month to prevent nonsensical pacing projections
   if (daysElapsed > totalDays) return null;
 
@@ -597,12 +597,12 @@ function reconstructDetailed(breakdown: any, type: string, item: any = {}, targe
   };
   const w = weights[type] || {};
   const detailed: any = {};
-  
+
   const targetCpl = targets.google_cpl || targets.cpl || 850;
 
   for (const k in w) {
     let score = breakdown[k];
-    
+
     // Hot re-score cost metrics if raw data is available
     if (k === 'cpl' && item.cpl > 0) {
       score = scoreStagedCostDynamic(item.cpl, targetCpl);

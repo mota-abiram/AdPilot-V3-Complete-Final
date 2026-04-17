@@ -243,11 +243,11 @@ export default function CreativeCalendarPage() {
           </div>
           <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">MTD Leads</p>
-            <p className="text-sm font-bold tabular-nums">{formatNumber(mtdLeads)}</p>
+            <p className="text-base font-bold tabular-nums">{formatNumber(mtdLeads)}</p>
           </div>
           <div className="px-3 py-2 rounded-lg bg-card/40 border border-border/40 backdrop-blur-sm">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">CPL</p>
-            <p className="text-sm font-bold tabular-nums text-primary">{formatINR(mtdCpl, 0)}</p>
+            <p className="text-base font-bold tabular-nums text-primary">{formatINR(mtdCpl, 0)}</p>
           </div>
         </div>
       </div>

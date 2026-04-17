@@ -172,25 +172,25 @@ export function StrategicCallDialog({
                    {metrics.spend != null && (
                      <div className="space-y-1">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Spend</p>
-                        <p className="text-sm font-bold text-foreground tabular-nums">{formatINR(metrics.spend, 0)}</p>
+                        <p className="text-base font-bold text-foreground tabular-nums">{formatINR(metrics.spend, 0)}</p>
                      </div>
                    )}
                    {metrics.cpl != null && metrics.cpl > 0 && (
                      <div className="space-y-1 border-l border-border/30 pl-4">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">CPL</p>
-                        <p className="text-sm font-bold text-foreground tabular-nums">{formatINR(metrics.cpl, 0)}</p>
+                        <p className="text-base font-bold text-foreground tabular-nums">{formatINR(metrics.cpl, 0)}</p>
                      </div>
                    )}
                    {metrics.ctr != null && (
                      <div className="space-y-1 border-l border-border/30 pl-4">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">CTR</p>
-                        <p className="text-sm font-bold text-foreground tabular-nums">{metrics.ctr.toFixed(2)}%</p>
+                        <p className="text-base font-bold text-foreground tabular-nums">{metrics.ctr.toFixed(2)}%</p>
                      </div>
                    )}
                    {metrics.leads != null && (
                      <div className="space-y-1 border-l border-border/30 pl-4">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Leads</p>
-                        <p className="text-sm font-bold text-foreground tabular-nums">{metrics.leads}</p>
+                        <p className="text-base font-bold text-foreground tabular-nums">{metrics.leads}</p>
                      </div>
                    )}
                 </div>

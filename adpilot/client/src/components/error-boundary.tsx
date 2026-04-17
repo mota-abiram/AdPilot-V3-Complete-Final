@@ -71,7 +71,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <h2 className="text-lg font-bold text-foreground">
               Something went wrong {this.state.errorLocation ? `in ${this.state.errorLocation}` : ""}
             </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-base text-muted-foreground leading-relaxed">
               An unexpected error occurred. This has been
               logged for investigation.
             </p>
@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
             )}
             <button
               onClick={this.handleReset}
-              className="mt-2 px-6 py-2.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="mt-2 px-6 py-2.5 text-base font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               Try Again
             </button>

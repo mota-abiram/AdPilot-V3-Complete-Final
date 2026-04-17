@@ -80,7 +80,7 @@ export const HealthScoreBreakdown: React.FC<HealthScoreBreakdownProps> = React.m
                     <p className="text-xs text-muted-foreground font-black uppercase tracking-wider">
                       {metric.replace(/_/g, " ")}
                     </p>
-                    <p className="text-sm font-black tabular-nums text-foreground tracking-tight">
+                    <p className="text-base font-black tabular-nums text-foreground tracking-tight">
                       {displayScore}
                     </p>
                   </div>

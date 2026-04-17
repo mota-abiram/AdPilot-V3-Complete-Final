@@ -24,6 +24,10 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
+  Play,
+  ClipboardCheck,
+  Ban,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -73,9 +77,15 @@ interface Message {
   loading?: boolean;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────
+// ─── Execution Results Card ───────────────────────────────────────
 
-function ExecutionResultCard({ results, warnings }: { results: ExecutionOutcome[]; warnings: string[] }) {
+function ExecutionResultCard({
+  results,
+  warnings,
+}: {
+  results: ExecutionOutcome[];
+  warnings: string[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const succeeded = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
@@ -84,7 +94,6 @@ function ExecutionResultCard({ results, warnings }: { results: ExecutionOutcome[
 
   return (
     <div className="mt-2 rounded-lg border border-border/40 bg-background/50 text-xs overflow-hidden">
-      {/* Summary row */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/30 transition-colors"
@@ -106,17 +115,22 @@ function ExecutionResultCard({ results, warnings }: { results: ExecutionOutcome[
             </span>
           )}
         </div>
-        {expanded ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+        {expanded ? (
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+        )}
       </button>
 
-      {/* Expanded details */}
       {expanded && (
         <div className="border-t border-border/30 px-3 py-2 space-y-1.5">
           {results.map((r, i) => (
             <div key={i} className="flex items-start gap-2">
-              {r.success
-                ? <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
-                : <XCircle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />}
+              {r.success ? (
+                <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
+              ) : (
+                <XCircle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
+              )}
               <div>
                 <span className="font-medium text-foreground/80">{r.campaignName}</span>
                 <span className="text-muted-foreground ml-1">— {r.message}</span>
@@ -140,6 +154,8 @@ function ExecutionResultCard({ results, warnings }: { results: ExecutionOutcome[
   );
 }
 
+// ─── Action Plan Chip ─────────────────────────────────────────────
+
 function ActionPlanChip({ actionJson }: { actionJson: ActionPlan }) {
   const typeColor: Record<string, string> = {
     pause: "bg-red-500/15 text-red-400 border-red-500/25",
@@ -148,45 +164,465 @@ function ActionPlanChip({ actionJson }: { actionJson: ActionPlan }) {
     unpause: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
     clarify: "bg-amber-500/15 text-amber-400 border-amber-500/25",
   };
-  const color = typeColor[actionJson.action.type] || "bg-muted text-muted-foreground border-border";
+  const color =
+    typeColor[actionJson.action.type] || "bg-muted text-muted-foreground border-border";
 
   return (
     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-      <Badge variant="outline" className={cn("text-xs px-1.5 py-0 border font-mono uppercase tracking-wide", color)}>
+      <Badge
+        variant="outline"
+        className={cn("text-xs px-1.5 py-0 border font-mono uppercase tracking-wide", color)}
+      >
         {actionJson.action.type}
       </Badge>
     </div>
   );
 }
 
-function TerminalSection({ title, lines }: { title: string; lines: string[] }) {
+// ─── Diagnosis Mini-Card ──────────────────────────────────────────
+
+function DiagnosisCard({ lines }: { lines: string[] }) {
   if (!lines.length) return null;
 
+  // Parse entity line and data points from diagnosis lines
+  const entityLine = lines.find((l) => l.startsWith("Entity:"));
+  const problemLine = lines.find((l) => l.startsWith("Problem:"));
+  const dataLine = lines.find((l) => l.startsWith("Data:"));
+  const additionalLines = lines.filter(
+    (l) =>
+      !l.startsWith("Entity:") &&
+      !l.startsWith("Problem:") &&
+      !l.startsWith("Data:"),
+  );
+
+  // Parse score from entity line: "Entity: X | Score: Y/100 | Classification: Z"
+  let entityName = "";
+  let score: number | null = null;
+  let classification = "";
+  if (entityLine) {
+    const parts = entityLine.replace("Entity: ", "").split(" | ");
+    entityName = parts[0] || "";
+    const scorePart = parts.find((p) => p.startsWith("Score:"));
+    if (scorePart) score = parseFloat(scorePart.replace("Score: ", "").split("/")[0]);
+    const classPart = parts.find((p) => p.startsWith("Classification:"));
+    if (classPart) classification = classPart.replace("Classification: ", "");
+  }
+
+  const classificationColor =
+    classification.toUpperCase() === "WINNER"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+      : classification.toUpperCase() === "UNDERPERFORMER"
+      ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300"
+      : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300";
+
+  const scoreColor =
+    score !== null
+      ? score >= 70
+        ? "text-emerald-500"
+        : score >= 40
+        ? "text-amber-500"
+        : "text-red-500"
+      : "text-muted-foreground";
+
+  return (
+    <div className="rounded-lg border border-border/30 bg-background/40 p-2.5 space-y-2">
+      {entityLine && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[12px] font-semibold text-foreground">{entityName}</span>
+          {score !== null && (
+            <span className={cn("text-[11px] font-bold", scoreColor)}>
+              {score.toFixed(1)}/100
+            </span>
+          )}
+          {classification && (
+            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-bold uppercase", classificationColor)}>
+              {classification}
+            </Badge>
+          )}
+        </div>
+      )}
+      {problemLine && (
+        <p className="text-[12px] leading-relaxed text-foreground/90">
+          {problemLine.replace("Problem: ", "")}
+        </p>
+      )}
+      {dataLine && (
+        <p className="text-[11px] text-muted-foreground">
+          {dataLine.replace("Data: ", "")}
+        </p>
+      )}
+      {additionalLines.map((line, i) => (
+        <p key={i} className="text-[11px] leading-relaxed text-foreground/75">
+          {line}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// ─── Layer Analysis Pills ─────────────────────────────────────────
+
+function LayerAnalysisPills({ lines }: { lines: string[] }) {
+  if (!lines.length) return null;
+
+  const layerStatus = (line: string): "ok" | "caution" | "conflict" => {
+    const lower = line.toLowerCase();
+    if (lower.includes("conflict") || lower.includes("override") || lower.includes("block")) {
+      return "conflict";
+    }
+    if (lower.includes("caution") || lower.includes("warning") || lower.includes("cooldown")) {
+      return "caution";
+    }
+    return "ok";
+  };
+
+  const layerLines = lines.filter((l) => /^L[1-4]/.test(l));
+  const conflictLines = lines.filter((l) => l.toUpperCase().startsWith("CONFLICTS:"));
+  const otherLines = lines.filter((l) => !/^L[1-4]/.test(l) && !l.toUpperCase().startsWith("CONFLICTS:"));
+
+  const statusClass = {
+    ok: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+    caution: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30",
+    conflict: "bg-red-500/15 text-red-600 dark:text-red-300 border-red-500/30",
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Layer status pills */}
+      {layerLines.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {layerLines.map((line, i) => {
+            const status = layerStatus(line);
+            const label = line.match(/^(L[1-4][^:]*)/)?.[1] || `L${i + 1}`;
+            return (
+              <span
+                key={i}
+                title={line}
+                className={cn(
+                  "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-help",
+                  statusClass[status],
+                )}
+              >
+                {label.split(" ")[0]}
+                {status === "ok" ? "✓" : status === "caution" ? "⚠" : "✗"}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full layer lines */}
+      {layerLines.map((line, i) => (
+        <p key={i} className="text-[12px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
+          {line}
+        </p>
+      ))}
+
+      {/* Conflicts — highlighted */}
+      {conflictLines.map((line, i) => (
+        <div key={`conflict-${i}`} className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 mb-1">
+            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+              Conflict
+            </span>
+          </div>
+          <p className="text-[12px] leading-relaxed text-foreground/90">
+            {line.replace(/^CONFLICTS:\s*/i, "")}
+          </p>
+        </div>
+      ))}
+
+      {/* Other lines */}
+      {otherLines.map((line, i) => (
+        <p key={`other-${i}`} className="text-[12px] leading-relaxed text-foreground/75">
+          {line}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// ─── Solution Mini-Card ───────────────────────────────────────────
+
+function SolutionMiniCard({ line }: { line: string }) {
+  const isAutoExecute = line.includes("[AUTO-EXECUTE]");
+  const isManual = line.includes("[MANUAL]");
+  const isReject = line.includes("[REJECT") || line.includes("[REJECT-SUGGESTED]");
+
+  const classification = isAutoExecute ? "AUTO-EXECUTE" : isManual ? "MANUAL" : isReject ? "REJECT" : null;
+
+  const classStyle = {
+    "AUTO-EXECUTE": {
+      badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+      card: "border-emerald-500/20 bg-emerald-500/5",
+      btn: "bg-emerald-600 hover:bg-emerald-700 text-white",
+      icon: <Play className="w-2.5 h-2.5" />,
+      btnLabel: "Execute Now",
+    },
+    MANUAL: {
+      badge: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+      card: "border-blue-500/20 bg-blue-500/5",
+      btn: "bg-blue-600 hover:bg-blue-700 text-white",
+      icon: <ClipboardCheck className="w-2.5 h-2.5" />,
+      btnLabel: "Mark as Done",
+    },
+    REJECT: {
+      badge: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300",
+      card: "border-red-500/20 bg-red-500/5",
+      btn: "bg-red-600 hover:bg-red-700 text-white",
+      icon: <Ban className="w-2.5 h-2.5" />,
+      btnLabel: "Confirm Reject",
+    },
+  } as const;
+
+  const style = classification ? classStyle[classification] : null;
+
+  // Parse lines within this solution block
+  const rawLines = line.split("\n");
+  const titleLine = rawLines[0];
+  const subLines = rawLines.slice(1);
+
+  const [rationaleExpanded, setRationaleExpanded] = useState(false);
+  const [actionTriggered, setActionTriggered] = useState(false);
+  const [showRationale, setShowRationale] = useState(false);
+
+  const handleAction = () => {
+    setActionTriggered(true);
+    setShowRationale(true);
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-2.5 space-y-1.5",
+        style?.card || "border-border/30 bg-background/30",
+      )}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        {classification && style && (
+          <Badge variant="outline" className={cn("text-[10px] font-black uppercase tracking-wide px-1.5 py-0", style.badge)}>
+            {classification}
+          </Badge>
+        )}
+        <span className="text-[12px] font-semibold text-foreground leading-tight">
+          {titleLine
+            .replace(/\[AUTO-EXECUTE\]/g, "")
+            .replace(/\[MANUAL\]/g, "")
+            .replace(/\[REJECT-SUGGESTED\]/g, "")
+            .replace(/\[REJECT\]/g, "")
+            .trim()}
+        </span>
+      </div>
+
+      {subLines.map((sub, i) => {
+        if (!sub.trim()) return null;
+        const isRationale = sub.trim().startsWith("Rationale:");
+        const isRisk = sub.trim().startsWith("Risk:");
+        const isSteps = sub.trim().match(/^\d+\)/);
+        return (
+          <p
+            key={i}
+            className={cn(
+              "text-[11px] leading-relaxed whitespace-pre-wrap",
+              isRationale ? "text-foreground/80" : isRisk ? "text-muted-foreground font-medium" : isSteps ? "text-foreground/75 pl-2" : "text-foreground/75",
+            )}
+          >
+            {sub}
+          </p>
+        );
+      })}
+
+      {/* Tri-state execution button */}
+      {classification && style && !actionTriggered && (
+        <button
+          onClick={handleAction}
+          className={cn(
+            "mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide transition-colors",
+            style.btn,
+          )}
+        >
+          {style.icon}
+          {style.btnLabel}
+        </button>
+      )}
+
+      {/* Strategic rationale prompt */}
+      {showRationale && (
+        <div className="mt-2 rounded-md border border-border/40 bg-muted/30 p-2">
+          <p className="text-[11px] text-muted-foreground mb-1.5 font-medium">
+            {classification === "REJECT" ? "Why are you rejecting this?" : "Add strategic rationale (optional):"}
+          </p>
+          <textarea
+            className="w-full text-[11px] bg-background/60 border border-border/40 rounded p-1.5 text-foreground placeholder:text-muted-foreground outline-none resize-none"
+            rows={2}
+            placeholder={
+              classification === "REJECT"
+                ? "e.g. This campaign is needed for brand presence during launch…"
+                : "e.g. Scaling ahead of festive season to capture demand…"
+            }
+          />
+          <button
+            onClick={() => { setActionTriggered(true); setShowRationale(false); }}
+            className="mt-1.5 text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline"
+          >
+            Confirm
+          </button>
+        </div>
+      )}
+
+      {actionTriggered && !showRationale && (
+        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+          ✓ Logged
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Enhanced Terminal Section ────────────────────────────────────
+
+function TerminalSection({
+  title,
+  lines,
+  sectionIndex,
+}: {
+  title: string;
+  lines: string[];
+  sectionIndex: number;
+}) {
+  if (!lines.length) return null;
+
+  const sectionColors = [
+    "text-violet-500 dark:text-violet-400",  // 1. Diagnosis
+    "text-blue-500 dark:text-blue-400",       // 2. Layer Analysis
+    "text-emerald-500 dark:text-emerald-400", // 3. Solutions
+    "text-amber-500 dark:text-amber-400",     // 4. Expected Outcome
+  ];
+  const color = sectionColors[sectionIndex] || "text-violet-400";
+
+  // Solutions section gets special rendering
+  if (sectionIndex === 2) {
+    // Group lines into solution blocks
+    const solutionBlocks: string[][] = [];
+    let currentBlock: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith("---") && currentBlock.length > 0) {
+        solutionBlocks.push(currentBlock);
+        currentBlock = [line];
+      } else if (/^\[(?:AUTO-EXECUTE|MANUAL|REJECT)/.test(line) && currentBlock.length > 0) {
+        solutionBlocks.push(currentBlock);
+        currentBlock = [line];
+      } else {
+        currentBlock.push(line);
+      }
+    }
+    if (currentBlock.length) solutionBlocks.push(currentBlock);
+
+    return (
+      <div className="rounded-xl border border-border/30 bg-background/40 px-3 py-2">
+        <p className={cn("text-[11px] font-black uppercase tracking-[0.16em] mb-2", color)}>
+          {title}
+        </p>
+        <div className="space-y-2">
+          {solutionBlocks.map((block, i) => {
+            const blockText = block.join("\n");
+            if (blockText.startsWith("---")) {
+              return (
+                <p key={i} className="text-[11px] font-bold text-muted-foreground pt-1">
+                  {blockText.replace(/^---\s*/, "")}
+                </p>
+              );
+            }
+            return <SolutionMiniCard key={i} line={blockText} />;
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Diagnosis section gets mini-card rendering
+  if (sectionIndex === 0) {
+    return (
+      <div className="rounded-xl border border-border/30 bg-background/40 px-3 py-2">
+        <p className={cn("text-[11px] font-black uppercase tracking-[0.16em] mb-2", color)}>
+          {title}
+        </p>
+        <DiagnosisCard lines={lines} />
+      </div>
+    );
+  }
+
+  // Layer Analysis section gets pill rendering
+  if (sectionIndex === 1) {
+    return (
+      <div className="rounded-xl border border-border/30 bg-background/40 px-3 py-2">
+        <p className={cn("text-[11px] font-black uppercase tracking-[0.16em] mb-2", color)}>
+          {title}
+        </p>
+        <LayerAnalysisPills lines={lines} />
+      </div>
+    );
+  }
+
+  // Default (Expected Outcome)
   return (
     <div className="rounded-xl border border-border/30 bg-background/40 px-3 py-2">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-400">{title}</p>
-      <div className="mt-2 space-y-1.5">
-        {lines.map((line, index) => (
-          <p key={`${title}-${index}`} className="text-[12px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
-            {line}
-          </p>
-        ))}
+      <p className={cn("text-[11px] font-black uppercase tracking-[0.16em] mb-2", color)}>
+        {title}
+      </p>
+      <div className="space-y-1.5">
+        {lines.map((line, index) => {
+          const isIfAction = line.toLowerCase().startsWith("if actions");
+          const isIfNoAction = line.toLowerCase().startsWith("if no action");
+          return (
+            <p
+              key={`${title}-${index}`}
+              className={cn(
+                "text-[12px] leading-relaxed whitespace-pre-wrap",
+                isIfAction
+                  ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                  : isIfNoAction
+                  ? "text-amber-600 dark:text-amber-400 font-medium"
+                  : "text-foreground/90",
+              )}
+            >
+              {line}
+            </p>
+          );
+        })}
       </div>
     </div>
   );
 }
 
+function formatHumanResponse(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+// ─── Message Bubble ───────────────────────────────────────────────
+
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
   const terminalResponse = message.response?.terminalResponse;
+  const hasStructuredResponse =
+    terminalResponse &&
+    (terminalResponse.diagnosis.length > 0 ||
+      terminalResponse.layerAnalysis.length > 0 ||
+      terminalResponse.solutions.length > 0);
 
   return (
     <div className={cn("flex gap-2.5", isUser ? "flex-row-reverse" : "flex-row")}>
       {/* Avatar */}
-      <div className={cn(
-        "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5",
-        isUser ? "bg-primary/20 text-primary" : "bg-violet-500/20 text-violet-400"
-      )}>
+      <div
+        className={cn(
+          "flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5",
+          isUser ? "bg-primary/20 text-primary" : "bg-violet-500/20 text-violet-400",
+        )}
+      >
         {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
       </div>
 
@@ -194,37 +630,85 @@ function MessageBubble({ message }: { message: Message }) {
       <div className={cn("flex-1 min-w-0", isUser ? "items-end" : "items-start", "flex flex-col")}>
         {message.loading ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm px-3 py-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span className="text-xs">Mojo is thinking…</span>
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+            <span className="text-xs">
+              Running 4-layer analysis pipeline
+              <span className="inline-flex gap-0.5 ml-1">
+                <span className="animate-bounce [animation-delay:0ms]">.</span>
+                <span className="animate-bounce [animation-delay:150ms]">.</span>
+                <span className="animate-bounce [animation-delay:300ms]">.</span>
+              </span>
+            </span>
           </div>
         ) : (
-          <div className={cn(
-            "rounded-2xl px-3.5 py-2.5 max-w-[85%] text-sm leading-relaxed",
-            isUser
-              ? "bg-primary text-primary-foreground rounded-tr-sm"
-              : "bg-muted/60 text-foreground rounded-tl-sm border border-border/30"
-          )}>
-            {!isUser && terminalResponse ? (
+          <div
+            className={cn(
+              "rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm leading-relaxed",
+              isUser
+                ? "bg-primary text-primary-foreground rounded-tr-sm"
+                : "bg-muted/60 text-foreground rounded-tl-sm border border-border/30",
+            )}
+          >
+            {!isUser && hasStructuredResponse ? (
               <div className="space-y-3">
-                <TerminalSection title="1. Diagnosis" lines={terminalResponse.diagnosis} />
-                <TerminalSection title="2. Layer Analysis" lines={terminalResponse.layerAnalysis} />
-                <TerminalSection title="3. Solutions" lines={terminalResponse.solutions} />
-                <TerminalSection title="4. Expected Outcome" lines={terminalResponse.expectedOutcome} />
+                <TerminalSection
+                  title="1. Diagnosis"
+                  lines={terminalResponse!.diagnosis}
+                  sectionIndex={0}
+                />
+                <TerminalSection
+                  title="2. Layer Analysis"
+                  lines={terminalResponse!.layerAnalysis}
+                  sectionIndex={1}
+                />
+                <TerminalSection
+                  title="3. Solutions"
+                  lines={terminalResponse!.solutions}
+                  sectionIndex={2}
+                />
+                <TerminalSection
+                  title="4. Expected Outcome"
+                  lines={terminalResponse!.expectedOutcome}
+                  sectionIndex={3}
+                />
+              </div>
+            ) : !isUser && message.content ? (
+              <div className="space-y-1.5">
+                {formatHumanResponse(message.content).map((line, idx) => (
+                  <p
+                    key={idx}
+                    className={cn(
+                      "text-[13px] leading-relaxed whitespace-pre-wrap",
+                      line.startsWith("1.") ||
+                        line.startsWith("2.") ||
+                        line.startsWith("3.") ||
+                        line.startsWith("4.")
+                        ? "font-semibold text-violet-400 mt-2"
+                        : line.startsWith("-") || line.startsWith("   -")
+                        ? "text-foreground/85 pl-2"
+                        : "text-foreground/90",
+                    )}
+                  >
+                    {line}
+                  </p>
+                ))}
               </div>
             ) : (
               <p className="whitespace-pre-wrap text-[13px]">{message.content}</p>
             )}
 
-            {/* Action plan chip (for assistant messages) */}
-            {!isUser && message.response?.actionJson && message.response.actionJson.action.type !== "clarify" && (
-              <ActionPlanChip actionJson={message.response.actionJson} />
-            )}
+            {/* Action plan chip */}
+            {!isUser &&
+              message.response?.actionJson &&
+              message.response.actionJson.action.type !== "clarify" && (
+                <ActionPlanChip actionJson={message.response.actionJson} />
+              )}
           </div>
         )}
 
-        {/* Execution results below the bubble */}
+        {/* Execution results */}
         {!isUser && message.response && (
-          <div className="w-full max-w-[85%]">
+          <div className="w-full max-w-[90%]">
             <ExecutionResultCard
               results={message.response.executionResults}
               warnings={message.response.safetyWarnings}
@@ -246,12 +730,14 @@ function MessageBubble({ message }: { message: Message }) {
 // ─── Suggested Commands ───────────────────────────────────────────
 
 const SUGGESTED_COMMANDS = [
-  "pause all losers",
-  "scale winners by 20%",
-  "pause campaigns spending but no leads",
-  "fix learning limited campaigns",
-  "pause high CPL campaigns",
-  "add top negative keywords",
+  "what's wrong with my account?",
+  "show critical problems",
+  "analyze campaigns with high CPL",
+  "find creative fatigue issues",
+  "check budget pacing",
+  "which campaigns should I pause?",
+  "scale my winners",
+  "show account health summary",
 ];
 
 // ─── Main Terminal Component ──────────────────────────────────────
@@ -267,7 +753,8 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I'm Mojo, your AI performance agent. Tell me what to do with your campaigns in plain English.\n\nTry: \"pause bad campaigns\" or \"scale winners\"",
+      content:
+        "Welcome to Mojo Terminal — your strategic co-pilot.\nI analyze your campaigns through a 4-layer intelligence pipeline (SOP → AI Expert → History → Strategy) and provide solutions with execution classifications.\n\nAsk me anything about your account, or try a quick command below.",
       timestamp: new Date(),
     },
   ]);
@@ -276,83 +763,81 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when terminal opens
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
-  const sendCommand = useCallback(async (cmd: string) => {
-    const trimmed = cmd.trim();
-    if (!trimmed || isLoading) return;
+  const sendCommand = useCallback(
+    async (cmd: string) => {
+      const trimmed = cmd.trim();
+      if (!trimmed || isLoading) return;
 
-    const userMsgId = `user-${Date.now()}`;
-    const assistantMsgId = `ai-${Date.now()}`;
+      const userMsgId = `user-${Date.now()}`;
+      const assistantMsgId = `ai-${Date.now()}`;
 
-    // Add user message
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: userMsgId,
-        role: "user",
-        content: trimmed,
-        timestamp: new Date(),
-      },
-      // Placeholder loading bubble
-      {
-        id: assistantMsgId,
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-        loading: true,
-      },
-    ]);
-    setInput("");
-    setIsLoading(true);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: userMsgId,
+          role: "user",
+          content: trimmed,
+          timestamp: new Date(),
+        },
+        {
+          id: assistantMsgId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          loading: true,
+        },
+      ]);
+      setInput("");
+      setIsLoading(true);
 
-    try {
-      const res = await apiRequest("POST", "/api/ai/command", {
-        command: trimmed,
-        clientId: activeClientId || "amara",
-        platform: (activePlatform || "meta") as "meta" | "google",
-        provider: "auto",
-      });
+      try {
+        const res = await apiRequest("POST", "/api/ai/command", {
+          command: trimmed,
+          clientId: activeClientId || "amara",
+          platform: (activePlatform || "meta") as "meta" | "google",
+          provider: "auto",
+        });
 
-      const data: AICommandResponse = await res.json();
+        const data: AICommandResponse = await res.json();
 
-      // Replace loading bubble with real response
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? {
-                ...m,
-                content: data.humanResponse || "Done.",
-                loading: false,
-                response: data,
-              }
-            : m
-        )
-      );
-    } catch (err: any) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? {
-                ...m,
-                content: `Error: ${err.message || "Something went wrong. Please try again."}`,
-                loading: false,
-              }
-            : m
-        )
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeClientId, activePlatform, isLoading]);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: data.humanResponse || "Done.",
+                  loading: false,
+                  response: data,
+                }
+              : m,
+          ),
+        );
+      } catch (err: any) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: `Error: ${err.message || "Something went wrong. Please try again."}`,
+                  loading: false,
+                }
+              : m,
+          ),
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [activeClientId, activePlatform, isLoading],
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -365,20 +850,17 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
     <>
       {/* Backdrop (mobile) */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={onClose} />
       )}
 
       {/* Terminal Panel */}
       <div
         className={cn(
           "fixed top-0 right-0 h-screen z-50 flex flex-col",
-          "w-full sm:w-[420px] max-w-full",
+          "w-full sm:w-[440px] max-w-full",
           "bg-background border-l border-border/50 shadow-2xl",
           "transition-transform duration-300 ease-in-out",
-          isOpen ? "translate-x-0" : "translate-x-full"
+          isOpen ? "translate-x-0" : "translate-x-full",
         )}
       >
         {/* Header */}
@@ -389,16 +871,26 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
             </div>
             <div>
               <h2 className="text-sm font-semibold leading-none">Mojo Terminal</h2>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-none">
-                Instant command execution
+              <p className="text-xs text-muted-foreground mt-0.5 leading-none flex items-center gap-1">
+                <Layers className="w-3 h-3" />
+                4-Layer Intelligence Pipeline
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className="text-xs px-1.5 py-0 border-violet-500/30 text-violet-400 bg-violet-500/10">
+            <Badge
+              variant="outline"
+              className="text-xs px-1.5 py-0 border-violet-500/30 text-violet-400 bg-violet-500/10"
+            >
               AI
             </Badge>
-            <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close terminal" className="h-7 w-7">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onClose}
+              aria-label="Close terminal"
+              className="h-7 w-7"
+            >
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -417,7 +909,9 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
         {/* Suggested commands — shown only when empty-ish history */}
         {messages.length <= 1 && (
           <div className="px-4 pb-2 shrink-0">
-            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">Quick commands</p>
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">
+              Quick commands
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTED_COMMANDS.map((cmd) => (
                 <button
@@ -443,7 +937,7 @@ export function CommandTerminal({ isOpen, onClose }: CommandTerminalProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a command… (e.g. pause bad campaigns)"
+              placeholder="Type a command… (e.g. what's wrong with my account?)"
               disabled={isLoading}
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground text-foreground min-w-0"
             />
@@ -488,7 +982,7 @@ export function CommandTerminalToggle({ onClick, isOpen }: CommandTerminalToggle
         "gap-1.5 h-8 px-3 text-xs font-bold",
         isOpen
           ? "bg-primary hover:bg-[#f5c723] border-primary text-primary-foreground shadow-lg shadow-primary/20"
-          : "border-border/60 hover:border-primary/50 hover:text-primary transition-all duration-200"
+          : "border-border/60 hover:border-primary/50 hover:text-primary transition-all duration-200",
       )}
     >
       <Terminal className="w-3.5 h-3.5" />

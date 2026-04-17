@@ -264,7 +264,7 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
 
           {!isLoadingAI && hasFetchedPipeline && !hasSuggestions && (
             <div className="rounded-xl border border-border/40 bg-card p-5 text-center space-y-2">
-              <p className="text-sm font-semibold text-foreground">No fix suggestions matched this alert</p>
+              <p className="text-base font-semibold text-foreground">No fix suggestions matched this alert</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 The dashboard request loaded, but the alert-specific filter did not find any recommendation cards for this issue.
               </p>
@@ -1329,7 +1329,7 @@ export default function DashboardPage() {
   if (analysisError) {
     return (
       <div className="p-6">
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-base text-red-200">
           Failed to load dashboard data: {analysisError.message.replace(/^\d+:\s*/, "")}
         </div>
       </div>
@@ -1679,7 +1679,7 @@ export default function DashboardPage() {
               <h2 className="text-xl font-bold text-foreground">
                 {syncState?.status === "failed" ? "Data Synchronization Failed" : "No Performance Data Available"}
               </h2>
-              <p className="text-sm text-muted-foreground mt-2 max-w-md">
+              <p className="text-base text-muted-foreground mt-2 max-w-md">
                 {syncState?.status === "failed"
                   ? "The last attempt to communicate with the advertising platform encountered an error. Please verify your connection settings or run the agent again."
                   : "We haven't received any campaigns or spend data for this client yet. Click 'Run Agent now' at the top to initiate the first extraction."}
@@ -1836,7 +1836,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <p className="t-label text-muted-foreground uppercase tracking-widest">Difference</p>
-                  <p className={`text-sm font-semibold tabular-nums ${verifyData.discrepancyPct <= 2 ? "text-emerald-400" : verifyData.discrepancyPct <= 5 ? "text-amber-400" : "text-red-400"}`}>
+                  <p className={`text-base font-semibold tabular-nums ${verifyData.discrepancyPct <= 2 ? "text-emerald-400" : verifyData.discrepancyPct <= 5 ? "text-amber-400" : "text-red-400"}`}>
                     {(verifyData.discrepancyPct ?? 0).toFixed(1)}%
                   </p>
                 </div>
@@ -1870,7 +1870,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <p className="t-label text-muted-foreground uppercase tracking-widest">Difference</p>
-                  <p className={`text-sm font-semibold tabular-nums ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400" : "text-red-400"}`}>
+                  <p className={`text-base font-semibold tabular-nums ${verifyData.leadsDiscrepancyPct <= 2 ? "text-emerald-400" : verifyData.leadsDiscrepancyPct <= 10 ? "text-amber-400" : "text-red-400"}`}>
                     {(verifyData.leadsDiscrepancyPct ?? 0).toFixed(1)}%
                   </p>
                 </div>
@@ -1917,7 +1917,7 @@ export default function DashboardPage() {
                       </>
                     )}
                   </div>
-                  <p className="pt-1 text-xs italic">Hover individual metrics for target details</p>
+                  <p className="pt-1 text-xs ">Hover individual metrics for target details</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -3226,7 +3226,7 @@ export default function DashboardPage() {
                           <p className="t-label font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary/70 transition-colors">
                             {step.label}
                           </p>
-                          <p className="t-micro font-medium text-muted-foreground italic">
+                          <p className="t-micro font-medium text-muted-foreground ">
                             {step.sub}
                           </p>
                         </div>
@@ -3267,7 +3267,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm font-bold text-primary">
+                    <p className="text-base font-bold text-primary">
                       {formatINR(ap.total_spend_30d, 0)}
                     </p>
                     <p className="text-xs text-muted-foreground uppercase">
@@ -3342,7 +3342,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader className="pb-2 px-4 pt-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-primary" />
                   Audit Status
                 </CardTitle>

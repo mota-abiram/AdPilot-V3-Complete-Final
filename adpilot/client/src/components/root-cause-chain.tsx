@@ -37,7 +37,7 @@ export function RootCauseChain({ steps, className }: RootCauseChainProps) {
         const parsed = parseStep(step);
         return (
           <div key={`${step}-${index}`} className="flex items-center gap-2">
-            <div className={cn("rounded-full border px-3 py-1.5 text-sm font-semibold", getStepClasses(parsed.score))}>
+            <div className={cn("rounded-full border px-3 py-1.5 text-base font-semibold", getStepClasses(parsed.score))}>
               <span>{parsed.label}</span>
               {parsed.score !== null && <span className="ml-2 opacity-80">{parsed.score}/100</span>}
             </div>

@@ -383,7 +383,7 @@ export default function GoogleAudiencesPage() {
           <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <AlertTriangle className="w-10 h-10 text-muted-foreground" />
             <div>
-              <p className="text-sm font-medium text-foreground">No Demand Gen data found</p>
+              <p className="text-base font-medium text-foreground">No Demand Gen data found</p>
               <p className="text-xs text-muted-foreground mt-1">
                 No active Demand Gen campaigns for{" "}
                 <span className="font-semibold">{activeClient?.shortName || activeClient?.name || "this client"}</span>.
@@ -490,7 +490,7 @@ export default function GoogleAudiencesPage() {
               ))}
               {dgCampaigns.length === 0 && (
                 <tr>
-                  <td colSpan={16} className="p-8 text-center text-muted-foreground italic text-xs">No Demand Gen campaigns found</td>
+                  <td colSpan={16} className="p-8 text-center text-muted-foreground text-xs">No Demand Gen campaigns found</td>
                 </tr>
               )}
             </tbody>

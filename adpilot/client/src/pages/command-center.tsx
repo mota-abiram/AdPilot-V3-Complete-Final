@@ -258,7 +258,7 @@ function CommandInput({ clientId, platform, apiBase }: { clientId: string; platf
         <div className="flex gap-2">
           <Input
             placeholder='Type a command... e.g., "pause campaign Amara TOFU" or "scale all winners 20%"'
-            className="flex-1 text-sm bg-muted/30"
+            className="flex-1 text-base bg-muted/30"
             value={commandText}
             onChange={(e) => setCommandText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") parseCommand(); }}
@@ -516,7 +516,7 @@ export default function CommandCenterPage() {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">{confirmAction?.description}</p>
+                <p className="text-base text-muted-foreground">{confirmAction?.description}</p>
                 <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border border-border/30">
                   <Badge variant="secondary" className="t-label">
                     {countAffected(confirmAction?.key || "")} {isGoogle ? "ad groups" : "adsets"} will be affected
@@ -526,7 +526,7 @@ export default function CommandCenterPage() {
                   <label className="text-xs font-medium text-foreground">Strategic Call (required)</label>
                   <Textarea
                     placeholder="Why are you taking this action? e.g., 'CPL has been consistently above target for 5 days'"
-                    className="min-h-[80px] resize-none bg-muted/30 text-sm"
+                    className="min-h-[80px] resize-none bg-muted/30 text-base"
                     value={strategicCallText}
                     onChange={(e) => setStrategicCallText(e.target.value)}
                   />
@@ -557,12 +557,12 @@ export default function CommandCenterPage() {
             <AlertDialogTitle>Mark Task Complete</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">"{completeDialogTask?.text}"</p>
+                <p className="text-base text-muted-foreground">"{completeDialogTask?.text}"</p>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">Strategic Call (required)</label>
                   <Textarea
                     placeholder="What did you do and why?"
-                    className="min-h-[60px] resize-none bg-muted/30 text-sm"
+                    className="min-h-[60px] resize-none bg-muted/30 text-base"
                     value={taskStrategicCall}
                     onChange={(e) => setTaskStrategicCall(e.target.value)}
                   />
@@ -589,12 +589,12 @@ export default function CommandCenterPage() {
             <AlertDialogTitle>Reject Task</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">"{rejectDialogTask?.text}"</p>
+                <p className="text-base text-muted-foreground">"{rejectDialogTask?.text}"</p>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">Why are you rejecting this?</label>
                   <Textarea
                     placeholder="Reason for rejection..."
-                    className="min-h-[60px] resize-none bg-muted/30 text-sm"
+                    className="min-h-[60px] resize-none bg-muted/30 text-base"
                     value={taskRejectionReason}
                     onChange={(e) => setTaskRejectionReason(e.target.value)}
                   />
@@ -730,7 +730,7 @@ export default function CommandCenterPage() {
             <div className="flex gap-2">
               <Input
                 placeholder='Add a task... e.g., "Refresh creatives for TOFU campaign"'
-                className="flex-1 text-sm bg-muted/30"
+                className="flex-1 text-base bg-muted/30"
                 value={newTaskText}
                 onChange={(e) => setNewTaskText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addManualTask(); }}
@@ -797,7 +797,7 @@ export default function CommandCenterPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <p className={cn(
-                        "text-sm leading-relaxed",
+                        "text-base leading-relaxed",
                         task.status === "completed" && "text-foreground/70 line-through",
                         task.status === "rejected" && "text-foreground/50 line-through",
                       )}>
@@ -878,7 +878,7 @@ export default function CommandCenterPage() {
           <CardContent className="p-3 space-y-2">
             <Textarea
               placeholder="Add a note for the agent... e.g., Prioritize TOFU campaigns next week or Do not pause Campaign X"
-              className="min-h-[70px] resize-none bg-muted/30 border-border/50 text-sm placeholder:text-muted-foreground"
+              className="min-h-[70px] resize-none bg-muted/30 border-border/50 text-base placeholder:text-muted-foreground"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={(e) => {
@@ -943,7 +943,7 @@ export default function CommandCenterPage() {
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className="text-sm text-foreground leading-relaxed">{item.instruction}</p>
+                      <p className="text-base text-foreground leading-relaxed">{item.instruction}</p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-xs">
                           <Clock className="w-3 h-3 mr-1" />
@@ -988,7 +988,7 @@ export default function CommandCenterPage() {
                   <CardContent className="p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0 space-y-1">
-                        <p className="text-sm text-foreground/70 leading-relaxed">{item.instruction}</p>
+                        <p className="text-base text-foreground/70 leading-relaxed">{item.instruction}</p>
                         {item.result && (
                           <div className="text-xs text-muted-foreground bg-muted/30 rounded-md p-2 mt-1">
                             {item.result}

@@ -355,7 +355,7 @@ function ActionDialog({
           <DialogDescription asChild>
             <div className="space-y-3 mt-1">
               <div className={cn("p-3 rounded-lg border text-xs", rec.bg, rec.border)}>
-                <p className="font-bold text-foreground mb-1 text-sm">{truncate(state.campaign.campaign_name, 40)}</p>
+                <p className="font-bold text-foreground mb-1 text-base">{truncate(state.campaign.campaign_name, 40)}</p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-muted-foreground">Current:</span>
                   <span className="font-medium">{formatStrategy(state.campaign.current_strategy)}</span>
@@ -404,7 +404,7 @@ function ActionDialog({
             placeholder="Enter your strategic reasoning for this decision (required)..."
             value={rationale}
             onChange={(e) => setRationale(e.target.value)}
-            className="min-h-[90px] text-sm resize-none"
+            className="min-h-[90px] text-base resize-none"
             data-testid="input-rationale"
           />
           <p className="text-xs text-muted-foreground">
@@ -536,7 +536,7 @@ function CampaignRecommendationCard({
               ) : (
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               )}
-              <span className="text-sm font-semibold text-foreground">
+              <span className="text-base font-semibold text-foreground">
                 {truncate(camp.campaign_name, 48)}
               </span>
             </button>
@@ -846,7 +846,7 @@ function CampaignRecommendationCard({
                 <p className="text-xs text-muted-foreground font-mono mb-1">{item.formula}</p>
                 <p className={cn("text-base font-extrabold tabular-nums", item.color)}>{item.value}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{item.sub}</p>
-                <p className="text-xs text-muted-foreground mt-1 italic">{item.note}</p>
+                <p className="text-xs text-muted-foreground mt-1 ">{item.note}</p>
               </div>
             ))}
           </div>
@@ -897,7 +897,7 @@ function ActionHistoryTable({ history }: { history: BiddingHistoryEntry[] }) {
   return (
     <Card>
       <CardHeader className="pb-2 border-b border-border/40">
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-base flex items-center gap-2">
           <History className="w-4 h-4 text-primary" />
           Bidding Action History
           <span className="text-xs font-normal text-muted-foreground ml-1">· All decisions logged with rationale</span>
@@ -1125,7 +1125,7 @@ function RuleEngine({ open, onClose, platform }: { open: boolean; onClose: () =>
             },
           ].map((section) => (
             <div key={section.title} className="space-y-3">
-              <h3 className="text-sm font-bold text-foreground">{section.title}</h3>
+              <h3 className="text-base font-bold text-foreground">{section.title}</h3>
               <div className="grid gap-2 p-4 border rounded-lg bg-muted/20">
                 {section.items.map((item) => (
                   <div key={item.label} className="flex items-center justify-between gap-4">
@@ -1290,7 +1290,7 @@ export default function GoogleBiddingPage() {
           <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-3">
             <AlertTriangle className="w-12 h-12 text-muted-foreground" />
             <div>
-              <p className="text-sm font-medium text-foreground">No Bidding Data Available</p>
+              <p className="text-base font-medium text-foreground">No Bidding Data Available</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Run the Google Ads agent to generate bidding analysis.
               </p>
@@ -1526,7 +1526,7 @@ export default function GoogleBiddingPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-400/40 mb-3" />
-              <p className="text-sm font-medium text-foreground">No campaigns match this filter</p>
+              <p className="text-base font-medium text-foreground">No campaigns match this filter</p>
               <p className="text-xs text-muted-foreground mt-1">Try a different filter or search term.</p>
             </CardContent>
           </Card>
