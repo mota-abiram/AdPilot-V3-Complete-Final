@@ -377,6 +377,7 @@ function KpiCard({
   isInverse,
   status,
   todayValue,
+  children,
 }: {
   title: string;
   value: string;
