@@ -81,7 +81,7 @@ export async function callClaude(request: ClaudeRequest): Promise<ClaudeResponse
   const apiKey = getAnthropicApiKey().trim();
   if (!apiKey || isPlaceholderSecret(apiKey)) {
     throw new Error(
-      "No valid ANTHROPIC_API_KEY found. Please set it in your .env file to use Mojo AdCortex."
+      "Missing ANTHROPIC_API_KEY. Please set this in your Render Environment Variables or .env file to enable AI-powered insights."
     );
   }
 

@@ -307,7 +307,14 @@ async function analyzeSinglePlatform(ctx: any, query: IntelligenceQuery, platfor
   const dedupedProblems = deduplicateProblems(allProblems);
 
   // Generate recommendation cards for deduplicated problems (async — L2/L3 make real Claude calls)
-  const cards = await Promise.all(dedupedProblems.map((problem) => runSolutionPipeline(problem, ctx)));
+  // We limit concurrency to 5 to avoid 429 Rate Limits from Anthropic in production
+  const cards: any[] = [];
+  const CONCURRENCY_LIMIT = 5;
+  for (let i = 0; i < dedupedProblems.length; i += CONCURRENCY_LIMIT) {
+    const batch = dedupedProblems.slice(i, i + CONCURRENCY_LIMIT);
+    const batchResults = await Promise.all(batch.map(problem => runSolutionPipeline(problem, ctx)));
+    cards.push(...batchResults);
+  }
 
   return { problems: allProblems, dedupedProblems, cards };
 }
