@@ -300,7 +300,10 @@ async function runAgent(clientIds?: string[]): Promise<void> {
         });
         try {
           // Explicitly pass env variables to ensure agent has access tokens
-          await execFileAsync("python3", [metaAgent, "--client", client.id, "--multi-cadence"], {
+          const pythonPath = fs.existsSync("/opt/venv/bin/python3") ? "/opt/venv/bin/python3" : "python3";
+          log(`Scheduler: Executing Meta agent with ${pythonPath} for client ${client.id}`, "scheduler");
+          
+          await execFileAsync(pythonPath, [metaAgent, "--client", client.id, "--multi-cadence"], {
             cwd: ADS_AGENT_DIR,
             timeout: 600000,
             env: { ...process.env, ...client.metaCreds },
@@ -356,7 +359,10 @@ async function runAgent(clientIds?: string[]): Promise<void> {
           sync_status: "loading",
         });
         try {
-          await execFileAsync("python3", [googleAgent, "--client", client.id, "--multi-cadence"], {
+          const pythonPath = fs.existsSync("/opt/venv/bin/python3") ? "/opt/venv/bin/python3" : "python3";
+          log(`Scheduler: Executing Google agent with ${pythonPath} for client ${client.id}`, "scheduler");
+          
+          await execFileAsync(pythonPath, [googleAgent, "--client", client.id, "--multi-cadence"], {
             cwd: ADS_AGENT_DIR,
             timeout: 600000,
             env: { ...process.env, ...client.googleCreds },

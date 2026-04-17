@@ -279,6 +279,11 @@ export default function CampaignsPage() {
     setSelectedIds(new Set());
   }
 
+  // Use live benchmarks for thresholds - falls back to data.dynamic_thresholds if needed
+  const thresholds = useMemo(() => {
+    return dynamicThresholds || data?.dynamic_thresholds;
+  }, [dynamicThresholds, data?.dynamic_thresholds]);
+
   if (isLoading || !data) {
     return (
       <div className="p-6">
@@ -288,10 +293,6 @@ export default function CampaignsPage() {
     );
   }
 
-  // Use live benchmarks for thresholds - falls back to data.dynamic_thresholds if needed
-  const thresholds = useMemo(() => {
-    return dynamicThresholds || data?.dynamic_thresholds;
-  }, [dynamicThresholds, data?.dynamic_thresholds]);
   const hasSelection = selectedIds.size > 0;
 
   // ─── Column Groupings (Pivot Table Style) ─────────────────────────

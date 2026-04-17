@@ -65,6 +65,7 @@ import {
   Brain,
   Database,
   Ban,
+  PlusCircle,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -390,6 +391,7 @@ function KpiCard({
     className?: string;
   };
   todayValue?: string;
+  children?: React.ReactNode;
 }) {
   const { activeCadence } = useClient();
   const trendInfo = trend ? getTrendInfo(trend, isInverse) : null;
@@ -439,6 +441,7 @@ function KpiCard({
             </div>
           )}
         </div>
+        {children && <div className="mt-3 border-t border-border/40 pt-2.5">{children}</div>}
       </CardContent>
     </Card>
   );
@@ -961,7 +964,7 @@ export default function DashboardPage() {
 
     // 2. Merge with Stateful Alerts from DB
     // These alerts are now synchronized with Health Drivers (CPSV, CPL, CPQL, Budget, Creative)
-    statefulAlerts.forEach((a: any) => {
+    (statefulAlerts as any[]).forEach((a: any) => {
       if (a.status === "active" && (a.severity === "CRITICAL" || a.severity === "HIGH")) {
         raw.push({
           id: a.id,
@@ -1057,7 +1060,7 @@ export default function DashboardPage() {
     });
 
     // 2. Merge with Stateful Alerts (Always global)
-    statefulAlerts.forEach((a: any) => {
+    (statefulAlerts as any[]).forEach((a: any) => {
       if (a.status === "active" && (a.severity === "CRITICAL" || a.severity === "HIGH")) {
         raw.push({
           id: a.id,
@@ -1748,7 +1751,16 @@ export default function DashboardPage() {
             isInverse
             status={kpiCpsvStatus}
             subtitle={`vs target (${formatINR(targetCpsvValue, 0)})`}
-          />
+          >
+            {(cpsvMtd || 0) === 0 && (
+              <Link href="/mtd-deliverables">
+                <Button variant="outline" size="sm" className="w-full h-8 text-[11px] font-bold gap-1.5 bg-primary/5 border-primary/20 hover:bg-primary/10">
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  SYNC SITE VISITS
+                </Button>
+              </Link>
+            )}
+          </KpiCard>
 
           <KpiCard
             title="Monthly Pacing"
