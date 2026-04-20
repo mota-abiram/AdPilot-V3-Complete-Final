@@ -650,8 +650,9 @@ export async function registerRoutes(
     const registry = await storage.getAllClients(user.role === "admin" ? undefined : user.id);
     
     // Collect all platforms across the filtered clients to check DB presence
-    const platformStatusPromises = registry.flatMap(c => 
-      Object.keys(c.platforms).map(async (platformId) => {
+    const platformStatusPromises = registry.flatMap(c => {
+      const platformsObj = (c.platforms || {}) as Record<string, any>;
+      return Object.keys(platformsObj).map(async (platformId) => {
         const fileExists = fs.existsSync(resolvePlatformDataPath(c.id, platformId, (c.platforms as any)[platformId]));
         let dbExists = false;
         if (process.env.DATABASE_URL) {
@@ -684,7 +685,7 @@ export async function registerRoutes(
       project: c.project,
       location: c.location,
       targetLocations: c.targetLocations || [],
-      platforms: Object.entries(c.platforms).map(([key, p]) => ({
+      platforms: Object.entries((c.platforms || {}) as Record<string, any>).map(([key, p]: [string, any]) => ({
         id: key,
         label: p.label,
         enabled: p.enabled,
@@ -770,7 +771,6 @@ export async function registerRoutes(
         },
         targets: {},
         createdAt: new Date().toISOString(),
-        createdBy: user.id,
       };
 
       // Ensure data directories exist
@@ -2401,7 +2401,8 @@ export async function registerRoutes(
     let lastAnalysisUpdate = "";
 
     const requestedPlatformId = typeof requestedPlatform === "string" ? requestedPlatform : null;
-    const platformEntries = Object.entries(client.platforms).filter(([platformId, platform]) => {
+    const platformsObj = (client.platforms || {}) as Record<string, any>;
+    const platformEntries = Object.entries(platformsObj).filter(([platformId, platform]: [string, any]) => {
       if (!platform.enabled) return false;
       return requestedPlatformId ? platformId === requestedPlatformId : true;
     });
@@ -2999,7 +3000,7 @@ export async function registerRoutes(
   });
 
   // ─── SSE Endpoint for Live Updates ──────────────────────────────
-  app.get("/api/events", requireAuth, (req, res) => {
+  app.get("/api/events", requireAuth, async (req, res) => {
     const user = req.authUser!;
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
