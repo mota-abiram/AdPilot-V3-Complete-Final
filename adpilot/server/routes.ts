@@ -671,8 +671,8 @@ export async function registerRoutes(
           }
         }
         return { clientId: c.id, platformId, hasData: fileExists || dbExists };
-      })
-    );
+      });
+    });
 
     const platformStatuses = await Promise.all(platformStatusPromises);
     const statusMap = new Map<string, boolean>();
