@@ -332,9 +332,9 @@ async function requireAuthenticatedUser(req: Request, res: Response, next: NextF
     console.error("[Auth] Middleware Critical Error:", err.message);
     // If it's a database error, return 503 instead of 401 to distinguish connectivity issues
     if (req.path.startsWith("/api")) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Authentication service temporarily unavailable",
-        detail: isProduction ? undefined : err.message 
+        detail: isProduction ? undefined : err.message
       });
     }
     next(err);
@@ -380,11 +380,11 @@ export function requireOwnership(req: Request, res: Response, next: NextFunction
   requireAuthenticatedUser(req, res, async () => {
     const clientId = req.params.clientId;
     const user = req.authUser!;
-    
+
     if (!clientId) return next(); // Not a client-scoped route
 
     const hasAccess = await enforceOwnership(clientId, user);
-    
+
     if (!hasAccess) {
       console.warn(`[Auth] Access Denied: User ${user.email} (${user.role}) attempted to access client ${clientId}`);
       return res.status(403).json({ error: "Access denied. You do not own this client." });

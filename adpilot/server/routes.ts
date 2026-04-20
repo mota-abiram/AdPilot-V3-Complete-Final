@@ -753,26 +753,26 @@ export async function registerRoutes(
         project: (project || name).trim(),
         location: (location || "").trim(),
         createdBy: user.id, // Set ownership!
-      targetLocations: Array.isArray(targetLocations)
-        ? targetLocations.filter(Boolean)
-        : (targetLocations || "").split(",").map((s: string) => s.trim()).filter(Boolean),
-      platforms: {
-        meta: {
-          enabled: enableMeta !== false,
-          dataPath: path.join(DATA_BASE, `clients/${id}/meta/analysis.json`),
-          label: "Meta Ads",
+        targetLocations: Array.isArray(targetLocations)
+          ? targetLocations.filter(Boolean)
+          : (targetLocations || "").split(",").map((s: string) => s.trim()).filter(Boolean),
+        platforms: {
+          meta: {
+            enabled: enableMeta !== false,
+            dataPath: path.join(DATA_BASE, `clients/${id}/meta/analysis.json`),
+            label: "Meta Ads",
+          },
+          google: {
+            enabled: enableGoogle !== false,
+            dataPath: path.join(DATA_BASE, `clients/${id}/google/analysis.json`),
+            label: "Google Ads",
+          },
         },
-        google: {
-          enabled: enableGoogle !== false,
-          dataPath: path.join(DATA_BASE, `clients/${id}/google/analysis.json`),
-          label: "Google Ads",
-        },
-      },
-      targets: {},
-      createdAt: new Date().toISOString(),
-      createdBy: user.id,
-    };
-    try {
+        targets: {},
+        createdAt: new Date().toISOString(),
+        createdBy: user.id,
+      };
+
       // Ensure data directories exist
       fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/meta`), { recursive: true });
       fs.mkdirSync(path.join(DATA_BASE, `clients/${id}/google`), { recursive: true });
