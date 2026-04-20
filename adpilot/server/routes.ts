@@ -63,7 +63,7 @@ import {
 } from "./creative-hub";
 import { generateBiddingRecommendations } from "./bidding-intelligence";
 import { storage } from "./storage";
-import { requireAdmin, getUserById } from "./auth";
+import { requireAdmin, requireOwnership, requireAuth, getUserById } from "./auth";
 import { insightsEngine } from "./intelligence-engine";
 import { getCache, setCache, invalidateCachePattern, cacheKey } from "./cache";
 
@@ -645,17 +645,10 @@ export async function registerRoutes(
 
   // ─── Client Registry Endpoints ─────────────────────────────────
   
-  app.get("/api/clients", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
-    if (!user) return res.status(401).json({ error: "Auth required" });
-
-    let registry = await loadRegistry();
+  app.get("/api/clients", requireAuth, async (req, res) => {
+    const user = req.authUser!;
+    const registry = await storage.getAllClients(user.role === "admin" ? undefined : user.id);
     
-    // Filter for members
-    if (user.role === "member") {
-      registry = registry.filter(c => c.createdBy === user.id);
-    }
-
     // Collect all platforms across the filtered clients to check DB presence
     const platformStatusPromises = registry.flatMap(c => 
       Object.keys(c.platforms).map(async (platformId) => {
@@ -741,25 +734,25 @@ export async function registerRoutes(
   }
 
   // POST /api/clients — create a new client
-  app.post("/api/clients", async (req, res) => {
-    const userId = req.session.authUserId;
-    if (!userId) return res.status(401).json({ error: "Auth required" });
-
-    const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: "Client name is required" });
-    }
-    const id = toClientId(name.trim());
-    const registry = await loadRegistry();
-    if (registry.find((c) => c.id === id)) {
-      return res.status(409).json({ error: `A client with id '${id}' already exists` });
-    }
-    const newClient: ClientConfig = {
-      id,
-      name: name.trim(),
-      shortName: (shortName || name).trim(),
-      project: (project || name).trim(),
-      location: (location || "").trim(),
+  app.post("/api/clients", requireAuth, async (req, res) => {
+    try {
+      const user = req.authUser!;
+      const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle } = req.body;
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Client name is required" });
+      }
+      const id = toClientId(name.trim());
+      const registry = await loadRegistry();
+      if (registry.find((c) => c.id === id)) {
+        return res.status(409).json({ error: `A client with id '${id}' already exists` });
+      }
+      const newClient: ClientConfig = {
+        id,
+        name: name.trim(),
+        shortName: (shortName || name).trim(),
+        project: (project || name).trim(),
+        location: (location || "").trim(),
+        createdBy: user.id, // Set ownership!
       targetLocations: Array.isArray(targetLocations)
         ? targetLocations.filter(Boolean)
         : (targetLocations || "").split(",").map((s: string) => s.trim()).filter(Boolean),
@@ -777,7 +770,7 @@ export async function registerRoutes(
       },
       targets: {},
       createdAt: new Date().toISOString(),
-      createdBy: userId,
+      createdBy: user.id,
     };
     try {
       // Ensure data directories exist
@@ -787,6 +780,11 @@ export async function registerRoutes(
       const insertPayload = { ...newClient };
       delete (insertPayload as any).createdAt; // let DB use defaultNow()
       await storage.createClient(insertPayload);
+
+      // Sync to legacy registry JSON
+      registry.push(newClient);
+      fs.writeFileSync(path.join(DATA_BASE, "clients_registry.json"), JSON.stringify(registry, null, 2));
+
       res.status(201).json({ id, name: newClient.name, shortName: newClient.shortName });
     } catch (err: any) {
       console.error("[POST /api/clients] Failed to create client:", err);
@@ -993,10 +991,10 @@ export async function registerRoutes(
     }
   };
 
-  app.get("/api/clients/:clientId/platforms/:platform/analysis", requireAdmin, handleAnalysisRequest);
-  app.get("/api/clients/:clientId/:platform/analysis", requireAdmin, handleAnalysisRequest);
+  app.get("/api/clients/:clientId/platforms/:platform/analysis", requireOwnership, handleAnalysisRequest);
+  app.get("/api/clients/:clientId/:platform/analysis", requireOwnership, handleAnalysisRequest);
 
-  app.get("/api/clients/:clientId/:platform/sync-state", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/:platform/sync-state", requireOwnership, async (req, res) => {
     try {
       const registry = await loadRegistry();
       const client = registry.find((entry) => entry.id === req.params.clientId);
@@ -1109,7 +1107,7 @@ export async function registerRoutes(
 
   // ─── Recommendation Actions (client + platform scoped) ─────────
 
-  app.post("/api/clients/:clientId/:platform/recommendations/:id/action", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/:platform/recommendations/:id/action", requireOwnership, async (req, res) => {
     const { clientId, platform, id } = req.params as Record<string, string>;
     const { action, executionDetails, strategic_call } = req.body;
     if (!action || !["approved", "rejected", "deferred"].includes(action)) {
@@ -1167,7 +1165,7 @@ export async function registerRoutes(
   // ─── Custom Instructions Endpoints ─────────────────────────────
 
   // List instructions for a client (newest first)
-  app.get("/api/clients/:clientId/instructions", requireAdmin, (req, res) => {
+  app.get("/api/clients/:clientId/instructions", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const store = readInstructions();
     const clientInstructions = store.instructions
@@ -1177,7 +1175,7 @@ export async function registerRoutes(
   });
 
   // Create a new instruction
-  app.post("/api/clients/:clientId/instructions", requireAdmin, (req, res) => {
+  app.post("/api/clients/:clientId/instructions", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const { instruction, platform, priority } = req.body;
     if (!instruction || typeof instruction !== "string" || !instruction.trim()) {
@@ -1277,7 +1275,7 @@ export async function registerRoutes(
     res.json(next);
   });
 
-  app.post("/api/clients/:clientId/creative-hub/generate", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/creative-hub/generate", requireOwnership, async (req, res) => {
     try {
       const { clientId } = req.params as Record<string, string>;
       const hub = getCreativeHubState(clientId);
@@ -1557,7 +1555,7 @@ export async function registerRoutes(
 
   // ─── Quick Action Endpoint ──────────────────────────────────────
   // Execute batch actions: SCALE_WINNERS, PAUSE_UNDERPERFORMERS, FIX_LEARNING_LIMITED
-  app.post("/api/clients/:clientId/:platform/quick-action", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/:platform/quick-action", requireOwnership, async (req, res) => {
     try {
       const { clientId, platform } = req.params as Record<string, string>;
       const { actionType, scalePercent = 20 } = req.body as { actionType: QuickActionType; scalePercent?: number };
@@ -1653,7 +1651,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/clients/:clientId/:platform/auto-execute-now", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/:platform/auto-execute-now", requireOwnership, async (req, res) => {
     try {
       const { clientId, platform } = req.params as Record<string, string>;
       const data = await readAnalysisData(clientId, platform);
@@ -1737,7 +1735,7 @@ export async function registerRoutes(
   // ─── Execute Single Action (client/platform scoped) ──────────────
   // Accepts optional strategicCall in body for the learning engine
   // Supports MARK_COMPLETE, REJECT, DEFER (log-only, no API call)
-  app.post("/api/clients/:clientId/:platform/execute-action", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/:platform/execute-action", requireOwnership, async (req, res) => {
     try {
       const { clientId, platform } = req.params as Record<string, string>;
       const { action, entityId, entityName, entityType, params, strategicCall } = req.body;
@@ -1858,7 +1856,7 @@ export async function registerRoutes(
     return path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
   }
 
-  app.get("/api/clients/:clientId/benchmarks", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/benchmarks", requireOwnership, async (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const benchPath = getBenchmarksPath(clientId, platform);
@@ -1881,7 +1879,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/clients/:clientId/benchmarks", requireAdmin, (req, res) => {
+  app.put("/api/clients/:clientId/benchmarks", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const benchPath = getBenchmarksPath(clientId, platform);
@@ -1901,7 +1899,7 @@ export async function registerRoutes(
 
   // ─── Breakdowns Endpoint ───────────────────────────────────────────
 
-  app.get("/api/clients/:clientId/:platform/breakdowns", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/:platform/breakdowns", requireOwnership, async (req, res) => {
     const { clientId, platform } = req.params as Record<string, string>;
     const cadence = req.query.cadence as string | undefined;
     const currentRegistry = await loadRegistry();
@@ -1949,7 +1947,7 @@ export async function registerRoutes(
 
   // ─── Campaign-Specific Breakdowns Endpoint ───────────────────────
 
-  app.get("/api/clients/:clientId/:platform/breakdowns/:campaignId", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/:platform/breakdowns/:campaignId", requireOwnership, async (req, res) => {
     const { clientId, platform, campaignId } = req.params as Record<string, string>;
     const cadence = req.query.cadence as string | undefined;
     const currentRegistry = await loadRegistry();
@@ -1987,7 +1985,7 @@ export async function registerRoutes(
   // ─── Google Ads Execution Endpoints ─────────────────────────────
 
   // Execute a single Google Ads action (accepts strategicCall for learning)
-  app.post("/api/clients/:clientId/google/execute-action", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/google/execute-action", requireOwnership, async (req, res) => {
     try {
       const { clientId } = req.params as Record<string, string>;
       const { action, entityId, entityName, entityType, params, strategicCall } = req.body;
@@ -2051,7 +2049,7 @@ export async function registerRoutes(
   });
 
   // Batch execute Google Ads actions
-  app.post("/api/clients/:clientId/google/execute-batch", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/google/execute-batch", requireOwnership, async (req, res) => {
     try {
       const { actions } = req.body;
       const actorName = req.authUser?.name || req.authUser?.email || "User";
@@ -2080,7 +2078,7 @@ export async function registerRoutes(
   });
 
   // Google auto-execute: pause underperformers from analysis
-  app.post("/api/clients/:clientId/google/auto-execute-now", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/google/auto-execute-now", requireOwnership, async (req, res) => {
     try {
       const { clientId } = req.params as Record<string, string>;
       const data = await readAnalysisData(clientId, "google");
@@ -2298,7 +2296,7 @@ export async function registerRoutes(
   });
 
   // List negative keywords for a campaign
-  app.get("/api/clients/:clientId/google/negative-keywords", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/google/negative-keywords", requireOwnership, async (req, res) => {
     try {
       const campaignId = req.query.campaignId as string;
       if (!campaignId) {
@@ -2326,7 +2324,7 @@ export async function registerRoutes(
   });
 
   // Bulk add negative keywords to a campaign
-  app.post("/api/clients/:clientId/google/negative-keywords/bulk", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/google/negative-keywords/bulk", requireOwnership, async (req, res) => {
     try {
       const { campaignId, keywords } = req.body;
 
@@ -2503,7 +2501,7 @@ export async function registerRoutes(
   });
 
   // ─── Monthly Pacing Pivot — all calculations backend-computed ─────
-  app.get("/api/clients/:clientId/pacing", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/pacing", requireOwnership, async (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
 
@@ -2701,7 +2699,7 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/clients/:clientId/mtd-deliverables", requireAdmin, (req, res) => {
+  app.get("/api/clients/:clientId/mtd-deliverables", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const filePath = getMtdDeliverablesPath(clientId, platform);
@@ -2738,7 +2736,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/clients/:clientId/mtd-deliverables", requireAdmin, (req, res) => {
+  app.put("/api/clients/:clientId/mtd-deliverables", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const filePath = getMtdDeliverablesPath(clientId, platform);
@@ -2780,7 +2778,7 @@ export async function registerRoutes(
     res.json(data);
   });
 
-  app.get("/api/clients/:clientId/mtd-deliverables/history", requireAdmin, (req, res) => {
+  app.get("/api/clients/:clientId/mtd-deliverables/history", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
     const historyPath = getMtdHistoryPath(clientId, platform);
@@ -2860,7 +2858,7 @@ export async function registerRoutes(
 
 
   // ─── Data Verification Endpoint ─────────────────────────────────
-  app.get("/api/clients/:clientId/:platform/verify-data", requireAdmin, async (req, res) => {
+  app.get("/api/clients/:clientId/:platform/verify-data", requireOwnership, async (req, res) => {
     const { clientId, platform } = req.params as Record<string, string>;
     const cadence = (req.query.cadence as string) || "twice_weekly";
 
@@ -2951,7 +2949,7 @@ export async function registerRoutes(
     }
   });
 
-    app.get("/api/clients/:clientId/:platform/check-new-entities", requireAdmin, async (req, res) => {
+    app.get("/api/clients/:clientId/:platform/check-new-entities", requireOwnership, async (req, res) => {
       const { clientId, platform } = req.params as Record<string, string>;
   
       try {
@@ -3001,7 +2999,8 @@ export async function registerRoutes(
   });
 
   // ─── SSE Endpoint for Live Updates ──────────────────────────────
-  app.get("/api/events", requireAdmin, (req, res) => {
+  app.get("/api/events", requireAuth, (req, res) => {
+    const user = req.authUser!;
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -3009,7 +3008,10 @@ export async function registerRoutes(
       "X-Accel-Buffering": "no",
     });
     res.write("event: connected\ndata: {}\n\n");
-    addSSEClient(res);
+    
+    // Pass user context for scoping events
+    await addSSEClient(res, user);
+    
     req.on("close", () => {
       // cleanup handled in addSSEClient
     });
@@ -3248,7 +3250,7 @@ export async function registerRoutes(
 
   // ─── Unified Intelligence Pipeline (Central Source of Truth) ──────
   // Enforces 4-layer pipeline globally with caching
-  app.get("/api/intelligence/:clientId/:platform/insights", requireAdmin, async (req, res) => {
+  app.get("/api/intelligence/:clientId/:platform/insights", requireOwnership, async (req, res) => {
     try {
       const { clientId, platform } = req.params as Record<string, string>;
       const { type = "recommendation", alert_problem, alert_metric, alert_metrics } = req.query as Record<string, string>;
@@ -3414,7 +3416,7 @@ export async function registerRoutes(
   // ─── Bidding Intelligence Module ────────────────────────────────────────
   // GET /api/clients/:clientId/google/bidding-recommendations
   // Computes per-campaign bidding decisions: Max Clicks or tCPA + reason + confidence
-  app.get("/api/clients/:clientId/google/bidding-recommendations", requireAdmin, (req, res) => {
+  app.get("/api/clients/:clientId/google/bidding-recommendations", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const dataDir = getClientDataDir(clientId);
     const analysisPath = path.join(dataDir, "google", "analysis.json");
@@ -3612,7 +3614,7 @@ export async function registerRoutes(
 
   // POST /api/clients/:clientId/google/bidding-recommendations/action
   // Records user action (Apply/Reject) with mandatory strategic rationale
-  app.post("/api/clients/:clientId/google/bidding-recommendations/action", requireAdmin, (req, res) => {
+  app.post("/api/clients/:clientId/google/bidding-recommendations/action", requireOwnership, (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const { campaign_id, campaign_name, action, recommendation, rationale, params } = req.body;
 
@@ -3648,7 +3650,7 @@ export async function registerRoutes(
   // NOTE: GET /api/clients/:clientId/google/bidding-recommendations is handled above (SOP decision engine)
   // NOTE: POST .../action is handled above (file-based action recording)
 
-  app.post("/api/clients/:clientId/google/bidding-recommendations/trigger", requireAdmin, async (req, res) => {
+  app.post("/api/clients/:clientId/google/bidding-recommendations/trigger", requireOwnership, async (req, res) => {
     try {
       const { clientId } = req.params as Record<string, string>;
       await generateBiddingRecommendations(clientId);
@@ -3658,7 +3660,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/performance-alerts/:clientId/:platform", requireAdmin, async (req, res) => {
+  app.get("/api/performance-alerts/:clientId/:platform", requireOwnership, async (req, res) => {
     try {
       const clientId = String(req.params.clientId);
       const platform = String(req.params.platform);

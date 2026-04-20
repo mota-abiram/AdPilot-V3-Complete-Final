@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { db, pool } from "./db";
-import { users, type User, type NewUser } from "@shared/schema";
+import { users, clients, type User, type NewUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
@@ -341,13 +341,62 @@ async function requireAuthenticatedUser(req: Request, res: Response, next: NextF
   }
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  requireAuthenticatedUser(req, res, () => {
-    if (req.authUser?.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  return requireAuthenticatedUser(req, res, next);
+}
+
+export function requireRole(allowedRoles: UserRole[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    requireAuthenticatedUser(req, res, () => {
+      if (!req.authUser || !allowedRoles.includes(req.authUser.role)) {
+        return res.status(403).json({ error: `${allowedRoles.join("/")} access required` });
+      }
+      next();
+    });
+  };
+}
+
+/**
+ * Validates if the authenticated user has permission to access a specific client.
+ * Admin: Full access.
+ * Member: Only clients they created.
+ */
+export async function enforceOwnership(clientId: string, user: SafeUser) {
+  if (user.role === "admin") return true;
+
+  // For members, check if they are the creator of the client
+  try {
+    const rows = await db.select().from(clients).where(eq(clients.id, clientId));
+    const client = rows[0];
+    if (!client) return false;
+    return client.createdBy === user.id;
+  } catch {
+    // Fallback if DB fails
+    return false;
+  }
+}
+
+export function requireOwnership(req: Request, res: Response, next: NextFunction) {
+  requireAuthenticatedUser(req, res, async () => {
+    const clientId = req.params.clientId;
+    const user = req.authUser!;
+    
+    if (!clientId) return next(); // Not a client-scoped route
+
+    const hasAccess = await enforceOwnership(clientId, user);
+    
+    if (!hasAccess) {
+      console.warn(`[Auth] Access Denied: User ${user.email} (${user.role}) attempted to access client ${clientId}`);
+      return res.status(403).json({ error: "Access denied. You do not own this client." });
     }
+
+    console.log(`[Auth] Access Granted: User ${user.email} (${user.role}) -> client ${clientId}`);
     next();
   });
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  requireRole(["admin"])(req, res, next);
 }
 
 export function protectApiRoutes(req: Request, res: Response, next: NextFunction) {

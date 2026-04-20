@@ -7,6 +7,9 @@ import { log } from "./index";
 import { saveAnalysisSnapshot } from "./analysis-persistence";
 import { generateBiddingRecommendations } from "./bidding-intelligence";
 import { storage } from "./storage";
+import { db } from "./db";
+import { clients } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const execFileAsync = promisify(execFile);
 
@@ -52,20 +55,53 @@ let schedulerStatus: SchedulerStatus = {
 
 let platformSyncState: PlatformSyncStore = {};
 
-// SSE clients for live updates
-const sseClients: Set<import("http").ServerResponse> = new Set();
-
-export function addSSEClient(res: import("http").ServerResponse) {
-  sseClients.add(res);
-  res.on("close", () => sseClients.delete(res));
+// SSE clients for live updates with user context
+interface SSEClient {
+  res: any;
+  user: any;
+  ownedClientIds: Set<string>;
 }
 
-export function broadcastSSE(event: string, data: any) {
-  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+const sseClients = new Set<SSEClient>();
+
+export async function addSSEClient(res: any, user: any) {
+  // Fetch owned client IDs once for this connection
+  let ownedClientIds = new Set<string>();
+  if (user.role === "admin") {
+    // Admins don't need the set, but we keep it empty
+  } else {
+    try {
+      const rows = await db.select({ id: clients.id }).from(clients).where(eq(clients.createdBy, user.id));
+      ownedClientIds = new Set(rows.map(r => r.id));
+    } catch (err) {
+      console.error("[SSE] Failed to fetch owned clients for user", user.id, err);
+    }
+  }
+
+  const client = { res, user, ownedClientIds };
+  sseClients.add(client);
+  res.on("close", () => sseClients.delete(client));
+}
+
+export function broadcastSSE(event: string, data: any, clientId?: string) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   sseClients.forEach((client) => {
     try {
-      client.write(msg);
-    } catch {
+      const { res, user, ownedClientIds } = client;
+      
+      // RBAC & OBAC Check
+      if (user.role === 'admin') {
+        return res.write(payload);
+      }
+
+      // For members, only broadcast if:
+      // 1. The event is NOT client-specific (e.g., system status)
+      // 2. OR the user owns the clientId
+      if (!clientId || ownedClientIds.has(clientId)) {
+        res.write(payload);
+      }
+    } catch (err) {
+      console.error("[SSE] Send failed", err);
       sseClients.delete(client);
     }
   });

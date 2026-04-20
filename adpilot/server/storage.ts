@@ -12,7 +12,8 @@ import path from "path";
 export interface IStorage {
   // Clients
   getClient(id: string): Promise<Client | undefined>;
-  getAllClients(): Promise<Client[]>;
+  getAllClients(userId?: string): Promise<Client[]>;
+  getExecutionLogs(userId?: string, clientIds?: string[]): Promise<any[]>;
   createClient(client: any): Promise<Client>;
   updateClient(id: string, client: any): Promise<Client>;
   deleteClient(id: string): Promise<void>;
@@ -38,26 +39,39 @@ export class DatabaseStorage implements IStorage {
     return client;
   }
 
-  async getAllClients(): Promise<Client[]> {
+  async getAllClients(userId?: string): Promise<Client[]> {
     try {
-      const rows = await db.select().from(clients);
-      if (rows.length > 0) return rows;
+      let query = db.select().from(clients);
+      if (userId) {
+        return await query.where(eq(clients.createdBy, userId));
+      }
+      return await query;
     } catch (err) {
       console.warn("[Storage] getAllClients DB failed, falling back to registry JSON:", err);
     }
 
-    // Fallback: legacy registry JSON (keeps scheduler functional in dev without DB)
     try {
       const DATA_BASE = path.resolve(import.meta.dirname, "../../ads_agent/data");
       const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
       if (!fs.existsSync(REGISTRY_FILE)) return [];
       const raw = JSON.parse(fs.readFileSync(REGISTRY_FILE, "utf-8"));
       if (!Array.isArray(raw)) return [];
-      return raw as Client[];
+      let registry = raw as Client[];
+      if (userId) {
+        registry = registry.filter((c) => c.createdBy === userId);
+      }
+      return registry;
     } catch (err) {
       console.warn("[Storage] getAllClients registry fallback failed:", err);
       return [];
     }
+  }
+
+  async getExecutionLogs(userId?: string, clientIds?: string[]): Promise<any[]> {
+    // Note: implementation of executionLogs table query
+    // This is used for standard JSON response if needed, 
+    // but the SSE endpoint /api/events also needs scoping.
+    return []; // Placeholder until used by a standard GET route
   }
 
   async createClient(insertClient: any): Promise<Client> {
