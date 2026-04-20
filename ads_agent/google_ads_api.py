@@ -89,6 +89,13 @@ DEFAULT_FIELDS = {
 }
 
 
+def _normalize_customer_id(value):
+    """Return a Google Ads account ID with only digits."""
+    if value is None:
+        return ""
+    return "".join(ch for ch in str(value) if ch.isdigit())
+
+
 def _load_credentials():
     """Load Google Ads API credentials from env vars (preferred) or file fallback."""
     # Prefer environment variables (for production / Render deployment)
@@ -98,8 +105,8 @@ def _load_credentials():
             "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
             "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN", ""),
             "developer_token": os.environ.get("GOOGLE_DEVELOPER_TOKEN", ""),
-            "login_customer_id": os.environ.get("GOOGLE_MCC_ID", ""),
-            "default_client_id": os.environ.get("GOOGLE_CUSTOMER_ID", ""),
+            "login_customer_id": _normalize_customer_id(os.environ.get("GOOGLE_MCC_ID", "")),
+            "default_client_id": _normalize_customer_id(os.environ.get("GOOGLE_CUSTOMER_ID", "")),
         }
     # Fallback to credentials JSON file (for local development)
     if not os.path.exists(CREDS_FILE):
@@ -108,7 +115,10 @@ def _load_credentials():
             f"env vars or create {CREDS_FILE}."
         )
     with open(CREDS_FILE) as f:
-        return json.load(f)
+        creds = json.load(f)
+    creds["login_customer_id"] = _normalize_customer_id(creds.get("login_customer_id", ""))
+    creds["default_client_id"] = _normalize_customer_id(creds.get("default_client_id", ""))
+    return creds
 
 
 def _get_access_token(creds):
@@ -173,15 +183,16 @@ def gaql_search(query, customer_id=None, login_customer_id=None, page_size=10000
     creds = _load_credentials()
     access_token = _get_access_token(creds)
     
-    cid = customer_id or creds.get("default_client_id") or "3120813693"
-    login_id = login_customer_id or creds["login_customer_id"]
+    cid = _normalize_customer_id(customer_id or creds.get("default_client_id") or "3120813693")
+    login_id = _normalize_customer_id(login_customer_id or creds.get("login_customer_id", ""))
 
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": creds["developer_token"],
-        "login-customer-id": login_id,
         "Content-Type": "application/json",
     }
+    if login_id and str(login_id).strip() != str(cid).strip():
+        headers["login-customer-id"] = str(login_id).strip()
 
     all_results = []
     next_page_token = None
@@ -284,14 +295,16 @@ def mutate_campaign(customer_id, campaign_id, operations, login_customer_id=None
     """
     creds = _load_credentials()
     access_token = _get_access_token(creds)
-    login_id = login_customer_id or creds["login_customer_id"]
+    customer_id = _normalize_customer_id(customer_id)
+    login_id = _normalize_customer_id(login_customer_id or creds.get("login_customer_id", ""))
     
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": creds["developer_token"],
-        "login-customer-id": login_id,
         "Content-Type": "application/json",
     }
+    if login_id and str(login_id).strip() != str(customer_id).strip():
+        headers["login-customer-id"] = str(login_id).strip()
     
     resp = requests.post(
         f"{BASE_URL}/customers/{customer_id}/campaigns:mutate",
@@ -310,14 +323,16 @@ def mutate_ad_group(customer_id, operations, login_customer_id=None):
     """Mutate ad groups."""
     creds = _load_credentials()
     access_token = _get_access_token(creds)
-    login_id = login_customer_id or creds["login_customer_id"]
+    customer_id = _normalize_customer_id(customer_id)
+    login_id = _normalize_customer_id(login_customer_id or creds.get("login_customer_id", ""))
     
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": creds["developer_token"],
-        "login-customer-id": login_id,
         "Content-Type": "application/json",
     }
+    if login_id and str(login_id).strip() != str(customer_id).strip():
+        headers["login-customer-id"] = str(login_id).strip()
     
     resp = requests.post(
         f"{BASE_URL}/customers/{customer_id}/adGroups:mutate",
@@ -336,14 +351,16 @@ def mutate_ad(customer_id, operations, login_customer_id=None):
     """Mutate ads (pause/enable)."""
     creds = _load_credentials()
     access_token = _get_access_token(creds)
-    login_id = login_customer_id or creds["login_customer_id"]
+    customer_id = _normalize_customer_id(customer_id)
+    login_id = _normalize_customer_id(login_customer_id or creds.get("login_customer_id", ""))
     
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": creds["developer_token"],
-        "login-customer-id": login_id,
         "Content-Type": "application/json",
     }
+    if login_id and str(login_id).strip() != str(customer_id).strip():
+        headers["login-customer-id"] = str(login_id).strip()
     
     resp = requests.post(
         f"{BASE_URL}/customers/{customer_id}/adGroupAds:mutate",
@@ -362,14 +379,16 @@ def mutate_campaign_budget(customer_id, budget_resource_name, new_amount_micros,
     """Update a campaign budget amount."""
     creds = _load_credentials()
     access_token = _get_access_token(creds)
-    login_id = login_customer_id or creds["login_customer_id"]
+    customer_id = _normalize_customer_id(customer_id)
+    login_id = _normalize_customer_id(login_customer_id or creds.get("login_customer_id", ""))
     
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": creds["developer_token"],
-        "login-customer-id": login_id,
         "Content-Type": "application/json",
     }
+    if login_id and str(login_id).strip() != str(customer_id).strip():
+        headers["login-customer-id"] = str(login_id).strip()
     
     resp = requests.post(
         f"{BASE_URL}/customers/{customer_id}/campaignBudgets:mutate",

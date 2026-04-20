@@ -25,29 +25,38 @@ from google_ads_api import _load_credentials, _get_access_token, gaql_search, BA
 import requests
 
 CUSTOMER_ID = "3120813693"
-MCC_ID = "7668970885"
+MCC_ID = ""
 
 VALID_MATCH_TYPES = {"EXACT", "PHRASE", "BROAD"}
 
 
-def _headers():
+def _normalize_customer_id(value):
+    if value is None:
+        return ""
+    return "".join(ch for ch in str(value) if ch.isdigit())
+
+
+def _headers(customer_id=None):
     """Build authenticated headers for Google Ads API requests."""
     creds = _load_credentials()
     access_token = _get_access_token(creds)
-    login_id = creds.get("login_customer_id", MCC_ID)
-    return {
+    cid = _normalize_customer_id(customer_id or CUSTOMER_ID)
+    login_id = _normalize_customer_id(creds.get("login_customer_id", MCC_ID))
+    headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": creds["developer_token"],
-        "login-customer-id": login_id,
         "Content-Type": "application/json",
     }
+    if login_id and login_id != cid:
+        headers["login-customer-id"] = login_id
+    return headers
 
 
 def _mutate(endpoint_path, body, customer_id=None):
     """Generic mutate helper — POST to a Google Ads mutate endpoint."""
-    cid = customer_id or CUSTOMER_ID
+    cid = _normalize_customer_id(customer_id or CUSTOMER_ID)
     url = f"{BASE_URL}/customers/{cid}/{endpoint_path}"
-    resp = requests.post(url, headers=_headers(), json=body, timeout=60)
+    resp = requests.post(url, headers=_headers(cid), json=body, timeout=60)
     if resp.status_code != 200:
         error_detail = ""
         try:

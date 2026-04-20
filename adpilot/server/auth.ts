@@ -227,9 +227,15 @@ export async function getUserById(id?: string): Promise<User | undefined> {
   if (!id) return undefined;
   try {
     return await selectUserByIdFromDb(id);
-  } catch {
+  } catch (err: any) {
+    console.error(`[Auth] Database fetch failed for user ${id}:`, err.message);
     const user = readUsersFromFile().find((entry) => entry.id === id);
-    return user as unknown as User | undefined;
+    if (user) {
+      console.log(`[Auth] Fallback: Found user ${id} in local file storage.`);
+      return user as unknown as User | undefined;
+    }
+    // If DB failed and not in file, re-throw so the middleware knows it was a DB error, not a missing user
+    throw err;
   }
 }
 
@@ -296,20 +302,43 @@ function toSafeUser(user: User | StoredUser): SafeUser {
 }
 
 async function requireAuthenticatedUser(req: Request, res: Response, next: NextFunction) {
-  const user = await getUserById(req.session.authUserId);
-  if (!user) {
-    req.session.authUserId = undefined;
+  if (!req.session.authUserId) {
     if (req.path.startsWith("/api")) {
-      return res.status(401).json({ error: "Authentication required" });
+      return res.status(401).json({ error: "Session missing or expired" });
     }
     return res.redirect("/auth/login");
   }
-  if (user.status !== "active") {
-    req.session.authUserId = undefined;
-    return res.status(403).json({ error: "Your access has been blocked" });
+
+  try {
+    const user = await getUserById(req.session.authUserId);
+    if (!user) {
+      console.warn(`[Auth] Session ID ${req.session.authUserId} exists but user not found in storage.`);
+      req.session.authUserId = undefined;
+      if (req.path.startsWith("/api")) {
+        return res.status(401).json({ error: "User account no longer exists" });
+      }
+      return res.redirect("/auth/login");
+    }
+
+    if (user.status !== "active") {
+      console.warn(`[Auth] User ${user.email} (${user.id}) is blocked.`);
+      req.session.authUserId = undefined;
+      return res.status(403).json({ error: "Your access has been blocked" });
+    }
+
+    req.authUser = toSafeUser(user);
+    next();
+  } catch (err: any) {
+    console.error("[Auth] Middleware Critical Error:", err.message);
+    // If it's a database error, return 503 instead of 401 to distinguish connectivity issues
+    if (req.path.startsWith("/api")) {
+      return res.status(503).json({ 
+        error: "Authentication service temporarily unavailable",
+        detail: isProduction ? undefined : err.message 
+      });
+    }
+    next(err);
   }
-  req.authUser = toSafeUser(user);
-  next();
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {

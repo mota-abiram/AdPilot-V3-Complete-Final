@@ -145,6 +145,9 @@ const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
 const CREDENTIALS_FILE = path.join(DATA_BASE, "clients_credentials.json");
 const GOOGLE_ADS_TOKEN_CACHE = path.resolve(import.meta.dirname, "../../ads_agent/.google_ads_token_cache.json");
 const LEGACY_GOOGLE_CREDS_FILE = path.resolve(import.meta.dirname, "../../ads_agent/google_ads_credentials.json");
+const GOOGLE_ADS_API_VERSION = "v21";
+const GOOGLE_ADS_BASE_URL = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`;
+const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 // ─── Registry persistence helpers ─────────────────────────────────
 
@@ -205,6 +208,104 @@ function isPlaceholderSecret(value?: string): boolean {
   return !value || value.trim() === "" || value.trim().startsWith("YOUR_");
 }
 
+function normalizeGoogleAccountId(value?: string): string {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+function parseGoogleAdsApiError(body: any): string {
+  try {
+    const details = body?.error?.details ?? [];
+    const messages: string[] = [];
+    for (const detail of details) {
+      for (const err of detail?.errors ?? []) {
+        messages.push(err?.message ?? JSON.stringify(err?.errorCode ?? {}));
+      }
+    }
+    if (messages.length) return messages.join("; ");
+    return body?.error?.message || JSON.stringify(body).slice(0, 500);
+  } catch {
+    return "Unknown Google Ads API error";
+  }
+}
+
+async function getGoogleAccessTokenForClient(google: NonNullable<ClientCredentials["google"]>): Promise<string> {
+  const body = new URLSearchParams({
+    client_id: google.clientId,
+    client_secret: google.clientSecret,
+    refresh_token: google.refreshToken,
+    grant_type: "refresh_token",
+  });
+
+  const resp = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok || !data?.access_token) {
+    throw new Error(
+      `Token refresh failed: ${resp.status}${data ? ` - ${parseGoogleAdsApiError(data)}` : ""}`
+    );
+  }
+
+  return data.access_token;
+}
+
+async function verifyGoogleClientConnection(google: NonNullable<ClientCredentials["google"]>) {
+  const customerId = normalizeGoogleAccountId(google.customerId);
+  const mccId = normalizeGoogleAccountId(google.mccId);
+
+  if (!customerId) {
+    throw new Error("Google customer ID is required");
+  }
+  if (!google.developerToken) {
+    throw new Error("Google developer token is required");
+  }
+
+  const accessToken = await getGoogleAccessTokenForClient(google);
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "developer-token": google.developerToken,
+    "Content-Type": "application/json",
+  };
+  if (mccId && mccId !== customerId) {
+    headers["login-customer-id"] = mccId;
+  }
+
+  const resp = await fetch(`${GOOGLE_ADS_BASE_URL}/customers/${customerId}/googleAds:search`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query: `
+        SELECT
+          customer.id,
+          customer.descriptive_name,
+          customer.currency_code,
+          customer.time_zone
+        FROM customer
+        LIMIT 1
+      `,
+    }),
+  });
+
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    throw new Error(parseGoogleAdsApiError(data) || `Google Ads API request failed (${resp.status})`);
+  }
+
+  const customer = data?.results?.[0]?.customer ?? {};
+  return {
+    ok: true,
+    api_version: GOOGLE_ADS_API_VERSION,
+    customer_id: String(customer.id || customerId),
+    mcc_id: mccId,
+    descriptive_name: customer.descriptiveName || "",
+    currency_code: customer.currencyCode || "",
+    time_zone: customer.timeZone || "",
+  };
+}
+
 function getValidMetaCreds(creds?: ClientCredentials) {
   if (!creds?.meta) return null;
   if (isPlaceholderSecret(creds.meta.accessToken) || isPlaceholderSecret(creds.meta.adAccountId)) return null;
@@ -236,7 +337,8 @@ function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): 
     client_secret: google.clientSecret,
     refresh_token: google.refreshToken,
     developer_token: google.developerToken,
-    login_customer_id: google.mccId,
+    login_customer_id: normalizeGoogleAccountId(google.mccId),
+    default_client_id: normalizeGoogleAccountId(google.customerId),
   };
   fs.writeFileSync(LEGACY_GOOGLE_CREDS_FILE, JSON.stringify(payload, null, 2));
 }
@@ -248,7 +350,11 @@ function syncLegacyGoogleCredentialsFile(google?: ClientCredentials["google"]): 
 // `dataPath` values (e.g. from a different laptop). Normalize those paths back
 // into this server's `DATA_BASE` so we can correctly compute `hasData`.
 function resolvePlatformDataPath(clientId: string, platform: string, platformConfig: PlatformConfig): string {
-  const configured = platformConfig.dataPath;
+  const configured = typeof platformConfig?.dataPath === "string" ? platformConfig.dataPath : "";
+
+  if (!configured) {
+    return path.join(DATA_BASE, `clients/${clientId}/${platform}/analysis.json`);
+  }
 
   // If the configured path already exists on this machine, use it.
   if (fs.existsSync(configured)) return configured;
@@ -782,6 +888,31 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/clients/:clientId/google/status", async (req, res) => {
+    try {
+      const user = await getUserById(req.session.authUserId);
+      if (!user) return res.status(401).json({ error: "Auth required" });
+
+      const clientId = req.params.clientId as string;
+      const client = await storage.getClient(clientId);
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      if (user.role === "member" && client.createdBy !== user.id) {
+        return res.status(403).json({ error: "Forbidden: You do not own this client" });
+      }
+
+      const credsStore = await loadCredentials();
+      const google = getValidGoogleCreds(credsStore[clientId]);
+      if (!google) {
+        return res.status(400).json({ error: "Google credentials are not configured for this client" });
+      }
+
+      const result = await verifyGoogleClientConnection(google);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Google verification failed" });
+    }
+  });
+
   // PUT /api/clients/:clientId/credentials — save/update credentials
   app.put("/api/clients/:clientId/credentials", async (req, res) => {
     try {
@@ -821,8 +952,8 @@ export async function registerRoutes(
           clientSecret: clientSecret.trim(),
           refreshToken: refreshToken.trim(),
           developerToken: (developerToken || "").trim(),
-          mccId: (mccId || "").trim(),
-          customerId: (customerId || "").trim(),
+          mccId: normalizeGoogleAccountId(mccId),
+          customerId: normalizeGoogleAccountId(customerId),
         };
       }
 

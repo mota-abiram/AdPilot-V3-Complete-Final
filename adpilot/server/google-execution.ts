@@ -28,12 +28,16 @@ const API_VERSION = "v21";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
+function normalizeGoogleAccountId(value?: string | null): string {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
 function getGoogleCustomerId(): string {
-  return process.env.GOOGLE_CUSTOMER_ID || "3120813693";
+  return normalizeGoogleAccountId(process.env.GOOGLE_CUSTOMER_ID) || "3120813693";
 }
 
 function getGoogleLoginCustomerId(): string {
-  return process.env.GOOGLE_MCC_ID || "7668970885";
+  return normalizeGoogleAccountId(process.env.GOOGLE_MCC_ID);
 }
 
 // Rate-limit: minimum delay between batch calls (ms)
@@ -99,7 +103,7 @@ interface Credentials {
   client_secret: string;
   refresh_token: string;
   developer_token: string;
-  login_customer_id: string;
+  login_customer_id?: string;
 }
 
 interface TokenCache {
@@ -115,23 +119,37 @@ function loadCredentials(): Credentials {
     client_secret: process.env.GOOGLE_CLIENT_SECRET,
     refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
     developer_token: process.env.GOOGLE_DEVELOPER_TOKEN,
-    login_customer_id: process.env.GOOGLE_MCC_ID,
+    login_customer_id: normalizeGoogleAccountId(process.env.GOOGLE_MCC_ID),
   };
 
-  const envComplete = Object.values(envCreds).every(Boolean);
+  const envComplete = Boolean(
+    envCreds.client_id &&
+    envCreds.client_secret &&
+    envCreds.refresh_token &&
+    envCreds.developer_token
+  );
 
   const fileExists = fs.existsSync(CREDS_FILE);
   const fileCreds = fileExists ? JSON.parse(fs.readFileSync(CREDS_FILE, "utf-8")) as Partial<Credentials> : {};
-  const fileComplete = ["client_id","client_secret","refresh_token","developer_token","login_customer_id"].every(
+  if (fileCreds.login_customer_id !== undefined) {
+    fileCreds.login_customer_id = normalizeGoogleAccountId(fileCreds.login_customer_id);
+  }
+  const fileComplete = ["client_id","client_secret","refresh_token","developer_token"].every(
     (k) => (fileCreds as any)[k] && !(String((fileCreds as any)[k]).startsWith("YOUR_"))
   );
 
   if (envComplete) {
-    return envCreds as Credentials;
+    return {
+      ...(envCreds as Credentials),
+      login_customer_id: envCreds.login_customer_id || "",
+    };
   }
 
   if (fileComplete) {
-    return fileCreds as Credentials;
+    return {
+      ...(fileCreds as Credentials),
+      login_customer_id: fileCreds.login_customer_id || "",
+    };
   }
 
   const missing = [];
@@ -139,7 +157,6 @@ function loadCredentials(): Credentials {
   if (!envCreds.client_secret) missing.push("GOOGLE_CLIENT_SECRET");
   if (!envCreds.refresh_token) missing.push("GOOGLE_REFRESH_TOKEN");
   if (!envCreds.developer_token) missing.push("GOOGLE_DEVELOPER_TOKEN");
-  if (!envCreds.login_customer_id) missing.push("GOOGLE_MCC_ID");
 
   throw new Error(
     `Google Ads credentials not configured. Either fill ${CREDS_FILE} or set env vars: ${missing.join(", ")}.`
@@ -200,15 +217,19 @@ async function getAccessToken(creds: Credentials): Promise<string> {
 /**
  * Build the standard header set required by every Google Ads REST call.
  */
-async function buildHeaders(): Promise<Record<string, string>> {
+async function buildHeaders(customerId: string = getGoogleCustomerId()): Promise<Record<string, string>> {
   const creds = loadCredentials();
   const token = await getAccessToken(creds);
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     "developer-token": creds.developer_token,
-    "login-customer-id": getGoogleLoginCustomerId(),
     "Content-Type": "application/json",
   };
+  const loginCustomerId = normalizeGoogleAccountId(creds.login_customer_id || getGoogleLoginCustomerId());
+  if (loginCustomerId && loginCustomerId !== normalizeGoogleAccountId(customerId)) {
+    headers["login-customer-id"] = loginCustomerId;
+  }
+  return headers;
 }
 
 // ─── Google Ads REST helpers ─────────────────────────────────────
@@ -240,8 +261,8 @@ async function mutateCampaignStatus(
   campaignId: string,
   status: "ENABLED" | "PAUSED"
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  const headers = await buildHeaders();
   const customerId = getGoogleCustomerId();
+  const headers = await buildHeaders(customerId);
   const resourceName = `customers/${customerId}/campaigns/${campaignId}`;
 
   const resp = await fetch(
@@ -276,8 +297,8 @@ async function mutateAdGroupStatus(
   adGroupId: string,
   status: "ENABLED" | "PAUSED"
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  const headers = await buildHeaders();
   const customerId = getGoogleCustomerId();
+  const headers = await buildHeaders(customerId);
   const resourceName = `customers/${customerId}/adGroups/${adGroupId}`;
 
   const resp = await fetch(
@@ -312,9 +333,9 @@ async function mutateAdStatus(
   adGroupAdId: string,
   status: "ENABLED" | "PAUSED"
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  const headers = await buildHeaders();
   // adGroupAdId is expected as "adGroupId~adId"
   const customerId = getGoogleCustomerId();
+  const headers = await buildHeaders(customerId);
   const resourceName = `customers/${customerId}/adGroupAds/${adGroupAdId}`;
 
   const resp = await fetch(
@@ -349,8 +370,8 @@ async function mutateAdGroupCpcBid(
   adGroupId: string,
   cpcBidMicros: number
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  const headers = await buildHeaders();
   const customerId = getGoogleCustomerId();
+  const headers = await buildHeaders(customerId);
   const resourceName = `customers/${customerId}/adGroups/${adGroupId}`;
 
   const resp = await fetch(
@@ -385,8 +406,8 @@ async function mutateCampaignBudget(
   budgetResourceName: string,
   newAmountMicros: number
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  const headers = await buildHeaders();
   const customerId = getGoogleCustomerId();
+  const headers = await buildHeaders(customerId);
 
   const resp = await fetch(
     `${BASE_URL}/customers/${customerId}/campaignBudgets:mutate`,
@@ -417,8 +438,8 @@ async function mutateCampaignBudget(
 // ──── GAQL Query ─────────────────────────────────────────────────
 
 async function gaqlSearch(query: string): Promise<any[]> {
-  const headers = await buildHeaders();
   const customerId = getGoogleCustomerId();
+  const headers = await buildHeaders(customerId);
   const allResults: any[] = [];
   let nextPageToken: string | undefined;
 

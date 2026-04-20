@@ -179,11 +179,16 @@ export default function SettingsPage() {
 
   // Verify Google API status (GS-01)
   async function verifyGoogleApi() {
+    if (!activeClientId) {
+      setGoogleStatus("idle");
+      return;
+    }
     setIsVerifyingGoogleApi(true);
     setGoogleStatus("checking");
     try {
-      const url = `${apiBase}/entity/google/status`;
-      const r = await fetch(url);
+      const r = await fetch(`/api/clients/${activeClientId}/google/status`, {
+        credentials: "include",
+      });
       if (r.ok) {
         setGoogleStatus("ok");
         const d = await r.json().catch(() => null);

@@ -37,6 +37,12 @@ from collections import defaultdict
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def _normalize_google_account_id(value):
+    if value is None:
+        return ""
+    return "".join(ch for ch in str(value) if ch.isdigit())
+
 # ── Load .env from project tree (works standalone without python-dotenv) ──
 def _load_dotenv():
     """Search for .env file in script dir and parent dirs, load if found."""
@@ -98,8 +104,8 @@ def _load_client_credentials(client_id):
                             "client_secret": g.get("clientSecret", ""),
                             "refresh_token": g.get("refreshToken", ""),
                             "developer_token": g.get("developerToken", ""),
-                            "login_customer_id": g.get("mccId", ""),
-                            "default_client_id": g.get("customerId", ""),
+                            "login_customer_id": _normalize_google_account_id(g.get("mccId", "")),
+                            "default_client_id": _normalize_google_account_id(g.get("customerId", "")),
                         }
         except Exception:
             pass
@@ -108,9 +114,8 @@ def _load_client_credentials(client_id):
 _client_creds = _load_client_credentials(_CLIENT_ID)
 if _client_creds:
     # Inject into env so google_ads_api.py picks them up automatically
-    # Only override env vars when the client-scoped credential is non-empty.
-    # This keeps good .env values from being replaced by blank fields in
-    # clients_credentials.json.
+    # Secrets still fall back to .env when omitted, but account IDs are always
+    # set from the client record so a blank MCC stays blank for direct accounts.
     if _client_creds["client_id"]:
         os.environ["GOOGLE_CLIENT_ID"] = _client_creds["client_id"]
     if _client_creds["client_secret"]:
@@ -119,17 +124,15 @@ if _client_creds:
         os.environ["GOOGLE_REFRESH_TOKEN"] = _client_creds["refresh_token"]
     if _client_creds["developer_token"]:
         os.environ["GOOGLE_DEVELOPER_TOKEN"] = _client_creds["developer_token"]
-    if _client_creds["login_customer_id"]:
-        os.environ["GOOGLE_MCC_ID"] = _client_creds["login_customer_id"]
-    if _client_creds["default_client_id"]:
-        os.environ["GOOGLE_CUSTOMER_ID"] = _client_creds["default_client_id"]
+    os.environ["GOOGLE_MCC_ID"] = _client_creds["login_customer_id"] or ""
+    os.environ["GOOGLE_CUSTOMER_ID"] = _client_creds["default_client_id"] or ""
 
-    MCC_ACCOUNT_ID = _client_creds["login_customer_id"] or os.environ.get("GOOGLE_MCC_ID", "7668970885")
+    MCC_ACCOUNT_ID = _client_creds["login_customer_id"] or os.environ.get("GOOGLE_MCC_ID", "")
     CLIENT_ACCOUNT_ID = _client_creds["default_client_id"] or os.environ.get("GOOGLE_CUSTOMER_ID", "3120813693")
     DEV_TOKEN = _client_creds["developer_token"] or os.environ.get("GOOGLE_DEVELOPER_TOKEN", "_3UIxhdvv6QErcI8BVJCNw")
 else:
     # Fallback to legacy hardcoded values (amara default)
-    MCC_ACCOUNT_ID = os.environ.get("GOOGLE_MCC_ID", "7668970885")
+    MCC_ACCOUNT_ID = os.environ.get("GOOGLE_MCC_ID", "")
     CLIENT_ACCOUNT_ID = os.environ.get("GOOGLE_CUSTOMER_ID", "3120813693")
     DEV_TOKEN = os.environ.get("GOOGLE_DEVELOPER_TOKEN", "_3UIxhdvv6QErcI8BVJCNw")
 
@@ -849,6 +852,11 @@ def collect_data(cadence_window=None):
     """
     print("\n=== GOOGLE ADS DATA COLLECTION ===\n")
     ds = {}
+    ds["campaigns_error"] = None
+    ds["ad_groups_error"] = None
+    ds["ads_error"] = None
+    ds["keywords_error"] = None
+    ds["customer_error"] = None
     since = cadence_window.get("since") if cadence_window else None
     until = cadence_window.get("until") if cadence_window else None
     if since and until:
@@ -858,6 +866,7 @@ def collect_data(cadence_window=None):
     print("  Fetching campaign data...")
     raw_campaigns = get_report("campaign", since=since, until=until)
     if isinstance(raw_campaigns, dict) and "_error" in raw_campaigns:
+        ds["campaigns_error"] = raw_campaigns["_error"]
         print(f"  [ERROR] Campaigns: {raw_campaigns['_error'][:200]}")
         ds["campaigns_raw"] = []
     else:
@@ -868,6 +877,7 @@ def collect_data(cadence_window=None):
     print("  Fetching ad group data...")
     raw_ag = get_report("ad_group", since=since, until=until)
     if isinstance(raw_ag, dict) and "_error" in raw_ag:
+        ds["ad_groups_error"] = raw_ag["_error"]
         print(f"  [ERROR] Ad groups: {raw_ag['_error'][:200]}")
         ds["ad_groups_raw"] = []
     else:
@@ -878,6 +888,7 @@ def collect_data(cadence_window=None):
     print("  Fetching ad data...")
     raw_ads = get_report("ad_group_ad", since=since, until=until)
     if isinstance(raw_ads, dict) and "_error" in raw_ads:
+        ds["ads_error"] = raw_ads["_error"]
         print(f"  [ERROR] Ads: {raw_ads['_error'][:200]}")
         ds["ads_raw"] = []
     else:
@@ -889,6 +900,7 @@ def collect_data(cadence_window=None):
     kw_gaql = "SELECT ad_group.id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.quality_info.quality_score FROM keyword_view"
     raw_kws = get_report("keyword_view", since=since, until=until, query=kw_gaql)
     if isinstance(raw_kws, dict) and "_error" in raw_kws:
+        ds["keywords_error"] = raw_kws["_error"]
         print(f"  [ERROR] Keywords: {raw_kws['_error'][:200]}")
         ds["keywords_raw"] = []
     else:
@@ -899,6 +911,7 @@ def collect_data(cadence_window=None):
     print("  Fetching account data...")
     raw_customer = get_report("customer", since=since, until=until) # Added dates
     if isinstance(raw_customer, dict) and "_error" in raw_customer:
+        ds["customer_error"] = raw_customer["_error"]
         print(f"  [ERROR] Customer: {raw_customer['_error'][:200]}")
         ds["customer_raw"] = {}
     else:
@@ -3538,11 +3551,24 @@ def run_analysis(cadence="twice_weekly"):
 
     if not ds["campaigns"]:
         print("\n[FATAL] No campaign data. Exiting.")
+        root_error = (
+            ds.get("campaigns_error")
+            or ds.get("customer_error")
+            or ds.get("ad_groups_error")
+            or ds.get("ads_error")
+            or "No campaign data returned from Google Ads API"
+        )
         result = {
             "status": "NO_DATA",
             "timestamp": str(NOW),
             "cadence": cadence,
-            "error": "No campaign data returned from Google Ads API",
+            "error": root_error,
+            "diagnostics": {
+                "campaign_rows_found": len(ds.get("campaigns_raw", [])),
+                "ad_group_rows_found": len(ds.get("ad_groups_raw", [])),
+                "ad_rows_found": len(ds.get("ads_raw", [])),
+                "customer_data_found": bool(ds.get("customer_raw")),
+            },
         }
         # SAFEGUARD: Don't overwrite good analysis with NO_DATA
         existing = load_json(os.path.join(DATA_DIR, "analysis.json"))
