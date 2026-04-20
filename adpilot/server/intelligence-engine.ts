@@ -4,6 +4,7 @@ import { deduplicateProblems } from "./problem-deduplicator";
 import {
   cardsToRecommendations,
   runSolutionPipeline,
+  type AdditionalFinding,
   type RecommendationCard,
   type SolutionOption,
 } from "./solution-pipeline";
@@ -308,12 +309,90 @@ async function analyzeSinglePlatform(ctx: any, query: IntelligenceQuery, platfor
 
   // Generate recommendation cards for deduplicated problems (async — L2/L3 make real Claude calls)
   // We limit concurrency to 5 to avoid 429 Rate Limits from Anthropic in production
-  const cards: any[] = [];
+  const cards: RecommendationCard[] = [];
   const CONCURRENCY_LIMIT = 5;
   for (let i = 0; i < dedupedProblems.length; i += CONCURRENCY_LIMIT) {
     const batch = dedupedProblems.slice(i, i + CONCURRENCY_LIMIT);
     const batchResults = await Promise.all(batch.map(problem => runSolutionPipeline(problem, ctx)));
     cards.push(...batchResults);
+  }
+
+  // ── Collect intelligence-found problems from L2 ────────────────────
+  // L2 (Claude) may discover problems the scoring system missed — e.g.,
+  // audience cannibalization, learning phase traps, tracking gaps.
+  // These are surfaced as lightweight "insight" cards so they appear in
+  // the recommendations alongside score-driven problems.
+  const seenFindingKeys = new Set<string>();
+  const existingEntityNames = new Set(cards.map((c) => c.entity.name.toLowerCase()));
+
+  for (const card of [...cards]) {
+    if (!card.additionalFindings?.length) continue;
+    for (const finding of card.additionalFindings) {
+      // Deduplicate: skip if we've already surfaced this exact finding
+      const key = `${finding.affectedEntity}::${finding.problem}`.toLowerCase();
+      if (seenFindingKeys.has(key)) continue;
+      seenFindingKeys.add(key);
+
+      // Skip if the scoring system already has a card for this entity
+      // (to avoid duplicating a problem that was already caught by scores)
+      if (existingEntityNames.has(finding.affectedEntity.toLowerCase())) continue;
+
+      const severity = (["CRITICAL", "MEDIUM", "LOW"].includes(finding.severity)
+        ? finding.severity
+        : "MEDIUM") as "CRITICAL" | "MEDIUM" | "LOW";
+
+      // Create a lightweight insight card for the intelligence-found problem
+      const insightCard: RecommendationCard = {
+        id: `${platform}:intelligence_finding:${seenFindingKeys.size}`,
+        severity,
+        platform,
+        entity: {
+          name: finding.affectedEntity || "Account-wide",
+          type: "insight",
+          score: 0,
+          classification: "Intelligence Finding",
+        },
+        diagnosis: {
+          symptom: finding.problem,
+          problem: finding.problem,
+          data: [finding.evidence],
+          rootCauseChain: [],
+        },
+        layerAnalysis: {
+          l1: { title: "L1 (SOP)", action: "No SOP rule applies", confidence: 0, reasoning: "This problem was discovered by AI analysis, not by the scoring system." },
+          l2: { title: "L2 (AI Expert)", action: finding.problem, confidence: 70, reasoning: finding.evidence },
+          l3: { title: "L3 (History)", action: "No history available", confidence: 0, reasoning: "First-time detection." },
+          l4: { title: "L4 (Strategy)", action: "Review recommended", confidence: 0, reasoning: "New finding requires strategic evaluation." },
+          conflicts: [],
+        },
+        solutions: [{
+          classification: "MANUAL",
+          title: finding.problem,
+          rationale: finding.evidence,
+          steps: ["Investigate this intelligence-found issue", "Validate with account data", "Determine corrective action"],
+          risk: "Medium",
+          confidence: 70,
+          expectedOutcome: "Early intervention on a problem the scoring system would not have caught until metrics degraded further.",
+        }],
+        tieredSolutions: {
+          primary: {
+            classification: "MANUAL",
+            title: finding.problem,
+            rationale: finding.evidence,
+            steps: ["Investigate this intelligence-found issue", "Validate with account data", "Determine corrective action"],
+            risk: "Medium",
+            confidence: 70,
+            expectedOutcome: "Early intervention on a problem the scoring system would not have caught until metrics degraded further.",
+          },
+          secondary: [],
+          rejection: [],
+        },
+        expectedOutcome: "If ignored, this issue may worsen and eventually appear as a score-driven problem.",
+      };
+
+      cards.push(insightCard);
+      console.log(`[Intelligence Engine] Surfaced intelligence-found problem: "${finding.problem}" on "${finding.affectedEntity}" [${severity}]`);
+    }
   }
 
   return { problems: allProblems, dedupedProblems, cards };

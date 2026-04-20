@@ -85,7 +85,7 @@ function selectFallbackPrimarySolution(
       classification: "MANUAL",
       title: `Review and consider pausing ${problem.entity.name} (zero leads + high spend)`,
       rationale: `[Fallback — AI analysis unavailable] This ${problem.entity.type} has spent significantly without generating leads. ` +
-                 `SOP recommendation is to pause, but human review is required since AI validation was skipped.`,
+        `SOP recommendation is to pause, but human review is required since AI validation was skipped.`,
       steps: [
         `1. Confirm zero leads are not a tracking issue before pausing`,
         `2. Pause ${problem.entity.type} "${problem.entity.name}" via dashboard or API`,
@@ -123,7 +123,7 @@ function selectFallbackPrimarySolution(
       classification: "MANUAL",
       title: `Scale budget on winning ${problem.entity.type}`,
       rationale: `[Fallback — AI analysis unavailable] This ${problem.entity.type} scores above 70 but budget utilization is below 60%. ` +
-                 `Review and scale if CPL targets allow.`,
+        `Review and scale if CPL targets allow.`,
       steps: [
         `1. Verify current CPL is within target before scaling`,
         `2. Increase daily budget by 20% for this ${problem.entity.type}`,
@@ -228,7 +228,7 @@ function selectFallbackPrimarySolution(
     classification: "MANUAL",
     title: `Review ${problem.entity.type} performance and optimize`,
     rationale: `[Fallback — AI analysis unavailable] This ${problem.entity.type} is underperforming (score ${problem.entity.score.toFixed(0)}/100). ` +
-               `Audit targeting, creative, and bidding to identify optimization levers.`,
+      `Audit targeting, creative, and bidding to identify optimization levers.`,
     steps: [
       `1. Compare metrics against account average`,
       `2. Identify weakest metric (CPL, CTR, CVR)`,
@@ -263,21 +263,25 @@ function generateFallbackSecondary(
 ): SolutionOption[] {
   const alternatives: SolutionOption[] = [];
 
-  // Offer expert review as a conservative alternative
-  alternatives.push({
-    classification: "MANUAL",
-    title: `Get expert review on ${problem.entity.name}`,
-    rationale: `Before taking action, request human expert review. Especially important since AI validation was unavailable for this recommendation.`,
-    steps: [
-      `1. Export entity performance report (7-day trend)`,
-      `2. Review diagnosis and proposed action`,
-      `3. Confirm action with account manager`,
-      `4. Execute with documented rationale`,
-    ],
-    risk: "Low",
-    confidence: 85,
-    expectedOutcome: `Higher confidence in decision due to human validation. Potential to uncover context automation missed.`,
-  });
+  // In fallback mode (AI unavailable), expert review IS warranted since AI
+  // validation was skipped — but only for low-confidence or CRITICAL problems,
+  // not as a blanket static suggestion on every single card
+  if (primary.confidence < 70 || problem.severity === "CRITICAL") {
+    alternatives.push({
+      classification: "MANUAL",
+      title: `Get expert review on ${problem.entity.name}`,
+      rationale: `AI validation was unavailable for this recommendation (fallback mode). Human expert review is recommended before executing.`,
+      steps: [
+        `1. Export entity performance report (7-day trend)`,
+        `2. Review diagnosis and proposed action`,
+        `3. Confirm action with account manager`,
+        `4. Execute with documented rationale`,
+      ],
+      risk: "Low",
+      confidence: 85,
+      expectedOutcome: `Higher confidence in decision due to human validation. Potential to uncover context automation missed.`,
+    });
+  }
 
   return alternatives;
 }

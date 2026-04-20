@@ -255,8 +255,13 @@ function SolutionTierDisplay({
   entityName: string;
   entityType: string;
 }) {
+  const [status, setStatus] = useState<"pending" | "executed" | "rejected" | "completed">("pending");
+  const handleSuccess = (newStatus: "executed" | "rejected" | "completed") => setStatus(newStatus);
+
   return (
-    <div className={cn("rounded-lg border p-3", EXECUTION_STYLE[solution.classification])}>
+    <div className={cn("rounded-lg border p-3 transition-opacity",
+      status !== "pending" ? "opacity-60 bg-muted/20 border-border/40" : EXECUTION_STYLE[solution.classification]
+    )}>
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <Badge
           variant="outline"
@@ -264,7 +269,10 @@ function SolutionTierDisplay({
         >
           {solution.classification}
         </Badge>
-        <span className="text-xs text-muted-foreground">{solution.confidence}% confidence</span>
+        {status !== "pending" && (
+          <Badge variant="secondary" className="px-1.5 py-0 bg-background text-muted-foreground border-border/50 uppercase tracking-widest text-[10px]">Status: {status}</Badge>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">{solution.confidence}% confidence</span>
         <span className="text-xs text-muted-foreground">Risk: {solution.risk}</span>
       </div>
       <h4 className="text-sm font-semibold text-foreground">{solution.title}</h4>
@@ -282,17 +290,130 @@ function SolutionTierDisplay({
       <p className="mt-3 text-sm text-foreground/85">
         <span className="font-semibold">Expected Outcome:</span> {solution.expectedOutcome}
       </p>
-      {solution.classification === "AUTO-EXECUTE" && solution.actionPayload?.action?.type && (
-        <div className="mt-4">
+
+      {status === "pending" && (
+        <div className="mt-4 pt-4 flex flex-col sm:flex-row gap-2">
+          {solution.classification !== "MANUAL" && solution.actionPayload?.action?.type && (
+            <ExecutionButton
+              action={solution.actionPayload.action.type}
+              entityId={entityId || ""}
+              entityName={entityName}
+              entityType={entityType as any}
+              params={solution.actionPayload.action.parameters}
+              label={solution.classification === "AUTO-EXECUTE" ? "Auto-Execute" : "Execute"}
+              className="flex-1 text-xs font-black uppercase tracking-[0.16em]"
+              size="sm"
+              onSuccess={() => handleSuccess("executed")}
+            />
+          )}
+
           <ExecutionButton
-            action={solution.actionPayload.action.type}
+            action="MARK_COMPLETE"
             entityId={entityId || ""}
             entityName={entityName}
             entityType={entityType as any}
-            params={solution.actionPayload.action.parameters}
-            label="Execute Now"
-            className="w-full text-xs font-black uppercase tracking-[0.16em]"
+            label="Mark Complete"
+            variant="outline"
+            className="flex-1 text-xs font-black uppercase tracking-[0.16em] border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-800 dark:hover:text-emerald-300"
             size="sm"
+            onSuccess={() => handleSuccess("completed")}
+          />
+
+          <ExecutionButton
+            action="REJECT"
+            entityId={entityId || ""}
+            entityName={entityName}
+            entityType={entityType as any}
+            label="Reject"
+            variant="outline"
+            className="flex-1 text-xs font-black uppercase tracking-[0.16em] border-red-500/50 text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-800 dark:hover:text-red-300"
+            size="sm"
+            onSuccess={() => handleSuccess("rejected")}
+          />
+
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Rejection Tier Display ────────────────────────────────────────
+
+function RejectionTierDisplay({
+  solution,
+  entityId,
+  entityName,
+  entityType,
+}: {
+  solution: SolutionOption;
+  entityId?: string;
+  entityName: string;
+  entityType: string;
+}) {
+  const [status, setStatus] = useState<"pending" | "executed" | "rejected" | "completed">("pending");
+  const handleSuccess = (newStatus: "executed" | "rejected" | "completed") => setStatus(newStatus);
+
+  return (
+    <div
+      className={cn("rounded-lg border p-3 transition-opacity",
+        status !== "pending" ? "opacity-60 bg-muted/20 border-border/40" : "border-red-500/30 bg-red-500/10")}
+    >
+      <div className="flex items-center flex-wrap gap-2 mb-2">
+        <Badge
+          variant="outline"
+          className={cn("text-xs font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[solution.classification])}
+        >
+          {solution.classification}
+        </Badge>
+        {status !== "pending" && (
+          <Badge variant="secondary" className="px-1.5 py-0 bg-background text-muted-foreground border-border/50 uppercase tracking-widest text-[10px]">Status: {status}</Badge>
+        )}
+        <span className="text-xs text-red-700 dark:text-red-300 ml-auto">
+          {solution.confidence}% certain this won't work
+        </span>
+      </div>
+      <h4 className="text-sm font-semibold text-foreground">{solution.title}</h4>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/85">{solution.rationale}</p>
+
+      {status === "pending" && (
+        <div className="mt-3 flex flex-col sm:flex-row gap-2 border-t border-red-500/10 pt-3">
+          {solution.actionPayload?.action?.type && (
+            <ExecutionButton
+              action={solution.actionPayload.action.type}
+              entityId={entityId || ""}
+              entityName={entityName}
+              entityType={entityType as any}
+              params={solution.actionPayload.action.parameters}
+              label="Consider Instead"
+              className="flex-1 text-xs font-black uppercase tracking-[0.16em] bg-background text-foreground border border-border hover:bg-muted"
+              size="sm"
+              onSuccess={() => handleSuccess("executed")}
+            />
+          )}
+
+          <ExecutionButton
+            action="MARK_COMPLETE"
+            entityId={entityId || ""}
+            entityName={entityName}
+            entityType={entityType as any}
+            label="Mark Reviewed"
+            variant="outline"
+            className="flex-1 text-xs font-black uppercase tracking-[0.16em] border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-800 dark:hover:text-emerald-300"
+            size="sm"
+            onSuccess={() => handleSuccess("completed")}
+          />
+
+          <ExecutionButton
+            action="REJECT"
+            entityId={entityId || ""}
+            entityName={entityName}
+            entityType={entityType as any}
+            label="Reject"
+            variant="outline"
+            className="flex-1 text-xs font-black uppercase tracking-[0.16em] border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-800 dark:hover:text-red-300"
+            size="sm"
+            onSuccess={() => handleSuccess("rejected")}
           />
         </div>
       )}
@@ -443,24 +564,13 @@ function SectionCard({ severity, card }: { severity: SeverityTier; card: Recomme
             {showRejection && (
               <div className="mt-3 grid gap-3">
                 {rejection.map((solution, index) => (
-                  <div
+                  <RejectionTierDisplay
                     key={`rejection-${index}`}
-                    className="rounded-lg border border-red-500/30 bg-red-500/10 p-3"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge
-                        variant="outline"
-                        className={cn("text-xs font-black uppercase tracking-[0.14em]", EXECUTION_STYLE[solution.classification])}
-                      >
-                        {solution.classification}
-                      </Badge>
-                      <span className="text-xs text-red-700 dark:text-red-300">
-                        {solution.confidence}% certain this won't work
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-semibold text-foreground">{solution.title}</h4>
-                    <p className="mt-2 text-sm leading-relaxed text-foreground/85">{solution.rationale}</p>
-                  </div>
+                    solution={solution}
+                    entityId={card.entity.id}
+                    entityName={card.entity.name}
+                    entityType={card.entity.type}
+                  />
                 ))}
               </div>
             )}
@@ -615,23 +725,34 @@ export default function RecommendationsPage() {
     () => [...tiers.CRITICAL, ...tiers.MEDIUM, ...tiers.LOW],
     [tiers],
   );
+
   const availablePlatforms = useMemo<PlatformFilter[]>(
     () => ["all", ...Array.from(new Set(allCards.map((card) => card.platform)))],
     [allCards],
   );
-  const totalCards = allCards.filter(
-    (card) => platformFilter === "all" || card.platform === platformFilter,
-  ).length;
+
+  const filteredCards = useMemo(
+    () => allCards.filter(card => platformFilter === "all" || card.platform === platformFilter),
+    [allCards, platformFilter]
+  );
+
+  const totalCards = filteredCards.length;
+
+  // Compute live counts dynamically from the loaded recommendation cards
+  const liveLayerCounts = useMemo(() => {
+    return {
+      "Problems Detected": filteredCards.length,
+      "L1 Rules": filteredCards.filter(card => card.layerAnalysis.l1.confidence > 0).length,
+      "L2 Overrides": filteredCards.filter(card => card.layerAnalysis.l1.action !== card.layerAnalysis.l2.action).length,
+      "L3 History Checks": filteredCards.length,
+      "L4 Strategy Checks": filteredCards.length,
+    };
+  }, [filteredCards]);
 
   // Count cards with conflicts for the banner
   const conflictCount = useMemo(
-    () =>
-      allCards.filter(
-        (card) =>
-          (platformFilter === "all" || card.platform === platformFilter) &&
-          card.layerAnalysis.conflicts.length > 0,
-      ).length,
-    [allCards, platformFilter],
+    () => filteredCards.filter((card) => card.layerAnalysis.conflicts.length > 0).length,
+    [filteredCards],
   );
 
   if (isLoading) {
@@ -704,13 +825,13 @@ export default function RecommendationsPage() {
       )}
 
       {/* ── Layer Contributions ──────────────────────────────────── */}
-      {showContributions && data?.layer_contributions && (
+      {showContributions && (
         <Card className="border-border/50 bg-card/50">
           <CardContent className="grid gap-3 p-4 md:grid-cols-5">
-            {Object.entries(data.layer_contributions).map(([key, value]) => (
+            {Object.entries(liveLayerCounts).map(([key, value]) => (
               <div key={key} className="rounded-lg border border-border/40 bg-background/50 px-3 py-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                  {key.replace(/_/g, " ")}
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+                  {key}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-foreground">{String(value)}</p>
               </div>
@@ -750,8 +871,8 @@ export default function RecommendationsPage() {
                       severity === "CRITICAL"
                         ? "bg-red-400"
                         : severity === "MEDIUM"
-                        ? "bg-amber-400"
-                        : "bg-emerald-400",
+                          ? "bg-amber-400"
+                          : "bg-emerald-400",
                     )}
                   />
                   <h2 className={cn("text-sm font-black uppercase tracking-[0.18em]", style.tone)}>

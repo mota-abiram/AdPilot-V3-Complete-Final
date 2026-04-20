@@ -60,6 +60,8 @@ export interface RecommendationCard {
   tieredSolutions: TieredSolutions;
   expectedOutcome: string;
   modelUsed?: "opus" | "sonnet";
+  /** Intelligence-found problems that L2 discovered beyond the scoring system */
+  additionalFindings?: AdditionalFinding[];
 }
 
 function toActionKeyword(title: string): "pause" | "scale" | "budget" | "creative" | "landing" | "clarify" {
@@ -78,23 +80,23 @@ function getExecutionAction(
   platform: string
 ): string {
   const isGoogle = platform === "google";
-  
+
   if (intent === "pause") {
     if (entityType === "campaign") return "PAUSE_CAMPAIGN";
     if (entityType === "adset" || entityType.includes("ad_group")) return isGoogle ? "PAUSE_AD_GROUP" : "PAUSE_ADSET";
     return "PAUSE_AD";
   }
-  
+
   if (intent === "unpause") {
     if (entityType === "campaign") return isGoogle ? "ENABLE_CAMPAIGN" : "UNPAUSE_CAMPAIGN";
     if (entityType === "adset" || entityType.includes("ad_group")) return isGoogle ? "ENABLE_AD_GROUP" : "UNPAUSE_ADSET";
     return isGoogle ? "ENABLE_AD" : "UNPAUSE_AD";
   }
-  
+
   if (intent === "scale_up") return "SCALE_BUDGET_UP";
   if (intent === "scale_down") return "SCALE_BUDGET_DOWN";
   if (intent === "set_budget") return isGoogle ? "SET_CAMPAIGN_BUDGET" : "SET_BUDGET";
-  
+
   return String(intent).toUpperCase();
 }
 
@@ -125,7 +127,7 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
       title: "L1 (SOP)",
       action: `Pause ${problem.entity.type} immediately`,
       confidence: 95,
-      reasoning: isDrain 
+      reasoning: isDrain
         ? "Document rule match: zero leads plus spend above 3x target CPL maps to an immediate pause draft action."
         : "Critical performance breach: entity has spent significantly with zero lead contribution. Pause recommended to prevent further drain.",
       execution: "AUTO-EXECUTE",
@@ -135,9 +137,9 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
         entity_type: problem.entity.type,
         entity_ids: problem.entity.id ? [problem.entity.id] : [],
         filters: buildEntityFilter(problem) as any,
-        action: { 
-          type: getExecutionAction("pause", problem.entity.type, problem.platform), 
-          parameters: { reason: isDrain ? "Zero leads plus high spend" : "Significant spend with zero leads" } 
+        action: {
+          type: getExecutionAction("pause", problem.entity.type, problem.platform),
+          parameters: { reason: isDrain ? "Zero leads plus high spend" : "Significant spend with zero leads" }
         },
         execution_plan: [
           `Pause ${problem.entity.name} via API.`,
@@ -216,9 +218,9 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
         entity_type: problem.entity.type,
         entity_ids: problem.entity.id ? [problem.entity.id] : [],
         filters: buildEntityFilter(problem) as any,
-        action: { 
-          type: getExecutionAction("scale_down", problem.entity.type, problem.platform), 
-          parameters: { scalePercent: 30, reason: "Frequency breach" } 
+        action: {
+          type: getExecutionAction("scale_down", problem.entity.type, problem.platform),
+          parameters: { scalePercent: 30, reason: "Frequency breach" }
         },
         execution_plan: [
           `Reduce budget on ${problem.entity.name} by 30%.`,
@@ -245,9 +247,9 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
         entity_type: problem.entity.type,
         entity_ids: problem.entity.id ? [problem.entity.id] : [],
         filters: buildEntityFilter(problem) as any,
-        action: { 
-          type: getExecutionAction("scale_up", problem.entity.type, problem.platform), 
-          parameters: { scalePercent: 20, reason: "Winner is underfunded" } 
+        action: {
+          type: getExecutionAction("scale_up", problem.entity.type, problem.platform),
+          parameters: { scalePercent: 20, reason: "Winner is underfunded" }
         },
         execution_plan: [
           `Increase ${problem.entity.name} budget by 20%.`,
@@ -360,17 +362,17 @@ function buildSopDraft(problem: DetectedProblem, ctx: AssembledContext): LayerAn
         action: { type: "clarify", parameters: {} },
         execution_plan: isOverPacing
           ? [
-              "Identify the top 2-3 campaigns consuming the most budget.",
-              "Reduce their daily budgets by 15-20% to slow spend rate.",
-              "Do not pause high-performing campaigns; only throttle.",
-              "Re-check pacing daily until month end.",
-            ]
+            "Identify the top 2-3 campaigns consuming the most budget.",
+            "Reduce their daily budgets by 15-20% to slow spend rate.",
+            "Do not pause high-performing campaigns; only throttle.",
+            "Re-check pacing daily until month end.",
+          ]
           : [
-              "Identify paused or heavily limited campaigns with proven CPL.",
-              "Increase or restore their daily budgets to accelerate delivery.",
-              "Alternatively, pause zero-lead campaigns to redistribute spend.",
-              "Re-check pacing daily until month end.",
-            ],
+            "Identify paused or heavily limited campaigns with proven CPL.",
+            "Increase or restore their daily budgets to accelerate delivery.",
+            "Alternatively, pause zero-lead campaigns to redistribute spend.",
+            "Re-check pacing daily until month end.",
+          ],
         strategic_rationale: "Pacing emergencies require human judgment to avoid disrupting winner campaigns.",
         risk_checks: ["Avoid pausing the sole lead driver while trying to rescue pacing."],
       },
@@ -497,6 +499,14 @@ function selectModelTier(
 
 // ─── L2: Real Claude API Call ──────────────────────────────────────
 
+/** An intelligence-found problem surfaced by L2 that the scoring system missed */
+export interface AdditionalFinding {
+  problem: string;
+  severity: "CRITICAL" | "MEDIUM" | "LOW";
+  affectedEntity: string;
+  evidence: string;
+}
+
 async function buildL2Real(
   problem: DetectedProblem,
   l1: ReturnType<typeof buildSopDraft>,
@@ -506,6 +516,7 @@ async function buildL2Real(
   primaryAction: string;
   actionPayload?: AdCortexRecommendation["action_payload"];
   expectedOutcome: string;
+  additionalFindings: AdditionalFinding[];
 }> {
   const raw = problem.entity.raw || {};
   const metricsList = problem.weakMetrics
@@ -528,8 +539,18 @@ You MUST respond with ONLY valid JSON in this exact format:
   "primaryAction": "the single best action to take right now",
   "confidence": 70-95,
   "expectedOutcome": "what should happen if the action is taken",
-  "conflicts": ["any data point that conflicts with the SOP", "..."]
-}`;
+  "conflicts": ["any data point that conflicts with the SOP", "..."],
+  "additionalFindings": [
+    {
+      "problem": "Short description of a problem NOT covered by the scoring system",
+      "severity": "CRITICAL" | "MEDIUM" | "LOW",
+      "affectedEntity": "entity name",
+      "evidence": "specific data points or patterns that reveal this problem"
+    }
+  ]
+}
+
+IMPORTANT for additionalFindings: Only include problems you discovered through your OWN analysis that the scoring system would NOT have caught — e.g., audience cannibalization between entities, learning phase traps, seasonal anomalies, tracking gaps, placement mix issues, or structural campaign problems. Leave as an empty array [] if you found nothing beyond the scored problem.`;
 
   const userMessage = `PROBLEM ANALYSIS REQUEST
 
@@ -583,7 +604,7 @@ Based on the root cause chain and metrics above, should you AGREE, OVERRIDE, or 
   }
   const parsed = JSON.parse(jsonMatch[0]);
 
-  const position: "AGREE" | "OVERRIDE" | "EXTEND" = 
+  const position: "AGREE" | "OVERRIDE" | "EXTEND" =
     ["AGREE", "OVERRIDE", "EXTEND"].includes(parsed.position) ? parsed.position : "EXTEND";
   const primaryAction = parsed.primaryAction || parsed.actions?.[0] || l1.action;
   const confidence = Math.min(95, Math.max(50, Number(parsed.confidence) || 75));
@@ -612,6 +633,13 @@ Based on the root cause chain and metrics above, should you AGREE, OVERRIDE, or 
     }
   }
 
+  // Capture intelligence-found problems that the scoring system missed
+  const additionalFindings: AdditionalFinding[] = Array.isArray(parsed.additionalFindings)
+    ? parsed.additionalFindings.filter(
+      (f: any) => f && typeof f.problem === "string" && f.problem.trim().length > 0
+    )
+    : [];
+
   return {
     title: "L2 (AI Expert)",
     action: primaryAction,
@@ -622,6 +650,7 @@ Based on the root cause chain and metrics above, should you AGREE, OVERRIDE, or 
     primaryAction,
     actionPayload,
     expectedOutcome: parsed.expectedOutcome || "Stabilize performance while addressing the first broken layer in the chain.",
+    additionalFindings,
   };
 }
 
@@ -634,6 +663,7 @@ function buildL2Fallback(
   primaryAction: string;
   actionPayload?: AdCortexRecommendation["action_payload"];
   expectedOutcome: string;
+  additionalFindings: AdditionalFinding[];
 } {
   const raw = problem.entity.raw || {};
   const primaryMetric = problem.rootCause.primaryMetric;
@@ -744,6 +774,7 @@ function buildL2Fallback(
     primaryAction: action,
     actionPayload,
     expectedOutcome,
+    additionalFindings: [], // Fallback cannot discover out-of-score problems
   };
 }
 
@@ -781,7 +812,7 @@ async function buildL3Real(
   });
   const recurringIssue = sameEntityActions.length >= 3;
 
-  const historyText = sameEntityActions.slice(0, 5).map((entry) => 
+  const historyText = sameEntityActions.slice(0, 5).map((entry) =>
     `- Action: ${entry.action}, Outcome: ${entry.outcome}, Executed: ${entry.executedAt}`
   ).join("\n") || "No history for this specific entity.";
 
@@ -881,7 +912,7 @@ function buildL3Fallback(
   recurringIssue: boolean;
 } {
   const recentActions = ctx.layer3.recentActions as LearningEntry[] || [];
-  
+
   function canonicalActionMatch(action: string): string {
     const normalized = action.toLowerCase();
     if (normalized.includes("pause")) return "pause";
@@ -1036,13 +1067,25 @@ function primarySteps(actionPayload?: AdCortexRecommendation["action_payload"], 
   return [fallbackTitle];
 }
 
+/**
+ * Generate a REJECT solution ONLY when L2 genuinely OVERRIDES L1.
+ * If L2 agrees or extends, there is no contradiction → no rejection needed.
+ * This prevents false "Why Not" cards when both layers are aligned.
+ */
 function rejectSolution(problem: DetectedProblem, l1: ReturnType<typeof buildSopDraft>, l2: Awaited<ReturnType<typeof buildL2>>): SolutionOption | null {
-  if (l1.ruleId === "escalate_to_l2" || l1.action === l2.primaryAction) return null;
+  // No rejection when L1 was a generic escalation (nothing concrete to reject)
+  if (l1.ruleId === "escalate_to_l2") return null;
+
+  // No rejection when L2 AGREES or EXTENDS — only OVERRIDE means a real disagreement
+  if (l2.position !== "OVERRIDE") return null;
+
+  // Even on OVERRIDE, skip if the actions are essentially the same (L2 just reworded)
+  if (l1.action === l2.primaryAction) return null;
 
   return {
     classification: "REJECT",
     title: l1.action,
-    rationale: `Layer 1 proposed "${l1.action}", but Layer 2 overrode it because ${l2.reasoning.toLowerCase()}`,
+    rationale: `SOP recommended "${l1.action}", but deeper analysis overrode it: ${l2.reasoning.toLowerCase()}`,
     steps: ["Do not execute the rejected action unless a human deliberately overrides it."],
     risk: "High",
     confidence: Math.max(55, l1.confidence),
@@ -1055,7 +1098,7 @@ function rejectSolution(problem: DetectedProblem, l1: ReturnType<typeof buildSop
       filters: buildEntityFilter(problem) as any,
       action: { type: "clarify", parameters: {} },
       execution_plan: ["Keep the rejected option visible as a conflict note only."],
-      strategic_rationale: "The document requires explicit conflict visibility instead of silently hiding disagreement.",
+      strategic_rationale: "Explicit conflict visibility when SOP and AI analysis genuinely disagree.",
       risk_checks: [],
     },
   };
@@ -1105,12 +1148,12 @@ export async function runSolutionPipeline(problem: DetectedProblem, ctx: Assembl
   // Build tiered solutions from real L2/L3 output
   // Only fall back to generateSolutionTiers if L2 produced a generic/incomplete result
   const l2HasRichActions = l2.actionPayload?.execution_plan?.length && l2.actionPayload.execution_plan.length > 1;
-  
+
   let tieredSolutions: TieredSolutions;
   if (l2HasRichActions) {
     // Build tiered solutions from real AI output
     const secondary: SolutionOption[] = [];
-    
+
     // If L2 overrides, keep L1 as a secondary option for human review
     if (l2.position === "OVERRIDE" && l1.actionPayload) {
       secondary.push({
@@ -1124,21 +1167,28 @@ export async function runSolutionPipeline(problem: DetectedProblem, ctx: Assembl
         actionPayload: l1.actionPayload,
       });
     }
-    
-    // Add expert review as final secondary option
-    secondary.push({
-      classification: "MANUAL",
-      title: `Get expert review on ${problem.entity.name}`,
-      rationale: `Before taking action, request human expert review to validate AI recommendation and full context.`,
-      steps: [
-        "Export entity performance report (7-day trend).",
-        "Review AI diagnosis and layer analysis.",
-        "Execute agreed action with expert sign-off.",
-      ],
-      risk: "Low",
-      confidence: 80,
-      expectedOutcome: "Higher confidence in decision through human validation.",
-    });
+
+    // Only suggest expert review when confidence is genuinely low or there's a layer conflict
+    // — NOT as a forced static option on every single problem
+    const hasLayerConflict = l2.position === "OVERRIDE" || l3.confidenceDelta < -15 || l4.veto;
+    const isLowConfidence = finalConfidence < 70;
+    if (hasLayerConflict || isLowConfidence) {
+      secondary.push({
+        classification: "MANUAL",
+        title: `Get expert review on ${problem.entity.name}`,
+        rationale: isLowConfidence
+          ? `Confidence is below 70% (${finalConfidence}%). Human expert review recommended before executing.`
+          : `Layer conflict detected — expert review recommended to validate the AI recommendation.`,
+        steps: [
+          "Export entity performance report (7-day trend).",
+          "Review AI diagnosis and layer analysis.",
+          "Execute agreed action with expert sign-off.",
+        ],
+        risk: "Low",
+        confidence: 80,
+        expectedOutcome: "Higher confidence in decision through human validation.",
+      });
+    }
 
     const rejection: SolutionOption[] = alternativeReject ? [alternativeReject] : [];
 
@@ -1194,6 +1244,7 @@ export async function runSolutionPipeline(problem: DetectedProblem, ctx: Assembl
     tieredSolutions,
     expectedOutcome: problem.expectedIfIgnored,
     modelUsed,
+    additionalFindings: l2.additionalFindings.length > 0 ? l2.additionalFindings : undefined,
   };
 }
 
