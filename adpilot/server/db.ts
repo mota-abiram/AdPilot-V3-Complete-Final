@@ -23,7 +23,13 @@ export const pool = new pg.Pool({
   // The DATABASE_URL should start with "postgres://dpg-" for internal (no SSL needed)
   // or "postgresql://" for external (requires SSL, handled by connection string if suffixed with ?sslmode=require).
   ssl: process.env.NODE_ENV === "production"
-    ? (process.env.DATABASE_URL?.includes("dpg-") ? false : { rejectUnauthorized: false })
+    ? (
+        process.env.DATABASE_URL?.includes("dpg-") || 
+        process.env.DATABASE_URL?.includes("localhost") || 
+        process.env.DATABASE_URL?.includes("127.0.0.1") 
+          ? false 
+          : { rejectUnauthorized: false }
+      )
     : false,
   max: 10,
   idleTimeoutMillis: 30_000,
