@@ -3184,7 +3184,12 @@ export default function DashboardPage() {
         const convRateLabels = steps.map((step, i) => {
           if (i === 0) return null;
           const prev = steps[i - 1];
-          const labels: Record<number, string> = { 1: "CTR", 2: "CVR", 3: "Lead→SV", 4: "SV→Pos" };
+          // Correct mapping for the steps:
+          // 1: Clicks (CTR)
+          // 2: Leads (CVR)
+          // 3: Positive Leads (Lead -> Qual)
+          // 4: SVs (Qual -> SV)
+          const labels: Record<number, string> = { 1: "CTR", 2: "CVR", 3: "Lead→Qual", 4: "Qual→SV" };
           return { label: labels[i] || "Rate", rate: getConvRate(prev.value, step.value) };
         });
 
@@ -3206,7 +3211,10 @@ export default function DashboardPage() {
                 <div className="absolute left-[3.25rem] md:left-[5.25rem] top-8 bottom-8 w-px bg-gradient-to-b from-blue-500/20 via-purple-500/20 to-emerald-500/20 z-0 hidden sm:block" />
 
                 {steps.map((step, i) => {
-                  const widthPct = maxVal > 0 ? Math.max(15, (step.value / maxVal) * 100) : 15;
+                  // realistic logarithmic scaling to preserve visibility while showing funnel effect
+                  const widthPct = maxVal > 1 
+                    ? Math.max(15, (Math.log10(Math.max(1, step.value)) / Math.log10(maxVal)) * 100) 
+                    : 15;
                   const conv = convRateLabels[i];
                   const Icon = step.icon;
 
@@ -3282,7 +3290,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="text-base font-bold text-primary">
-                      {formatINR(ap.total_spend_30d, 0)}
+                      {formatINR(authMtd.spend, 0)}
                     </p>
                     <p className="text-xs text-muted-foreground uppercase">
                       {periodLabel} Window

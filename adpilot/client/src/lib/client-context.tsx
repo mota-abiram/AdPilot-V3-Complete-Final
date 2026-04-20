@@ -247,6 +247,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       -freq${b.frequency_max || 0}
       -cpsv${b.cpsv_low || 0}
       -cpql${b.cpql_target || 0}
+      -pospct${b.positive_pct_target || 0}
+      -svpct${b.sv_pct_target || 0}
       -budget${b.budget || 0}
       -leads${b.leads || 0}
       -gcpl${b.google_cpl || 0}

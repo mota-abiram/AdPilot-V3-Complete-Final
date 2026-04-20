@@ -72,8 +72,9 @@ interface ChecklistSection {
 // ─── Helper Functions ───────────────────────────────────────────────
 
 function getSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
-  const budget = data?.dynamic_thresholds?.budget ?? data?.benchmarks?.budget ?? 0;
-  const totalSpend = data?.total_spend ?? data?.account_summary?.spend ?? 0;
+  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+  const budget = b.budget || 0;
+  const totalSpend = data?.account_pulse?.total_spend_30d ?? data?.account_pulse?.total_spend ?? 0;
   const dailyBudget = budget / 30;
   const daysSoFar = new Date().getDate();
   const expectedSpend = dailyBudget * daysSoFar;
@@ -86,27 +87,33 @@ function getNonSpendingAdsets(data: any): any[] {
 }
 
 function getCostStack(data: any): { cpm: number; ctr: number; cpc: number; cpl: number; cpmStatus: CheckStatus; ctrStatus: CheckStatus; cpcStatus: CheckStatus; cplStatus: CheckStatus } {
-  const t = data?.dynamic_thresholds || {};
-  const s = data?.account_summary || {};
-  const cpm = s.cpm ?? 0;
-  const ctr = s.ctr ?? 0;
+  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+  const s = data?.account_pulse ?? data?.summary ?? {};
+  const cpm = s.cpm ?? s.overall_cpm ?? 0;
+  const ctr = s.overall_ctr ?? s.ctr ?? 0;
   const cpc = s.cpc ?? 0;
-  const cpl = s.cpl ?? 0;
+  const cpl = s.overall_cpl ?? s.cpl ?? 0;
+  
+  const cpmMax = b.cpm_max || 600;
+  const ctrMin = b.ctr_min || 0.7;
+  const cpcMax = b.cpc_max || 60;
+  const cplTarget = b.cpl || b.cpl_target || 1500;
+
   return {
     cpm, ctr, cpc, cpl,
-    cpmStatus: cpm > (t.cpm_max ?? 600) ? "fail" : cpm > (t.cpm_max ?? 600) * 0.8 ? "warning" : "pass",
-    ctrStatus: ctr < (t.ctr_min ?? 0.7) ? "fail" : ctr < (t.ctr_min ?? 0.7) * 1.2 ? "warning" : "pass",
-    cpcStatus: cpc > (t.cpc_max ?? 50) ? "fail" : cpc > (t.cpc_max ?? 50) * 0.8 ? "warning" : "pass",
-    cplStatus: cpl > (t.cpl_target ?? 1500) * 1.3 ? "fail" : cpl > (t.cpl_target ?? 1500) ? "warning" : "pass",
+    cpmStatus: cpm > cpmMax ? "fail" : cpm > cpmMax * 0.8 ? "warning" : "pass",
+    ctrStatus: ctr < ctrMin ? "fail" : ctr < ctrMin * 1.2 ? "warning" : "pass",
+    cpcStatus: cpc > cpcMax ? "fail" : cpc > cpcMax * 0.8 ? "warning" : "pass",
+    cplStatus: cpl > cplTarget * 1.3 ? "fail" : cpl > cplTarget ? "warning" : "pass",
   };
 }
 
 function getCreativeHealth(data: any): { adsAnalyzed: number; tsrFailing: number; vhrFailing: number; ffrFailing: number; details: any[] } {
   const ads = data?.creative_health || [];
-  const t = data?.dynamic_thresholds || {};
-  const tsrMin = t.tsr_min ?? 30;
-  const vhrMin = t.vhr_min ?? 25;
-  const ffrMin = 90;
+  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+  const tsrMin = b.tsr_min ?? 30;
+  const vhrMin = b.vhr_min ?? 25;
+  const ffrMin = b.ffr_min ?? 90;
   const tsrFailing = ads.filter((a: any) => (a.tsr ?? a.thumb_stop_rate ?? 0) < tsrMin).length;
   const vhrFailing = ads.filter((a: any) => (a.vhr ?? a.hold_rate ?? 0) < vhrMin).length;
   const ffrFailing = ads.filter((a: any) => (a.ffr ?? a.first_frame_rate ?? 100) < ffrMin).length;
@@ -114,8 +121,9 @@ function getCreativeHealth(data: any): { adsAnalyzed: number; tsrFailing: number
 }
 
 function getTrackingSanity(data: any): { todayLeads: number; monthlyTarget: number; onTrack: boolean } {
-  const todayLeads = data?.tracking_sanity?.today_leads ?? data?.account_summary?.leads_today ?? 0;
-  const monthlyTarget = data?.dynamic_thresholds?.leads ?? data?.benchmarks?.leads ?? 0;
+  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+  const todayLeads = data?.tracking_sanity?.today_leads ?? data?.account_pulse?.latest_daily_leads ?? 0;
+  const monthlyTarget = b.leads || 0;
   const dayOfMonth = new Date().getDate();
   const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const expectedDaily = monthlyTarget / daysInMonth;
@@ -125,9 +133,9 @@ function getTrackingSanity(data: any): { todayLeads: number; monthlyTarget: numb
 // ─── Google Helpers ────────────────────────────────────────────────
 
 function getGoogleSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
-  const ap = data?.account_pulse || {};
-  const budget = data?.dynamic_thresholds?.budget ?? ap.target_budget ?? 0;
-  const totalSpend = ap.total_spend_30d ?? ap.total_spend ?? 0;
+  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+  const budget = b.budget || 0;
+  const totalSpend = data?.account_pulse?.total_spend_30d ?? data?.account_pulse?.total_spend ?? 0;
   const dailyBudget = budget / 30;
   const daysSoFar = new Date().getDate();
   const expectedSpend = dailyBudget * daysSoFar;
@@ -137,7 +145,6 @@ function getGoogleSpendVsPlan(data: any): { actual: number; plan: number; pct: n
 function getGoogleCvrOutliers(data: any): any[] {
   const campaigns = data?.campaigns || [];
   const adGroups = campaigns.flatMap((c: any) => (c.ad_groups || []).map((ag: any) => ({ ...ag, campaign_name: c.name })));
-  // Flag ad groups with CVR < 50% of overall avg
   const totalClicks = adGroups.reduce((s: number, ag: any) => s + (ag.clicks || 0), 0);
   const totalConv = adGroups.reduce((s: number, ag: any) => s + (ag.conversions || 0), 0);
   const avgCvr = totalClicks > 0 ? (totalConv / totalClicks) * 100 : 0;
@@ -179,7 +186,8 @@ function getGoogleQSData(data: any): { avgQS: number; below6Count: number; total
 
 function getGoogleKeywordPerformance(data: any): { zeroConvCount: number; totalKeywords: number; wastedSpend: number } {
   const campaigns = data?.campaigns || [];
-  const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 850;
+  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+  const cplTarget = b.cpl || b.cpl_target || 850;
   let zeroConvCount = 0, totalKeywords = 0, wastedSpend = 0;
   campaigns.forEach((c: any) => {
     (c.ad_groups || []).forEach((ag: any) => {
@@ -413,6 +421,48 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
     ],
   },
   {
+    title: "Marketing-to-Sales (MTD)",
+    icon: BarChart3,
+    items: [
+      {
+        id: "mtd-positive-pct",
+        sopText: "Positive Lead % vs Target (MTD) — audit for lead quality issues",
+        icon: Users,
+        getData: (data) => {
+          const mtd = data?.account_pulse?.mtd || {};
+          const benchmarks = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const actual = mtd.positive_pct ?? 0;
+          const target = benchmarks.positive_pct_target ?? benchmarks.positive_lead_target ?? 25;
+          const status: CheckStatus = actual >= target ? "pass" : actual >= target * 0.7 ? "warning" : "fail";
+          return {
+            status,
+            currentValue: `${actual.toFixed(1)}% vs ${target}% target`,
+            detail: status === "pass" ? "Lead quality pacing strong" : `Quality is ${Math.abs(target - actual).toFixed(1)}% below benchmark`,
+            recommendation: status !== "pass" ? "Audit lead forms — check for bot traffic, low intent keywords, or missing budget qualification MCQs" : undefined,
+          };
+        },
+      },
+      {
+        id: "mtd-sv-pct",
+        sopText: "SV % vs Target (MTD) — audit for appointment setting efficiency",
+        icon: CalendarCheck,
+        getData: (data) => {
+          const mtd = data?.account_pulse?.mtd || {};
+          const benchmarks = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const actual = mtd.sv_pct ?? 0;
+          const target = benchmarks.sv_pct_target ?? benchmarks.sv_target ?? 10;
+          const status: CheckStatus = actual >= target ? "pass" : actual >= target * 0.7 ? "warning" : "fail";
+          return {
+            status,
+            currentValue: `${actual.toFixed(1)}% vs ${target}% target`,
+            detail: status === "pass" ? "SVs pacing within benchmark" : `SV rate is ${Math.abs(target - actual).toFixed(1)}% below target`,
+            recommendation: status !== "pass" ? "Check sales feedback loop — are leads reaching the SV stage? Widen retargeting or improve lead nurture" : undefined,
+          };
+        },
+      },
+    ],
+  },
+  {
     title: "Audience Management",
     icon: Users,
     items: [
@@ -443,8 +493,8 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         sopText: "CPL too high & quality OK → remove one MCQ. CPL OK & quality poor → add one MCQ. Keep TY screen pushing WhatsApp/SV booking",
         icon: FileText,
         getData: (data) => {
-          const cpl = data?.account_summary?.cpl ?? 0;
-          const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 0;
+          const cpl = data?.account_pulse?.overall_cpl ?? data?.account_summary?.cpl ?? 0;
+          const cplTarget = data?.sop_benchmarks?.cpl_target ?? data?.sop_benchmarks?.cpl ?? data?.dynamic_thresholds?.cpl_target ?? 0;
           const isHigh = cplTarget > 0 && cpl > cplTarget * 1.2;
           return {
             status: isHigh ? "warning" : "pass",
@@ -786,7 +836,8 @@ const GOOGLE_WEEKLY_CHECKLIST: ChecklistSection[] = [
         icon: DollarSign,
         getData: (data) => {
           const campaigns = data?.campaigns || [];
-          const cplTarget = data?.dynamic_thresholds?.cpl_target ?? 850;
+          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const cplTarget = b.cpl || b.cpl_target || 850;
           let overBidCount = 0;
           campaigns.forEach((c: any) => {
             (c.ad_groups || []).forEach((ag: any) => {

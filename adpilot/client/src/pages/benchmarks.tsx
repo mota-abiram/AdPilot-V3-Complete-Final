@@ -45,6 +45,7 @@ interface Benchmarks {
   cpsv_high: number;
   positive_lead_target: number;
   positive_pct_target: number;
+  sv_pct_target: number;
   cpql_target: number;
 
   // Section 2: Engagement Metrics
@@ -106,6 +107,7 @@ const SECTION_1_LEAD_REVENUE: SectionDef = {
     { key: "cpsv_high", label: "CPSV Target High (₹)", type: "number", help: "Cost per site visit — upper bound" },
     { key: "positive_lead_target", label: "Positive Lead Target", type: "number", help: "Number of positive/quality leads per month" },
     { key: "positive_pct_target", label: "Positive % Target", type: "number", step: "0.1", help: "Target % of leads that should be positive", suffix: "%" },
+    { key: "sv_pct_target", label: "SV % Target", type: "number", step: "0.1", help: "Target % of leads that should result in site visits", suffix: "%" },
     { key: "cpql_target", label: "CPQL Target (₹)", type: "number", help: "Cost per quality lead target" },
   ],
 };

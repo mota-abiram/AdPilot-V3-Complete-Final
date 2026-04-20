@@ -116,48 +116,77 @@ function formatNumber(n: number) {
 // ─── Shared Components ─────────────────────────────────────────────
 
 
-function getHealthStatus(s: number) {
-  if (s >= 75) return { label: "Excellent", color: "text-emerald-500", bg: "bg-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20" };
-  if (s >= 60) return { label: "Good", color: "text-emerald-400", bg: "bg-emerald-400", lightBg: "bg-emerald-400/10", border: "border-emerald-400/20" };
-  if (s >= 40) return { label: "Moderate", color: "text-amber-500", bg: "bg-amber-500", lightBg: "bg-amber-500/10", border: "border-amber-500/20" };
-  if (s >= 25) return { label: "Poor", color: "text-orange-500", bg: "bg-orange-500", lightBg: "bg-orange-500/10", border: "border-orange-500/20" };
-  return { label: "Critical", color: "text-red-500", bg: "bg-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20" };
+function getPerformanceStatus(score: number) {
+  // Pure band-based scoring for breakdowns to handle high segment volatility
+  if (score >= 70) return "GOOD";
+  if (score >= 40) return "MODERATE";
+  return "POOR";
 }
 
-function computeBreakdownScore(row: any, target: number, ctrBenchmark: number, totalLeads: number, totalSpend: number) {
-  let cplScore = 0;
-  if (row.leads > 0) {
-    const ratio = target / row.cpl;
-    cplScore = Math.min(50, Math.max(0, ratio * 25)); // High weight on CPL
-  } else if (row.spend > 500) {
-    cplScore = 5;
-  } else {
-    cplScore = 20; // neutral
+function getHealthStatus(score: number) {
+  const status = getPerformanceStatus(score);
+  
+  if (status === "GOOD") {
+    return { label: "GOOD", color: "text-emerald-500", bg: "bg-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20" };
   }
+  if (status === "MODERATE") {
+    return { label: "MODERATE", color: "text-amber-500", bg: "bg-amber-500", lightBg: "bg-amber-500/10", border: "border-amber-500/20" };
+  }
+  return { label: "POOR", color: "text-red-500", bg: "bg-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20" };
+}
 
-  let ctrScore = 0;
-  if (row.ctr > 0) {
-    const ratio = row.ctr / ctrBenchmark;
-    ctrScore = Math.min(20, Math.max(0, ratio * 10));
-  }
+/**
+ * Mojo AdCortex v1.0 Quadratic Scoring Helpers
+ */
+const scoreWeightedCostMetric = (actual: number, target: number, weight: number) => {
+  if (target <= 0) return weight;
+  const d = Math.max(0, (actual - target) / target);
+  // Using slightly more lenient breakdown decay: 1 - 1.2d - 3d^2 (vs 1.5d / 5d^2)
+  return weight * Math.max(0, 1 - 1.2 * d - 3 * d * d);
+};
 
-  let volumeScore = 0;
-  if (totalLeads > 0) {
-    volumeScore = Math.min(20, (row.leads / totalLeads) * 100);
-  }
+const scoreWeightedBenefitMetric = (actual: number, target: number, weight: number) => {
+  if (target <= 0 || actual >= target) return weight;
+  const d = (target - actual) / target;
+  return weight * Math.max(0, 1 - 1.2 * d - 3 * d * d);
+};
 
-  let efficiencyScore = 0;
-  if (totalSpend > 0) {
-    const spendPct = (row.spend / totalSpend) * 100;
-    efficiencyScore = Math.min(10, spendPct > 10 ? 10 : spendPct);
-  }
+const scoreWeightedBudgetMetric = (actual: number, planned: number, weight: number) => {
+  if (planned <= 0) return weight;
+  const b = Math.abs(actual - planned) / planned;
+  return weight * Math.max(0, 1 - b - 10 * b * b);
+};
+
+function computeBreakdownScore(row: any, target: number, ctrBenchmark: number, cpmBenchmark: number, targetSpend: number) {
+  const cplScore = scoreWeightedCostMetric(row.leads > 0 ? row.cpl : (row.spend > 0 ? 999999 : 0), target, 35);
+  const ctrScore = scoreWeightedBenefitMetric(row.ctr, ctrBenchmark, 20);
+  const cpmScore = scoreWeightedCostMetric(row.cpm, cpmBenchmark, 20);
+  
+  // Revised Spend Score: "More spend = More score" (Benefit logic)
+  // Penalizing underspend but rewarding scale.
+  const spendScore = targetSpend > 0 
+    ? Math.min(25, (row.spend / targetSpend) * 25)
+    : (row.spend > 0 ? 25 : 0);
+
+  const total = Math.round(cplScore + ctrScore + cpmScore + spendScore);
+  
+  // Weights: CPL(35), CTR(20), CPM(20), SPEND(25)
+  // CRITICAL: We exclude Spend from the Veto Gate for breakdowns. 
+  // An efficient segment with low spend is still "GOOD" (scale candidate), not "POOR".
+  const efficiencyRatios = [
+    cplScore / 35,
+    ctrScore / 20,
+    cpmScore / 20
+  ];
+  const minRatio = Math.min(...efficiencyRatios);
 
   return {
-    total: Math.round(cplScore + ctrScore + volumeScore + efficiencyScore),
+    total,
+    minRatio,
     cplScore: Math.round(cplScore),
     ctrScore: Math.round(ctrScore),
-    volumeScore: Math.round(volumeScore),
-    efficiencyScore: Math.round(efficiencyScore),
+    cpmScore: Math.round(cpmScore),
+    spendScore: Math.round(spendScore),
   };
 }
 
@@ -165,8 +194,13 @@ function getRecommendationType(row: any, score: number, tabName: string, isTarge
   if (tabName === "Region" && isTarget === false && row.spend > 0) {
     return { type: "exclude", text: "Pause / Exclude", color: "text-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20", reason: "Outside target geography" };
   }
-  if (score >= 75) return { type: "scale", text: "Scale / Increase budget", color: "text-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20", reason: "Top tier performance" };
-  if (score >= 40) return { type: "monitor", text: "Monitor / Optimize", color: "text-amber-500", lightBg: "bg-amber-500/10", border: "border-amber-500/20", reason: "Average performance" };
+  
+  const status = getPerformanceStatus(score);
+
+  if (status === "GOOD") return { type: "scale", text: "Scale / Increase budget", color: "text-emerald-500", lightBg: "bg-emerald-500/10", border: "border-emerald-500/20", reason: "Top tier performance" };
+  if (status === "MODERATE") return { type: "monitor", text: "Monitor / Optimize", color: "text-amber-500", lightBg: "bg-amber-500/10", border: "border-amber-500/20", reason: "Satisfactory performance" };
+  
+  // For POOR
   if (score > 0) return { type: "reduce", text: "Reduce spend / Pause", color: "text-red-500", lightBg: "bg-red-500/10", border: "border-red-500/20", reason: "Severe inefficiency" };
   return { type: "none", text: "Needs Data", color: "text-muted-foreground", lightBg: "bg-muted", border: "border-transparent", reason: "Insufficient impressions" };
 }
@@ -229,9 +263,10 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
 
   function toggleExpand(id: string) { setExpandedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); }
 
-  const thresholds = analysisData?.dynamic_thresholds;
-  const cplTarget = thresholds?.cpl_target ?? 1000;
-  const ctrTarget = thresholds?.ctr_min ?? 0.8;
+  const thresholds = analysisData?.sop_benchmarks ?? analysisData?.dynamic_thresholds ?? {};
+  const cplTarget = thresholds?.cpl_target ?? thresholds?.cpl ?? 1000;
+  const ctrTarget = thresholds?.ctr_min ?? thresholds?.ctr_target ?? 0.8;
+  const cpmTarget = thresholds?.cpm_max ?? thresholds?.cpm_target ?? 150;
 
   const campaigns = useMemo(() => {
     if (!analysisData?.campaign_audit) return [];
@@ -243,16 +278,17 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
         cpl: c.cpl,
         spend: c.spend,
         leads: c.leads,
+        budget: c.daily_budget || c.budget || 0,
       }))
       .sort((a: any, b: any) => b.spend - a.spend);
   }, [analysisData]);
 
   const { data, isLoading } = useQuery<BreakdownData>({
-    queryKey: [apiBase, "breakdowns", selectedCampaign, activeCadence],
+    queryKey: [apiBase, "breakdowns", selectedCampaign, "mtd"],
     queryFn: async () => {
       const url = selectedCampaign === ACCOUNT_OVERVIEW
-        ? `${apiBase}/breakdowns?cadence=${activeCadence}`
-        : `${apiBase}/breakdowns/${selectedCampaign}?cadence=${activeCadence}`;
+        ? `${apiBase}/breakdowns?cadence=mtd`
+        : `${apiBase}/breakdowns/${selectedCampaign}?cadence=mtd`;
       const res = await apiRequest("GET", url);
       return res.json();
     },
@@ -266,7 +302,12 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
     const aggregated: Record<string, BreakdownRow> = {};
     source.forEach((row: any) => {
       const dim = row.dimension || "Unknown";
-      if (!aggregated[dim]) { aggregated[dim] = { ...row }; }
+      if (!aggregated[dim]) { 
+        aggregated[dim] = { ...row }; 
+        if (aggregated[dim].cpm === undefined) {
+          aggregated[dim].cpm = aggregated[dim].impressions > 0 ? (aggregated[dim].spend / aggregated[dim].impressions) * 1000 : 0;
+        }
+      }
       else {
         const agg = aggregated[dim];
         agg.spend += row.spend;
@@ -275,6 +316,7 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
         agg.leads += row.leads;
         agg.cpl = agg.leads > 0 ? agg.spend / agg.leads : 0;
         agg.ctr = agg.impressions > 0 ? (agg.clicks / agg.impressions) * 100 : 0;
+        agg.cpm = agg.impressions > 0 ? (agg.spend / agg.impressions) * 1000 : 0;
       }
     });
     return Object.values(aggregated);
@@ -292,13 +334,31 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
   const totalLeads = rows.reduce((s, r) => s + r.leads, 0);
 
+  const daysElapsed = analysisData?.monthly_pacing?.days_elapsed || analysisData?.account_pulse?.mtd_pacing?.days_elapsed || new Date().getDate();
+  const numDivisions = Math.max(1, rows.length);
+
+  const segmentTargetSpend = useMemo(() => {
+    if (selectedCampaign === ACCOUNT_OVERVIEW) {
+      const accountMonthlyBudget = thresholds?.budget || analysisData?.targets?.budget || analysisData?.summary?.total_spend || 0;
+      const accountDailySpend = accountMonthlyBudget / 30;
+      return (accountDailySpend / numDivisions) * daysElapsed;
+    } else {
+      const camp = campaigns.find((c: any) => c.id === selectedCampaign);
+      const campBudget = camp?.budget || 0; 
+      return (campBudget / numDivisions) * daysElapsed;
+    }
+  }, [selectedCampaign, campaigns, numDivisions, daysElapsed, thresholds, analysisData]);
+
   const scoredRows = useMemo(() => {
     return rows.map((row) => {
-      const score = computeBreakdownScore(row, cplTarget, ctrTarget, totalLeads, totalSpend);
+      if (row.cpm === undefined || isNaN(row.cpm)) {
+        row.cpm = row.impressions > 0 ? (row.spend / row.impressions) * 1000 : 0;
+      }
+      const score = computeBreakdownScore(row, cplTarget, ctrTarget, cpmTarget, segmentTargetSpend);
       const rec = getRecommendationType(row, score.total, activeTab, row.is_target_location);
       return { row, score, rec };
     });
-  }, [rows, cplTarget, ctrTarget, totalLeads, totalSpend, activeTab]);
+  }, [rows, cplTarget, ctrTarget, cpmTarget, segmentTargetSpend, activeTab]);
 
   if (isLoading) return <div className="p-12 text-center text-muted-foreground"><Clock className="w-8 h-8 mx-auto mb-2 animate-spin opacity-20" /><p>Synthesizing Meta Ads Breakdowns...</p></div>;
 
@@ -406,14 +466,14 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                               scoreBreakdown={{
                                 "CPL_Efficiency": score.cplScore,
                                 "CTR_Impact": score.ctrScore,
-                                "Lead_Volume": score.volumeScore,
-                                "Spend_Utilization": score.efficiencyScore
+                                "CPM_Impact": score.cpmScore,
+                                "Spend_Utilization": score.spendScore
                               }}
                               detailedBreakdown={{
-                                "CPL_Efficiency": { actual: row.cpl, target: cplTarget, unit: "currency", contribution: score.cplScore, weight: 50 },
-                                "CTR_Impact": { actual: row.ctr / 100, target: ctrTarget / 100, unit: "percent", contribution: score.ctrScore, weight: 20 },
-                                "Lead_Volume": { actual: row.leads, target: Math.round(totalLeads / scoredRows.length), unit: "number", contribution: score.volumeScore, weight: 20 },
-                                "Spend_Utilization": { actual: row.spend, target: Math.round(totalSpend / scoredRows.length), unit: "currency", contribution: score.efficiencyScore, weight: 10 }
+                                "CPL_Efficiency": { actual: row.cpl, target: cplTarget, unit: "currency", contribution: score.cplScore, weight: 35 },
+                                "CTR_Impact": { actual: row.ctr, target: ctrTarget, unit: "percent", contribution: score.ctrScore, weight: 20 },
+                                "CPM_Impact": { actual: row.cpm, target: cpmTarget, unit: "currency", contribution: score.cpmScore, weight: 20 },
+                                "Spend_Utilization": { actual: row.spend, target: Math.round(segmentTargetSpend), unit: "currency", contribution: score.spendScore, weight: 25 }
                               }}
                             />
                             

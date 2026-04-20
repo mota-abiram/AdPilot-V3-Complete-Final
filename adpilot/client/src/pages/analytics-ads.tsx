@@ -26,6 +26,9 @@ import {
   formatPct,
   formatNumber,
   getCplColor,
+  getCtrColorWithBenchmarks,
+  getCpmColor,
+  getVideoMetricColor,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
@@ -306,6 +309,8 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
 
   if (isPct) {
     displayVal = numVal > 0 ? formatPct(numVal) : "—";
+    if (col.key === "ctr") colorClass = getCtrColorWithBenchmarks(numVal, thresholds);
+    if (["tsr", "vhr", "ffr"].includes(col.key)) colorClass = getVideoMetricColor(col.key as any, numVal);
   } else if (isINR) {
     let calcVal = numVal;
     if (col.key === "cpsv") {
@@ -313,6 +318,7 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
     }
     displayVal = calcVal > 0 ? formatINR(calcVal, col.key === "avg_cpc" ? 2 : 0) : "—";
     if (col.key === "cpl") colorClass = getCplColor(calcVal, thresholds);
+    if (col.key === "cpm") colorClass = getCpmColor(calcVal, thresholds);
   } else if (typeof val === "number") {
     displayVal = formatNumber(val);
   }
@@ -328,7 +334,7 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
 
 export default function AnalyticsAdsPage() {
   const clientContext = useClient();
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform } = clientContext ?? {};
+  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, benchmarks: globalBenchmarks } = clientContext ?? {};
   const isGoogle = activePlatform === "google";
 
   const [sortKey, setSortKey] = useState<string>("spend");
@@ -343,7 +349,11 @@ export default function AnalyticsAdsPage() {
   const executionContext = useExecution();
   const { executeBatch, isExecuting: isBatchExecuting } = executionContext ?? {};
 
-  const thresholds = (data as any)?.dynamic_thresholds;
+  // Benchmarks source of truth priority: 
+  // 1. Global context 'benchmarks' (from settings tab)
+  // 2. 'sop_benchmarks' from analysis data
+  // 3. 'dynamic_thresholds' from analysis data
+  const thresholds = globalBenchmarks ?? (data as any)?.sop_benchmarks ?? (data as any)?.dynamic_thresholds;
 
   // ─── Normalize all ads from backend ─────────────────────────────
   const allAds = useMemo<AdsPanelCreative[]>(() => {

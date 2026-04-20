@@ -17,6 +17,7 @@ const badgeVariants = cva(
         info: "border-sky-500/20 bg-sky-500/12 text-sky-700 dark:text-sky-300 shadow-xs",
         destructive:
           "border-red-500/22 bg-red-500/12 text-red-700 dark:text-red-300 shadow-xs",
+        orange: "border-orange-500/24 bg-orange-500/14 text-orange-700 dark:text-orange-300 shadow-xs",
 
         outline: " border [border-color:var(--badge-outline)] bg-card shadow-xs",
       },

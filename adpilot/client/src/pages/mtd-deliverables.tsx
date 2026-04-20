@@ -155,7 +155,7 @@ function DeliverablesChart({ data, view }: { data: ConsolidatedMtdData['mtd'], v
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function MtdDeliverablesPage() {
-  const { activeClientId, activeClient, activePlatform, apiBase } = useClient();
+  const { activeClientId, activeClient, activePlatform, apiBase, benchmarks } = useClient();
   const { isAdmin } = useAuth();
   const { toast } = useToast();
 
@@ -248,7 +248,9 @@ export default function MtdDeliverablesPage() {
 
   const mtd = mtdData?.mtd;
   const status = mtdData?.status;
-  const targets = activeClient?.targets?.[activePlatform];
+
+  // Primary source of truth for targets is the benchmarks context (single source)
+  const targets = benchmarks || activeClient?.targets?.[activePlatform];
 
   // Calculate month progress locally
   const now = new Date();
@@ -261,8 +263,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Total Spend",
       value: mtd?.spend || 0,
-      target: targets?.budget,
-      mtdTarget: (targets?.budget || 0) * (pctThroughMonth / 100),
+      target: (targets?.budget ?? targets?.target_budget),
+      mtdTarget: ((targets?.budget ?? targets?.target_budget) || 0) * (pctThroughMonth / 100),
       isCurrency: true,
       description: "MTD spend across campaigns",
       source: "API",
@@ -271,8 +273,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Total Leads",
       value: mtd?.leads || 0,
-      target: targets?.leads,
-      mtdTarget: (targets?.leads || 0) * (pctThroughMonth / 100),
+      target: (targets?.leads ?? targets?.target_leads),
+      mtdTarget: ((targets?.leads ?? targets?.target_leads) || 0) * (pctThroughMonth / 100),
       description: "MTD leads count",
       source: "API",
       type: "COMPUTED"
@@ -280,8 +282,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Qualified Leads",
       value: mtd?.qualified_leads || 0,
-      target: (targets?.leads || 0) * 0.4,
-      mtdTarget: ((targets?.leads || 0) * 0.4) * (pctThroughMonth / 100),
+      target: ((targets?.leads ?? targets?.target_leads) || 0) * 0.4,
+      mtdTarget: (((targets?.leads ?? targets?.target_leads) || 0) * 0.4) * (pctThroughMonth / 100),
       description: "Quality leads (manual input)",
       source: "Manual",
       type: "MANUAL"
@@ -289,8 +291,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Site Visits",
       value: mtd?.svs || 0,
-      target: targets?.svs?.low,
-      mtdTarget: (targets?.svs?.low || 0) * (pctThroughMonth / 100),
+      target: (targets?.svs?.low ?? targets?.svs_low ?? targets?.svs_target_low),
+      mtdTarget: ((targets?.svs?.low ?? targets?.svs_low ?? targets?.svs_target_low) || 0) * (pctThroughMonth / 100),
       description: "Actual visits",
       source: "Manual",
       type: "MANUAL"
@@ -298,7 +300,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPL",
       value: mtd?.cpl || 0,
-      target: targets?.cpl,
+      target: (targets?.cpl ?? targets?.cpl_target),
       isCurrency: true,
       isInverse: true,
       description: "Spend / Leads",
@@ -308,7 +310,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPQL",
       value: mtd?.cpql || 0,
-      target: (targets?.cpl || 0) * 2.5,
+      target: (targets?.cpql ?? targets?.cpql_target ?? (targets?.cpl ?? targets?.cpl_target ?? 0) * 2.5),
       isCurrency: true,
       isInverse: true,
       description: "Spend / Qualified Leads",
@@ -318,7 +320,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPSV",
       value: mtd?.cpsv || 0,
-      target: targets?.cpsv?.high,
+      target: (targets?.cpsv?.high ?? targets?.cpsv_low ?? targets?.cpsv_target_low),
       isCurrency: true,
       isInverse: true,
       description: "Spend / Site Visits",
@@ -328,7 +330,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "Positive %",
       value: mtd?.positive_pct || 0,
-      target: 25,
+      target: (targets?.positive_lead_target ?? targets?.positive_pct_target ?? 25),
       isPct: true,
       description: "Qualified Leads / Total Leads × 100",
       source: "Agent",
@@ -337,7 +339,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "SV %",
       value: mtd?.sv_pct || 0,
-      target: 10,
+      target: (targets?.sv_pct_target ?? targets?.sv_target ?? 10),
       isPct: true,
       description: "Site Visits / Total Leads × 100",
       source: "Agent",
@@ -353,26 +355,44 @@ export default function MtdDeliverablesPage() {
   ];
 
   function getStatus(kpi: any) {
-    if (kpi.isInverse) {
-      if (!kpi.target) return { label: "Awaiting", variant: "secondary" };
-      if (kpi.value <= kpi.target) return { label: "Good", variant: "success" };
-      if (kpi.value <= kpi.target * 1.3) return { label: "Watch", variant: "warning" };
-      return { label: "Poor", variant: "destructive" };
+    const { value, target, mtdTarget, isInverse, isPct } = kpi;
+    const activeTarget = mtdTarget || target;
+
+    if (!activeTarget || activeTarget <= 0) {
+      return value > 0
+        ? { label: "RECORDED", variant: "info" }
+        : { label: "PENDING", variant: "secondary" };
     }
 
-    if (kpi.isPct) {
-      if (kpi.value >= kpi.target) return { label: "Target Met", variant: "success" };
-      if (kpi.value >= kpi.target * 0.7) return { label: "Moderate", variant: "warning" };
-      return { label: "At Risk", variant: "destructive" };
+    let score = 0;
+    if (isInverse) {
+      // Lower is better (CPL, CPM, etc.)
+      score = value <= activeTarget ? 100 : (activeTarget / value) * 100;
+    } else {
+      // Higher is better (Leads, Spend, etc.)
+      score = (value / activeTarget) * 100;
     }
 
-    if (kpi.mtdTarget) {
-      if (kpi.value >= kpi.mtdTarget) return { label: "On Track", variant: "success" };
-      if (kpi.value >= kpi.mtdTarget * 0.8) return { label: "Watch", variant: "warning" };
-      return { label: "Behind", variant: "destructive" };
-    }
+    // Apply the user's requested bands and labels
+    if (score >= 75) return { label: "ON TRACK", variant: "success" };
+    if (score >= 55) return { label: "SLIGHTLY BEHIND", variant: "warning" };
+    if (score >= 35) return { label: "SIGNIFICANT DRIFT", variant: "orange" };
+    return { label: "OFF TRACK", variant: "destructive" };
+  }
 
-    return kpi.value > 0 ? { label: "Recorded", variant: "success" } : { label: "Pending", variant: "secondary" };
+  // Calculate progress width for the bottom line
+  function calculateProgress(kpi: any) {
+    const { value, target, mtdTarget, isInverse } = kpi;
+    const activeTarget = mtdTarget || target;
+    if (!activeTarget || activeTarget <= 0) return 0;
+
+    let ratio = 0;
+    if (isInverse) {
+      ratio = value <= activeTarget ? 1 : activeTarget / value;
+    } else {
+      ratio = value / activeTarget;
+    }
+    return Math.min(ratio * 100, 100);
   }
 
   return (
@@ -404,12 +424,13 @@ export default function MtdDeliverablesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-x divide-y divide-border/20">
             {MTD_SOP_CONFIG.map((kpi, i) => {
               const kpiStatus = getStatus(kpi);
+              const progressWidth = calculateProgress(kpi);
               return (
                 <div key={i} className="p-6 hover:bg-muted/5 transition-all group relative">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col items-start gap-2 mb-4 h-12 justify-between">
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors overflow-hidden truncate max-w-[120px]">
+                        <TooltipTrigger className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 hover:text-foreground transition-colors text-left flex items-center gap-1">
                           {kpi.label}
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[200px] p-3 space-y-2 bg-card border-border shadow-2xl">
@@ -422,33 +443,39 @@ export default function MtdDeliverablesPage() {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <Badge variant={kpiStatus.variant as any} className="t-micro px-1.5 py-0 font-bold uppercase tabular-nums">
+                    <Badge variant={kpiStatus.variant as any} className="text-[9px] px-2 py-0.5 font-black uppercase tabular-nums shadow-xs border-opacity-30">
                       {kpiStatus.label}
                     </Badge>
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-bold tabular-nums tracking-tight mb-1">
+                  <div className="pt-2">
+                    <h3 className="text-2xl font-black tabular-nums tracking-tight mb-1 text-foreground/90 leading-none">
                       {kpi.isCurrency ? formatINR(kpi.value, 0) : kpi.isPct ? `${kpi.value.toFixed(1)}%` : formatNumber(kpi.value)}
                     </h3>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pt-1">
                       {kpi.mtdTarget ? (
-                        <p className="text-xs text-muted-foreground font-medium">
-                          Expected: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.mtdTarget, 0) : formatNumber(Math.round(kpi.mtdTarget))}</span>
+                        <p className="text-[10px] text-muted-foreground/80 font-bold uppercase tracking-wider">
+                          Expected: <span className="text-foreground/90">{kpi.isCurrency ? formatINR(kpi.mtdTarget, 0) : formatNumber(Math.round(kpi.mtdTarget))}</span>
                         </p>
                       ) : kpi.target ? (
-                        <p className="text-xs text-muted-foreground font-medium">
-                          Target: <span className="text-foreground">{kpi.isCurrency ? formatINR(kpi.target, 0) : kpi.isPct ? `${kpi.target}%` : formatNumber(kpi.target)}</span>
+                        <p className="text-[10px] text-muted-foreground/80 font-bold uppercase tracking-wider">
+                          Target: <span className="text-foreground/90">{kpi.isCurrency ? formatINR(kpi.target, 0) : kpi.isPct ? `${kpi.target}%` : formatNumber(kpi.target)}</span>
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground font-medium">Manual Tracking</p>
                       )}
                     </div>
                   </div>
-                  {kpi.mtdTarget && (
+                  {(kpi.mtdTarget || kpi.target) && (
                     <div className="absolute bottom-0 left-0 w-full h-0.5 bg-muted/30">
                       <div
-                        className={cn("h-full transition-all", kpiStatus.variant === 'success' ? 'bg-emerald-500' : kpiStatus.variant === 'warning' ? 'bg-amber-400' : 'bg-red-500')}
-                        style={{ width: `${Math.min((kpi.value / kpi.mtdTarget) * 100, 100)}%` }}
+                        className={cn(
+                          "h-full transition-all",
+                          kpiStatus.variant === 'success' ? 'bg-emerald-500' :
+                            kpiStatus.variant === 'warning' ? 'bg-amber-400' :
+                              kpiStatus.variant === 'orange' ? 'bg-orange-500' :
+                                'bg-red-500'
+                        )}
+                        style={{ width: `${progressWidth}%` }}
                       />
                     </div>
                   )}

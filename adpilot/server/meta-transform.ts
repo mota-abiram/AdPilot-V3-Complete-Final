@@ -418,8 +418,10 @@ export function normalizeMetaAnalysis(raw: any): any {
   const benchmarks = resolveMetaBenchmarks(data);
   const targets = {
     cpl: benchmarks.cpl || benchmarks.cpl_target || 720,
-    ctr: 1.2,
-    cvr: 4.0
+    ctr: Number(benchmarks.ctr_min ?? benchmarks.ctr_target ?? 1.2),
+    cvr: Number(benchmarks.cvr_min ?? benchmarks.cvr_target ?? 4.0),
+    cpm: Number(benchmarks.cpm_target ?? benchmarks.cpm_max ?? 80),
+    cpm_bofu: Number(benchmarks.cpm_bofu_target ?? benchmarks.cpm_max_bofu ?? benchmarks.cpm_max ?? 120)
   };
 
   // 1. Scoring Campaigns
@@ -482,7 +484,7 @@ export function normalizeMetaAnalysis(raw: any): any {
       const detailed: any = {};
       let total = 0;
       const isBofu = (creative.layer || creative.theme || "").toLowerCase().includes("bofu");
-      const cpmTarget = isBofu ? 120 : 80;
+      const cpmTarget = isBofu ? targets.cpm_bofu : targets.cpm;
       const tsrTarget = benchmarks.tsr_min || 20;
       const vhrTarget = benchmarks.vhr_min || 25;
       const ffrTarget = benchmarks.ffr_min || 55;
