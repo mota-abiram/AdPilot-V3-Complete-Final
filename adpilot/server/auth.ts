@@ -10,6 +10,13 @@ import { db, pool } from "./db";
 import { users, clients, type User, type NewUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+
+function toSingleString(val: unknown): string | undefined {
+  if (typeof val === "string") return val;
+  if (Array.isArray(val)) return val[0];
+  return undefined;
+}
+
 const PostgresSessionStore = connectPg(session);
 const MemoryStore = createMemoryStore(session);
 
@@ -310,7 +317,8 @@ async function requireAuthenticatedUser(req: Request, res: Response, next: NextF
   }
 
   try {
-    const user = await getUserById(req.session.authUserId);
+    const userId = toSingleString(req.session.authUserId);
+    const user = await getUserById(userId);
     if (!user) {
       console.warn(`[Auth] Session ID ${req.session.authUserId} exists but user not found in storage.`);
       req.session.authUserId = undefined;
@@ -378,10 +386,13 @@ export async function enforceOwnership(clientId: string, user: SafeUser) {
 
 export function requireOwnership(req: Request, res: Response, next: NextFunction) {
   requireAuthenticatedUser(req, res, async () => {
-    const clientId = req.params.clientId;
+    const clientId = toSingleString(req.params.clientId);
+    if (!clientId) {
+      return res.status(400).json({ error: "Invalid clientId" });
+    }
+
     const user = req.authUser!;
 
-    if (!clientId) return next(); // Not a client-scoped route
 
     const hasAccess = await enforceOwnership(clientId, user);
 
@@ -497,7 +508,9 @@ export async function setupAuth(app: Express) {
   }));
 
   app.get("/api/auth/me", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
+    const userId = toSingleString(req.session.authUserId);
+    const user = await getUserById(userId);
+
     if (!user || user.status !== "active") {
       if (req.session.authUserId && (!user || user.status !== "active")) {
         req.session.authUserId = undefined;

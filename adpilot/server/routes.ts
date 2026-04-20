@@ -127,7 +127,7 @@ function readAiConfig() {
     if (fs.existsSync(AI_CONFIG_FILE)) {
       return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, "utf-8"));
     }
-  } catch {}
+  } catch { }
   return {
     openapiApiKey: process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "",
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -644,11 +644,11 @@ export async function registerRoutes(
 
 
   // ─── Client Registry Endpoints ─────────────────────────────────
-  
+
   app.get("/api/clients", requireAuth, async (req, res) => {
     const user = req.authUser!;
     const registry = await storage.getAllClients(user.role === "admin" ? undefined : user.id);
-    
+
     // Collect all platforms across the filtered clients to check DB presence
     const platformStatusPromises = registry.flatMap(c => {
       const platformsObj = (c.platforms || {}) as Record<string, any>;
@@ -699,8 +699,11 @@ export async function registerRoutes(
 
   // Get single client details
   app.get("/api/clients/:clientId", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
-    if (!user) return res.status(401).json({ error: "Auth required" });
+    const userId = typeof req.session.authUserId === "string"
+      ? req.session.authUserId
+      : undefined;
+
+    const user = await getUserById(userId); if (!user) return res.status(401).json({ error: "Auth required" });
 
     const client = await storage.getClient(req.params.clientId as string);
     if (!client) return res.status(404).json({ error: "Client not found" });
@@ -717,7 +720,7 @@ export async function registerRoutes(
       project: client.project,
       location: client.location,
       targetLocations: client.targetLocations || [],
-      platforms: Object.entries(client.platforms as any).map(([key, p]: [string, any]) => ({
+      platforms: Object.entries(client.platforms as Record<string, any>).map(([key, p]: [string, any]) => ({
         id: key,
         label: p.label,
         enabled: p.enabled,
@@ -794,8 +797,11 @@ export async function registerRoutes(
 
   // PUT /api/clients/:clientId — update name, location, targets, platform enable/disable
   app.put("/api/clients/:clientId", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
-    if (!user) return res.status(401).json({ error: "Auth required" });
+    const userId = typeof req.session.authUserId === "string"
+      ? req.session.authUserId
+      : undefined;
+
+    const user = await getUserById(userId); if (!user) return res.status(401).json({ error: "Auth required" });
 
     const existing = await storage.getClient(req.params.clientId as string);
     if (!existing) return res.status(404).json({ error: "Client not found" });
@@ -806,7 +812,7 @@ export async function registerRoutes(
     }
 
     const { name, shortName, project, location, targetLocations, enableMeta, enableGoogle, targets } = req.body;
-    
+
     const updatedClient = {
       ...existing,
       name: (name || existing.name).trim(),
@@ -823,15 +829,18 @@ export async function registerRoutes(
       },
       targets: targets !== undefined ? targets : existing.targets,
     };
-    
+
     await storage.updateClient(req.params.clientId as string, updatedClient);
     res.json({ success: true, id: req.params.clientId as string });
   });
 
   // DELETE /api/clients/:clientId — remove from registry (data files preserved)
   app.delete("/api/clients/:clientId", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
-    if (!user) return res.status(401).json({ error: "Auth required" });
+    const userId = typeof req.session.authUserId === "string"
+      ? req.session.authUserId
+      : undefined;
+
+    const user = await getUserById(userId); if (!user) return res.status(401).json({ error: "Auth required" });
 
     const { clientId } = req.params as Record<string, string>;
     const existing = await storage.getClient(clientId);
@@ -849,8 +858,11 @@ export async function registerRoutes(
 
   // GET /api/clients/:clientId/credentials — return masked credentials (for display)
   app.get("/api/clients/:clientId/credentials", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
-    if (!user) return res.status(401).json({ error: "Auth required" });
+    const userId = typeof req.session.authUserId === "string"
+      ? req.session.authUserId
+      : undefined;
+
+    const user = await getUserById(userId); if (!user) return res.status(401).json({ error: "Auth required" });
 
     const client = await storage.getClient(req.params.clientId as string);
     if (!client) return res.status(404).json({ error: "Client not found" });
@@ -888,8 +900,11 @@ export async function registerRoutes(
 
   app.get("/api/clients/:clientId/google/status", async (req, res) => {
     try {
-      const user = await getUserById(req.session.authUserId);
-      if (!user) return res.status(401).json({ error: "Auth required" });
+      const userId = typeof req.session.authUserId === "string"
+        ? req.session.authUserId
+        : undefined;
+
+      const user = await getUserById(userId); if (!user) return res.status(401).json({ error: "Auth required" });
 
       const clientId = req.params.clientId as string;
       const client = await storage.getClient(clientId);
@@ -914,8 +929,11 @@ export async function registerRoutes(
   // PUT /api/clients/:clientId/credentials — save/update credentials
   app.put("/api/clients/:clientId/credentials", async (req, res) => {
     try {
-      const user = await getUserById(req.session.authUserId);
-      if (!user) return res.status(401).json({ error: "Auth required" });
+      const userId = typeof req.session.authUserId === "string"
+        ? req.session.authUserId
+        : undefined;
+
+      const user = await getUserById(userId); if (!user) return res.status(401).json({ error: "Auth required" });
 
       const { clientId } = req.params as Record<string, string>;
       const client = await storage.getClient(clientId);
@@ -986,7 +1004,7 @@ export async function registerRoutes(
     } catch (err: any) {
       const status = err.message.includes("not found") || err.message.includes("not configured") ? 404
         : err.message.includes("not yet enabled") ? 403
-        : 500;
+          : 500;
       res.status(status).json({ error: err.message });
     }
   };
@@ -1013,8 +1031,8 @@ export async function registerRoutes(
   });
 
   // List available cadences for a client/platform
-  app.get("/api/clients/:clientId/:platform/cadences", (req, res) => {
-    const cadences = listCadences(req.params.clientId as string, req.params.platform as string);
+  app.get("/api/clients/:clientId/:platform/cadences", async (req, res) => {
+    const cadences = await listCadences(req.params.clientId as string, req.params.platform as string);
     res.json(cadences);
   });
 
@@ -1841,7 +1859,9 @@ export async function registerRoutes(
             strategicCall,
             actorName
           );
-        } catch (_) { /* don't fail the response if learning recording fails */ }
+        } catch (_) {
+          // don't fail the response if learning recording fails
+        }
       }
 
       res.json(result);
@@ -1867,7 +1887,7 @@ export async function registerRoutes(
         try {
           const data = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
           return res.json(data);
-        } catch {}
+        } catch { }
       }
       return res.json({ ...(await getDefaultBenchmarks(clientId, platform)), updated_at: null });
     }
@@ -1912,7 +1932,7 @@ export async function registerRoutes(
       const data = await readAnalysisData(clientId, platform, cadence);
 
       // Check for any breakdown data in the analysis
-      const hasBreakdowns = data.breakdowns || data.demographic_breakdowns || data.breakdown_age || 
+      const hasBreakdowns = data.breakdowns || data.demographic_breakdowns || data.breakdown_age ||
         data.breakdown_gender || data.breakdown_placement || data.breakdown_device || data.breakdown_region;
 
       if (hasBreakdowns) {
@@ -1958,10 +1978,10 @@ export async function registerRoutes(
 
     try {
       const data = await readAnalysisData(clientId, platform, cadence);
-      
+
       // Attempt to get campaign-specific data first
       let cbd = data.campaign_breakdowns?.[campaignId];
-      
+
       // For Google, if campaign-specific data isn't found, fallback to global demographic_breakdowns
       // which the frontend is now capable of filtering by campaign_id.
       if (!cbd && (platform === "google" || platform === "google_ads")) {
@@ -2417,7 +2437,7 @@ export async function registerRoutes(
           totalSpend += mtd.spend ?? mtd.spend_mtd ?? 0;
           totalLeads += mtd.leads ?? mtd.leads_mtd ?? 0;
           totalImpressions += (mtd.impressions ?? mtd.impressions_mtd ?? (data.account_pulse?.total_impressions_mtd || data.account_pulse?.total_impressions || 0));
-          
+
           if (!lastAnalysisUpdate || (data.generated_at && data.generated_at > lastAnalysisUpdate)) {
             lastAnalysisUpdate = data.generated_at;
           }
@@ -2436,13 +2456,13 @@ export async function registerRoutes(
     if (fs.existsSync(mtdFilePath)) {
       try {
         manual = JSON.parse(fs.readFileSync(mtdFilePath, "utf-8"));
-      } catch (e) {}
+      } catch (e) { }
     } else if (requestedPlatformId === "meta") {
       const legacyPath = getLegacyMtdDeliverablesPath(clientId as string);
       if (fs.existsSync(legacyPath)) {
         try {
           manual = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
-        } catch (e) {}
+        } catch (e) { }
       } else {
         manualInputMissing = true;
       }
@@ -2458,7 +2478,7 @@ export async function registerRoutes(
     const svs = manual.svs_achieved || 0;
     const qLeads = manual.positive_leads_achieved || 0; // The UI uses positive_leads_achieved for "Qualified Leads"
     // Handle specific field for QL if quality_lead_count is provided as fallback/secondary
-    const qCount = manual.quality_lead_count || qLeads; 
+    const qCount = manual.quality_lead_count || qLeads;
 
     const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
     const cpql = qCount > 0 ? totalSpend / qCount : 0;
@@ -2555,14 +2575,14 @@ export async function registerRoutes(
     try {
       const analysis = await readAnalysisData(clientId, platform);
       mp = analysis?.monthly_pacing || null;
-    } catch (_) {}
+    } catch (_) { }
 
     // Fetch benchmarks for user-configured targets
     let bm: Record<string, any> = {};
     try {
       const bmPath = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
       if (fs.existsSync(bmPath)) bm = JSON.parse(fs.readFileSync(bmPath, "utf-8"));
-    } catch (_) {}
+    } catch (_) { }
 
     // Fetch MTD deliverables (manual inputs: svs, qualified_leads, closures)
     let manual: any = { svs_achieved: 0, positive_leads_achieved: 0, closures_achieved: 0, quality_lead_count: 0 };
@@ -2573,7 +2593,7 @@ export async function registerRoutes(
         const legacyPath = getLegacyMtdDeliverablesPath(clientId);
         if (fs.existsSync(legacyPath)) manual = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // ─── Authoritative delivered values ─────────────────────────────
     const mtdSpend = mp?.mtd?.spend ?? 0;
@@ -2710,7 +2730,7 @@ export async function registerRoutes(
         if (fs.existsSync(legacyPath)) {
           try {
             return res.json(JSON.parse(fs.readFileSync(legacyPath, "utf-8")));
-          } catch {}
+          } catch { }
         }
       }
       return res.json({
@@ -2762,13 +2782,13 @@ export async function registerRoutes(
     if (fs.existsSync(historyPath)) {
       try {
         history = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
-      } catch (e) {}
+      } catch (e) { }
     } else if (platform === "meta") {
       const legacyHistoryPath = getLegacyMtdHistoryPath(clientId);
       if (fs.existsSync(legacyHistoryPath)) {
         try {
           history = JSON.parse(fs.readFileSync(legacyHistoryPath, "utf-8"));
-        } catch (e) {}
+        } catch (e) { }
       }
     }
     history.unshift({ ...data, id: Date.now() });
@@ -2789,7 +2809,7 @@ export async function registerRoutes(
         if (fs.existsSync(legacyHistoryPath)) {
           try {
             return res.json(JSON.parse(fs.readFileSync(legacyHistoryPath, "utf-8")));
-          } catch {}
+          } catch { }
         }
       }
       return res.json([]);
@@ -2950,14 +2970,14 @@ export async function registerRoutes(
     }
   });
 
-    app.get("/api/clients/:clientId/:platform/check-new-entities", requireOwnership, async (req, res) => {
-      const { clientId, platform } = req.params as Record<string, string>;
-  
-      try {
-        const data = await readAnalysisData(clientId, platform);
-        const campaigns = (data as any).campaign_audit || (data as any).campaigns || [];
-        const adsetAnalysis = (data as any).adset_analysis || (data as any).ad_group_analysis || [];
-        const campaignAnalysis = (data as any).campaign_audit || (data as any).campaigns || (data as any).campaign_analysis || [];
+  app.get("/api/clients/:clientId/:platform/check-new-entities", requireOwnership, async (req, res) => {
+    const { clientId, platform } = req.params as Record<string, string>;
+
+    try {
+      const data = await readAnalysisData(clientId, platform);
+      const campaigns = (data as any).campaign_audit || (data as any).campaigns || [];
+      const adsetAnalysis = (data as any).adset_analysis || (data as any).ad_group_analysis || [];
+      const campaignAnalysis = (data as any).campaign_audit || (data as any).campaigns || (data as any).campaign_analysis || [];
       const adsets = data.adset_analysis || data.ad_groups || [];
 
       const newCampaigns = campaigns.filter((c: any) => {
@@ -3009,10 +3029,10 @@ export async function registerRoutes(
       "X-Accel-Buffering": "no",
     });
     res.write("event: connected\ndata: {}\n\n");
-    
+
     // Pass user context for scoping events
     await addSSEClient(res, user);
-    
+
     req.on("close", () => {
       // cleanup handled in addSSEClient
     });
@@ -3025,7 +3045,11 @@ export async function registerRoutes(
   });
 
   app.post("/api/scheduler/run-now", async (req, res) => {
-    const user = await getUserById(req.session.authUserId);
+    const userId = typeof req.session.authUserId === "string"
+      ? req.session.authUserId
+      : undefined;
+
+    const user = await getUserById(userId);
     if (!user) return res.status(401).json({ error: "Auth required" });
 
     if (user.role === "admin") {
@@ -3259,10 +3283,10 @@ export async function registerRoutes(
       // Build alertContext when the request comes from a specific alert modal
       const alertContext = alert_problem
         ? {
-            problem: alert_problem,
-            metric: alert_metric,
-            metrics: alert_metrics ? JSON.parse(alert_metrics) : undefined,
-          }
+          problem: alert_problem,
+          metric: alert_metric,
+          metrics: alert_metrics ? JSON.parse(alert_metrics) : undefined,
+        }
         : undefined;
 
       console.log(`[API] Unified Intelligence Request: client=${clientId} platform=${platform} type=${type}${alertContext ? ` alert="${alert_problem?.substring(0, 60)}"` : ""}`);
@@ -3344,7 +3368,7 @@ export async function registerRoutes(
           if (fs.existsSync(metaPath)) {
             try {
               metaData = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-            } catch {}
+            } catch { }
           }
         }
 
@@ -3353,7 +3377,7 @@ export async function registerRoutes(
           if (fs.existsSync(googlePath)) {
             try {
               googleData = JSON.parse(fs.readFileSync(googlePath, "utf-8"));
-            } catch {}
+            } catch { }
           }
         }
 
