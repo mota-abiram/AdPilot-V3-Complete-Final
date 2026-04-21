@@ -263,8 +263,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Total Spend",
       value: mtd?.spend || 0,
-      target: (targets?.budget ?? targets?.target_budget),
-      mtdTarget: ((targets?.budget ?? targets?.target_budget) || 0) * (pctThroughMonth / 100),
+      target: targets?.budget,
+      mtdTarget: (targets?.budget || 0) * (pctThroughMonth / 100),
       isCurrency: true,
       description: "MTD spend across campaigns",
       source: "API",
@@ -273,8 +273,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Total Leads",
       value: mtd?.leads || 0,
-      target: (targets?.leads ?? targets?.target_leads),
-      mtdTarget: ((targets?.leads ?? targets?.target_leads) || 0) * (pctThroughMonth / 100),
+      target: targets?.leads,
+      mtdTarget: (targets?.leads || 0) * (pctThroughMonth / 100),
       description: "MTD leads count",
       source: "API",
       type: "COMPUTED"
@@ -282,8 +282,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Qualified Leads",
       value: mtd?.qualified_leads || 0,
-      target: ((targets?.leads ?? targets?.target_leads) || 0) * 0.4,
-      mtdTarget: (((targets?.leads ?? targets?.target_leads) || 0) * 0.4) * (pctThroughMonth / 100),
+      target: (targets?.leads || 0) * 0.4,
+      mtdTarget: ((targets?.leads || 0) * 0.4) * (pctThroughMonth / 100),
       description: "Quality leads (manual input)",
       source: "Manual",
       type: "MANUAL"
@@ -291,8 +291,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Site Visits",
       value: mtd?.svs || 0,
-      target: (targets?.svs?.low ?? targets?.svs_low ?? targets?.svs_target_low),
-      mtdTarget: ((targets?.svs?.low ?? targets?.svs_low ?? targets?.svs_target_low) || 0) * (pctThroughMonth / 100),
+      target: targets?.svs?.low,
+      mtdTarget: (targets?.svs?.low || 0) * (pctThroughMonth / 100),
       description: "Actual visits",
       source: "Manual",
       type: "MANUAL"
@@ -300,7 +300,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPL",
       value: mtd?.cpl || 0,
-      target: (targets?.cpl ?? targets?.cpl_target),
+      target: targets?.cpl,
       isCurrency: true,
       isInverse: true,
       description: "Spend / Leads",
@@ -310,7 +310,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPQL",
       value: mtd?.cpql || 0,
-      target: (targets?.cpql ?? targets?.cpql_target ?? (targets?.cpl ?? targets?.cpl_target ?? 0) * 2.5),
+      target: (targets?.cpl || 0) * 2.5,
       isCurrency: true,
       isInverse: true,
       description: "Spend / Qualified Leads",
@@ -320,7 +320,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPSV",
       value: mtd?.cpsv || 0,
-      target: (targets?.cpsv?.high ?? targets?.cpsv_low ?? targets?.cpsv_target_low),
+      target: targets?.cpsv?.low,
       isCurrency: true,
       isInverse: true,
       description: "Spend / Site Visits",
@@ -330,7 +330,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "Positive %",
       value: mtd?.positive_pct || 0,
-      target: (targets?.positive_lead_target ?? targets?.positive_pct_target ?? 25),
+      target: 25,
       isPct: true,
       description: "Qualified Leads / Total Leads × 100",
       source: "Agent",
@@ -339,7 +339,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "SV %",
       value: mtd?.sv_pct || 0,
-      target: (targets?.sv_pct_target ?? targets?.sv_target ?? 10),
+      target: 10,
       isPct: true,
       description: "Site Visits / Total Leads × 100",
       source: "Agent",

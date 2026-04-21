@@ -585,7 +585,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
   
   // ─── 0. Update learning outcomes before processing ────────────────
   try {
-    const updatedCount = triggerOutcomeUpdate(analysisData);
+    const updatedCount = await triggerOutcomeUpdate(analysisData);
     if (updatedCount > 0) {
       console.log(`[AI Command] Automatically updated ${updatedCount} historical learning outcomes using fresh analysis.`);
     }

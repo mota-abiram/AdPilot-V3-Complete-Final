@@ -566,7 +566,7 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   // ─── Learning Engine Sync ──────────────────────────────────────
   // Every time we load fresh data, check if any pending actions can now be closed
   try {
-    const updated = triggerOutcomeUpdate(data);
+    const updated = await triggerOutcomeUpdate(data);
     if (updated > 0) {
       console.log(`[Outcome Evaluator] Automatically updated ${updated} action outcomes based on fresh data.`);
     }

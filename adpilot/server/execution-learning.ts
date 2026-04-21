@@ -8,10 +8,43 @@
  * Storage: /home/user/workspace/ads_agent/data/execution_learning.json
  */
 
+import fs from "fs";
+import path from "path";
 import { db } from "./db";
 import { executionLearnings, type ExecutionLearning } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { updateSmartOutcomes } from "./outcome-analyzer";
+
+/**
+ * Helper to extract metrics for a specific entity from analysis data.
+ */
+function findEntityMetrics(
+  analysisData: any,
+  entityId: string,
+  entityType: string
+): any | null {
+  if (!analysisData) return null;
+  
+  if (entityType === "campaign") {
+    const match = (analysisData.campaign_audit || analysisData.campaign_analysis || []).find(
+      (c: any) => c.campaign_id === entityId || c.id === entityId
+    );
+    if (match) return { spend: match.spend, leads: match.leads || match.conversions, cpl: match.cpl, ctr: match.ctr, impressions: match.impressions };
+  }
+  
+  if (entityType === "adset" || entityType === "ad_group") {
+     const adsets = analysisData.adset_analysis || analysisData.ad_group_analysis || [];
+     const match = adsets.find((a: any) => a.adset_id === entityId || a.ad_group_id === entityId || a.id === entityId);
+     if (match) return { spend: match.spend, leads: match.leads || match.conversions, cpl: match.cpl, ctr: match.ctr, impressions: match.impressions };
+  }
+
+  if (entityType === "ad") {
+    const match = (analysisData.creative_health || analysisData.ad_analysis || []).find((a: any) => a.ad_id === entityId || a.id === entityId);
+    if (match) return { spend: match.spend, leads: match.leads || match.conversions, cpl: match.cpl, ctr: match.ctr, impressions: match.impressions };
+  }
+  
+  return null;
+}
 
 // ─── Configuration ────────────────────────────────────────────────
 
