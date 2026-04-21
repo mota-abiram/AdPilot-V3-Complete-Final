@@ -316,11 +316,7 @@ export default function UsersPage() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      // Note: The backend doesn't have a DELETE endpoint yet.
-      // We'll use PUT to block the user instead
-      const res = await apiRequest("PUT", `/api/access/users/${userId}`, {
-        status: "blocked",
-      });
+      const res = await apiRequest("DELETE", `/api/access/users/${userId}`);
       if (!res.ok) throw new Error("Failed to delete user");
       return res.json();
     },
@@ -328,7 +324,7 @@ export default function UsersPage() {
       qc.invalidateQueries({ queryKey: ["/api/access/users"] });
       toast({
         title: "Success",
-        description: "User has been blocked",
+        description: "User has been deleted successfully",
       });
     },
     onError: (err: Error) => {

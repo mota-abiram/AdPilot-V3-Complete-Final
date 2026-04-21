@@ -3057,8 +3057,8 @@ export default function DashboardPage() {
       </div>
 
 
-      {/* ─── Funnel Diagnostics (moved from Audit Panel) ────────── */}
-      {(data as any).funnel_diagnostics && (
+      {/* ─── Funnel Diagnostics (always MTD) ────────── */}
+      {(mtdFixedData as any)?.funnel_diagnostics && (
         <Card>
           <CardHeader className="card-header-premium">
             <CardTitle className="t-section-title font-medium">Funnel Diagnostics</CardTitle>
@@ -3303,7 +3303,7 @@ export default function DashboardPage() {
         );
       })()}
 
-      {/* ─── MV2-N21: Audit completion tracking ─────────────────── */}
+      {/* ─── MV2-N21: Audit completion tracking (Static MTD) ────────── */}
       {(() => {
         const generatedAt = lastSuccessfulFetchDate;
         const now = new Date();
@@ -3337,7 +3337,7 @@ export default function DashboardPage() {
               status = "Overdue";
             }
           }
-          const isCurrent = def.key === cadenceLabel;
+          const isCurrent = false; // Audit overview remains static
           return { ...def, status, isCurrent };
         });
 

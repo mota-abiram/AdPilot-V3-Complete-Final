@@ -18,6 +18,8 @@ import {
   Play,
   Loader2,
   ShieldCheck,
+  Video,
+  Image as ImageIcon,
 } from "lucide-react";
 import { ExecutionButton } from "@/components/execution-button";
 import { useExecution } from "@/hooks/use-execution";
@@ -396,7 +398,10 @@ export default function AnalyticsAdsPage() {
 
   const paginated = useMemo(() => creatives.slice((page - 1) * pageSize, page * pageSize), [creatives, page, pageSize]);
   const searchAds = useMemo(() => paginated.filter(c => c.isSearch), [paginated]);
-  const dgAds = useMemo(() => paginated.filter(c => !c.isSearch && isGoogle), [paginated, isGoogle]);
+  
+  // Segregation for non-search ads
+  const videoAds = useMemo(() => paginated.filter(c => !c.isSearch && c.isVideo), [paginated]);
+  const staticAds = useMemo(() => paginated.filter(c => !c.isSearch && !c.isVideo), [paginated]);
 
   const totalSpend = useMemo(() => allAds.reduce((s, c) => s + c.spend, 0), [allAds]);
 
@@ -553,26 +558,52 @@ export default function AnalyticsAdsPage() {
                 else { setSortKey(key); setSortDir("desc"); }
               }}
             />
-            <AdTable
-              title="Demand Gen Ads"
-              rows={dgAds}
-              cols={DG_AD_COLS}
-              groups={DG_AD_GROUPS}
-              accent="purple"
-              isGoogle={isGoogle}
-              thresholds={thresholds}
-              expandedIds={expandedIds}
-              onToggleExpand={handleToggleExpand}
-              selectedIds={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              onSelectAll={handleSelectAll}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={(key) => {
-                if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-                else { setSortKey(key); setSortDir("desc"); }
-              }}
-            />
+            {videoAds.length > 0 && (
+              <AdTable
+                title="Google Video Ads"
+                rows={videoAds}
+                cols={DG_AD_COLS}
+                groups={DG_AD_GROUPS}
+                accent="purple"
+                isGoogle={isGoogle}
+                thresholds={thresholds}
+                expandedIds={expandedIds}
+                onToggleExpand={handleToggleExpand}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={(key) => {
+                  if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                  else { setSortKey(key); setSortDir("desc"); }
+                }}
+                icon={<Video className="w-3 h-3" />}
+              />
+            )}
+            {staticAds.length > 0 && (
+              <AdTable
+                title="Google Static Ads"
+                rows={staticAds}
+                cols={DG_AD_COLS}
+                groups={DG_AD_GROUPS}
+                accent="indigo"
+                isGoogle={isGoogle}
+                thresholds={thresholds}
+                expandedIds={expandedIds}
+                onToggleExpand={handleToggleExpand}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={(key) => {
+                  if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                  else { setSortKey(key); setSortDir("desc"); }
+                }}
+                icon={<ImageIcon className="w-3 h-3" />}
+              />
+            )}
             <DataTablePagination
               totalItems={creatives.length}
               pageSize={pageSize}
@@ -582,27 +613,53 @@ export default function AnalyticsAdsPage() {
             />
           </div>
         ) : (
-          <div className="space-y-4">
-            <AdTable
-              title="Meta Creatives"
-              rows={paginated}
-              cols={META_AD_COLS}
-              groups={META_AD_GROUPS}
-              accent="blue"
-              isGoogle={isGoogle}
-              thresholds={thresholds}
-              expandedIds={expandedIds}
-              onToggleExpand={handleToggleExpand}
-              selectedIds={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              onSelectAll={handleSelectAll}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={(key) => {
-                if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-                else { setSortKey(key); setSortDir("desc"); }
-              }}
-            />
+          <div className="space-y-8">
+            {videoAds.length > 0 && (
+              <AdTable
+                title="Meta Video Ads"
+                rows={videoAds}
+                cols={META_AD_COLS}
+                groups={META_AD_GROUPS}
+                accent="purple"
+                isGoogle={isGoogle}
+                thresholds={thresholds}
+                expandedIds={expandedIds}
+                onToggleExpand={handleToggleExpand}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={(key) => {
+                  if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                  else { setSortKey(key); setSortDir("desc"); }
+                }}
+                icon={<Video className="w-3 h-3" />}
+              />
+            )}
+            {staticAds.length > 0 && (
+              <AdTable
+                title="Meta Static Ads"
+                rows={staticAds}
+                cols={META_AD_COLS}
+                groups={META_AD_GROUPS}
+                accent="blue"
+                isGoogle={isGoogle}
+                thresholds={thresholds}
+                expandedIds={expandedIds}
+                onToggleExpand={handleToggleExpand}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={(key) => {
+                  if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+                  else { setSortKey(key); setSortDir("desc"); }
+                }}
+                icon={<ImageIcon className="w-3 h-3" />}
+              />
+            )}
             <DataTablePagination
               totalItems={creatives.length}
               pageSize={pageSize}
@@ -635,18 +692,19 @@ interface AdTableProps {
   sortKey: string;
   sortDir: "asc" | "desc";
   onSort: (key: string) => void;
+  icon?: React.ReactNode;
 }
 
 const AdTable = React.memo(({
   title, rows, cols, groups, accent = "primary",
   isGoogle, thresholds, expandedIds, onToggleExpand,
   selectedIds, onToggleSelect, onSelectAll,
-  sortKey, sortDir, onSort
+  sortKey, sortDir, onSort, icon
 }: AdTableProps) => {
   return (
     <section>
       <h2 className="text-xs font-black uppercase text-foreground mb-2 flex items-center gap-2">
-        <Info className={`w-3 h-3 text-${accent}-500`} />
+        {icon || <Info className={`w-3 h-3 text-${accent}-500`} />}
         {title}
         <span className="text-muted-foreground font-normal">({rows.length})</span>
       </h2>

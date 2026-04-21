@@ -24,7 +24,6 @@ import {
   FileJson,
   FileSpreadsheet,
   BookOpen,
-  Users,
   RefreshCw,
   Facebook,
 } from "lucide-react";
@@ -93,10 +92,10 @@ export default function SettingsPage() {
   const [metaApiVersion, setMetaApiVersion] = useState<string>("");
   const [metaTokenExpiry, setMetaTokenExpiry] = useState<string>("");
   const [metaTokenDebug, setMetaTokenDebug] = useState<string>("");
-  const [auditLog, setAuditLog] = useState<any[]>([]);
-  const [learningData, setLearningData] = useState<any[]>([]);
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [isVerifyingApi, setIsVerifyingApi] = useState(false);
+  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [learningData, setLearningData] = useState<any[]>([]);
 
   // Google API status state (GS-01)
   const [googleStatus, setGoogleStatus] = useState<"checking" | "ok" | "error" | "idle">("idle");
@@ -139,17 +138,6 @@ export default function SettingsPage() {
   }
 
   const isCurrentlyRunning = schedulerStatus?.isRunning || running;
-
-  const [accessUsers, setAccessUsers] = useState<AuthUser[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [isSavingUser, setIsSavingUser] = useState(false);
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "member" as "admin" | "member",
-    status: "active" as "active" | "blocked",
-  });
 
   // Verify Meta API status — actually pings the Meta API
   async function verifyMetaApi() {
@@ -221,7 +209,7 @@ export default function SettingsPage() {
         const d = await r.json();
         setAiConfig(d);
       }
-    } catch {}
+    } catch { }
   }
 
   async function handleSaveAiConfig() {
@@ -243,7 +231,7 @@ export default function SettingsPage() {
     apiRequest("GET", `${apiBase}/audit-log`)
       .then((r) => r.json())
       .then((d) => setAuditLog(d.entries || d || []))
-      .catch(() => {});
+      .catch(() => { });
   }, [apiBase]);
 
   // Fetch learning data for exports
@@ -251,62 +239,8 @@ export default function SettingsPage() {
     apiRequest("GET", `${apiBase}/learning-data`)
       .then((r) => r.json())
       .then((d) => setLearningData(d.entries || d || []))
-      .catch(() => {});
+      .catch(() => { });
   }, [apiBase]);
-
-  async function loadAccessUsers() {
-    if (!isAdmin) return;
-    setIsLoadingUsers(true);
-    try {
-      const res = await apiRequest("GET", "/api/access/users");
-      const users = await res.json();
-      setAccessUsers(users);
-    } catch {
-      setAccessUsers([]);
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  }
-
-  useEffect(() => {
-    loadAccessUsers();
-  }, [isAdmin]);
-
-  async function handleCreateUser() {
-    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password.trim()) {
-      toast({ title: "Missing fields", description: "Name, email, and password are required", variant: "destructive" });
-      return;
-    }
-    setIsSavingUser(true);
-    try {
-      await apiRequest("POST", "/api/access/users", newUser);
-      setNewUser({ name: "", email: "", password: "", role: "member", status: "active" });
-      await loadAccessUsers();
-      toast({ title: "User created", description: `${newUser.email} can now use the app` });
-    } catch (err: any) {
-      toast({ title: "Create failed", description: err.message || "Could not create user", variant: "destructive" });
-    } finally {
-      setIsSavingUser(false);
-    }
-  }
-
-  async function updateUserAccess(target: AuthUser, patch: Partial<Pick<AuthUser, "role" | "status">>) {
-    try {
-      await apiRequest("PUT", `/api/access/users/${target.id}`, {
-        name: target.name,
-        email: target.email,
-        role: patch.role || target.role,
-        status: patch.status || target.status,
-      });
-      await loadAccessUsers();
-      toast({
-        title: "Access updated",
-        description: `${target.email} is now ${(patch.status || target.status) === "active" ? "allowed to log in" : "blocked from logging in"}`,
-      });
-    } catch (err: any) {
-      toast({ title: "Update failed", description: err.message || "Could not update user", variant: "destructive" });
-    }
-  }
 
   // Google sync time from analysis
   const googleLastSync = useMemo(() => {
@@ -324,9 +258,6 @@ export default function SettingsPage() {
     if (!data) return null;
     return (data as any).generated_at || (data as any).analysis_date || (data as any).timestamp || null;
   }, [data]);
-
-  const targets = activeClient?.targets;
-  const targetLocations = (activeClient as any)?.targetLocations || [];
 
   // Export handlers
   async function handleExport(type: "audit" | "analysis" | "learning") {
@@ -389,8 +320,8 @@ export default function SettingsPage() {
                     {metaStatus === "checking"
                       ? "Verifying token..."
                       : metaStatus === "ok"
-                      ? "Token verified — connected"
-                      : "Token invalid or expired"}
+                        ? "Token verified — connected"
+                        : "Token invalid or expired"}
                     {metaApiVersion && ` · ${metaApiVersion}`}
                   </p>
                   {metaTokenDebug && (
@@ -401,13 +332,12 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className={`text-xs ${
-                    metaStatus === "ok"
+                  className={`text-xs ${metaStatus === "ok"
                       ? "bg-emerald-500/15 text-emerald-400"
                       : metaStatus === "error"
-                      ? "bg-red-500/15 text-red-400"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                        ? "bg-red-500/15 text-red-400"
+                        : "bg-muted text-muted-foreground"
+                    }`}
                 >
                   {metaStatus === "ok" ? "Active" : metaStatus === "error" ? "Error" : "..."}
                 </Badge>
@@ -443,12 +373,12 @@ export default function SettingsPage() {
                     {googleStatus === "checking"
                       ? "Verifying connection..."
                       : googleStatus === "ok"
-                      ? "Token verified — connected"
-                      : googleStatus === "error"
-                      ? "Connection failed"
-                      : googleLastSync
-                      ? `Last sync: ${new Date(googleLastSync).toLocaleDateString()}`
-                      : "No data synced yet"}
+                        ? "Token verified — connected"
+                        : googleStatus === "error"
+                          ? "Connection failed"
+                          : googleLastSync
+                            ? `Last sync: ${new Date(googleLastSync).toLocaleDateString()}`
+                            : "No data synced yet"}
                     {googleApiVersion && ` · ${googleApiVersion}`}
                   </p>
                   {googleCustomerId && (
@@ -467,25 +397,24 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className={`text-xs ${
-                    googleStatus === "ok"
+                  className={`text-xs ${googleStatus === "ok"
                       ? "bg-emerald-500/15 text-emerald-400"
                       : googleStatus === "error"
-                      ? "bg-red-500/15 text-red-400"
-                      : googleLastSync
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                        ? "bg-red-500/15 text-red-400"
+                        : googleLastSync
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-muted text-muted-foreground"
+                    }`}
                 >
                   {googleStatus === "ok"
                     ? "Active"
                     : googleStatus === "error"
-                    ? "Error"
-                    : googleStatus === "checking"
-                    ? "..."
-                    : googleLastSync
-                    ? "Active"
-                    : "Pending"}
+                      ? "Error"
+                      : googleStatus === "checking"
+                        ? "..."
+                        : googleLastSync
+                          ? "Active"
+                          : "Pending"}
                 </Badge>
                 <Button
                   size="icon"
@@ -593,225 +522,6 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* ─── B) Access Management Section ───────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Access Management
-            <Badge variant="secondary" className="text-xs">{user?.role || "member"}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="card-content-premium">
-          <p className="t-label">
-            Control which users can log in. Active users can enter the app; blocked users are denied at login.
-          </p>
-          {isAdmin ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <Input
-                  placeholder="Full name"
-                  className="text-base bg-muted/30"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
-                />
-                <Input
-                  placeholder="email@example.com"
-                  className="text-base bg-muted/30"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
-                />
-                <Input
-                  placeholder="Temporary password"
-                  type="password"
-                  className="text-base bg-muted/30"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={newUser.role === "member" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setNewUser((prev) => ({ ...prev, role: "member" }))}
-                  >
-                    Member
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={newUser.role === "admin" ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setNewUser((prev) => ({ ...prev, role: "admin" }))}
-                  >
-                    Admin
-                  </Button>
-                </div>
-              </div>
-              <Button size="sm" onClick={handleCreateUser} disabled={isSavingUser}>
-                {isSavingUser ? "Creating..." : "Create user"}
-              </Button>
-
-              <div className="space-y-2">
-                {isLoadingUsers ? (
-                  <p className="text-xs text-muted-foreground ">Loading users...</p>
-                ) : accessUsers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground ">No users found</p>
-                ) : (
-                  accessUsers.map((accessUser) => (
-                    <div key={accessUser.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 p-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-medium">{accessUser.name}</span>
-                          <Badge variant="secondary" className="text-xs">{accessUser.role}</Badge>
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${accessUser.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}
-                          >
-                            {accessUser.status}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{accessUser.email}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateUserAccess(accessUser, { role: accessUser.role === "admin" ? "member" : "admin" })}
-                        >
-                          Make {accessUser.role === "admin" ? "member" : "admin"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={accessUser.status === "active" ? "destructive" : "default"}
-                          onClick={() => updateUserAccess(accessUser, { status: accessUser.status === "active" ? "blocked" : "active" })}
-                        >
-                          {accessUser.status === "active" ? "Block login" : "Allow login"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground ">Only admins can manage user access.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ─── C) Client Configuration Section ────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Target className="w-4 h-4" />
-            Client Configuration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <span className="t-body font-medium text-foreground">
-              {activeClient?.name || "Amara"}
-            </span>
-            <Badge variant="secondary" className="text-xs">
-              {activeClient?.shortName || "Amara"}
-            </Badge>
-            {activeClient?.location && (
-              <span className="t-label">
-                📍 {activeClient.location}
-              </span>
-            )}
-          </div>
-
-          {/* Target locations */}
-          {targetLocations.length > 0 && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
-                Target Locations
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {targetLocations.map((loc: string) => (
-                  <Badge key={loc} variant="outline" className="text-xs">
-                    {loc}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Targets Table */}
-          {targets && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">
-                Monthly Targets
-              </p>
-              <div className="overflow-x-auto">
-                <table className="t-table w-full">
-                  <thead>
-                    <tr className="border-b border-border/50">
-                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-left">
-                        Platform
-                      </th>
-                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
-                        Budget
-                      </th>
-                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
-                        Leads
-                      </th>
-                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
-                        CPL
-                      </th>
-                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
-                        SVs
-                      </th>
-                      <th className="p-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-right">
-                        CPSV
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(targets).map(([platform, t]) => (
-                      <tr
-                        key={platform}
-                        className="border-b border-border/30"
-                      >
-                        <td className="p-2">
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${
-                              platform === "meta"
-                                ? "bg-blue-500/15 text-blue-400"
-                                : "bg-amber-500/15 text-amber-400"
-                            }`}
-                          >
-                            {platform === "meta" ? "Meta Ads" : "Google Ads"}
-                          </Badge>
-                        </td>
-                        <td className="p-2 text-right tabular-nums">
-                          ₹{t.budget.toLocaleString()}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">
-                          {t.leads}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">
-                          ₹{t.cpl.toLocaleString()}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">
-                          {t.svs.low}–{t.svs.high}
-                        </td>
-                        <td className="p-2 text-right tabular-nums">
-                          ₹{t.cpsv.low.toLocaleString()}–₹{t.cpsv.high.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* ─── D) Agent Schedule Section ──────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
@@ -979,10 +689,10 @@ export default function SettingsPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card >
 
-      {/* ─── E) Data Export Section ──────────────────────────────────── */}
-      <Card>
+    {/* ─── E) Data Export Section ──────────────────────────────────── */ }
+    < Card >
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Download className="w-4 h-4" />
@@ -1163,7 +873,7 @@ export default function SettingsPage() {
             )}
           </div>
         </CardContent>
-      </Card>
+      </Card >
 
       {/* ─── F) About Section ───────────────────────────────────────── */}
       <Card>

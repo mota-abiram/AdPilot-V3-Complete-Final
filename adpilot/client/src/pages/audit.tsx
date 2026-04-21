@@ -73,12 +73,23 @@ interface ChecklistSection {
 
 function getSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
   const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const budget = b.budget || 0;
-  const totalSpend = data?.account_pulse?.total_spend_30d ?? data?.account_pulse?.total_spend ?? 0;
-  const dailyBudget = budget / 30;
-  const daysSoFar = new Date().getDate();
-  const expectedSpend = dailyBudget * daysSoFar;
-  return { actual: totalSpend, plan: expectedSpend, pct: expectedSpend > 0 ? ((totalSpend - expectedSpend) / expectedSpend) * 100 : 0 };
+  const mp = data?.monthly_pacing ?? {};
+  const ap = data?.account_pulse ?? {};
+  
+  // Use MTD spend for apples-to-apples comparison with prorated plan
+  const actualSpend = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? ap.total_spend_mtd ?? 0;
+  const monthlyBudget = b.budget || mp.targets?.budget || 0;
+  
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysSoFar = mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? now.getDate();
+  
+  const expectedPlan = monthlyBudget > 0 ? (monthlyBudget / daysInMonth) * daysSoFar : 0;
+  
+  const diff = actualSpend - expectedPlan;
+  const pct = expectedPlan > 0 ? (diff / expectedPlan) * 100 : 0;
+  
+  return { actual: actualSpend, plan: expectedPlan, pct };
 }
 
 function getNonSpendingAdsets(data: any): any[] {
@@ -94,17 +105,19 @@ function getCostStack(data: any): { cpm: number; ctr: number; cpc: number; cpl: 
   const cpc = s.cpc ?? 0;
   const cpl = s.overall_cpl ?? s.cpl ?? 0;
   
+  // Align strictly with Benchmarks page targets
   const cpmMax = b.cpm_max || 600;
   const ctrMin = b.ctr_min || 0.7;
   const cpcMax = b.cpc_max || 60;
   const cplTarget = b.cpl || b.cpl_target || 1500;
 
+  // Use a standard 20% tolerance band if not specified
   return {
     cpm, ctr, cpc, cpl,
-    cpmStatus: cpm > cpmMax ? "fail" : cpm > cpmMax * 0.8 ? "warning" : "pass",
-    ctrStatus: ctr < ctrMin ? "fail" : ctr < ctrMin * 1.2 ? "warning" : "pass",
-    cpcStatus: cpc > cpcMax ? "fail" : cpc > cpcMax * 0.8 ? "warning" : "pass",
-    cplStatus: cpl > cplTarget * 1.3 ? "fail" : cpl > cplTarget ? "warning" : "pass",
+    cpmStatus: cpm > cpmMax * 1.1 ? "fail" : cpm > cpmMax ? "warning" : "pass",
+    ctrStatus: ctr < ctrMin * 0.9 ? "fail" : ctr < ctrMin ? "warning" : "pass",
+    cpcStatus: cpc > cpcMax * 1.1 ? "fail" : cpc > cpcMax ? "warning" : "pass",
+    cplStatus: cpl > cplTarget * 1.2 ? "fail" : cpl > cplTarget ? "warning" : "pass",
   };
 }
 
@@ -134,12 +147,21 @@ function getTrackingSanity(data: any): { todayLeads: number; monthlyTarget: numb
 
 function getGoogleSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
   const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const budget = b.budget || 0;
-  const totalSpend = data?.account_pulse?.total_spend_30d ?? data?.account_pulse?.total_spend ?? 0;
-  const dailyBudget = budget / 30;
-  const daysSoFar = new Date().getDate();
-  const expectedSpend = dailyBudget * daysSoFar;
-  return { actual: totalSpend, plan: expectedSpend, pct: expectedSpend > 0 ? ((totalSpend - expectedSpend) / expectedSpend) * 100 : 0 };
+  const mp = data?.monthly_pacing ?? {};
+  const ap = data?.account_pulse ?? {};
+  
+  // Using actual MTD spend vs prorated budget
+  const actualSpend = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? ap.total_spend_mtd ?? 0;
+  const monthlyBudget = b.budget || mp.targets?.budget || 0;
+  
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysSoFar = mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? now.getDate();
+  
+  const expectedPlan = monthlyBudget > 0 ? (monthlyBudget / daysInMonth) * daysSoFar : 0;
+  const pct = expectedPlan > 0 ? ((actualSpend - expectedPlan) / expectedPlan) * 100 : 0;
+  
+  return { actual: actualSpend, plan: expectedPlan, pct };
 }
 
 function getGoogleCvrOutliers(data: any): any[] {
@@ -215,12 +237,14 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
         sopText: "Spend vs plan (±20%) → adjust budgets",
         icon: DollarSign,
         getData: (data) => {
+          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const threshold = b.budget_threshold_pct ?? 20; // Default to 20% if not in benchmarks
           const { actual, plan, pct } = getSpendVsPlan(data);
-          const status: CheckStatus = Math.abs(pct) > 20 ? "fail" : Math.abs(pct) > 10 ? "warning" : "pass";
+          const status: CheckStatus = Math.abs(pct) > threshold ? "fail" : Math.abs(pct) > (threshold / 2) ? "warning" : "pass";
           return {
             status,
             currentValue: `${formatINR(actual, 0)} vs ${formatINR(plan, 0)} (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`,
-            detail: status === "pass" ? "Spend is within 20% of plan" : `Spend is ${Math.abs(pct).toFixed(0)}% ${pct > 0 ? "over" : "under"} plan`,
+            detail: status === "pass" ? `Spend is within ${threshold}% of plan` : `Spend is ${Math.abs(pct).toFixed(0)}% ${pct > 0 ? "over" : "under"} plan`,
             recommendation: status !== "pass" ? (pct > 0 ? "Consider reducing daily budgets to stay on plan" : "Consider increasing budgets or checking delivery issues") : undefined,
           };
         },
@@ -279,30 +303,34 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
     items: [
       {
         id: "daily-tsr",
-        sopText: "Thumb-stop ratio (3s views ÷ impressions) ≥ 30% — improve hook if below",
+        sopText: "Thumb-stop ratio (3s views ÷ impressions) target — improve hook if below",
         icon: Eye,
         getData: (data) => {
+          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const tsrMin = b.tsr_min ?? 30;
           const ch = getCreativeHealth(data);
           const status: CheckStatus = ch.tsrFailing > 0 ? "fail" : "pass";
           return {
             status,
-            currentValue: ch.tsrFailing > 0 ? `${ch.tsrFailing}/${ch.adsAnalyzed} ads below 30% TSR` : `All ${ch.adsAnalyzed} ads ≥ 30% TSR`,
-            detail: "Target ≥ 30%. If low: fix hook, thumbnail, contrast, add motion in first 1s",
+            currentValue: ch.tsrFailing > 0 ? `${ch.tsrFailing}/${ch.adsAnalyzed} ads below ${tsrMin}% TSR` : `All ${ch.adsAnalyzed} ads ≥ ${tsrMin}% TSR`,
+            detail: `Target ≥ ${tsrMin}%. If low: fix hook, thumbnail, contrast, add motion in first 1s`,
             recommendation: ch.tsrFailing > 0 ? "Improve hooks — add motion/face in first 3s, brighter contrast, pattern interrupts" : undefined,
           };
         },
       },
       {
         id: "daily-vhr",
-        sopText: "Video Hold Rate (3s→15s) ≥ 25% — tighten middle if drop steep",
+        sopText: "Video Hold Rate (3s→15s) target — tighten middle if drop steep",
         icon: Eye,
         getData: (data) => {
+          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const vhrMin = b.vhr_min ?? 25;
           const ch = getCreativeHealth(data);
           const status: CheckStatus = ch.vhrFailing > 0 ? "fail" : "pass";
           return {
             status,
-            currentValue: ch.vhrFailing > 0 ? `${ch.vhrFailing}/${ch.adsAnalyzed} ads below 25% VHR` : `All ${ch.adsAnalyzed} ads ≥ 25% VHR`,
-            detail: "Target ≥ 25%. If low: add jump-cuts, pattern-interrupts, motion text",
+            currentValue: ch.vhrFailing > 0 ? `${ch.vhrFailing}/${ch.adsAnalyzed} ads below ${vhrMin}% VHR` : `All ${ch.adsAnalyzed} ads ≥ ${vhrMin}% VHR`,
+            detail: `Target ≥ ${vhrMin}%. If low: add jump-cuts, pattern-interrupts, motion text`,
             recommendation: ch.vhrFailing > 0 ? "Re-script first 5-7s; add jump-cuts/pattern-interrupts/motion text" : undefined,
           };
         },
@@ -791,16 +819,19 @@ const GOOGLE_DAILY_CHECKLIST: ChecklistSection[] = [
     items: [
       {
         id: "g-daily-dg-cpm",
-        sopText: "DG CPM baseline ~₹120. If CPM +50% (>₹180), queue creative refresh",
+        sopText: "DG CPM baseline monitoring — queue creative refresh if CPM spikes",
         icon: BarChart3,
         getData: (data) => {
+          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
+          const cpmBaseline = b.cpm_max || 120;
+          const cpmThreshold = cpmBaseline * 1.5;
           const cpm = getGoogleDGCPM(data);
-          const status: CheckStatus = cpm > 180 ? "fail" : cpm > 150 ? "warning" : cpm > 0 ? "pass" : "na";
+          const status: CheckStatus = cpm > cpmThreshold ? "fail" : cpm > cpmBaseline * 1.2 ? "warning" : cpm > 0 ? "pass" : "na";
           return {
             status,
             currentValue: cpm > 0 ? `DG CPM: ${formatINR(cpm, 0)}` : "No Demand Gen data",
-            detail: cpm > 180 ? "CPM 50%+ above baseline — creative fatigue likely" : "CPM within acceptable range",
-            recommendation: cpm > 180 ? "Queue creative refresh for Demand Gen campaigns" : undefined,
+            detail: cpm > cpmThreshold ? `CPM 50%+ above baseline (${formatINR(cpmBaseline, 0)}) — creative fatigue likely` : "CPM within acceptable range",
+            recommendation: cpm > cpmThreshold ? "Queue creative refresh for Demand Gen campaigns" : undefined,
           };
         },
       },
@@ -1237,7 +1268,7 @@ function ChecklistItemCard({
 // ─── Main Audit Page ────────────────────────────────────────────────
 
 export default function AuditPage() {
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform } = useClient();
+  const { mtdAnalysisData: data, isLoadingMtdAnalysis: isLoading, activePlatform } = useClient();
   const [activeFrequency, setActiveFrequency] = useState<AuditFrequency>("daily");
   const [actionStates, setActionStates] = useState<Record<string, ActionState>>({});
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});

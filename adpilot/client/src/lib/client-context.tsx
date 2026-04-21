@@ -168,6 +168,7 @@ interface ClientContextValue {
   // MTD-fixed analysis — always cadence=monthly, never changes on cadence switch
   // Use this for Account Health and Health Score Breakdown
   mtdAnalysisData: AnalysisData | undefined;
+  isLoadingMtdAnalysis: boolean;
   syncState: PlatformSyncState | undefined;
   isLoadingSyncState: boolean;
 
@@ -299,6 +300,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
   // Includes benchmarksSig so health scores update when benchmarks change.
   const {
     data: rawMtdAnalysisData,
+    isLoading: isLoadingMtdAnalysis,
   } = useQuery<AnalysisData>({
     queryKey: [apiBase, "analysis", "monthly", "mtd-fixed", benchmarksSig],
     queryFn: async () => {
@@ -365,6 +367,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         isLoadingAnalysis,
         analysisError: analysisError as Error | null,
         mtdAnalysisData,
+        isLoadingMtdAnalysis,
         syncState,
         isLoadingSyncState,
         benchmarks,

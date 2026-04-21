@@ -297,8 +297,23 @@ async function updateUser(userId: string, updates: Partial<NewUser> & { lastLogi
       updatedAt: updates.updatedAt instanceof Date ? updates.updatedAt.toISOString() : String(updates.updatedAt || current.updatedAt),
     } as StoredUser;
     usersFromFile[index] = nextUser;
+    usersFromFile[index] = nextUser;
     writeUsersToFile(usersFromFile);
     return nextUser;
+  }
+}
+
+async function deleteUser(userId: string): Promise<boolean> {
+  try {
+    const deleted = await db.delete(users).where(eq(users.id, userId)).returning();
+    return deleted.length > 0;
+  } catch {
+    const usersFromFile = readUsersFromFile();
+    const index = usersFromFile.findIndex((entry) => entry.id === userId);
+    if (index === -1) return false;
+    usersFromFile.splice(index, 1);
+    writeUsersToFile(usersFromFile);
+    return true;
   }
 }
 
@@ -694,5 +709,31 @@ export async function setupAuth(app: Express) {
     }
 
     res.json(toSafeUser(updated));
+  });
+
+  app.delete("/api/access/users/:userId", requireAdmin, async (req, res) => {
+    const userToDelete = await getUserById(String(req.params.userId));
+    if (!userToDelete) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const allUsers = await getAllUsers();
+    const adminCount = allUsers.filter((a) => a.id !== userToDelete.id && a.role === "admin").length;
+    const isSelf = req.authUser?.id === userToDelete.id;
+
+    if (userToDelete.role === "admin" && adminCount === 0) {
+      return res.status(400).json({ error: "At least one administrator account must remain" });
+    }
+
+    if (isSelf) {
+      return res.status(400).json({ error: "You cannot delete your own account while logged in" });
+    }
+
+    const success = await deleteUser(userToDelete.id);
+    if (!success) {
+      return res.status(500).json({ error: "Failed to delete user" });
+    }
+
+    res.json({ success: true, message: "User deleted successfully" });
   });
 }
