@@ -1793,7 +1793,7 @@ export async function registerRoutes(
         // Record to learning engine
         try {
           const analysisData = await readAnalysisData(clientId, platform);
-          recordExecution(
+          await recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             clientId,
             platform === "google" ? "google" : "meta",
@@ -1846,7 +1846,7 @@ export async function registerRoutes(
       if (result.success) {
         try {
           const analysisData = await readAnalysisData(clientId, platform);
-          recordExecution(
+          await recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             clientId,
             platform === "google" ? "google" : "meta",
@@ -2046,7 +2046,7 @@ export async function registerRoutes(
       if (result.success) {
         try {
           const analysisData = await readAnalysisData(clientId, "google");
-          recordExecution(
+          await recordExecution(
             Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
             clientId,
             "google",
@@ -2824,18 +2824,18 @@ export async function registerRoutes(
 
   // ─── Execution Learning Endpoints ────────────────────────────────
 
-  app.get("/api/execution-learning", requireAdmin, (_req, res) => {
+  app.get("/api/execution-learning", requireAdmin, async (_req, res) => {
     try {
-      const data = getLearningData();
+      const data = await getLearningData();
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to read learning data" });
     }
   });
 
-  app.get("/api/execution-learning/summary", requireAdmin, (_req, res) => {
+  app.get("/api/execution-learning/summary", requireAdmin, async (_req, res) => {
     try {
-      const summary = getLearningSummary();
+      const summary = await getLearningSummary();
       res.json(summary);
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to compute learning summary" });
@@ -2847,7 +2847,7 @@ export async function registerRoutes(
     try {
       const { clientId, platform } = req.body;
       const data = await readAnalysisData(clientId, platform);
-      const count = triggerOutcomeUpdate(data);
+      const count = await triggerOutcomeUpdate(data);
       res.json({ success: true, updatedCount: count });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

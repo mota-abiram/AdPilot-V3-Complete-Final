@@ -606,10 +606,39 @@ export const executionOutcomes = pgTable("execution_outcomes", {
   resolvedAt: timestamp("resolved_at"),
 });
 
+export const executionLearnings = pgTable("execution_learnings", {
+  id: serial("id").primaryKey(),
+  clientId: text("client_id").notNull(),
+  platform: text("platform").notNull(),
+  entityId: text("entity_id").notNull(),
+  entityName: text("entity_name").notNull(),
+  entityType: text("entity_type").notNull(), // campaign, adset, etc.
+  action: text("action").notNull(),
+  executedAt: timestamp("executed_at").defaultNow(),
+  strategicRationale: text("strategic_rationale"),
+  beforeMetrics: jsonb("before_metrics").$type<any>().notNull(),
+  primaryMetrics: jsonb("primary_metrics").$type<any>(),
+  extendedMetrics: jsonb("extended_metrics").$type<any>(),
+  outcome: text("outcome", { enum: ["POSITIVE", "NEGATIVE", "NEUTRAL", "PENDING", "TOO_EARLY"] }).default("PENDING"),
+  aiAnalysis: jsonb("ai_analysis").$type<{
+    reasoning: string;
+    confidence: number;
+    confoundingFactors: string[];
+    counterfactualImpact?: string;
+  }>(),
+  estimatedImpact: numeric("estimated_impact"), // in INR
+  status: text("status", { enum: ["PENDING_PRIMARY", "PENDING_EXTENDED", "PENDING_30D", "COMPLETED"] }).default("PENDING_PRIMARY"),
+  chronicFlag: boolean("chronic_flag").default(false),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type ExecutionLog = typeof executionLogs.$inferSelect;
 export type ExecutionOutcome = typeof executionOutcomes.$inferSelect;
+export type ExecutionLearning = typeof executionLearnings.$inferSelect;
+
+export const insertExecutionLearningSchema = createInsertSchema(executionLearnings);
 
 export const performanceAlerts = pgTable("performance_alerts", {
   id: serial("id").primaryKey(),

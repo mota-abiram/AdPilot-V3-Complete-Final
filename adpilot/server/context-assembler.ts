@@ -224,28 +224,39 @@ async function buildLayer2(
   return { analysisData, intellect_insights, platformContext };
 }
 
-function buildLayer3(platform: string): AssembledContext["layer3"] {
+async function buildLayer3(platform: string): Promise<AssembledContext["layer3"]> {
   // Filter learning data to this platform so Google doesn't see Meta action outcomes
   // and vice versa — cross-platform patterns are meaningless and cause duplicate alerts
-  const allEntries = getLearningData();
-  const platformEntries = allEntries.filter((e) => !e.platform || e.platform === platform);
+  const allEntries = await getLearningData();
+  const platformEntries = allEntries.filter((e: any) => !e.platform || e.platform === platform);
   const recentActions = platformEntries.slice(0, 50);
 
   // Compute patterns from platform-filtered entries
   const patterns: string[] = [];
-  const pauseEntries = platformEntries.filter((e) => e.action.startsWith("PAUSE") && e.outcome !== "PENDING");
-  const pausePositive = pauseEntries.filter((e) => e.outcome === "POSITIVE").length;
+  
+  // 1. Success Rate Patterns (Deterministic)
+  const pauseEntries = platformEntries.filter((e: any) => e.action.startsWith("PAUSE") && e.outcome !== "PENDING");
+  const pausePositive = pauseEntries.filter((e: any) => e.outcome === "POSITIVE").length;
   if (pauseEntries.length >= 3) {
     const rate = ((pausePositive / pauseEntries.length) * 100).toFixed(0);
     patterns.push(`Pausing underperformers had positive outcomes ${rate}% of the time (${pausePositive}/${pauseEntries.length}) on ${platform}`);
   }
 
-  const scaleEntries = platformEntries.filter((e) => e.action.includes("SCALE") && e.outcome !== "PENDING");
-  const scalePositive = scaleEntries.filter((e) => e.outcome === "POSITIVE").length;
+  const scaleEntries = platformEntries.filter((e: any) => e.action.includes("SCALE") && e.outcome !== "PENDING");
+  const scalePositive = scaleEntries.filter((e: any) => e.outcome === "POSITIVE").length;
   if (scaleEntries.length >= 3) {
     const rate = ((scalePositive / scaleEntries.length) * 100).toFixed(0);
     patterns.push(`Scaling winners succeeded ${rate}% of the time on ${platform}`);
   }
+
+  // 2. AI-Generated Patterns (Learned)
+  // Pull high-confidence reusable learnings from Claude's analysis
+  const aiLearnings = platformEntries
+    .filter((e: any) => e.aiAnalysis?.reusableLearning && (e.aiAnalysis.confidence || 0) > 0.8)
+    .slice(0, 5)
+    .map((e: any) => `LEARNED: ${e.aiAnalysis.reusableLearning}`);
+  
+  patterns.push(...aiLearnings);
 
   // Compute per-action success rates
   const byAction: SuccessRates["byAction"] = {};
@@ -259,7 +270,7 @@ function buildLayer3(platform: string): AssembledContext["layer3"] {
 
   const pauseSuccessRate = pauseEntries.length > 0 ? pausePositive / pauseEntries.length : 0;
   const scaleSuccessRate = scaleEntries.length > 0 ? scalePositive / scaleEntries.length : 0;
-  const positiveTotal = platformEntries.filter((e) => e.outcome === "POSITIVE").length;
+  const positiveTotal = platformEntries.filter((e: any) => e.outcome === "POSITIVE").length;
 
   const successRates: SuccessRates = {
     totalActions: platformEntries.length,
@@ -332,13 +343,13 @@ export async function assembleContext(
   }
 
   // Parallelize I/O-heavy layers
-  const [layer2] = await Promise.all([
+  const [layer2, layer3] = await Promise.all([
     buildLayer2(clientId, platform, analysisDataOverride),
+    buildLayer3(platform),
   ]);
 
-  // Layer 1 and 3-4 are sync or very fast
+  // Layer 1 and 4 are sync or very fast
   const layer1 = buildLayer1(clientConfig, platform);
-  const layer3 = buildLayer3(platform);
   const layer4 = buildLayer4(platform);
 
   return { layer1, layer2, layer3, layer4 };
