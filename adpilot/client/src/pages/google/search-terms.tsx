@@ -46,6 +46,7 @@ import { formatINR, formatPct, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -118,6 +119,7 @@ type TabId = "all" | "high_value" | "junk" | "competitors" | "ngrams" | "existin
 
 export default function GoogleSearchTermsPage() {
   const { analysisData: data, isLoadingAnalysis: isLoading, apiBase } = useClient();
+  const benchmarkTargets = useBenchmarkTargets();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<TabId>("all");
@@ -825,7 +827,7 @@ export default function GoogleSearchTermsPage() {
                                 Block
                               </button>
                               {/* Promote to Keyword button for high-value terms */}
-                              {term.conversions > 0 && term.cost > 0 && (term.cpl || term.cost / term.conversions) <= (((data as any)?.benchmarks?.cpl || 1000) * 1.3) && (
+                              {term.conversions > 0 && term.cost > 0 && (term.cpl || term.cost / term.conversions) <= (benchmarkTargets.cpl * 1.3) && (
                                 <button
                                   className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border transition-colors bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
                                   onClick={() => {

@@ -155,10 +155,10 @@ MTD_START = TODAY.replace(day=1)
 
 CADENCE_WINDOWS = {
     "daily":        {"since": str(YESTERDAY), "until": str(YESTERDAY), "label": f"Yesterday ({YESTERDAY})"},
-    "twice_weekly": {"since": str(DATE_7D_AGO), "until": str(TODAY), "label": "Last 7 days"},
-    "weekly":       {"since": str(DATE_14D_AGO), "until": str(TODAY), "label": "Last 14 days"},
-    "biweekly":     {"since": str(DATE_30D_AGO), "until": str(TODAY), "label": "Last 30 days"},
-    "monthly":      {"since": str(MTD_START), "until": str(TODAY), "label": f"MTD ({MTD_START} to {TODAY})"},
+    "twice_weekly": {"since": str(DATE_7D_AGO), "until": str(YESTERDAY), "label": f"Last 7 days ({DATE_7D_AGO} to {YESTERDAY})"},
+    "weekly":       {"since": str(DATE_14D_AGO), "until": str(YESTERDAY), "label": f"Last 14 days ({DATE_14D_AGO} to {YESTERDAY})"},
+    "biweekly":     {"since": str(DATE_30D_AGO), "until": str(YESTERDAY), "label": f"Last 30 days ({DATE_30D_AGO} to {YESTERDAY})"},
+    "monthly":      {"since": str(MTD_START), "until": str(YESTERDAY), "label": f"MTD ({MTD_START} to {YESTERDAY})"},
 }
 
 # ── Monthly Targets (defaults, overridden by config.json) ──
@@ -3485,10 +3485,10 @@ def generate_recommendations(campaigns, account_pulse, auto_pause, playbooks_tri
             rec_id += 1
             recs.append({
                 "id": f"R-{rec_id:03d}",
-                "title": f"Refresh Creative: {ad['ad_name']}",
-                "description": f"Score: {ad['creative_score']}/100. Reasons: {', '.join(ad.get('auto_pause_reasons', ['Low Performance']))}",
+                "title": f"Refresh Creative: {ad.get('name', 'Unknown Ad')}",
+                "description": f"Score: {ad.get('creative_score', 0)}/100. Reasons: {', '.join(ad.get('auto_pause_reasons', ['Low Performance']))}",
                 "category": "creative",
-                "campaign": ad["campaign_name"],
+                "campaign": ad.get("campaign_name", "Unknown Campaign"),
                 "ice_score": ice_score(8, 8, 7),
                 "impact": 8,
                 "confidence": 8,

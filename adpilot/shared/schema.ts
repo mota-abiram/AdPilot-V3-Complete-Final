@@ -482,7 +482,9 @@ export type ExecutionActionType =
   | "UNPAUSE_CAMPAIGN"
   | "SCALE_BUDGET_UP"
   | "SCALE_BUDGET_DOWN"
-  | "SET_BUDGET";
+  | "SET_BUDGET"
+  | "MANUAL_COMPLETE"
+  | "MANUAL_REJECT";
 
 export interface ExecutionResult {
   success: boolean;

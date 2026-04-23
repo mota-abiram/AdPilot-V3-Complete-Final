@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatINR, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ function cplColor(cpl: number, target: number): string {
 
 export default function AudiencesPage() {
   const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform } = useClient();
+  const benchmarkTargets = useBenchmarkTargets();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortKey, setSortKey] = useState<keyof AudienceRow>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -121,11 +123,8 @@ export default function AudiencesPage() {
   }, [data]);
 
   const targetCpl: number = useMemo(() => {
-    return (data as any)?.targets?.cpl ||
-      (data as any)?.targets?.google?.target_cpa ||
-      (data as any)?.sop_benchmarks?.target_cpl ||
-      850;
-  }, [data]);
+    return benchmarkTargets.cpl;
+  }, [benchmarkTargets.cpl]);
 
   // Unique layers for filter
   const layers = useMemo(() => {

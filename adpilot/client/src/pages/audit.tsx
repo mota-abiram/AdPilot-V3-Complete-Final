@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClient } from "@/lib/client-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,26 +70,62 @@ interface ChecklistSection {
   items: ChecklistItem[];
 }
 
+// ─── Universal Audit Value Resolvers ───────────────────────────────
+//
+// resolveTarget:  ALWAYS reads from live benchmarks (sop_benchmarks).
+//                 Never falls back to analysis cache or cadence data.
+//
+// resolveCurrentValue: Follows the MTD priority chain:
+//   1. account_pulse.mtd  ← from /mtd endpoint (most authoritative, has svs/quality)
+//   2. account_pulse       ← agent-computed MTD totals (spend, leads, CPL, CTR)
+//   3. summary             ← legacy fallback
+//
+// Cadence tabs ONLY affect UI grouping — never the data resolution path.
+// ────────────────────────────────────────────────────────────────────
+
+function resolveTarget(data: any, ...keys: string[]): number {
+  const b = data?.sop_benchmarks ?? {};
+  for (const key of keys) {
+    const val = b[key];
+    if (val != null && val !== 0) return Number(val);
+  }
+  return 0;
+}
+
+function resolveCurrentValue(data: any, ...keys: string[]): number {
+  // Priority chain: account_pulse.mtd → account_pulse → summary
+  const ap = data?.account_pulse ?? {};
+  const mtd = ap.mtd ?? {};
+  const summary = data?.summary ?? {};
+  for (const key of keys) {
+    // Check mtd sub-object first (contains svs, positive_pct, sv_pct, spend from /mtd endpoint)
+    if (mtd[key] != null) return Number(mtd[key]);
+    // Then flat account_pulse (contains total_spend, total_leads, overall_cpl, overall_ctr)
+    if (ap[key] != null) return Number(ap[key]);
+    // Legacy summary fallback
+    if (summary[key] != null) return Number(summary[key]);
+  }
+  return 0;
+}
+
 // ─── Helper Functions ───────────────────────────────────────────────
 
 function getSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
-  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const mp = data?.monthly_pacing ?? {};
-  const ap = data?.account_pulse ?? {};
-  
-  // Use MTD spend for apples-to-apples comparison with prorated plan
-  const actualSpend = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? ap.total_spend_mtd ?? 0;
-  const monthlyBudget = b.budget || mp.targets?.budget || 0;
-  
+  // Current: MTD spend from priority chain. Target: benchmark budget only.
+  const actualSpend =
+    resolveCurrentValue(data, "spend") ||
+    resolveCurrentValue(data, "total_spend_mtd", "total_spend");
+  const monthlyBudget = resolveTarget(data, "budget") || (data?.monthly_pacing?.targets?.budget ?? 0);
+
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const ap = data?.account_pulse ?? {};
+  const mp = data?.monthly_pacing ?? {};
   const daysSoFar = mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? now.getDate();
-  
+
   const expectedPlan = monthlyBudget > 0 ? (monthlyBudget / daysInMonth) * daysSoFar : 0;
-  
   const diff = actualSpend - expectedPlan;
   const pct = expectedPlan > 0 ? (diff / expectedPlan) * 100 : 0;
-  
   return { actual: actualSpend, plan: expectedPlan, pct };
 }
 
@@ -98,20 +135,18 @@ function getNonSpendingAdsets(data: any): any[] {
 }
 
 function getCostStack(data: any): { cpm: number; ctr: number; cpc: number; cpl: number; cpmStatus: CheckStatus; ctrStatus: CheckStatus; cpcStatus: CheckStatus; cplStatus: CheckStatus } {
-  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const s = data?.account_pulse ?? data?.summary ?? {};
-  const cpm = s.cpm ?? s.overall_cpm ?? 0;
-  const ctr = s.overall_ctr ?? s.ctr ?? 0;
-  const cpc = s.cpc ?? 0;
-  const cpl = s.overall_cpl ?? s.cpl ?? 0;
-  
-  // Align strictly with Benchmarks page targets
-  const cpmMax = b.cpm_max || 600;
-  const ctrMin = b.ctr_min || 0.7;
-  const cpcMax = b.cpc_max || 60;
-  const cplTarget = b.cpl || b.cpl_target || 1500;
+  // Current: strict MTD priority chain for each cost metric
+  const cpm = resolveCurrentValue(data, "overall_cpm", "cpm");
+  const ctr = resolveCurrentValue(data, "overall_ctr", "ctr");
+  const cpc = resolveCurrentValue(data, "cpc", "avg_cpc");
+  const cpl = resolveCurrentValue(data, "overall_cpl", "cpl", "avg_cpl");
 
-  // Use a standard 20% tolerance band if not specified
+  // Targets: live benchmarks only — never from analysis cache
+  const cpmMax = resolveTarget(data, "cpm_max");
+  const ctrMin = resolveTarget(data, "ctr_min");
+  const cpcMax = resolveTarget(data, "cpc_max");
+  const cplTarget = resolveTarget(data, "cpl", "cpl_target");
+
   return {
     cpm, ctr, cpc, cpl,
     cpmStatus: cpm > cpmMax * 1.1 ? "fail" : cpm > cpmMax ? "warning" : "pass",
@@ -123,44 +158,50 @@ function getCostStack(data: any): { cpm: number; ctr: number; cpc: number; cpl: 
 
 function getCreativeHealth(data: any): { adsAnalyzed: number; tsrFailing: number; vhrFailing: number; ffrFailing: number; details: any[] } {
   const ads = data?.creative_health || [];
-  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const tsrMin = b.tsr_min ?? 30;
-  const vhrMin = b.vhr_min ?? 25;
-  const ffrMin = b.ffr_min ?? 90;
+  // Targets: live benchmarks only
+  const tsrMin = resolveTarget(data, "tsr_min");
+  const vhrMin = resolveTarget(data, "vhr_min");
+  const ffrMin = resolveTarget(data, "ffr_min");
   const tsrFailing = ads.filter((a: any) => (a.tsr ?? a.thumb_stop_rate ?? 0) < tsrMin).length;
   const vhrFailing = ads.filter((a: any) => (a.vhr ?? a.hold_rate ?? 0) < vhrMin).length;
   const ffrFailing = ads.filter((a: any) => (a.ffr ?? a.first_frame_rate ?? 100) < ffrMin).length;
   return { adsAnalyzed: ads.length, tsrFailing, vhrFailing, ffrFailing, details: ads };
 }
 
-function getTrackingSanity(data: any): { todayLeads: number; monthlyTarget: number; onTrack: boolean } {
-  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const todayLeads = data?.tracking_sanity?.today_leads ?? data?.account_pulse?.latest_daily_leads ?? 0;
-  const monthlyTarget = b.leads || 0;
-  const dayOfMonth = new Date().getDate();
-  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+function getTrackingSanity(data: any): { todayLeads: number; yesterdayLeads: number; monthlyTarget: number; onTrack: boolean } {
+  const ap = data?.account_pulse ?? {};
+  const dailyLeads = ap.daily_leads || [];
+  const todayLeads = data?.tracking_sanity?.today_leads ?? dailyLeads[dailyLeads.length - 1] ?? 0;
+  const yesterdayLeads = dailyLeads.length > 1 ? dailyLeads[dailyLeads.length - 2] : todayLeads;
+  
+  const monthlyTarget = resolveTarget(data, "leads") || 0;
+  const daysInMonth = 30; // Standardize for sanity check
   const expectedDaily = monthlyTarget / daysInMonth;
-  return { todayLeads, monthlyTarget, onTrack: todayLeads >= expectedDaily * 0.5 };
+  
+  // onTrack if today isn't zero AND (today or yesterday is > 50% of expected)
+  const onTrack = todayLeads > 0 && (todayLeads >= expectedDaily * 0.5 || yesterdayLeads >= expectedDaily * 0.7);
+  
+  return { todayLeads, yesterdayLeads, monthlyTarget, onTrack };
 }
 
 // ─── Google Helpers ────────────────────────────────────────────────
+// All Google helpers use the same resolveTarget / resolveCurrentValue
+// pattern so Meta and Google behave identically.
 
 function getGoogleSpendVsPlan(data: any): { actual: number; plan: number; pct: number } {
-  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const mp = data?.monthly_pacing ?? {};
-  const ap = data?.account_pulse ?? {};
-  
-  // Using actual MTD spend vs prorated budget
-  const actualSpend = mp.mtd?.spend ?? ap.mtd_pacing?.spend_mtd ?? ap.total_spend_mtd ?? 0;
-  const monthlyBudget = b.budget || mp.targets?.budget || 0;
-  
+  const actualSpend =
+    resolveCurrentValue(data, "spend") ||
+    resolveCurrentValue(data, "total_spend_mtd", "total_spend");
+  const monthlyBudget = resolveTarget(data, "google_budget", "budget");
+
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const ap = data?.account_pulse ?? {};
+  const mp = data?.monthly_pacing ?? {};
   const daysSoFar = mp.days_elapsed ?? ap.mtd_pacing?.days_elapsed ?? now.getDate();
-  
+
   const expectedPlan = monthlyBudget > 0 ? (monthlyBudget / daysInMonth) * daysSoFar : 0;
   const pct = expectedPlan > 0 ? ((actualSpend - expectedPlan) / expectedPlan) * 100 : 0;
-  
   return { actual: actualSpend, plan: expectedPlan, pct };
 }
 
@@ -208,8 +249,8 @@ function getGoogleQSData(data: any): { avgQS: number; below6Count: number; total
 
 function getGoogleKeywordPerformance(data: any): { zeroConvCount: number; totalKeywords: number; wastedSpend: number } {
   const campaigns = data?.campaigns || [];
-  const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-  const cplTarget = b.cpl || b.cpl_target || 850;
+  // Target CPL from live benchmarks — Google CPL preferred
+  const cplTarget = resolveTarget(data, "google_cpl", "cpl", "cpl_target");
   let zeroConvCount = 0, totalKeywords = 0, wastedSpend = 0;
   campaigns.forEach((c: any) => {
     (c.ad_groups || []).forEach((ag: any) => {
@@ -237,8 +278,8 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
         sopText: "Spend vs plan (±20%) → adjust budgets",
         icon: DollarSign,
         getData: (data) => {
-          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-          const threshold = b.budget_threshold_pct ?? 20; // Default to 20% if not in benchmarks
+          // threshold from live benchmarks only
+          const threshold = resolveTarget(data, "budget_threshold_pct") || 20;
           const { actual, plan, pct } = getSpendVsPlan(data);
           const status: CheckStatus = Math.abs(pct) > threshold ? "fail" : Math.abs(pct) > (threshold / 2) ? "warning" : "pass";
           return {
@@ -306,8 +347,7 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
         sopText: "Thumb-stop ratio (3s views ÷ impressions) target — improve hook if below",
         icon: Eye,
         getData: (data) => {
-          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-          const tsrMin = b.tsr_min ?? 30;
+          const tsrMin = resolveTarget(data, "tsr_min") || 30;
           const ch = getCreativeHealth(data);
           const status: CheckStatus = ch.tsrFailing > 0 ? "fail" : "pass";
           return {
@@ -323,8 +363,7 @@ const DAILY_CHECKLIST: ChecklistSection[] = [
         sopText: "Video Hold Rate (3s→15s) target — tighten middle if drop steep",
         icon: Eye,
         getData: (data) => {
-          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-          const vhrMin = b.vhr_min ?? 25;
+          const vhrMin = resolveTarget(data, "vhr_min") || 25;
           const ch = getCreativeHealth(data);
           const status: CheckStatus = ch.vhrFailing > 0 ? "fail" : "pass";
           return {
@@ -458,9 +497,8 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         icon: Users,
         getData: (data) => {
           const mtd = data?.account_pulse?.mtd || {};
-          const benchmarks = data?.sop_benchmarks ?? data?.benchmarks ?? {};
           const actual = mtd.positive_pct ?? 0;
-          const target = benchmarks.positive_pct_target ?? benchmarks.positive_lead_target ?? 25;
+          const target = resolveTarget(data, "positive_pct_target");
           const status: CheckStatus = actual >= target ? "pass" : actual >= target * 0.7 ? "warning" : "fail";
           return {
             status,
@@ -476,9 +514,8 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         icon: CalendarCheck,
         getData: (data) => {
           const mtd = data?.account_pulse?.mtd || {};
-          const benchmarks = data?.sop_benchmarks ?? data?.benchmarks ?? {};
           const actual = mtd.sv_pct ?? 0;
-          const target = benchmarks.sv_pct_target ?? benchmarks.sv_target ?? 10;
+          const target = resolveTarget(data, "sv_pct_target");
           const status: CheckStatus = actual >= target ? "pass" : actual >= target * 0.7 ? "warning" : "fail";
           return {
             status,
@@ -521,8 +558,9 @@ const WEEKLY_CHECKLIST: ChecklistSection[] = [
         sopText: "CPL too high & quality OK → remove one MCQ. CPL OK & quality poor → add one MCQ. Keep TY screen pushing WhatsApp/SV booking",
         icon: FileText,
         getData: (data) => {
-          const cpl = data?.account_pulse?.overall_cpl ?? data?.account_summary?.cpl ?? 0;
-          const cplTarget = data?.sop_benchmarks?.cpl_target ?? data?.sop_benchmarks?.cpl ?? data?.dynamic_thresholds?.cpl_target ?? 0;
+          // Current CPL: MTD priority chain. Target: live benchmarks only (no dynamic_thresholds fallback).
+          const cpl = resolveCurrentValue(data, "overall_cpl", "cpl", "avg_cpl");
+          const cplTarget = resolveTarget(data, "cpl", "cpl_target");
           const isHigh = cplTarget > 0 && cpl > cplTarget * 1.2;
           return {
             status: isHigh ? "warning" : "pass",
@@ -822,8 +860,8 @@ const GOOGLE_DAILY_CHECKLIST: ChecklistSection[] = [
         sopText: "DG CPM baseline monitoring — queue creative refresh if CPM spikes",
         icon: BarChart3,
         getData: (data) => {
-          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-          const cpmBaseline = b.cpm_max || 120;
+          // Target: live benchmarks (cpm_max). Current: computed from DG campaign data.
+          const cpmBaseline = resolveTarget(data, "cpm_max");
           const cpmThreshold = cpmBaseline * 1.5;
           const cpm = getGoogleDGCPM(data);
           const status: CheckStatus = cpm > cpmThreshold ? "fail" : cpm > cpmBaseline * 1.2 ? "warning" : cpm > 0 ? "pass" : "na";
@@ -867,8 +905,8 @@ const GOOGLE_WEEKLY_CHECKLIST: ChecklistSection[] = [
         icon: DollarSign,
         getData: (data) => {
           const campaigns = data?.campaigns || [];
-          const b = data?.sop_benchmarks ?? data?.benchmarks ?? {};
-          const cplTarget = b.cpl || b.cpl_target || 850;
+          // Target CPA from live benchmarks only — Google CPL preferred
+          const cplTarget = resolveTarget(data, "google_cpl", "cpl", "cpl_target");
           let overBidCount = 0;
           campaigns.forEach((c: any) => {
             (c.ad_groups || []).forEach((ag: any) => {
@@ -1268,7 +1306,67 @@ function ChecklistItemCard({
 // ─── Main Audit Page ────────────────────────────────────────────────
 
 export default function AuditPage() {
-  const { mtdAnalysisData: data, isLoadingMtdAnalysis: isLoading, activePlatform } = useClient();
+  const {
+    mtdAnalysisData: rawMtdData,
+    isLoadingMtdAnalysis,
+    activePlatform,
+    benchmarks: liveBenchmarks,
+    isLoadingBenchmarks,
+    activeClientId,
+    apiBase,
+  } = useClient();
+
+  // ── Fetch live MTD deliverables (positive_pct, sv_pct live from /mtd endpoint)
+  //    Same endpoint as the MTD Deliverables page — /api/mtd-deliverables?client_id=...
+  //    positive_pct and sv_pct are computed server-side from manually entered data
+  //    and are NEVER stored inside the analysis JSON — must be fetched separately.
+  const { data: mtdDeliverables } = useQuery<any>({
+    queryKey: ["/api/mtd-deliverables", activeClientId, activePlatform],
+    queryFn: async () => {
+      const res = await fetch(`/api/mtd-deliverables?client_id=${activeClientId}&platform=${activePlatform}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!activeClientId,
+    staleTime: 0,
+    retry: false,
+  });
+
+  // ── Merge live benchmarks (targets) + live MTD deliverables (sv%, positive%) into data.
+  //    Rule: Targets → Benchmarks API, Current Values → MTD analysis + MTD deliverables endpoint.
+  const data = useMemo(() => {
+    if (!rawMtdData) return undefined;
+    const mergedBenchmarks = liveBenchmarks ?? (rawMtdData as any)?.sop_benchmarks ?? (rawMtdData as any)?.benchmarks ?? {};
+    const liveMtd = mtdDeliverables?.mtd ?? {};
+
+    // Patch account_pulse.mtd with live positive_pct / sv_pct from the dedicated /mtd endpoint
+    const rawAp = (rawMtdData as any)?.account_pulse ?? {};
+    const patchedAp = {
+      ...rawAp,
+      mtd: {
+        ...(rawAp.mtd ?? {}),
+        // Live computed values from manual deliverables input (MTD Deliverables page)
+        positive_pct: liveMtd.positive_pct ?? rawAp.mtd?.positive_pct ?? 0,
+        sv_pct: liveMtd.sv_pct ?? rawAp.mtd?.sv_pct ?? 0,
+        svs: liveMtd.svs ?? rawAp.mtd?.svs ?? 0,
+        qualified_leads: liveMtd.qualified_leads ?? rawAp.mtd?.qualified_leads ?? 0,
+        leads: liveMtd.leads ?? rawAp.mtd?.leads ?? rawAp.total_leads ?? 0,
+        spend: liveMtd.spend ?? rawAp.mtd?.spend ?? rawAp.total_spend ?? 0,
+      },
+    };
+
+    return {
+      ...rawMtdData,
+      account_pulse: patchedAp,
+      // Overwrite both benchmark keys so every getData function gets live targets
+      sop_benchmarks: mergedBenchmarks,
+      benchmarks: mergedBenchmarks,
+    };
+  }, [rawMtdData, liveBenchmarks, mtdDeliverables]);
+
+  // Show loading until both primary data sources are ready
+  const isLoading = isLoadingMtdAnalysis || isLoadingBenchmarks;
+
   const [activeFrequency, setActiveFrequency] = useState<AuditFrequency>("daily");
   const [actionStates, setActionStates] = useState<Record<string, ActionState>>({});
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});

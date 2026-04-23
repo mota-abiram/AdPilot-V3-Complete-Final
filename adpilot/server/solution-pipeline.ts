@@ -3,7 +3,7 @@ import type { LearningEntry } from "./execution-learning";
 import type { AdCortexRecommendation } from "./prompt-templates";
 import type { DetectedProblem, SeverityTier } from "./problem-detector";
 import { generateSolutionTiers } from "./solution-tiers";
-import { callClaude } from "./claude-provider";
+import { callAi as callClaude } from "./ai-provider";
 
 export type ExecutionClassification = "AUTO-EXECUTE" | "MANUAL" | "REJECT";
 

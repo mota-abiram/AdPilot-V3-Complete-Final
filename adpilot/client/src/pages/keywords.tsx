@@ -30,6 +30,7 @@ import {
 import { formatINR, formatPct, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DataTablePagination } from "@/components/data-table-pagination";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 
 interface KeywordEntry {
   keyword: string;
@@ -53,6 +54,7 @@ interface KeywordEntry {
 
 export default function KeywordsPage() {
   const { analysisData: data, isLoadingAnalysis: isLoading } = useClient();
+  const benchmarkTargets = useBenchmarkTargets();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCampaign, setSelectedCampaign] = useState("all");
   const [sortKey, setSortKey] = useState<keyof KeywordEntry>("spend");
@@ -264,7 +266,7 @@ export default function KeywordsPage() {
             </thead>
             <tbody>
               {paginatedKeywords.map((kw, idx) => {
-                const targetCpl = (data as any)?.benchmarks?.cpl || 1000;
+                const targetCpl = benchmarkTargets.cpl;
                 
                 // Engine SOP Rules
                 let action = "HOLD";

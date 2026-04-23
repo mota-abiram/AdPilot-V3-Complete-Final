@@ -36,7 +36,9 @@ export type ExecutionActionType =
   | "UNPAUSE_CAMPAIGN"
   | "SCALE_BUDGET_UP"
   | "SCALE_BUDGET_DOWN"
-  | "SET_BUDGET";
+  | "SET_BUDGET"
+  | "MANUAL_COMPLETE"
+  | "MANUAL_REJECT";
 
 export interface ExecutionRequest {
   action: ExecutionActionType;
@@ -377,6 +379,17 @@ export async function executeAction(req: ExecutionRequest): Promise<ExecutionRes
           newValue: result.success ? `₹${newRupees}/day` : undefined,
           metaApiResponse: result.data,
           error: result.error,
+        };
+        logExecution(execResult);
+        return execResult;
+      }
+
+      case "MANUAL_COMPLETE":
+      case "MANUAL_REJECT": {
+        const execResult: ExecutionResult = {
+          ...baseResult,
+          success: true,
+          newValue: req.action === "MANUAL_COMPLETE" ? "AUDITED_SUCCESS" : "AUDITED_REJECTED",
         };
         logExecution(execResult);
         return execResult;

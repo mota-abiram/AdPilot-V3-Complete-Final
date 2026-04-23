@@ -42,6 +42,7 @@ import {
 import { formatINR, formatNumber, formatPct } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 import {
   Tooltip,
   TooltipContent,
@@ -155,9 +156,10 @@ function DeliverablesChart({ data, view }: { data: ConsolidatedMtdData['mtd'], v
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function MtdDeliverablesPage() {
-  const { activeClientId, activeClient, activePlatform, apiBase, benchmarks } = useClient();
+  const { activeClientId, activePlatform } = useClient();
   const { isAdmin } = useAuth();
   const { toast } = useToast();
+  const benchmarkTargets = useBenchmarkTargets();
 
   const [viewMode, setViewMode] = useState<'volume' | 'efficiency'>('volume');
   const [svsAchieved, setSvsAchieved] = useState(0);
@@ -250,7 +252,7 @@ export default function MtdDeliverablesPage() {
   const status = mtdData?.status;
 
   // Primary source of truth for targets is the benchmarks context (single source)
-  const targets = benchmarks || activeClient?.targets?.[activePlatform];
+  const targets = benchmarkTargets;
 
   // Calculate month progress locally
   const now = new Date();
@@ -263,8 +265,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Total Spend",
       value: mtd?.spend || 0,
-      target: targets?.budget,
-      mtdTarget: (targets?.budget || 0) * (pctThroughMonth / 100),
+      target: targets.budget,
+      mtdTarget: targets.budget * (pctThroughMonth / 100),
       isCurrency: true,
       description: "MTD spend across campaigns",
       source: "API",
@@ -273,8 +275,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Total Leads",
       value: mtd?.leads || 0,
-      target: targets?.leads,
-      mtdTarget: (targets?.leads || 0) * (pctThroughMonth / 100),
+      target: targets.leads,
+      mtdTarget: targets.leads * (pctThroughMonth / 100),
       description: "MTD leads count",
       source: "API",
       type: "COMPUTED"
@@ -282,8 +284,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Qualified Leads",
       value: mtd?.qualified_leads || 0,
-      target: (targets?.leads || 0) * 0.4,
-      mtdTarget: ((targets?.leads || 0) * 0.4) * (pctThroughMonth / 100),
+      target: targets.positiveLeadTarget,
+      mtdTarget: targets.positiveLeadTarget * (pctThroughMonth / 100),
       description: "Quality leads (manual input)",
       source: "Manual",
       type: "MANUAL"
@@ -291,8 +293,8 @@ export default function MtdDeliverablesPage() {
     {
       label: "Site Visits",
       value: mtd?.svs || 0,
-      target: targets?.svs?.low,
-      mtdTarget: (targets?.svs?.low || 0) * (pctThroughMonth / 100),
+      target: targets.svs.low,
+      mtdTarget: targets.svs.low * (pctThroughMonth / 100),
       description: "Actual visits",
       source: "Manual",
       type: "MANUAL"
@@ -300,7 +302,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPL",
       value: mtd?.cpl || 0,
-      target: targets?.cpl,
+      target: targets.cpl,
       isCurrency: true,
       isInverse: true,
       description: "Spend / Leads",
@@ -310,7 +312,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPQL",
       value: mtd?.cpql || 0,
-      target: (targets?.cpl || 0) * 2.5,
+      target: targets.cpql,
       isCurrency: true,
       isInverse: true,
       description: "Spend / Qualified Leads",
@@ -320,7 +322,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "CPSV",
       value: mtd?.cpsv || 0,
-      target: targets?.cpsv?.low,
+      target: targets.cpsv.low,
       isCurrency: true,
       isInverse: true,
       description: "Spend / Site Visits",
@@ -330,7 +332,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "Positive %",
       value: mtd?.positive_pct || 0,
-      target: 25,
+      target: targets.positivePctTarget,
       isPct: true,
       description: "Qualified Leads / Total Leads × 100",
       source: "Agent",
@@ -339,7 +341,7 @@ export default function MtdDeliverablesPage() {
     {
       label: "SV %",
       value: mtd?.sv_pct || 0,
-      target: 10,
+      target: targets.svPctTarget,
       isPct: true,
       description: "Site Visits / Total Leads × 100",
       source: "Agent",

@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreIndicator } from "@/components/score-indicator";
 import { HealthScoreBreakdown } from "@/components/health-score-breakdown";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -119,10 +120,11 @@ class AnalyticsErrorBoundary extends Component<{ children: ReactNode; location?:
 // ─── Column definitions ──────────────────────────────────────────────
 
 const SEARCH_AD_GROUPS = [
-  { label: "Identity", span: 3 },
+  { label: "Identity", span: 1 },
+  { label: "Health", span: 2 },
   { label: "Ad Setup", span: 2 },
   { label: "Performance", span: 2 },
-  { label: "Efficiency", span: 4 },
+  { label: "Efficiency", span: 7 },
   { label: "Ad Assets", span: 2 },
   { label: "Asset Quality", span: 2 },
 ];
@@ -130,9 +132,10 @@ const SEARCH_AD_GROUPS = [
 const DG_AD_GROUPS = [
   { label: "Identity", span: 2 },
   { label: "Health", span: 2 },
-  { label: "Delivery", span: 2 },
+  { label: "Status", span: 1 },
+  { label: "Delivery", span: 1 },
   { label: "Performance", span: 4 },
-  { label: "Efficiency", span: 3 },
+  { label: "Efficiency", span: 5 },
   { label: "Video Metrics", span: 3 },
 ];
 
@@ -336,8 +339,9 @@ function renderAdCell(c: AdsPanelCreative, col: ColDef, thresholds: any): React.
 
 export default function AnalyticsAdsPage() {
   const clientContext = useClient();
-  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform, benchmarks: globalBenchmarks } = clientContext ?? {};
+  const { analysisData: data, isLoadingAnalysis: isLoading, activePlatform } = clientContext ?? {};
   const isGoogle = activePlatform === "google";
+  const benchmarkTargets = useBenchmarkTargets();
 
   const [sortKey, setSortKey] = useState<string>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -351,11 +355,7 @@ export default function AnalyticsAdsPage() {
   const executionContext = useExecution();
   const { executeBatch, isExecuting: isBatchExecuting } = executionContext ?? {};
 
-  // Benchmarks source of truth priority: 
-  // 1. Global context 'benchmarks' (from settings tab)
-  // 2. 'sop_benchmarks' from analysis data
-  // 3. 'dynamic_thresholds' from analysis data
-  const thresholds = globalBenchmarks ?? (data as any)?.sop_benchmarks ?? (data as any)?.dynamic_thresholds;
+  const thresholds = benchmarkTargets.raw;
 
   // ─── Normalize all ads from backend ─────────────────────────────
   const allAds = useMemo<AdsPanelCreative[]>(() => {

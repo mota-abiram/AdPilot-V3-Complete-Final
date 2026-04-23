@@ -45,10 +45,15 @@ import {
   Eye,
   SlidersHorizontal,
   ArrowUpDown,
+  CheckCircle2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnifiedActions, type UnifiedActionItem, type ActionState } from "@/components/unified-actions";
 import { HealthScoreBreakdown } from "@/components/health-score-breakdown";
+import { useExecution } from "@/hooks/use-execution";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 
 // ─── Constants & Types ──────────────────────────────────────────────
 
@@ -63,7 +68,9 @@ const META_COLUMN_CONFIG = [
   { column: "Leads", description: "Conversions for segment" },
   { column: "CPL", description: "Cost per lead" },
   { column: "CTR", description: "Click-through rate" },
-  { column: "Recommendation", description: "Action based on score" }
+  { column: "CPM", description: "Cost per 1000 impressions" },
+  { column: "Recommendation", description: "Action based on score" },
+  { column: "Actions", description: "Manual audit control" }
 ];
 
 const GOOGLE_TABS = ["Age", "Gender", "Device", "Location", "Placement"] as const;
@@ -255,6 +262,22 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<string>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const { executeBatch, isExecuting } = useExecution();
+
+  async function handleManualAudit(row: any, action: "MANUAL_COMPLETE" | "MANUAL_REJECT") {
+    await executeBatch([{
+      action: action as any,
+      entityId: `meta-${activeTab}-${row.dimension}`,
+      entityName: `${activeTab}: ${row.dimension}`,
+      entityType: "adset",
+      params: { 
+        reason: `Manual audit from Breakdowns page: ${action}`,
+        segment: row.dimension,
+        dimension: activeTab
+      }
+    }]);
+  }
+
 
   function toggleSort(key: string) {
     if (sortKey === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
@@ -450,16 +473,39 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
                       <td className="p-4 tabular-nums font-bold text-foreground">{row.leads}</td>
                       <td className={cn("p-4 tabular-nums font-bold", getCplColor(row.cpl, thresholds))}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
                       <td className="p-4 tabular-nums font-bold text-foreground/70">{formatPct(row.ctr)}</td>
+                      <td className="p-4 tabular-nums font-bold text-foreground/70">{formatINR(row.cpm, 0)}</td>
                       <td className="p-4">
                         <div className={cn("inline-flex items-center gap-2 px-2.5 py-1 rounded border shadow-xs", rec.lightBg, rec.border, rec.color)}>
                           <div className={cn("w-1.5 h-1.5 rounded-full", rec.color.replace('text-', 'bg-'))} />
                           <span className="text-xs font-bold uppercase tracking-wider">{rec.text}</span>
                         </div>
                       </td>
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10"
+                            onClick={() => handleManualAudit(row, "MANUAL_COMPLETE")}
+                            disabled={isExecuting}
+                          >
+                            {isExecuting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                            onClick={() => handleManualAudit(row, "MANUAL_REJECT")}
+                            disabled={isExecuting}
+                          >
+                            {isExecuting ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-muted/10">
-                        <td colSpan={7} className="p-8 border-b border-primary/20 space-y-6">
+                        <td colSpan={9} className="p-8 border-b border-primary/20 space-y-6">
                           <div className="space-y-6">
                             <HealthScoreBreakdown
                               entityName={row.dimension}
@@ -504,12 +550,15 @@ function MetaBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCaden
 
 function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCadence }: any) {
   const apiBase = `/api/clients/${clientId}/google`;
+  const benchmarkTargets = useBenchmarkTargets();
   const [activeTab, setActiveTab] = useState<GoogleTabType>("Age");
   const [selectedCampaign, setSelectedCampaign] = useState(ACCOUNT_OVERVIEW);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [columnSize, setColumnSize] = useState<"compact" | "normal" | "wide">("normal");
   const [sortKey, setSortKey] = useState<string>("cost");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const { executeBatch, isExecuting } = useExecution();
+
 
   function toggleSort(key: string) {
     if (sortKey === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
@@ -575,6 +624,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
       cpc: r.clicks > 0 ? r.cost / r.clicks : 0,
       cpl: r.conversions > 0 ? r.cost / r.conversions : 0,
       cvr: r.clicks > 0 ? (r.conversions / r.clicks) * 100 : 0,
+      cpm: r.impressions > 0 ? (r.cost / r.impressions) * 1000 : 0,
     }));
   }, [data, tabKey, selectedCampaign]);
 
@@ -589,6 +639,11 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
   const totalCost = rows.reduce((s, r) => s + r.cost, 0);
   const rowsWithConversions = rows.filter(r => r.conversions > 0);
   const best = rowsWithConversions.length > 0 ? rowsWithConversions.reduce((a, b) => (a.cpl < b.cpl ? a : b)) : null;
+  const cplTarget = benchmarkTargets.cpl;
+  const ctrTarget = benchmarkTargets.ctrMin;
+  const conversionTarget = rows.length > 0 && benchmarkTargets.leads > 0
+    ? Math.max(1, Math.round(benchmarkTargets.leads / rows.length))
+    : 0;
 
   if (isLoading) return <div className="p-12 text-center text-muted-foreground"><Clock className="w-8 h-8 mx-auto mb-2 animate-spin opacity-20" /><p>Scanning Google demographics...</p></div>;
 
@@ -651,6 +706,7 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
                 <th className="p-3 text-right font-bold uppercase tracking-widest text-muted-foreground">Cost</th>
                 <th className="p-3 text-right font-bold uppercase tracking-widest text-muted-foreground">Clicks</th>
                 <th className="p-3 text-right font-bold uppercase tracking-widest text-muted-foreground">CTR</th>
+                <th className="p-3 text-right font-bold uppercase tracking-widest text-muted-foreground">CPM</th>
                 <th className="p-3 text-right font-bold uppercase tracking-widest text-muted-foreground">Conv</th>
                 <th className="p-3 text-right font-bold uppercase tracking-widest text-muted-foreground">CPL</th>
                 <th className="p-3 text-center font-bold uppercase tracking-widest text-muted-foreground">Actions</th>
@@ -668,35 +724,38 @@ function GoogleBreakdowns({ clientId, analysisData, isLoadingAnalysis, activeCad
                       <td className="p-3 text-right tabular-nums font-medium">{formatINR(row.cost, 0)}</td>
                       <td className="p-3 text-right tabular-nums text-muted-foreground">{formatNumber(row.clicks)}</td>
                       <td className="p-3 text-right tabular-nums">{formatPct(row.ctr)}</td>
+                      <td className="p-3 text-right tabular-nums">{formatINR(row.cpm, 0)}</td>
                       <td className="p-3 text-right tabular-nums font-bold text-foreground">{row.conversions}</td>
-                      <td className={cn("p-3 text-right tabular-nums font-bold", row.cpl > 0 && row.cpl < 850 ? "text-emerald-400" : "text-foreground")}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
-                      <td className="p-3 text-center">
-                        <UnifiedActions compact item={{ id: itemId, description: `Google ${activeTab}: ${row.dimension}`, autoExecutable: false }}
-                          entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
-                          recommendation="Monitor segment" onStateChange={() => { }} />
+                      <td className={cn("p-3 text-right tabular-nums font-bold", row.cpl > 0 && cplTarget > 0 && row.cpl <= cplTarget ? "text-emerald-400" : "text-foreground")}>{row.cpl > 0 ? formatINR(row.cpl, 0) : "—"}</td>
+                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 justify-center">
+                          <UnifiedActions compact item={{ id: itemId, description: `Google ${activeTab}: ${row.dimension}`, autoExecutable: false }}
+                            entityId={itemId} entityName={`${activeTab}: ${row.dimension}`} entityType="adset" actionType="MANUAL_ACTION"
+                            recommendation="Monitor segment" onStateChange={() => { }} />
+                        </div>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr className="bg-muted/5">
-                        <td colSpan={8} className="p-8 border-b border-border/40 space-y-6">
+                        <td colSpan={9} className="p-8 border-b border-border/40 space-y-6">
                           <HealthScoreBreakdown
                             entityName={row.dimension}
                             scoreBreakdown={{
-                              "CPL_Efficiency": row.cpl > 0 && row.cpl < 850 ? 80 : 40,
-                              "Conversion_Volume": row.conversions > 0 ? 90 : 20,
-                              "CTR_Impact": row.ctr > 1 ? 85 : 45
+                              "CPL_Efficiency": row.cpl > 0 && cplTarget > 0 && row.cpl <= cplTarget ? 80 : 40,
+                              "Conversion_Volume": conversionTarget > 0 && row.conversions >= conversionTarget ? 90 : 20,
+                              "CTR_Impact": ctrTarget > 0 && row.ctr >= ctrTarget ? 85 : 45
                             }}
                             detailedBreakdown={{
-                              "CPL_Efficiency": { actual: row.cpl, target: 850, unit: "currency", contribution: row.cpl > 0 && row.cpl < 850 ? 40 : 20, weight: 50 },
-                              "Conversion_Volume": { actual: row.conversions, target: 5, unit: "number", contribution: row.conversions > 0 ? 18 : 4, weight: 20 },
-                              "CTR_Impact": { actual: row.ctr / 100, target: 0.012, unit: "percent", contribution: row.ctr > 1 ? 17 : 9, weight: 20 }
+                              "CPL_Efficiency": { actual: row.cpl, target: cplTarget, unit: "currency", contribution: row.cpl > 0 && cplTarget > 0 && row.cpl <= cplTarget ? 40 : 20, weight: 50 },
+                              "Conversion_Volume": { actual: row.conversions, target: conversionTarget, unit: "number", contribution: conversionTarget > 0 && row.conversions >= conversionTarget ? 18 : 4, weight: 20 },
+                              "CTR_Impact": { actual: row.ctr, target: ctrTarget, unit: "percent", contribution: ctrTarget > 0 && row.ctr >= ctrTarget ? 17 : 9, weight: 20 }
                             }}
                           />
                           <div className="p-5 rounded-xl border border-border/40 bg-background/80 shadow-sm mt-4">
                             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Strategic analysis:</p>
                             <p className="text-base font-medium text-foreground leading-relaxed">
                               Strategic analysis for Google segment <strong>{row.dimension}</strong>. Cost per lead is {row.cpl > 0 ? formatINR(row.cpl, 0) : "not yet established"}. 
-                              {row.cpl > 0 && row.cpl < 850 ? " Performance is within acceptable Google benchmarks." : " Intervention may be required to qualify traffic and reduce CPA drift."}
+                              {row.cpl > 0 && cplTarget > 0 && row.cpl <= cplTarget ? " Performance is within the configured Google benchmark target." : " Intervention may be required to qualify traffic and reduce CPA drift."}
                             </p>
                           </div>
                         </td>

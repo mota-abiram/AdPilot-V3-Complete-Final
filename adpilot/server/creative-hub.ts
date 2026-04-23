@@ -15,28 +15,7 @@ import Anthropic from "@anthropic-ai/sdk";
 // 1. gemini-2.0-flash-exp-image-generation — Gemini native (generateContent + responseModalities)
 // 2. imagen-3.0-generate-002              — Imagen 3 (predict endpoint)
 
-interface AiConfig {
-  openapiApiKey?: string;
-  anthropicApiKey?: string;
-  geminiModel?: string;
-  geminiImageModel?: string;
-  groqApiKey?: string;
-  groqModel?: string;
-}
-
-function readAiConfig(): AiConfig {
-  // If we have a DB, try to read from there first.
-  try {
-    // In a synchronous function, we might just have to rely on JSON fallback
-    // unless we make these async.
-    if (fs.existsSync(AI_CONFIG_FILE)) {
-      return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, "utf-8"));
-    }
-  } catch (err) {
-    console.error("[Creative Hub] Failed to read AI config:", err);
-  }
-  return {};
-}
+import { readAiConfig } from "./ai-config-loader";
 
 function getOpenapiApiKey(): string {
   return readAiConfig().openapiApiKey || process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "";
@@ -432,15 +411,6 @@ function getCreativeAiConfig():
   | { provider: "claude"; apiKey: string; model: string }
   | { provider: "groq"; apiKey: string; model: string; baseUrl: string }
   | null {
-  const anthropicApiKey = getAnthropicApiKey();
-  if (anthropicApiKey && anthropicApiKey.trim() !== "" && !anthropicApiKey.trim().startsWith("YOUR_")) {
-    return {
-      provider: "claude",
-      apiKey: anthropicApiKey.trim(),
-      model: "claude-3-5-sonnet-20240620",
-    };
-  }
-
   const openapiApiKey = getOpenapiApiKey();
   if (openapiApiKey && openapiApiKey.trim() !== "" && !openapiApiKey.trim().startsWith("YOUR_")) {
     const trimmedKey = openapiApiKey.trim();
@@ -451,6 +421,15 @@ function getCreativeAiConfig():
       apiKey: trimmedKey,
       model: isSk ? "gpt-4o" : getGeminiModel(),
       baseUrl: isSk ? "https://api.openai.com/v1" : GEMINI_BASE_URL,
+    };
+  }
+
+  const anthropicApiKey = getAnthropicApiKey();
+  if (anthropicApiKey && anthropicApiKey.trim() !== "" && !anthropicApiKey.trim().startsWith("YOUR_")) {
+    return {
+      provider: "claude",
+      apiKey: anthropicApiKey.trim(),
+      model: "claude-3-5-sonnet-20240620",
     };
   }
 

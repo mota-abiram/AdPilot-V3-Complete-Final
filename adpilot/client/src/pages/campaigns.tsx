@@ -279,10 +279,10 @@ export default function CampaignsPage() {
     setSelectedIds(new Set());
   }
 
-  // Use live benchmarks for thresholds - falls back to data.dynamic_thresholds if needed
+  // Benchmarks are the single source of truth for campaign thresholds.
   const thresholds = useMemo(() => {
-    return dynamicThresholds || data?.dynamic_thresholds;
-  }, [dynamicThresholds, data?.dynamic_thresholds]);
+    return dynamicThresholds;
+  }, [dynamicThresholds]);
 
   if (isLoading || !data) {
     return (
@@ -297,8 +297,9 @@ export default function CampaignsPage() {
 
   // ─── Column Groupings (Pivot Table Style) ─────────────────────────
   const googleSearchGroups = [
-    { label: "Identity", span: 3 },
+    { label: "Identity", span: 2 },
     { label: "Health", span: 2 },
+    { label: "Status", span: 1 },
     { label: "Bidding & Budget", span: 3 },
     { label: "Performance", span: 4 },
     { label: "Efficiency", span: 3 },
@@ -307,8 +308,9 @@ export default function CampaignsPage() {
   ];
 
   const googleDgGroups = [
-    { label: "Identity", span: 3 },
+    { label: "Identity", span: 2 },
     { label: "Health", span: 2 },
+    { label: "Status", span: 1 },
     { label: "Bidding & Budget", span: 2 },
     { label: "Performance", span: 4 },
     { label: "Efficiency", span: 3 },
@@ -316,8 +318,9 @@ export default function CampaignsPage() {
   ];
 
   const metaColumnGroups = [
-    { label: "Identity", span: 5 },
-    { label: "Health", span: 1 },
+    { label: "Identity", span: 2 },
+    { label: "Health", span: 2 },
+    { label: "Status", span: 2 },
     { label: "Bidding & Budget", span: 1 },
     { label: "Performance", span: 3 },
     { label: "Efficiency", span: 3 },
@@ -367,9 +370,9 @@ export default function CampaignsPage() {
     { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
     { key: "layer" as SortKey, label: "Layer", align: "left" },
     { key: "classification" as SortKey, label: "Class", align: "left" },
+    { key: "health_score" as SortKey, label: "Health", align: "left" },
     { key: "learning_status" as SortKey, label: "Learn", align: "left" },
     { key: "delivery_status" as SortKey, label: "Deliv", align: "left" },
-    { key: "health_score" as SortKey, label: "Health", align: "left" },
     { key: "daily_budget" as SortKey, label: "Budget", align: "right" },
     { key: "spend" as SortKey, label: "Spend", align: "right" },
     { key: "leads" as SortKey, label: "Leads", align: "right" },

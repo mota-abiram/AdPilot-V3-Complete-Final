@@ -333,10 +333,10 @@ export default function SettingsPage() {
                 <Badge
                   variant="secondary"
                   className={`text-xs ${metaStatus === "ok"
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : metaStatus === "error"
-                        ? "bg-red-500/15 text-red-400"
-                        : "bg-muted text-muted-foreground"
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : metaStatus === "error"
+                      ? "bg-red-500/15 text-red-400"
+                      : "bg-muted text-muted-foreground"
                     }`}
                 >
                   {metaStatus === "ok" ? "Active" : metaStatus === "error" ? "Error" : "..."}
@@ -398,12 +398,12 @@ export default function SettingsPage() {
                 <Badge
                   variant="secondary"
                   className={`text-xs ${googleStatus === "ok"
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : googleStatus === "error"
-                        ? "bg-red-500/15 text-red-400"
-                        : googleLastSync
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-muted text-muted-foreground"
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : googleStatus === "error"
+                      ? "bg-red-500/15 text-red-400"
+                      : googleLastSync
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : "bg-muted text-muted-foreground"
                     }`}
                 >
                   {googleStatus === "ok"
@@ -429,36 +429,40 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Text Engine</p>
-              <div className="flex items-center gap-2">
-                {aiConfig.openapiApiKey ? (
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <XCircle className="w-3.5 h-3.5 text-red-400" />
-                )}
-                <span className="text-xs text-foreground font-medium">
-                  {aiConfig.openapiApiKey ? "Ready" : "Not Configured"}
-                </span>
-                <Badge variant="secondary" className="text-xs px-1 py-0">{aiConfig.geminiModel || "gemini-1.5-flash"}</Badge>
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <div className="p-3 rounded-lg bg-muted/30 border border-border/30 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Text Engine</p>
+                <div className="flex items-center gap-2">
+                  {aiConfig.openapiApiKey ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-red-400" />
+                  )}
+                  <span className="text-xs text-foreground font-bold">
+                    {aiConfig.openapiApiKey ? "Operational" : "Offline"}
+                  </span>
+                </div>
               </div>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">{aiConfig.geminiModel || "gemini-1.5-flash"}</Badge>
             </div>
-            <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Image Engine</p>
-              <div className="flex items-center gap-2">
-                {aiConfig.openapiApiKey ? (
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <XCircle className="w-3.5 h-3.5 text-red-400" />
-                )}
-                <span className="text-xs text-foreground font-medium">
-                  {aiConfig.openapiApiKey ? "Ready" : "Not Configured"}
-                </span>
-                <Badge variant="secondary" className="text-xs px-1 py-0">{aiConfig.geminiImageModel || "gemini-2.0-flash-img"}</Badge>
+            <div className="p-3 rounded-lg bg-muted/30 border border-border/30 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">OpenAPI Image Engine</p>
+                <div className="flex items-center gap-2">
+                  {aiConfig.openapiApiKey ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-red-400" />
+                  )}
+                  <span className="text-xs text-foreground font-bold">
+                    {aiConfig.openapiApiKey ? "Operational" : "Offline"}
+                  </span>
+                </div>
               </div>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20">{aiConfig.geminiImageModel || "gemini-2.0-flash-img"}</Badge>
             </div>
-          </div>
+          </div> */}
 
         </CardContent>
       </Card>
@@ -472,52 +476,44 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="t-label">
-            OpenAPI compatible endpoints power all AI in this platform — text generation for creatives and campaign intelligence,
-            and native image generation for the Creative Hub.
-          </p>
+          <div className="space-y-4 p-4 rounded-xl bg-primary/5 border border-primary/20 shadow-inner">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                Strategic Engine Authentication
+              </p>
+            </div>
 
-          <div className="space-y-2 p-3 rounded-lg bg-muted/10 border border-border/30">
-            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">OpenAPI</Badge>
-              API Key &amp; Models
-            </p>
-            <div className="grid md:grid-cols-3 gap-3 pt-1">
+            <div className="grid grid-cols-1 gap-4 pt-1">
               <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase">API Key</label>
-                <Input
-                  type="password"
-                  placeholder="AIzaSy..."
-                  className="h-8 text-xs bg-background mt-1"
-                  value={aiConfig.openapiApiKey}
-                  onChange={(e) => setAiConfig(prev => ({ ...prev, openapiApiKey: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase">Text Model</label>
-                <Input
-                  placeholder="gemini-1.5-flash"
-                  className="h-8 text-xs bg-background mt-1"
-                  value={aiConfig.geminiModel}
-                  onChange={(e) => setAiConfig(prev => ({ ...prev, geminiModel: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase">Image Model</label>
-                <Input
-                  placeholder="gemini-2.0-flash-preview-image-generation"
-                  className="h-8 text-xs bg-background mt-1"
-                  value={aiConfig.geminiImageModel}
-                  onChange={(e) => setAiConfig(prev => ({ ...prev, geminiImageModel: e.target.value }))}
-                />
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5 block">API Master Key</label>
+                <div className="relative group">
+                  <Input
+                    type="password"
+                    placeholder="AIzaSy..."
+                    className="h-10 text-sm bg-background border-border/40 focus:border-primary/50 transition-all pl-10"
+                    value={aiConfig.openapiApiKey}
+                    onChange={(e) => setAiConfig(prev => ({ ...prev, openapiApiKey: e.target.value }))}
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors">
+                    <Wifi className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="t-micro text-muted-foreground mt-2 italic">
+                  This key powers the 4-layer AI reasoning engine and creative synthesis pipeline.
+                </p>
               </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-2">
-            <Button size="sm" onClick={handleSaveAiConfig} disabled={isSavingAiConfig}>
+            <Button
+              size="sm"
+              onClick={handleSaveAiConfig}
+              disabled={isSavingAiConfig}
+              className="bg-primary font-black shadow-lg shadow-primary/20 h-9 px-6"
+            >
               {isSavingAiConfig ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />}
-              Save AI Configuration
+              Update AI Credentials
             </Button>
           </div>
         </CardContent>
@@ -568,39 +564,13 @@ export default function SettingsPage() {
           </div>
 
           {/* Audit cadence schedule */}
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Audit Cadences</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                { cadence: "Twice Weekly", timing: "Monday & Thursday 9 AM", color: "text-blue-400" },
-                { cadence: "Weekly", timing: "Wednesday 9 AM", color: "text-emerald-400" },
-                { cadence: "Bi-Weekly", timing: "1st & 15th of month", color: "text-amber-400" },
-                { cadence: "Monthly", timing: "27th of month", color: "text-purple-400" },
-              ].map((s) => (
-                <div
-                  key={s.cadence}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30"
-                >
-                  <div>
-                    <p className={`text-xs font-medium ${s.color}`}>
-                      {s.cadence}
-                    </p>
-                    <p className="t-label">
-                      {s.timing}
-                    </p>
-                  </div>
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Run Agent Now */}
           <div className="border-t border-border/30 pt-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
               Manual Agent Trigger
             </p>
-            
+
             <div className="space-y-4">
               {isLoadingScheduler ? (
                 <div className="flex items-center gap-2 text-muted-foreground text-xs p-4 bg-muted/20 rounded-lg border border-border/40">
@@ -619,14 +589,14 @@ export default function SettingsPage() {
                           {isCurrentlyRunning ? "Agent is currently running..." : "Last Run Result"}
                         </p>
                         <p className="t-label">
-                          {isCurrentlyRunning 
-                            ? "Analyzing campaigns and synthesizing insights..." 
+                          {isCurrentlyRunning
+                            ? "Analyzing campaigns and synthesizing insights..."
                             : (schedulerStatus?.lastRunSuccess ? "All platforms synced successfully" : "Execution failed — check logs below")}
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="gap-2 shrink-0 h-9 px-6 bg-primary font-bold shadow-lg shadow-primary/20"
                       onClick={runNow}
                       disabled={isCurrentlyRunning}
@@ -641,7 +611,7 @@ export default function SettingsPage() {
 
                   {schedulerStatus?.lastRunDuration && (
                     <p className="text-xs text-muted-foreground border-t border-border/20 pt-2">
-                       Processing time for last run: <span className="text-foreground font-medium">{schedulerStatus.lastRunDuration < 60000 ? `${Math.round(schedulerStatus.lastRunDuration / 1000)}s` : `${(schedulerStatus.lastRunDuration / 60000).toFixed(1)}m`}</span>
+                      Processing time for last run: <span className="text-foreground font-medium">{schedulerStatus.lastRunDuration < 60000 ? `${Math.round(schedulerStatus.lastRunDuration / 1000)}s` : `${(schedulerStatus.lastRunDuration / 60000).toFixed(1)}m`}</span>
                     </p>
                   )}
                 </div>
@@ -691,8 +661,8 @@ export default function SettingsPage() {
         </CardContent>
       </Card >
 
-    {/* ─── E) Data Export Section ──────────────────────────────────── */ }
-    < Card >
+      {/* ─── E) Data Export Section ──────────────────────────────────── */}
+      < Card >
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Download className="w-4 h-4" />

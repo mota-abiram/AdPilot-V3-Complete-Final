@@ -11,6 +11,8 @@ import { db } from "./db";
 import { clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+import { readAiConfig } from "./ai-config-loader";
+
 const execFileAsync = promisify(execFile);
 
 const ADS_AGENT_DIR = path.resolve(import.meta.dirname, "../../ads_agent");
@@ -339,10 +341,17 @@ async function runAgent(clientIds?: string[]): Promise<void> {
           const pythonPath = fs.existsSync("/opt/venv/bin/python3") ? "/opt/venv/bin/python3" : "python3";
           log(`Scheduler: Executing Meta agent with ${pythonPath} for client ${client.id}`, "scheduler");
           
+          const aiConfig = readAiConfig();
           await execFileAsync(pythonPath, [metaAgent, "--client", client.id, "--multi-cadence"], {
             cwd: ADS_AGENT_DIR,
             timeout: 600000,
-            env: { ...process.env, ...client.metaCreds },
+            env: { 
+              ...process.env, 
+              ...client.metaCreds,
+              OPENAPI_API_KEY: aiConfig.openapiApiKey,
+              GROQ_API_KEY: aiConfig.groqApiKey,
+              GEMINI_MODEL: aiConfig.geminiModel,
+            },
           });
 
           const syncCompletedAt = new Date().toISOString();
@@ -398,10 +407,17 @@ async function runAgent(clientIds?: string[]): Promise<void> {
           const pythonPath = fs.existsSync("/opt/venv/bin/python3") ? "/opt/venv/bin/python3" : "python3";
           log(`Scheduler: Executing Google agent with ${pythonPath} for client ${client.id}`, "scheduler");
           
+          const aiConfig = readAiConfig();
           await execFileAsync(pythonPath, [googleAgent, "--client", client.id, "--multi-cadence"], {
             cwd: ADS_AGENT_DIR,
             timeout: 600000,
-            env: { ...process.env, ...client.googleCreds },
+            env: { 
+              ...process.env, 
+              ...client.googleCreds,
+              OPENAPI_API_KEY: aiConfig.openapiApiKey,
+              GROQ_API_KEY: aiConfig.groqApiKey,
+              GEMINI_MODEL: aiConfig.geminiModel,
+            },
           });
         } catch (error: any) {
           setPlatformSyncState(client.id, "google", {

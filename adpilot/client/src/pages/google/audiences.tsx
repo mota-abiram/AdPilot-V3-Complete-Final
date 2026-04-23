@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatINR, formatNumber, truncate } from "@/lib/format";
+import { useBenchmarkTargets } from "@/hooks/use-meta-benchmarks";
 import { AlertTriangle, Users, ChevronDown, ChevronRight, Zap, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -314,6 +315,7 @@ function DgCampaignRow({ camp, targetCpl }: { camp: DgCampaign; targetCpl: numbe
 
 export default function GoogleAudiencesPage() {
   const { analysisData: data, isLoadingAnalysis: isLoading, activeClient } = useClient();
+  const benchmarkTargets = useBenchmarkTargets();
 
   const dgCampaigns = useMemo((): DgCampaign[] => {
     if (!data) return [];
@@ -342,8 +344,8 @@ export default function GoogleAudiencesPage() {
   }, [data]);
 
   const targetCpl: number = useMemo(() => {
-    return (data as any)?.targets?.google?.target_cpa || (data as any)?.targets?.cpl || 850;
-  }, [data]);
+    return benchmarkTargets.cpl;
+  }, [benchmarkTargets.cpl]);
 
   const totalImpressions = dgCampaigns.reduce((s, c) => s + c.impressions, 0);
   const totalLeads = dgCampaigns.reduce((s, c) => s + c.conversions, 0);

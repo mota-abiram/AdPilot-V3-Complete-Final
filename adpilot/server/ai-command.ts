@@ -608,7 +608,7 @@ export async function handleAICommand(req: AICommandRequest): Promise<AICommandR
   } catch (err: any) {
     console.error("[AI Command] AdCortex error:", err.message);
     return {
-      humanResponse: `AI service error: ${err.message}. Please check your ANTHROPIC_API_KEY in the environment variables.`,
+      humanResponse: `AI service error: ${err.message}. Please check your OPENAPI_API_KEY in the environment variables.`,
       actionJson: null,
       executionResults: [],
       safetyWarnings: [],

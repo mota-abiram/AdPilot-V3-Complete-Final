@@ -58,11 +58,11 @@ import {
   Home,
   Star,
   Check,
+  Brain,
   ChevronDown,
   Facebook,
   Globe,
   Plus,
-  Brain,
   Database,
   Ban,
   PlusCircle,
@@ -114,7 +114,7 @@ import {
   getClassificationColor as getClassificationStyle,
   type MetricStatus,
 } from "@/lib/format";
-import { useMetaBenchmarks } from "@/hooks/use-meta-benchmarks";
+import { useBenchmarkTargets, useMetaBenchmarks } from "@/hooks/use-meta-benchmarks";
 
 /**
  * DASHBOARD INTELLIGENCE
@@ -184,17 +184,17 @@ function FixSuggestionModal({ alert, onClose, intellectInsights }: { alert: any;
     const recs = directRecommendations.length > 0
       ? directRecommendations
       : tierCards.map((card: any) => {
-          const primary = Array.isArray(card?.solutions) ? card.solutions[0] : null;
-          return {
-            action: primary?.title || card?.diagnosis?.symptom || "Review issue",
-            reasoning: primary?.rationale || card?.diagnosis?.problem || "",
-            execution_type: primary?.classification === "AUTO-EXECUTE" ? "auto" : primary?.classification === "REJECT" ? "confirm" : "manual",
-            action_payload: {
-              action: { type: primary?.actionPayload?.action?.type || "" },
-              execution_plan: primary?.steps || [],
-            },
-          };
-        });
+        const primary = Array.isArray(card?.solutions) ? card.solutions[0] : null;
+        return {
+          action: primary?.title || card?.diagnosis?.symptom || "Review issue",
+          reasoning: primary?.rationale || card?.diagnosis?.problem || "",
+          execution_type: primary?.classification === "AUTO-EXECUTE" ? "auto" : primary?.classification === "REJECT" ? "confirm" : "manual",
+          action_payload: {
+            action: { type: primary?.actionPayload?.action?.type || "" },
+            execution_plan: primary?.steps || [],
+          },
+        };
+      });
 
     return recs.map((rec: any, idx: number) => ({
       rank: idx + 1,
@@ -698,10 +698,9 @@ export default function DashboardPage() {
   const periodLabel = getCadencePeriodLabel(cadenceLabel);
   const rawAp = (data as any)?.account_pulse || {};
   const rawCampaignAudit = Array.isArray((data as any)?.campaign_audit) ? (data as any)?.campaign_audit : Array.isArray((data as any)?.campaigns) ? (data as any)?.campaigns : [];
-  const thresholds = (data as any)?.dynamic_thresholds || (data as any)?.thresholds || {};
-
   // ── Centralized Reactive Benchmarks ──
   const metaBenchmarksData = useMetaBenchmarks();
+  const benchmarkTargets = useBenchmarkTargets();
   const metaBenchmarks = metaBenchmarksData.raw; // For backward compat with existing uses of 'benchmarks'
   const {
     cplTarget: t_cpl_target,
@@ -721,7 +720,6 @@ export default function DashboardPage() {
   const rawAutoPauseCandidates = Array.isArray((data as any)?.auto_pause_candidates) ? (data as any)?.auto_pause_candidates : [];
   const rawMp = (data as any)?.monthly_pacing;
   const rawMtdPacing = ((data as any)?.account_pulse || rawAp)?.mtd_pacing;
-  const clientTargets = activeClient?.targets?.[activePlatform];
 
   // ─── Authoritative MTD Metrics (Must be early for hooks) ───────────
   const authMtd = useMemo(() => {
@@ -843,45 +841,54 @@ export default function DashboardPage() {
     return { spendToday, leadsToday, cplToday };
   }, [ap, isGoogle, data]);
 
-  const mp = useMemo(() => rawMp ? rawMp : rawMtdPacing ? {
-    month: new Date().toISOString().slice(0, 7),
-    days_elapsed: rawMtdPacing.days_elapsed ?? 0,
-    days_remaining: rawMtdPacing.days_remaining ?? 0,
-    pct_through_month: rawMtdPacing.days_elapsed && rawMtdPacing.days_remaining
-      ? (rawMtdPacing.days_elapsed / (rawMtdPacing.days_elapsed + rawMtdPacing.days_remaining)) * 100
-      : 0,
-    targets: {
-      budget: rawMtdPacing.target_budget ?? clientTargets?.budget ?? 0,
-      leads: rawMtdPacing.target_leads ?? clientTargets?.leads ?? 0,
-      cpl: rawMtdPacing.target_cpl ?? clientTargets?.cpl ?? 0,
-      svs: clientTargets?.svs ?? { low: 0, high: 0 },
-      cpsv: clientTargets?.cpsv ?? { low: 0, high: 0 },
-    },
-    mtd: {
-      spend: authMtd.spend,
-      leads: authMtd.leads,
-      svs: authMtd.svs,
-      qualified_leads: authMtd.qualified_leads,
-      cpl: authMtd.leads > 0 ? (authMtd.spend / authMtd.leads) : 0,
-    },
-    projected_eom: {
-      spend: rawMtdPacing.projected_spend ?? 0,
-      leads: rawMtdPacing.projected_leads ?? 0,
-      cpl: rawMtdPacing.projected_leads > 0 ? (rawMtdPacing.projected_spend / rawMtdPacing.projected_leads) : 0,
-    },
-    pacing: {
-      spend_pct: rawMtdPacing.pacing_spend_pct ?? 0,
-      spend_status: rawMtdPacing.on_track ? "ON_TRACK" : (rawMtdPacing.pacing_spend_pct > 100 ? "AHEAD" : "BEHIND"),
-      leads_pct: rawMtdPacing.pacing_leads_pct ?? 0,
-      leads_status: rawMtdPacing.on_track ? "ON_TRACK" : (rawMtdPacing.pacing_leads_pct > 80 ? "ON_TRACK" : "BEHIND"),
-      cpl_status: rawMtdPacing.leads_mtd > 0 && (rawMtdPacing.spend_mtd / rawMtdPacing.leads_mtd) <= (rawMtdPacing.target_cpl ?? 850) ? "ON TARGET" : "HIGH",
-    },
-    daily_needed: {
-      spend: rawMtdPacing.days_remaining > 0 ? ((rawMtdPacing.target_budget ?? 0) - (rawMtdPacing.spend_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
-      leads: rawMtdPacing.days_remaining > 0 ? ((rawMtdPacing.target_leads ?? 0) - (rawMtdPacing.leads_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
-    },
-    alerts: ((data as any)?.account_pulse || rawAp)?.alerts?.map((a: any) => typeof a === "string" ? a : a.message || a.alert || JSON.stringify(a)) || [],
-  } : null, [rawMp, rawMtdPacing, clientTargets, data, rawAp, authMtd]);
+  const mp = useMemo(() => {
+    const baseMp = rawMp ? rawMp : rawMtdPacing ? {
+      month: new Date().toISOString().slice(0, 7),
+      days_elapsed: rawMtdPacing.days_elapsed ?? 0,
+      days_remaining: rawMtdPacing.days_remaining ?? 0,
+      pct_through_month: rawMtdPacing.days_elapsed && rawMtdPacing.days_remaining
+        ? (rawMtdPacing.days_elapsed / (rawMtdPacing.days_elapsed + rawMtdPacing.days_remaining)) * 100
+        : 0,
+      mtd: {
+        spend: authMtd.spend,
+        leads: authMtd.leads,
+        svs: authMtd.svs,
+        qualified_leads: authMtd.qualified_leads,
+        cpl: authMtd.leads > 0 ? (authMtd.spend / authMtd.leads) : 0,
+      },
+      projected_eom: {
+        spend: rawMtdPacing.projected_spend ?? 0,
+        leads: rawMtdPacing.projected_leads ?? 0,
+        cpl: rawMtdPacing.projected_leads > 0 ? (rawMtdPacing.projected_spend / rawMtdPacing.projected_leads) : 0,
+      },
+      pacing: {
+        spend_pct: rawMtdPacing.pacing_spend_pct ?? 0,
+        spend_status: rawMtdPacing.on_track ? "ON_TRACK" : (rawMtdPacing.pacing_spend_pct > 100 ? "AHEAD" : "BEHIND"),
+        leads_pct: rawMtdPacing.pacing_leads_pct ?? 0,
+        leads_status: rawMtdPacing.on_track ? "ON_TRACK" : (rawMtdPacing.pacing_leads_pct > 80 ? "ON_TRACK" : "BEHIND"),
+        cpl_status: rawMtdPacing.leads_mtd > 0 && benchmarkTargets.cpl > 0 && (rawMtdPacing.spend_mtd / rawMtdPacing.leads_mtd) <= benchmarkTargets.cpl ? "ON TARGET" : "HIGH",
+      },
+      daily_needed: {
+        spend: rawMtdPacing.days_remaining > 0 ? ((benchmarkTargets.budget ?? 0) - (rawMtdPacing.spend_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
+        leads: rawMtdPacing.days_remaining > 0 ? ((benchmarkTargets.leads ?? 0) - (rawMtdPacing.leads_mtd ?? 0)) / rawMtdPacing.days_remaining : 0,
+      },
+      alerts: ((data as any)?.account_pulse || rawAp)?.alerts?.map((a: any) => typeof a === "string" ? a : a.message || a.alert || JSON.stringify(a)) || [],
+    } : null;
+
+    if (!baseMp) return null;
+
+    return {
+      ...baseMp,
+      targets: {
+        ...(baseMp.targets || {}),
+        budget: benchmarkTargets.budget,
+        leads: benchmarkTargets.leads,
+        cpl: benchmarkTargets.cpl,
+        svs: benchmarkTargets.svs,
+        cpsv: benchmarkTargets.cpsv,
+      },
+    };
+  }, [rawMp, rawMtdPacing, benchmarkTargets, data, rawAp, authMtd]);
 
   const displayAp = useMemo(() => {
     if (!filteredCampaign) return ap;
@@ -1152,10 +1159,21 @@ export default function DashboardPage() {
   const { videoCreatives, blendedTSR, blendedVHR } = useMemo(() => {
     const vids = safeCreativeHealth.filter((c: any) => c.is_video && c.impressions > 0);
     const totalImp = vids.reduce((s: number, c: any) => s + c.impressions, 0);
+
+    // Auto-detect if creative health values are stored as decimals (0–1) or percentages (0–100).
+    // The agent sometimes stores them as fractions; normalise to 0–100 for consistent display.
+    const normalisePct = (val: number) => (val > 0 && val <= 1 ? val * 100 : val);
+    const rawBlendedTSR = totalImp > 0
+      ? vids.reduce((s: number, c: any) => s + normalisePct(c.thumb_stop_pct ?? 0) * c.impressions, 0) / totalImp
+      : null;
+    const rawBlendedVHR = totalImp > 0
+      ? vids.reduce((s: number, c: any) => s + normalisePct(c.hold_rate_pct ?? 0) * c.impressions, 0) / totalImp
+      : null;
+
     return {
       videoCreatives: vids,
-      blendedTSR: totalImp > 0 ? vids.reduce((s: number, c: any) => s + c.thumb_stop_pct * c.impressions, 0) / totalImp : null,
-      blendedVHR: totalImp > 0 ? vids.reduce((s: number, c: any) => s + c.hold_rate_pct * c.impressions, 0) / totalImp : null,
+      blendedTSR: rawBlendedTSR,
+      blendedVHR: rawBlendedVHR,
     };
   }, [safeCreativeHealth]);
 
@@ -1167,11 +1185,17 @@ export default function DashboardPage() {
     return (Array.isArray(ap.daily_ctrs) ? ap.daily_ctrs : []).map((_: number, i: number) => {
       const dailyClick = ap.daily_clicks?.[i] ?? 0;
       const dailyImp = ap.daily_impressions?.[i] ?? 0;
+
+      // Use || (not ??) so that 0 values (missing daily granularity) also fall back to blended.
+      // 0% TSR/VHR on a live account is always missing data, never a real metric.
+      const tsrDay = allTsrZero ? (blendedTSR ?? 0) : (dailyTsrs[i] || blendedTSR || 0);
+      const vhrDay = allVhrZero ? (blendedVHR ?? 0) : (dailyVhrs[i] || blendedVHR || 0);
+
       return {
         day: dayLabels[i],
         ctr: parseFloat(calculateCTR(dailyClick, dailyImp).toFixed(2)),
-        tsr: allTsrZero ? (blendedTSR ?? 0) : (dailyTsrs[i] ?? blendedTSR ?? 0),
-        vhr: allVhrZero ? (blendedVHR ?? 0) : (dailyVhrs[i] ?? blendedVHR ?? 0),
+        tsr: parseFloat((tsrDay as number).toFixed(1)),
+        vhr: parseFloat((vhrDay as number).toFixed(1)),
         cpm: ap.daily_cpms?.[i] ?? ap.overall_cpm,
       };
     });
@@ -1242,22 +1266,22 @@ export default function DashboardPage() {
   const svsMtd = authMtd.svs;
   const qLeadsMtd = authMtd.qualified_leads;
   const cpsvMtd = authMtd.svs > 0 ? authMtd.spend / authMtd.svs : 0;
-  const targetCpsvValue = t_cpsv_target || (isGoogle ? 20000 : 0);
+  const targetCpsvValue = benchmarkTargets.cpsv.low;
 
   const pacingSpendStatus = mp?.pacing?.spend_status || "UNKNOWN";
   const healthBreakdownItems = useMemo(() => {
     const items = [
-      { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, target: t_cpsv_target },
-      { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, target: t_budget_target },
-      { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, target: t_cpql_target },
-      { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, target: t_cpl_target },
+      { label: "CPSV", score: healthScoreComponents.cpsv, weight: 25, value: mtdStats?.cpsv, target: benchmarkTargets.cpsv.high },
+      { label: "Budget", score: healthScoreComponents.pacing_budget, weight: 25, value: mtdStats?.spend, target: benchmarkTargets.budget },
+      { label: "CPQL", score: healthScoreComponents.cpql, weight: 20, value: mtdStats?.cpql, target: benchmarkTargets.cpql },
+      { label: "CPL", score: healthScoreComponents.cpl, weight: 20, value: mtdStats?.cpl, target: benchmarkTargets.cpl },
       { label: "Creative", score: healthScoreComponents.creative, weight: 10 },
     ];
     return items.map(item => ({
       ...item,
       status: getMetricStatus(item.score, item.weight)
     }));
-  }, [healthScoreComponents, mtdStats, t_cpsv_target, t_budget_target, t_cpql_target, t_cpl_target]);
+  }, [healthScoreComponents, mtdStats, benchmarkTargets]);
 
   const agentVersion: string = (data as any)?.agent_version || "";
   const searchSummary: any = isGoogle ? (data as any)?.search_summary || null : null;
@@ -1275,7 +1299,7 @@ export default function DashboardPage() {
     ? adsWithLeads.reduce((worst: any, cur: any) => ((cur.cpl || 0) > (worst.cpl || 0) ? cur : worst), adsWithLeads[0])
     : null;
 
-  const targetCpl: number = t_cpl_target;
+  const targetCpl: number = benchmarkTargets.cpl;
   const totalAdSpend = creativeHealth.reduce((s: number, a: any) => s + (a.spend || 0), 0);
   const wastedSpend = creativeHealth
     .filter((a: any) => (a.cpl || 0) > targetCpl && (a.spend || 0) > 0)
@@ -1283,15 +1307,15 @@ export default function DashboardPage() {
   const budgetEfficiencyPct: number = totalAdSpend > 0 ? Math.round((wastedSpend / totalAdSpend) * 100) : 0;
 
   const proRatedBudgetThreshold = useMemo(() => {
-    const budget = t_budget_target || 0;
+    const budget = benchmarkTargets.budget || 0;
     if (mp?.pct_through_month && budget > 0) {
       return budget * (mp.pct_through_month / 100);
     }
     return budget;
-  }, [t_budget_target, mp?.pct_through_month]);
+  }, [benchmarkTargets.budget, mp?.pct_through_month]);
 
-  const budgetTargetMonthly = t_budget_target || clientTargets?.budget || 0;
-  const leadsTargetMonthly = t_leads_target || clientTargets?.leads || 0;
+  const budgetTargetMonthly = benchmarkTargets.budget || t_budget_target || 0;
+  const leadsTargetMonthly = benchmarkTargets.leads || t_leads_target || 0;
   const daysInMonth = (mp?.days_elapsed || 0) + (mp?.days_remaining || 1);
 
   // --- Lifted KPI Card UI Logic Hooks ---
@@ -2241,15 +2265,15 @@ export default function DashboardPage() {
           const projectedSvs = projected(mtdSvs);
 
           // ─── Targets ─────────────────────────────────────────────────
-          const cplTargetVal = metaBenchmarks?.cpl ?? metaBenchmarks?.cpl_target ?? mp?.targets?.cpl ?? 0;
-          const cpmTargetVal = metaBenchmarks?.cpm_max || (isGoogle ? 1200 : 450);
-          const cpcTargetVal = metaBenchmarks?.cpc_max || (isGoogle ? 120 : 0);
-          const cpqlTargetVal = metaBenchmarks?.cpql_target ?? 0;
-          const svsTargetLow = metaBenchmarks?.svs_low ?? mp?.targets?.svs?.low ?? 0;
-          const svsTargetHigh = metaBenchmarks?.svs_high ?? mp?.targets?.svs?.high ?? 0;
-          const cpsvTargetLow = metaBenchmarks?.cpsv_low ?? mp?.targets?.cpsv?.low ?? 0;
-          const cpsvTargetHigh = metaBenchmarks?.cpsv_high ?? mp?.targets?.cpsv?.high ?? 0;
-          const qLeadTargetMonthly = metaBenchmarks?.positive_lead_target ?? 0;
+          const cplTargetVal = benchmarkTargets.cpl;
+          const cpmTargetVal = benchmarkTargets.cpmMax;
+          const cpcTargetVal = benchmarkTargets.cpcMax;
+          const cpqlTargetVal = benchmarkTargets.cpql;
+          const svsTargetLow = benchmarkTargets.svs.low;
+          const svsTargetHigh = benchmarkTargets.svs.high;
+          const cpsvTargetLow = benchmarkTargets.cpsv.low;
+          const cpsvTargetHigh = benchmarkTargets.cpsv.high;
+          const qLeadTargetMonthly = benchmarkTargets.positiveLeadTarget;
 
           // ─── Row computations ─────────────────────────────────────────
           const budgetRow = {
@@ -2408,7 +2432,7 @@ export default function DashboardPage() {
                         <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Targets</th>
                         <th colSpan={2} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Performance</th>
                         <th colSpan={1} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground border-r border-border/10 text-center">Health</th>
-                        <th colSpan={1} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Pace</th>
+                        {/* <th colSpan={1} className="px-3 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Pace</th> */}
                       </tr>
                       <tr className="border-b border-border/50 bg-muted/20">
                         <th className="text-left px-4 py-3 t-label font-black uppercase tracking-widest text-muted-foreground sticky left-0 bg-card border-r border-border/5">Metric</th>
@@ -2712,14 +2736,16 @@ export default function DashboardPage() {
         const prevDayLeads = dailyLeads.length > 1 ? dailyLeads[dailyLeads.length - 2] : null;
 
         // Monthly targets and MTD for tracking
-        const targetLeads = mp?.targets?.leads || clientTargets?.leads || 0;
+        const targetLeads = benchmarkTargets.leads;
         const mtdLeads = mp?.mtd?.leads || monthlyAp.total_leads_30d || 0;
         const mtdLeadsTarget = targetLeads * ((mp?.pct_through_month || 0) / 100);
         const todayLeads = latestDailyLeads ?? 0;
         const daysRemaining = mp?.days_remaining || 15;
         const dailyRateNeeded = daysRemaining > 0 ? Math.max(0, ((targetLeads - mtdLeads) / daysRemaining)) : 0;
 
-        const zeroLeadDays = (ap as any).zero_lead_days ?? dailyLeads.filter((d: number) => d === 0).length;
+        const firstLeadDayIndex = dailyLeads.findIndex((d: number) => d > 0);
+        const activeDailyLeads = firstLeadDayIndex !== -1 ? dailyLeads.slice(firstLeadDayIndex) : [];
+        const zeroLeadDays = (ap as any).zero_lead_days ?? activeDailyLeads.filter((d: number) => d === 0).length;
 
         const conversionSanity = isGoogle ? (data as any)?.conversion_sanity : null;
         const googleLeadsToday = conversionSanity?.leads_today ?? null;
@@ -2727,22 +2753,35 @@ export default function DashboardPage() {
         const trackingAlerts = conversionSanity?.tracking_alerts || [];
 
         const isZeroToday = isGoogle
-          ? (googleLeadsToday === 0 || googleLeadsToday === null)
-          : (latestDailyLeads === 0 || latestDailyLeads === null);
-        const leadsToday = isGoogle ? (googleLeadsToday ?? latestDailyLeads ?? 0) : todayLeads;
-        const hasSuddenDrop = prevDayLeads !== null && prevDayLeads > 0 && leadsToday < prevDayLeads * 0.2;
+          ? (googleLeadsToday === 0) // Explicit zero, not null
+          : (latestDailyLeads === 0); // Explicit zero, not null
+        // Use yesterday's count for sudden-drop check (today is often partial mid-day)
+        const hasSuddenDrop = prevDayLeads !== null && prevDayLeads > 5 && latestDailyLeads !== null && latestDailyLeads < prevDayLeads * 0.1;
 
-        // Health status
+        // ── MTD-first health logic ──────────────────────────────────────
+        // Primary signal: how far is MTD vs the pro-rated target for today?
+        // mtdLeadsTarget = targetLeads × (days_elapsed / days_in_month)
+        // Only flag Behind/Alert when MTD is genuinely lagging, not for
+        // partial-day velocity or zero-lead days in the analysis window.
         let healthStatus: "Healthy" | "On Track" | "Behind" | "Alert" = "Healthy";
         let trafficLight: "green" | "amber" | "red" = "green";
+
         if (isZeroToday || hasSuddenDrop || (isGoogle && trackingAlerts.length > 0)) {
+          // Hard tracking failure
           trafficLight = "red";
           healthStatus = "Alert";
-        } else if (dailyRateNeeded > (todayLeads || 1) * 1.5 || zeroLeadDays > 1) {
+        } else if (mtdLeadsTarget > 0 && mtdLeads >= mtdLeadsTarget * 0.85) {
+          // Within 15% of pro-rated target → healthy
+          trafficLight = "green";
+          healthStatus = "On Track";
+        } else if (mtdLeadsTarget > 0 && mtdLeads < mtdLeadsTarget * 0.75) {
+          // More than 25% below pro-rated target → genuinely behind
           trafficLight = "amber";
           healthStatus = "Behind";
-        } else if (mtdLeads >= targetLeads * ((mp?.pct_through_month || 50) / 100) * 0.85) {
-          healthStatus = "On Track";
+        } else if (zeroLeadDays > 5) {
+          // Intermittent tracking issues across many days
+          trafficLight = "amber";
+          healthStatus = "Behind";
         }
 
         const lightColors = {
@@ -2830,7 +2869,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/30">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                   <span className="t-micro text-red-400 font-medium">
-                    Sudden drop detected: {leadsToday} leads yesterday vs {prevDayLeads} the day before ({prevDayLeads && prevDayLeads > 0 ? ((1 - leadsToday / prevDayLeads) * 100).toFixed(0) : 0}% decrease)
+                    Sudden drop detected: {latestDailyLeads ?? 0} leads yesterday vs {prevDayLeads} the day before ({prevDayLeads && prevDayLeads > 0 ? ((1 - (latestDailyLeads ?? 0) / prevDayLeads) * 100).toFixed(0) : 0}% decrease)
                   </span>
                 </div>
               )}
@@ -2843,7 +2882,7 @@ export default function DashboardPage() {
       {/* Ad Set Breakdown Table + Alerts */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Ad Set Table */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-3">
           <CardHeader className="pb-2 px-4 pt-4 flex flex-row items-center justify-between gap-2">
             <CardTitle className="t-section-title font-medium flex items-center gap-1.5">
               Campaign Breakdown
@@ -2967,95 +3006,8 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Alerts & Actions */}
-        <Card>
-          <CardHeader className="card-header-premium">
-            <CardTitle className="t-section-title font-medium">Alerts & Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0 space-y-4">
-            {/* Fatigue Alerts */}
-            {fatigueAlerts.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="t-micro font-medium uppercase tracking-wider text-muted-foreground">
-                  Fatigue Alerts
-                </h3>
-                {(showAllFatigueAlerts ? fatigueAlerts : fatigueAlerts.slice(0, 3)).map((alert: any, i: number) => {
-                  const adId = findAdIdByName(alert.ad_name, creativeHealth);
-                  return (
-                    <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="secondary"
-                            className={`t-micro px-1 py-0 ${alert.severity === "CRITICAL"
-                              ? "text-red-400"
-                              : "text-amber-400"
-                              }`}
-                          >
-                            {alert.severity}
-                          </Badge>
-                          <span className="t-micro text-muted-foreground">{alert.type}</span>
-                        </div>
-                      </div>
-                      <p className="t-micro text-foreground leading-relaxed mb-1.5">
-                        {alert.message}
-                      </p>
-                      {adId && (
-                        <UnifiedActions
-                          entityId={adId}
-                          entityName={alert.ad_name}
-                          entityType="ad"
-                          actionType="PAUSE_AD"
-                          isAutoExecutable={true}
-                          recommendation={`Fatigue alert: ${alert.message}`}
-                          compact
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-                {fatigueAlerts.length > 3 && (
-                  <button
-                    onClick={() => setShowAllFatigueAlerts(prev => !prev)}
-                    className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40"
-                  >
-                    {showAllFatigueAlerts ? "Show less" : `Show ${fatigueAlerts.length - 3} more alert${fatigueAlerts.length - 3 > 1 ? "s" : ""}`}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Top Recommendations */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="t-micro font-medium uppercase tracking-wider text-muted-foreground">
-                  Top Recommendations
-                </h3>
-                <Link href="/recommendations" className="t-micro text-primary flex items-center gap-0.5" data-testid="link-view-recs">
-                  View All <ArrowRight className="w-2.5 h-2.5" />
-                </Link>
-              </div>
-              {adRecommendations.slice(0, 3).map((rec: any, i: number) => (
-                <div key={i} className="p-2 rounded-md bg-muted/30 border border-border/30">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="t-micro font-bold tabular-nums text-primary">
-                      ICE {rec.ice_score}
-                    </span>
-                    <span className={`t-micro px-1 py-0 rounded ${getLayerColor(rec.layer || rec.category || "unknown").bg} ${getLayerColor(rec.layer || rec.category || "unknown").text}`}>
-                      {rec.layer || rec.category || ""}
-                    </span>
-                  </div>
-                  <p className="t-micro text-foreground font-medium">
-                    {truncate(rec.action || rec.description || rec.title || "", 60)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Alerts & Actions card removed by user request */}
       </div>
-
 
       {/* ─── Funnel Diagnostics (always MTD) ────────── */}
       {(mtdFixedData as any)?.funnel_diagnostics && (
@@ -3212,8 +3164,8 @@ export default function DashboardPage() {
 
                 {steps.map((step, i) => {
                   // realistic logarithmic scaling to preserve visibility while showing funnel effect
-                  const widthPct = maxVal > 1 
-                    ? Math.max(15, (Math.log10(Math.max(1, step.value)) / Math.log10(maxVal)) * 100) 
+                  const widthPct = maxVal > 1
+                    ? Math.max(15, (Math.log10(Math.max(1, step.value)) / Math.log10(maxVal)) * 100)
                     : 15;
                   const conv = convRateLabels[i];
                   const Icon = step.icon;

@@ -122,25 +122,7 @@ const BENCHMARKS_BASE = path.join(DATA_BASE, "clients");
 const getClientDataDir = (clientId: string) => path.join(DATA_BASE, "clients", clientId);
 const AI_CONFIG_FILE = path.join(DATA_BASE, "ai_config.json");
 
-function readAiConfig() {
-  try {
-    if (fs.existsSync(AI_CONFIG_FILE)) {
-      return JSON.parse(fs.readFileSync(AI_CONFIG_FILE, "utf-8"));
-    }
-  } catch { }
-  return {
-    openapiApiKey: process.env.OPENAPI_API_KEY || process.env.OPENAPI_KEY || "",
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
-    geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
-    geminiImageModel: process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-preview-image-generation",
-    groqApiKey: process.env.GROQ_API_KEY || "",
-    groqModel: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-  };
-}
-
-function saveAiConfig(config: any) {
-  fs.writeFileSync(AI_CONFIG_FILE, JSON.stringify(config, null, 2));
-}
+import { readAiConfig, saveAiConfig } from "./ai-config-loader";
 const REGISTRY_FILE = path.join(DATA_BASE, "clients_registry.json");
 const CREDENTIALS_FILE = path.join(DATA_BASE, "clients_credentials.json");
 const GOOGLE_ADS_TOKEN_CACHE = path.resolve(import.meta.dirname, "../../ads_agent/.google_ads_token_cache.json");
@@ -472,6 +454,135 @@ function getRecommendationActionsForPrefix(prefix: string): Record<string, Actio
   return result;
 }
 
+function hasUsableBenchmarkValues(data: Record<string, any> | null | undefined): boolean {
+  if (!data) return false;
+  return Object.keys(data).some((key) => key !== "updated_at" && data[key] != null);
+}
+
+function pickDefinedEntries(data: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+}
+
+function sanitizeMetaBenchmarks(raw: any): Record<string, any> {
+  if (!raw || typeof raw !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(raw).filter(([key]) => !key.startsWith("google_"))
+  );
+}
+
+function sanitizeGoogleBenchmarks(
+  raw: any,
+  sourceKind: "platform" | "legacy"
+): Record<string, any> {
+  if (!raw || typeof raw !== "object") return {};
+
+  const allowGenericFallback = sourceKind === "platform";
+  const fromGoogle = (key: string) => raw[key];
+  const fromGeneric = (key: string) => (allowGenericFallback ? raw[key] : undefined);
+
+  return pickDefinedEntries({
+    updated_at: raw.updated_at,
+    google_leads: fromGoogle("google_leads"),
+    google_budget: fromGoogle("google_budget"),
+    google_cpl: fromGoogle("google_cpl"),
+    google_cpl_max: fromGoogle("google_cpl_max"),
+    google_cpql_target: fromGoogle("google_cpql_target"),
+    google_svs_low: fromGoogle("google_svs_low"),
+    google_svs_high: fromGoogle("google_svs_high"),
+    google_cpsv_low: fromGoogle("google_cpsv_low"),
+    google_cpsv_high: fromGoogle("google_cpsv_high"),
+    google_positive_lead_target: fromGoogle("google_positive_lead_target"),
+    google_positive_leads_mtd: fromGoogle("google_positive_leads_mtd"),
+    google_svs_mtd: fromGoogle("google_svs_mtd"),
+    google_closures_mtd: fromGoogle("google_closures_mtd"),
+    google_search_ctr_target: fromGoogle("google_search_ctr_target"),
+    google_search_cpc_max: fromGoogle("google_search_cpc_max"),
+    google_search_cvr_target: fromGoogle("google_search_cvr_target"),
+    google_branded_is_target: fromGoogle("google_branded_is_target"),
+    google_location_is_target: fromGoogle("google_location_is_target"),
+    google_qs_target: fromGoogle("google_qs_target"),
+    google_dg_cpm_target: fromGoogle("google_dg_cpm_target"),
+    google_dg_ctr_target: fromGoogle("google_dg_ctr_target"),
+    google_dg_frequency_max: fromGoogle("google_dg_frequency_max"),
+    google_dg_vtr_target: fromGoogle("google_dg_vtr_target"),
+    google_auto_pause_cpl_pct: fromGoogle("google_auto_pause_cpl_pct"),
+    google_auto_pause_zero_conv_spend: fromGoogle("google_auto_pause_zero_conv_spend"),
+    google_auto_pause_min_impressions: fromGoogle("google_auto_pause_min_impressions"),
+    leads: fromGoogle("google_leads") ?? fromGeneric("leads"),
+    budget: fromGoogle("google_budget") ?? fromGeneric("budget"),
+    cpl: fromGoogle("google_cpl") ?? fromGeneric("cpl"),
+    cpl_target: fromGoogle("google_cpl") ?? fromGeneric("cpl_target") ?? fromGeneric("cpl"),
+    cpl_max: fromGoogle("google_cpl_max") ?? fromGeneric("cpl_max"),
+    cpl_critical: fromGoogle("google_cpl_max") ?? fromGeneric("cpl_critical") ?? fromGeneric("cpl_max"),
+    cpql_target: fromGoogle("google_cpql_target") ?? fromGeneric("cpql_target"),
+    svs_low: fromGoogle("google_svs_low") ?? fromGeneric("svs_low"),
+    svs_high: fromGoogle("google_svs_high") ?? fromGeneric("svs_high"),
+    cpsv_low: fromGoogle("google_cpsv_low") ?? fromGeneric("cpsv_low"),
+    cpsv_high: fromGoogle("google_cpsv_high") ?? fromGeneric("cpsv_high"),
+    positive_lead_target: fromGoogle("google_positive_lead_target") ?? fromGeneric("positive_lead_target"),
+    positive_pct_target: fromGeneric("positive_pct_target"),
+    sv_pct_target: fromGeneric("sv_pct_target"),
+    positive_leads_mtd: fromGoogle("google_positive_leads_mtd") ?? fromGeneric("positive_leads_mtd"),
+    svs_mtd: fromGoogle("google_svs_mtd") ?? fromGeneric("svs_mtd"),
+    closures_mtd: fromGoogle("google_closures_mtd") ?? fromGeneric("closures_mtd"),
+    tsr_min: fromGeneric("tsr_min"),
+    ctr_target: fromGoogle("google_search_ctr_target") ?? fromGoogle("google_dg_ctr_target") ?? fromGeneric("ctr_target") ?? fromGeneric("ctr_min"),
+    ctr_min: fromGoogle("google_search_ctr_target") ?? fromGoogle("google_dg_ctr_target") ?? fromGeneric("ctr_min") ?? fromGeneric("ctr_target"),
+    cvr_target: fromGoogle("google_search_cvr_target") ?? fromGeneric("cvr_target") ?? fromGeneric("cvr_min"),
+    cvr_min: fromGoogle("google_search_cvr_target") ?? fromGeneric("cvr_min") ?? fromGeneric("cvr_target"),
+    cpm_min: fromGeneric("cpm_min"),
+    cpc_max: fromGoogle("google_search_cpc_max") ?? fromGeneric("cpc_max"),
+    cpm_max: fromGoogle("google_dg_cpm_target") ?? fromGeneric("cpm_max"),
+    vhr_min: fromGeneric("vhr_min"),
+    ffr_min: fromGeneric("ffr_min"),
+    frequency_max: fromGoogle("google_dg_frequency_max") ?? fromGeneric("frequency_max"),
+    qs_target: fromGoogle("google_qs_target") ?? fromGeneric("qs_target"),
+    auto_pause_cpl_threshold_pct: fromGeneric("auto_pause_cpl_threshold_pct"),
+    auto_pause_zero_leads_impressions: fromGeneric("auto_pause_zero_leads_impressions"),
+    target_locations: fromGeneric("target_locations"),
+  });
+}
+
+function parseBenchmarksFile(filePath: string, platform: string, sourceKind: "platform" | "legacy"): Record<string, any> | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    const sanitized = platform === "google"
+      ? sanitizeGoogleBenchmarks(raw, sourceKind)
+      : sanitizeMetaBenchmarks(raw);
+    return hasUsableBenchmarkValues(sanitized) ? sanitized : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadPlatformBenchmarks(clientId: string, platform: string): Record<string, any> | null {
+  const platformPaths = [
+    path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`),
+    path.join(DATA_BASE, "clients", clientId, `benchmarks_${platform}.json`),
+  ];
+
+  for (const filePath of platformPaths) {
+    if (!fs.existsSync(filePath)) continue;
+    const parsed = parseBenchmarksFile(filePath, platform, "platform");
+    if (parsed) return parsed;
+  }
+
+  const legacyPaths = [
+    path.join(DATA_BASE, "clients", clientId, "benchmarks.json"),
+    path.join(BENCHMARKS_BASE, clientId, "benchmarks.json"),
+  ];
+
+  for (const filePath of legacyPaths) {
+    if (!fs.existsSync(filePath)) continue;
+    const parsed = parseBenchmarksFile(filePath, platform, "legacy");
+    if (parsed) return parsed;
+  }
+
+  return null;
+}
+
 async function readAnalysisData(clientId: string, platform: string, cadence?: string): Promise<any> {
   const cacheKey = getCacheKey(clientId, platform, cadence);
   const cached = analysisCache.get(cacheKey);
@@ -516,32 +627,12 @@ async function readAnalysisData(clientId: string, platform: string, cadence?: st
   }
 
   // 3. Load Benchmarks for health score calculation
-  // PRIORITY: platform-specific file first (written by PUT /benchmarks),
-  // then fall back to the generic benchmarks.json.
-  // This ensures scores always reflect the latest benchmarks saved from the UI.
-  let benchmarksData: any = null;
-  try {
-    const canonicalPath = path.join(BENCHMARKS_BASE, clientId, `benchmarks_${platform}.json`);
-    const altPath1 = path.join(DATA_BASE, "clients", clientId, `benchmarks_${platform}.json`);
-    const altPath2 = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
-    const legacyPath = path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
-
-    // Try paths in priority order: platform-specific → fallback
-    const tryPaths = [canonicalPath, altPath1, altPath2, legacyPath];
-    const bmPath = tryPaths.find(p => fs.existsSync(p));
-
-    if (bmPath) {
-      benchmarksData = JSON.parse(fs.readFileSync(bmPath, "utf-8"));
-      console.log(`[readAnalysisData] Loaded benchmarks from: ${bmPath}`);
-    }
-  } catch (e) {
-    console.warn(`[readAnalysisData] Failed to load benchmarks for ${clientId}/${platform}:`, e);
-  }
+  // Always resolve benchmarks through a platform-aware loader so Google
+  // never consumes Meta values from the legacy shared benchmarks file.
+  const benchmarksData = loadPlatformBenchmarks(clientId, platform) || await getDefaultBenchmarks(clientId, platform);
 
   // 4. Attach Benchmarks to raw data before normalization
-  if (benchmarksData) {
-    raw.sop_benchmarks = benchmarksData;
-  }
+  raw.sop_benchmarks = benchmarksData;
 
   // 4b. Load and attach MTD Deliverables (svs_achieved, positive_leads_achieved) for CPSV/CPQL scoring
   try {
@@ -603,6 +694,76 @@ async function getDefaultBenchmarks(clientId: string, platform?: string): Promis
 
   // Use the specified platform's targets, or fall back to meta, or use hardcoded defaults
   const platformTargets = targets?.[platform || "meta"] || targets?.meta;
+
+  if (platform === "google") {
+    const googleBudget = platformTargets?.budget || 200000;
+    const googleLeads = platformTargets?.leads || 240;
+    const googleCpl = platformTargets?.cpl || 850;
+    const googleSvsLow = platformTargets?.svs?.low || 10;
+    const googleSvsHigh = platformTargets?.svs?.high || 12;
+    const googleCpsvLow = platformTargets?.cpsv?.low || 18000;
+    const googleCpsvHigh = platformTargets?.cpsv?.high || 20000;
+
+    return {
+      google_budget: googleBudget,
+      google_leads: googleLeads,
+      google_cpl: googleCpl,
+      google_cpl_max: Math.round(googleCpl * 1.4),
+      google_cpql_target: 1500,
+      google_svs_low: googleSvsLow,
+      google_svs_high: googleSvsHigh,
+      google_cpsv_low: googleCpsvLow,
+      google_cpsv_high: googleCpsvHigh,
+      google_positive_lead_target: 0,
+      google_search_ctr_target: 2.0,
+      google_search_cpc_max: 120,
+      google_search_cvr_target: 3.0,
+      google_branded_is_target: 70,
+      google_location_is_target: 20,
+      google_qs_target: 6,
+      google_dg_cpm_target: 150,
+      google_dg_ctr_target: 0.8,
+      google_dg_frequency_max: 4,
+      google_dg_vtr_target: 25,
+      google_auto_pause_cpl_pct: 140,
+      google_auto_pause_zero_conv_spend: 1500,
+      google_auto_pause_min_impressions: 3000,
+      google_svs_mtd: 0,
+      google_positive_leads_mtd: 0,
+      google_closures_mtd: 0,
+      budget: googleBudget,
+      leads: googleLeads,
+      cpl: googleCpl,
+      cpl_target: googleCpl,
+      cpl_max: Math.round(googleCpl * 1.4),
+      cpl_critical: Math.round(googleCpl * 1.4),
+      cpql_target: 1500,
+      svs_low: googleSvsLow,
+      svs_high: googleSvsHigh,
+      cpsv_low: googleCpsvLow,
+      cpsv_high: googleCpsvHigh,
+      positive_pct_target: 0,
+      sv_pct_target: 0,
+      tsr_min: 25,
+      ctr_target: 2.0,
+      ctr_min: 2.0,
+      cvr_target: 3.0,
+      cvr_min: 3.0,
+      cpm_min: 0,
+      cpc_max: 120,
+      cpm_max: 150,
+      vhr_min: 25,
+      ffr_min: 90,
+      frequency_max: 4,
+      auto_pause_cpl_threshold_pct: 140,
+      auto_pause_zero_leads_impressions: 3000,
+      positive_lead_target: 0,
+      positive_leads_mtd: 0,
+      svs_mtd: 0,
+      closures_mtd: 0,
+      target_locations: client?.targetLocations || ["Hyderabad", "Secunderabad"],
+    };
+  }
 
   return {
     budget: platformTargets?.budget || 200000,
@@ -1428,6 +1589,7 @@ export async function registerRoutes(
         "PAUSE_CAMPAIGN", "UNPAUSE_CAMPAIGN",
         "SCALE_BUDGET_UP", "SCALE_BUDGET_DOWN",
         "SET_BUDGET",
+        "MANUAL_COMPLETE", "MANUAL_REJECT",
       ];
       if (!validActions.includes(action)) {
         return res.status(400).json({ error: `Invalid action. Must be one of: ${validActions.join(", ")}` });
@@ -1879,24 +2041,8 @@ export async function registerRoutes(
   app.get("/api/clients/:clientId/benchmarks", requireOwnership, async (req, res) => {
     const { clientId } = req.params as Record<string, string>;
     const platform = (req.query.platform as string) || "meta";
-    const benchPath = getBenchmarksPath(clientId, platform);
-    if (!fs.existsSync(benchPath)) {
-      // Fallback: check if the legacy generic benchmarks.json exists
-      const legacyPath = path.join(BENCHMARKS_BASE, clientId, "benchmarks.json");
-      if (fs.existsSync(legacyPath)) {
-        try {
-          const data = JSON.parse(fs.readFileSync(legacyPath, "utf-8"));
-          return res.json(data);
-        } catch { }
-      }
-      return res.json({ ...(await getDefaultBenchmarks(clientId, platform)), updated_at: null });
-    }
-    try {
-      const data = JSON.parse(fs.readFileSync(benchPath, "utf-8"));
-      res.json(data);
-    } catch {
-      res.json({ ...(await getDefaultBenchmarks(clientId, platform)), updated_at: null });
-    }
+    const data = loadPlatformBenchmarks(clientId, platform) || await getDefaultBenchmarks(clientId, platform);
+    res.json({ ...data, updated_at: data.updated_at ?? null });
   });
 
   app.put("/api/clients/:clientId/benchmarks", requireOwnership, (req, res) => {
@@ -2578,11 +2724,7 @@ export async function registerRoutes(
     } catch (_) { }
 
     // Fetch benchmarks for user-configured targets
-    let bm: Record<string, any> = {};
-    try {
-      const bmPath = path.join(DATA_BASE, "clients", clientId, "benchmarks.json");
-      if (fs.existsSync(bmPath)) bm = JSON.parse(fs.readFileSync(bmPath, "utf-8"));
-    } catch (_) { }
+    const bm = loadPlatformBenchmarks(clientId, platform) || await getDefaultBenchmarks(clientId, platform);
 
     // Fetch MTD deliverables (manual inputs: svs, qualified_leads, closures)
     let manual: any = { svs_achieved: 0, positive_leads_achieved: 0, closures_achieved: 0, quality_lead_count: 0 };

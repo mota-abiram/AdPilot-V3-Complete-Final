@@ -11,7 +11,7 @@ import { db } from "./db";
 import { executionLearnings, executionLogs, type ExecutionLearning } from "@shared/schema";
 import { eq, and, lte, or, desc, inArray } from "drizzle-orm";
 import { OUTCOME_ANALYSIS_SYSTEM_PROMPT } from "./outcome-prompt";
-import { callClaude } from "./claude-provider";
+import { callAi as callClaude } from "./ai-provider";
 
 // ─── Stage 1: Measurement Window Registry ───────────────────────────
 

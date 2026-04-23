@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArrowUpDown, ChevronDown, ChevronUp, AlertCircle, Pause, Play, TrendingUp, TrendingDown, Loader2, SlidersHorizontal, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreIndicator } from "@/components/score-indicator";
 import { HealthScoreBreakdown } from "@/components/health-score-breakdown";
@@ -287,7 +288,9 @@ export default function AdsetsPage() {
   ];
 
   const GOOGLE_SEARCH_AG_GROUPS = [
-    { label: "Identity", span: 4 },
+    { label: "Identity", span: 1 },
+    { label: "Health", span: 2 },
+    { label: "Status", span: 1 },
     { label: "Setup", span: 1 },
     { label: "Finance", span: 1 },
     { label: "Performance", span: 3 },
@@ -298,7 +301,9 @@ export default function AdsetsPage() {
   ];
 
   const GOOGLE_DG_AG_GROUPS = [
-    { label: "Identity", span: 4 },
+    { label: "Identity", span: 1 },
+    { label: "Health", span: 2 },
+    { label: "Status", span: 1 },
     { label: "Audience", span: 2 },
     { label: "Finance", span: 1 },
     { label: "Performance", span: 2 },
@@ -312,37 +317,38 @@ export default function AdsetsPage() {
   const metaColumnGroups = [
     { label: "Identity", span: 3 },
     { label: "Health", span: 2 },
-    { label: "Budget", span: 3 },
-    { label: "Performance", span: 2 },
+    { label: "Status", span: 2 },
+    { label: "Bidding & Budget", span: 1 },
+    { label: "Performance", span: 3 },
     { label: "Efficiency", span: 3 },
-    { label: "Delivery", span: 4 },
-    { label: "", span: 2 }, // Action + Pause
+    { label: "Delivery", span: 2 },
+    { label: "", span: 1 }, // Actions
   ];
 
   const metaColumns = [
     // Identity
-    { key: "adset_name" as SortKey, label: "Adset", align: "left", group: "identity" },
-    { key: "campaign_name" as SortKey, label: "Campaign", align: "left", group: "identity" },
-    { key: "layer" as SortKey, label: "Audience", align: "left", group: "identity" },
+    { key: "adset_name" as SortKey, label: "Adset", align: "left" },
+    { key: "campaign_name" as SortKey, label: "Campaign", align: "left" },
+    { key: "layer" as SortKey, label: "Audience", align: "left" },
     // Health
-    { key: "classification" as SortKey, label: "Class", align: "left", group: "health" },
-    { key: "health_score" as SortKey, label: "Health", align: "left", group: "health" },
-    // Budget
-    { key: "daily_budget" as SortKey, label: "Budget", align: "right", group: "budget" },
-    { key: "spend" as SortKey, label: "Spend", align: "right", group: "budget" },
-    { key: "budget_utilization_pct" as SortKey, label: "Util%", align: "right", group: "budget" },
+    { key: "classification" as SortKey, label: "Class", align: "left" },
+    { key: "health_score" as SortKey, label: "Health", align: "left" },
+    // Status
+    { key: "learning_status" as SortKey, label: "Learn", align: "left" },
+    { key: "delivery_status" as SortKey, label: "Deliv", align: "left" },
+    // Bidding & Budget
+    { key: "daily_budget" as SortKey, label: "Budget", align: "right" },
     // Performance
-    { key: "leads" as SortKey, label: "Leads", align: "right", group: "perf" },
-    { key: "cpl" as SortKey, label: "CPL", align: "right", group: "perf" },
+    { key: "spend" as SortKey, label: "Spend", align: "right" },
+    { key: "leads" as SortKey, label: "Leads", align: "right" },
+    { key: "cpl" as SortKey, label: "CPL", align: "right" },
     // Efficiency
-    { key: "ctr" as SortKey, label: "CTR", align: "right", group: "eff" },
-    { key: "cvr" as SortKey, label: "CVR", align: "right", group: "eff" },
-    { key: "cpc" as SortKey, label: "CPC", align: "right", group: "eff" },
+    { key: "ctr" as SortKey, label: "CTR", align: "right" },
+    { key: "cpc" as SortKey, label: "CPC", align: "right" },
+    { key: "cpm" as SortKey, label: "CPM", align: "right" },
     // Delivery
-    { key: "impressions" as SortKey, label: "Impr", align: "right", group: "delivery" },
-    { key: "clicks" as SortKey, label: "Clicks", align: "right", group: "delivery" },
-    { key: "frequency" as SortKey, label: "Freq", align: "right", group: "delivery" },
-    { key: "cpm" as SortKey, label: "CPM", align: "right", group: "delivery" },
+    { key: "frequency" as SortKey, label: "Freq", align: "right" },
+    { key: "budget_utilization_pct" as SortKey, label: "Utility", align: "right" },
   ];
 
   function renderAgCell(a: any, col: { key: SortKey, align: string, label: string }, isSearch: boolean) {
@@ -548,7 +554,7 @@ export default function AdsetsPage() {
                       <th
                         key={i}
                         colSpan={g.span}
-                        className={`px-3 py-1.5 text-xs uppercase tracking-widest font-black text-muted-foreground ${i < metaColumnGroups.length - 1 ? (i % 2 === 0 ? "text-left" : "text-right") : ""} border-r border-border/20 last:border-r-0`}
+                        className="px-3 py-1.5 text-xs uppercase tracking-widest font-black text-muted-foreground border-r border-border/20 last:border-r-0 text-center"
                       >
                         {g.label}
                       </th>
@@ -618,11 +624,6 @@ export default function AdsetsPage() {
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs">{a.adset_name}</TooltipContent>
                             </Tooltip>
-                            {a.learning_status && a.learning_status !== "ACTIVE" && (
-                              <span className={`text-xs font-bold uppercase ${getLearningStatusColor(a.learning_status)}`}>
-                                {a.learning_status.replace(/_/g, " ")}
-                              </span>
-                            )}
                           </td>
 
                           {/* campaign_name */}
@@ -637,7 +638,7 @@ export default function AdsetsPage() {
                             </Tooltip>
                           </td>
 
-                          {/* layer */}
+                          {/* layer (Audience) */}
                           <td className="p-3">
                             <Badge variant="outline" className={`text-xs font-black uppercase px-1.5 py-0 ${getLayerColor(a.layer)}`}>
                               {a.layer || "—"}
@@ -660,6 +661,23 @@ export default function AdsetsPage() {
                             />
                           </td>
 
+                          {/* learning_status */}
+                          <td className="p-3">
+                            <Badge variant="outline" className={cn(
+                              "text-xs px-1.5 py-0 font-bold uppercase",
+                              getLearningStatusColor(a.learning_status)
+                            )}>
+                              {a.learning_status ? a.learning_status.replace(/_/g, " ") : "—"}
+                            </Badge>
+                          </td>
+
+                          {/* delivery_status */}
+                          <td className="p-3">
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 font-bold uppercase text-muted-foreground border-border/40">
+                              {a.delivery_status || "—"}
+                            </Badge>
+                          </td>
+
                           {/* daily_budget */}
                           <td className="p-3 text-right tabular-nums text-xs">
                             {a.daily_budget > 0 ? formatINR(a.daily_budget, 0) : "—"}
@@ -668,19 +686,6 @@ export default function AdsetsPage() {
                           {/* spend */}
                           <td className="p-3 text-right tabular-nums text-xs font-bold">
                             {formatINR(a.spend ?? 0, 0)}
-                          </td>
-
-                          {/* budget_utilization_pct */}
-                          <td className="p-3 text-right tabular-nums text-xs">
-                            {a.budget_utilization_pct > 0 ? (
-                              <span className={
-                                a.budget_utilization_pct > 90 ? "text-red-400 font-bold" :
-                                  a.budget_utilization_pct > 70 ? "text-amber-400" :
-                                    "text-muted-foreground"
-                              }>
-                                {a.budget_utilization_pct.toFixed(0)}%
-                              </span>
-                            ) : "—"}
                           </td>
 
                           {/* leads */}
@@ -712,24 +717,14 @@ export default function AdsetsPage() {
                             </span>
                           </td>
 
-                          {/* cvr */}
-                          <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
-                            {cvr > 0 ? `${cvr.toFixed(2)}%` : "—"}
-                          </td>
-
                           {/* cpc */}
                           <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
                             {cpc > 0 ? formatINR(cpc, 0) : "—"}
                           </td>
 
-                          {/* impressions */}
-                          <td className="p-3 text-right tabular-nums text-xs">
-                            {(a.impressions ?? 0) > 0 ? formatNumber(a.impressions) : "—"}
-                          </td>
-
-                          {/* clicks */}
-                          <td className="p-3 text-right tabular-nums text-xs">
-                            {(a.clicks ?? 0) > 0 ? formatNumber(a.clicks) : "—"}
+                          {/* cpm */}
+                          <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
+                            {cpm > 0 ? formatINR(cpm, 0) : "—"}
                           </td>
 
                           {/* frequency */}
@@ -752,9 +747,17 @@ export default function AdsetsPage() {
                             ) : "—"}
                           </td>
 
-                          {/* cpm */}
-                          <td className="p-3 text-right tabular-nums text-xs text-muted-foreground">
-                            {cpm > 0 ? formatINR(cpm, 0) : "—"}
+                          {/* budget_utilization_pct (Utility) */}
+                          <td className="p-3 text-right tabular-nums text-xs">
+                            {a.budget_utilization_pct > 0 ? (
+                              <span className={
+                                a.budget_utilization_pct > 90 ? "text-red-400 font-bold" :
+                                  a.budget_utilization_pct > 70 ? "text-amber-400" :
+                                    "text-muted-foreground"
+                              }>
+                                {a.budget_utilization_pct.toFixed(0)}%
+                              </span>
+                            ) : "—"}
                           </td>
 
                           {/* Pause / Activate action */}
@@ -774,8 +777,8 @@ export default function AdsetsPage() {
                           </td>
                         </tr>
                         {isExpanded && a.score_breakdown && (
-                          <tr className="border-b border-border/30 bg-muted/20">
-                            <td colSpan={20} className="p-4">
+                          <tr key={`${a.adset_id}-expanded`} className="border-b border-border/30 bg-muted/20">
+                            <td colSpan={18} className="p-4">
                               <HealthScoreBreakdown
                                 entityName={a.adset_name}
                                 scoreBreakdown={a.score_breakdown}
